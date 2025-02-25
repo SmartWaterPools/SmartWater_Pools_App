@@ -1,8 +1,18 @@
 import { useState } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameMonth, isToday, isSameDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { MaintenanceWithDetails, formatTime } from "@/lib/types";
-import { Clock, User } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User } from "lucide-react";
+import { MaintenanceWithDetails } from "@/lib/types";
+import { formatTime, getStatusClasses } from "@/lib/types";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -10,136 +20,141 @@ interface MaintenanceCalendarProps {
 }
 
 export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendarProps) {
-  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
   
-  // Get days of month to display
-  const start = startOfMonth(month);
-  const end = endOfMonth(month);
-  const days = eachDayOfInterval({ start, end });
+  // Get days in month
+  const monthStart = startOfMonth(month);
+  const monthEnd = endOfMonth(month);
+  const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   
-  // Calculate days from previous month to fill the first row
-  const dayOfWeek = getDay(start);
+  // Get weekday names
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   
-  // Get maintenances for the selected day
-  const selectedDayEvents = selectedDay
-    ? maintenances.filter(maintenance => 
-        isSameDay(new Date(maintenance.scheduledDate), selectedDay)
-      )
+  // Filter maintenances for selected day
+  const selectedDayMaintenances = selectedDay
+    ? maintenances.filter((m) => {
+        const maintenanceDate = new Date(m.scheduledDate);
+        return isSameDay(maintenanceDate, selectedDay);
+      })
     : [];
   
-  // Group maintenances by day
-  const maintenancesByDay: Record<string, MaintenanceWithDetails[]> = {};
-  maintenances.forEach(maintenance => {
-    const dateKey = maintenance.scheduledDate.toString();
-    if (!maintenancesByDay[dateKey]) {
-      maintenancesByDay[dateKey] = [];
-    }
-    maintenancesByDay[dateKey].push(maintenance);
-  });
+  // Calculate which days have maintenance scheduled
+  const maintenanceDays = maintenances.map((m) => new Date(m.scheduledDate));
   
   return (
-    <div className="flex flex-col lg:flex-row gap-4">
-      <div className="w-full lg:w-8/12">
-        <div className="grid grid-cols-7 gap-px">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-            <div key={day} className="h-8 flex justify-center items-center font-medium text-sm">
-              {day}
+    <div className="space-y-4">
+      <div className="flex flex-col space-y-4">
+        {/* Calendar grid */}
+        <div className="bg-white rounded-lg border shadow-sm">
+          {/* Calendar header */}
+          <div className="p-4 border-b">
+            <div className="grid grid-cols-7 gap-1 text-center text-sm font-medium">
+              {weekDays.map((day) => (
+                <div key={day} className="py-2">
+                  {day}
+                </div>
+              ))}
             </div>
-          ))}
-          
-          {/* Empty cells for days of previous month */}
-          {Array.from({ length: dayOfWeek }).map((_, i) => (
-            <div key={`empty-${i}`} className="h-24 sm:h-28 md:h-32 p-1 border border-gray-100 bg-gray-50" />
-          ))}
-          
-          {/* Days of current month */}
-          {days.map(day => {
-            const dateKey = day.toISOString().split('T')[0];
-            const hasMaintenance = maintenancesByDay[dateKey] && maintenancesByDay[dateKey].length > 0;
-            const dayMaintenances = maintenancesByDay[dateKey] || [];
-            
-            const isSelected = selectedDay ? isSameDay(day, selectedDay) : false;
-            
-            return (
-              <div 
-                key={day.toString()}
-                className={`h-24 sm:h-28 md:h-32 p-1 border border-gray-100 overflow-hidden ${isToday(day) ? 'bg-blue-50' : ''} ${isSelected ? 'ring-2 ring-primary' : ''}`}
-                onClick={() => setSelectedDay(day)}
-              >
-                <div className="flex justify-between items-start">
-                  <div 
-                    className={`flex justify-center items-center h-6 w-6 rounded-full text-sm ${
-                      isToday(day) ? 'bg-primary text-white' : 'text-gray-700'
-                    }`}
-                  >
-                    {format(day, 'd')}
-                  </div>
-                  {hasMaintenance && (
-                    <Badge className="bg-primary hover:bg-primary">
-                      {dayMaintenances.length}
-                    </Badge>
-                  )}
-                </div>
-                <div className="mt-1 space-y-1 max-h-[calc(100%-1.5rem)] overflow-hidden">
-                  {dayMaintenances.slice(0, 2).map((maintenance, idx) => (
-                    <div 
-                      key={`${maintenance.id}-${idx}`}
-                      className="text-xs truncate rounded px-1 py-0.5 bg-blue-100 text-primary"
-                      title={`${maintenance.client.user.name} - ${maintenance.type}`}
-                    >
-                      {formatTime(maintenance.scheduledTime)} {maintenance.client.user.name.split(' ')[0]}
-                    </div>
-                  ))}
-                  {dayMaintenances.length > 2 && (
-                    <div className="text-xs text-gray-500 px-1">
-                      +{dayMaintenances.length - 2} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      
-      <div className="w-full lg:w-4/12 bg-gray-50 rounded-lg p-4">
-        <h3 className="font-semibold mb-3">
-          {selectedDay 
-            ? `Maintenance for ${format(selectedDay, 'MMMM d, yyyy')}` 
-            : 'Select a day to view maintenance'
-          }
-        </h3>
-        
-        {selectedDay && selectedDayEvents.length > 0 ? (
-          <div className="space-y-3">
-            {selectedDayEvents.map(maintenance => (
-              <div 
-                key={maintenance.id}
-                className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm"
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <h4 className="font-medium text-sm">{maintenance.client.user.name}</h4>
-                  <Badge variant="outline">{maintenance.status}</Badge>
-                </div>
-                <p className="text-xs text-gray-500 mb-2">{maintenance.type}</p>
-                <div className="flex items-center text-xs text-gray-600 gap-3">
-                  <div className="flex items-center">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {formatTime(maintenance.scheduledTime)}
-                  </div>
-                  <div className="flex items-center">
-                    <User className="h-3 w-3 mr-1" />
-                    {maintenance.technician ? maintenance.technician.user.name : 'Unassigned'}
-                  </div>
-                </div>
-              </div>
-            ))}
           </div>
-        ) : selectedDay ? (
-          <p className="text-sm text-gray-500">No maintenance scheduled for this day.</p>
-        ) : (
-          <p className="text-sm text-gray-500">Click on a day to view scheduled maintenance.</p>
-        )}
+          
+          {/* Calendar body */}
+          <div className="p-4">
+            <div className="grid grid-cols-7 gap-1 text-center">
+              {Array.from({ length: new Date(monthStart).getDay() }).map((_, i) => (
+                <div key={`empty-start-${i}`} className="h-10 w-10 rounded-full mx-auto" />
+              ))}
+              
+              {days.map((day) => {
+                // Check if this day has maintenance
+                const hasMaintenances = maintenanceDays.some((m) => isSameDay(m, day));
+                const isSelected = selectedDay ? isSameDay(day, selectedDay) : false;
+                const isCurrentMonth = isSameMonth(day, month);
+                
+                return (
+                  <Button
+                    key={day.toISOString()}
+                    variant="ghost"
+                    className={`h-10 w-10 rounded-full p-0 mx-auto relative ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                        : isToday(day)
+                        ? "bg-muted border border-primary"
+                        : ""
+                    } ${!isCurrentMonth ? "text-muted-foreground" : ""}`}
+                    onClick={() => setSelectedDay(day)}
+                  >
+                    <time dateTime={format(day, "yyyy-MM-dd")}>{format(day, "d")}</time>
+                    {hasMaintenances && (
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+                    )}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+        
+        {/* Scheduled maintenances for selected day */}
+        <div>
+          <h3 className="text-lg font-medium mb-2">
+            {selectedDay
+              ? `Scheduled Maintenance for ${format(selectedDay, "MMMM d, yyyy")}`
+              : "Select a day to view scheduled maintenance"}
+          </h3>
+          
+          {selectedDayMaintenances.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-muted-foreground text-center">
+                  No maintenance scheduled for this day.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {selectedDayMaintenances.map((maintenance) => (
+                <Card key={maintenance.id}>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg flex justify-between items-center">
+                      <span>{maintenance.type}</span>
+                      <Badge 
+                        className={
+                          getStatusClasses(maintenance.status).bg + " " + 
+                          getStatusClasses(maintenance.status).text
+                        }
+                      >
+                        {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1)}
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription>{maintenance.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="flex flex-wrap gap-2">
+                      <div className="flex items-center text-sm">
+                        <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <span>{formatTime(maintenance.scheduledTime)}</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <span>{maintenance.client.user.name}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="border-t pt-3 flex justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      {maintenance.technician ? (
+                        <span>Assigned to: {maintenance.technician.user.name}</span>
+                      ) : (
+                        <span>Not assigned</span>
+                      )}
+                    </div>
+                    <Button variant="outline" size="sm">View Details</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

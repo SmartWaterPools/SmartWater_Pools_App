@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "@/lib/queryClient";
-import { insertRepairSchema } from "@shared/schema";
+import { insertProjectSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -30,34 +30,43 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format } from "date-fns";
-import { CalendarIcon, Clock } from "lucide-react";
+import { CalendarIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Extend the insert schema with custom validation
-const repairFormSchema = insertRepairSchema.extend({
+const projectFormSchema = insertProjectSchema.extend({
   clientId: z.coerce.number({
     required_error: "Client is required",
   }),
+  name: z.string().min(3, {
+    message: "Project name must be at least 3 characters",
+  }),
   description: z.string().min(10, {
-    message: "Description must be at least 10 characters",
+    message: "Project description must be at least 10 characters",
   }),
-  issueType: z.string().min(1, {
-    message: "Issue type is required",
+  budget: z.coerce.number({
+    required_error: "Budget is required",
+  }).min(0, {
+    message: "Budget must be a positive number",
   }),
-  priority: z.enum(["low", "medium", "high"], {
-    required_error: "Priority is required",
+  startDate: z.date({
+    required_error: "Start date is required",
   }),
-  scheduledDate: z.date().optional(),
-  scheduledTime: z.string().optional(),
+  estimatedEndDate: z.date({
+    required_error: "Estimated end date is required",
+  }),
+  status: z.enum(["planning", "in_progress", "review", "completed"], {
+    required_error: "Status is required",
+  }),
 });
 
-type RepairFormValues = z.infer<typeof repairFormSchema>;
+type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
-interface RepairRequestFormProps {
+interface ProjectFormProps {
   onClose: () => void;
 }
 
-export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
+export function ProjectForm({ onClose }: ProjectFormProps) {
   const { toast } = useToast();
   const [selectedClient, setSelectedClient] = useState<number | null>(null);
 
@@ -66,50 +75,43 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
     queryKey: ["/api/clients"],
   });
 
-  const form = useForm<RepairFormValues>({
-    resolver: zodResolver(repairFormSchema),
+  const form = useForm<ProjectFormValues>({
+    resolver: zodResolver(projectFormSchema),
     defaultValues: {
+      name: "",
       description: "",
-      issueType: "",
-      priority: "medium",
-      status: "pending",
+      budget: 0,
+      status: "planning",
     },
   });
 
   const mutation = useMutation({
-    mutationFn: async (values: RepairFormValues) => {
-      // Add reportedDate to the form values before submitting
-      const dataToSubmit = {
-        ...values,
-        reportedDate: new Date(),
-        completionDate: null,
-      };
-      
+    mutationFn: async (values: ProjectFormValues) => {
       return apiRequest({
-        url: "/api/repairs",
+        url: "/api/projects",
         method: "POST",
-        data: dataToSubmit,
+        data: values,
       });
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Repair request submitted successfully",
+        description: "Project created successfully",
       });
       form.reset();
       onClose();
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
         title: "Error",
-        description: "Failed to submit repair request. Please try again.",
+        description: "Failed to create project. Please try again.",
         variant: "destructive",
       });
-      console.error("Repair request submission failed:", error);
+      console.error("Project creation failed:", error);
     },
   } as any);
 
-  function onSubmit(values: RepairFormValues) {
+  function onSubmit(values: ProjectFormValues) {
     mutation.mutate(values);
   }
 
@@ -136,7 +138,7 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {clients.map((client: any) => (
+                  {clients?.map((client: any) => (
                     <SelectItem key={client.id} value={client.id.toString()}>
                       {client.user.name}
                       {client.companyName && ` (${client.companyName})`}
@@ -151,13 +153,13 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
         
         <FormField
           control={form.control}
-          name="description"
+          name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Project Name</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="Describe the issue in detail"
+                <Input
+                  placeholder="Enter project name"
                   disabled={mutation.isPending}
                   {...field}
                 />
@@ -169,31 +171,17 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
         
         <FormField
           control={form.control}
-          name="issueType"
+          name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Issue Type</FormLabel>
-              <Select
-                disabled={mutation.isPending}
-                onValueChange={field.onChange}
-                value={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select issue type" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="leak">Leak</SelectItem>
-                  <SelectItem value="pump">Pump Problem</SelectItem>
-                  <SelectItem value="filter">Filter Issue</SelectItem>
-                  <SelectItem value="heater">Heater Problem</SelectItem>
-                  <SelectItem value="chemical">Chemical Imbalance</SelectItem>
-                  <SelectItem value="electrical">Electrical Issue</SelectItem>
-                  <SelectItem value="structural">Structural Damage</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Enter project description"
+                  disabled={mutation.isPending}
+                  {...field}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -201,26 +189,18 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
         
         <FormField
           control={form.control}
-          name="priority"
+          name="budget"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Priority</FormLabel>
-              <Select
-                disabled={mutation.isPending}
-                onValueChange={field.onChange}
-                value={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select priority level" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Budget ($)</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  placeholder="Enter project budget"
+                  disabled={mutation.isPending}
+                  {...field}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -229,10 +209,10 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
             control={form.control}
-            name="scheduledDate"
+            name="startDate"
             render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel>Preferred Date (Optional)</FormLabel>
+                <FormLabel>Start Date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
                     <FormControl>
@@ -255,10 +235,9 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
                   <PopoverContent className="w-auto p-0" align="start">
                     <Calendar
                       mode="single"
-                      selected={field.value || undefined}
+                      selected={field.value}
                       onSelect={field.onChange}
                       initialFocus
-                      disabled={(date) => date < new Date()}
                     />
                   </PopoverContent>
                 </Popover>
@@ -269,20 +248,43 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
           
           <FormField
             control={form.control}
-            name="scheduledTime"
+            name="estimatedEndDate"
             render={({ field }) => (
-              <FormItem>
-                <FormLabel>Preferred Time (Optional)</FormLabel>
-                <div className="relative">
-                  <FormControl>
-                    <Input
-                      type="time"
-                      disabled={mutation.isPending}
-                      {...field}
+              <FormItem className="flex flex-col">
+                <FormLabel>Estimated End Date</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <FormControl>
+                      <Button
+                        variant={"outline"}
+                        className={`w-full pl-3 text-left font-normal ${
+                          !field.value ? "text-muted-foreground" : ""
+                        }`}
+                        disabled={mutation.isPending}
+                      >
+                        {field.value ? (
+                          format(field.value, "PPP")
+                        ) : (
+                          <span>Pick a date</span>
+                        )}
+                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                      </Button>
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={field.value}
+                      onSelect={field.onChange}
+                      initialFocus
+                      disabled={(date) => {
+                        // Disable dates before start date
+                        const startDate = form.getValues("startDate");
+                        return startDate ? date < startDate : false;
+                      }}
                     />
-                  </FormControl>
-                  <Clock className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
-                </div>
+                  </PopoverContent>
+                </Popover>
                 <FormMessage />
               </FormItem>
             )}
@@ -291,19 +293,27 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
         
         <FormField
           control={form.control}
-          name="notes"
+          name="status"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Additional Notes (Optional)</FormLabel>
-              <FormControl>
-                <Textarea
-                  placeholder="Any additional information or special instructions"
-                  disabled={mutation.isPending}
-                  className="resize-none"
-                  {...field}
-                  value={field.value || ""}
-                />
-              </FormControl>
+              <FormLabel>Status</FormLabel>
+              <Select
+                disabled={mutation.isPending}
+                onValueChange={field.onChange}
+                value={field.value}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project status" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="planning">Planning</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="review">Review</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
           )}
@@ -319,7 +329,7 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
             Cancel
           </Button>
           <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? "Submitting..." : "Submit Repair Request"}
+            {mutation.isPending ? "Creating..." : "Create Project"}
           </Button>
         </div>
       </form>
