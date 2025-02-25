@@ -87,10 +87,17 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
 
   const mutation = useMutation({
     mutationFn: async (values: ProjectFormValues) => {
+      // Convert dates to ISO strings for the API
+      const dataToSubmit = {
+        ...values,
+        deadline: values.estimatedEndDate.toISOString().split('T')[0],
+        startDate: values.startDate.toISOString().split('T')[0],
+      };
+      
       return apiRequest({
         url: "/api/projects",
         method: "POST",
-        data: values,
+        data: dataToSubmit,
       });
     },
     onSuccess: () => {
@@ -101,7 +108,7 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       form.reset();
       onClose();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
         description: "Failed to create project. Please try again.",

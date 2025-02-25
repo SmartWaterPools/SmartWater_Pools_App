@@ -1,46 +1,73 @@
-import { MoreHorizontal, User } from "lucide-react";
+import { MaintenanceWithDetails } from "@/lib/types";
+import { getStatusClasses, formatDate, formatTime } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MaintenanceWithDetails, formatDate, formatTime } from "@/lib/types";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Calendar, Clock, MapPin } from "lucide-react";
 
 interface MaintenanceItemProps {
   maintenance: MaintenanceWithDetails;
 }
 
 export function MaintenanceItem({ maintenance }: MaintenanceItemProps) {
+  // Format date and time
   const date = new Date(maintenance.scheduledDate);
-  const day = date.getDate();
-  const month = date.toLocaleString('default', { month: 'short' });
+  const time = maintenance.scheduledTime;
   
-  const isToday = new Date().toDateString() === date.toDateString();
-  const isTomorrow = new Date(new Date().setDate(new Date().getDate() + 1)).toDateString() === date.toDateString();
-  
-  const bgColorClass = isToday ? 'bg-blue-100' : isTomorrow ? 'bg-green-100' : 'bg-yellow-100';
-  const textColorClass = isToday ? 'text-primary' : isTomorrow ? 'text-green-600' : 'text-yellow-600';
+  // Get status styling
+  const statusClasses = getStatusClasses(maintenance.status);
   
   return (
-    <div className="border border-gray-100 rounded-lg mb-3 p-3 hover:bg-blue-50">
-      <div className="flex items-start">
-        <div className={`flex flex-col items-center justify-center ${bgColorClass} rounded-lg p-2 mr-3 flex-shrink-0 w-12 h-12 text-center`}>
-          <span className={`${textColorClass} text-sm font-semibold`}>{day}</span>
-          <span className={`${textColorClass} text-xs`}>{month}</span>
-        </div>
-        <div className="flex-1">
-          <h4 className="text-sm font-medium text-foreground">{maintenance.client.user.name}</h4>
-          <p className="text-xs text-gray-500">{maintenance.type.replace('_', ' ')}</p>
-          <div className="flex items-center mt-1">
-            <span className="text-xs bg-blue-100 text-primary px-2 py-0.5 rounded-full">
-              {formatTime(maintenance.scheduledTime)}
-            </span>
-            <span className="text-xs ml-2 flex items-center text-gray-500">
-              <User className="h-3 w-3 mr-1" />
-              {maintenance.technician ? maintenance.technician.user.name : 'Unassigned'}
-            </span>
+    <Card className="bg-white overflow-hidden">
+      <CardHeader className="p-4 pb-2 flex-row justify-between items-start gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium">{maintenance.type}</h3>
+            <Badge className={`${statusClasses.bg} ${statusClasses.text}`}>
+              {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1)}
+            </Badge>
           </div>
+          <p className="text-sm text-gray-500">{maintenance.client.user.name}</p>
         </div>
-        <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-gray-600">
-          <MoreHorizontal className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
+      </CardHeader>
+      
+      <CardContent className="p-4 pt-0 pb-3">
+        <div className="flex flex-col space-y-1.5 mt-2">
+          <div className="flex items-center text-sm">
+            <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+            <span>{formatDate(date)}</span>
+          </div>
+          
+          <div className="flex items-center text-sm">
+            <Clock className="h-4 w-4 text-gray-400 mr-2" />
+            <span>{formatTime(time)}</span>
+          </div>
+          
+          {maintenance.client.user.address && (
+            <div className="flex items-start text-sm">
+              <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+              <span>{maintenance.client.user.address}</span>
+            </div>
+          )}
+        </div>
+        
+        {maintenance.description && (
+          <div className="text-sm mt-3 text-gray-600">
+            {maintenance.description}
+          </div>
+        )}
+      </CardContent>
+      
+      <CardFooter className="p-4 pt-0 flex justify-between items-center">
+        <div className="text-sm text-gray-500">
+          {maintenance.technician ? (
+            <span>Assigned to: {maintenance.technician.user.name}</span>
+          ) : (
+            <span>Not assigned</span>
+          )}
+        </div>
+        <Button variant="ghost" size="sm">Details</Button>
+      </CardFooter>
+    </Card>
   );
 }
