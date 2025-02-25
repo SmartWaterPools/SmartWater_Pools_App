@@ -1,0 +1,227 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { 
+  PlusCircle, 
+  Search, 
+  Mail, 
+  Phone, 
+  MapPin, 
+  Star,
+  MoreHorizontal,
+  Calendar,
+  CalendarCheck,
+  BadgeCheck
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TechnicianList } from "@/components/technicians/TechnicianList";
+import { TechnicianWithUser } from "@/lib/types";
+
+export default function Technicians() {
+  const [open, setOpen] = useState(false);
+  const [selectedTechnician, setSelectedTechnician] = useState<TechnicianWithUser | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const { data: technicians, isLoading } = useQuery<TechnicianWithUser[]>({
+    queryKey: ["/api/technicians"],
+  });
+
+  const filteredTechnicians = technicians?.filter(technician => {
+    if (
+      searchTerm &&
+      !technician.user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !technician.specialization.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !technician.user.email.toLowerCase().includes(searchTerm.toLowerCase())
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  return (
+    <div>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+        <h1 className="text-2xl font-bold text-foreground font-heading">Technicians</h1>
+        <div className="flex flex-col sm:flex-row gap-2 mt-3 md:mt-0">
+          <div className="relative">
+            <Input 
+              type="text" 
+              placeholder="Search technicians..." 
+              className="pl-10 pr-4"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+          </div>
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-white font-medium">
+                <PlusCircle className="h-4 w-4 mr-1" />
+                Add Technician
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add New Technician</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                {/* Technician form would go here */}
+                <p className="text-sm text-gray-500">Form for adding new technicians</p>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      <div className="mb-6">
+        <TechnicianList 
+          technicians={filteredTechnicians || []} 
+          isLoading={isLoading} 
+          onTechnicianSelect={setSelectedTechnician}
+        />
+      </div>
+
+      {/* Technician detail dialog */}
+      {selectedTechnician && (
+        <Dialog open={!!selectedTechnician} onOpenChange={() => setSelectedTechnician(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Technician Details</DialogTitle>
+            </DialogHeader>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-1">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col items-center">
+                      <div className="h-24 w-24 rounded-full bg-primary text-white flex items-center justify-center text-3xl mb-4">
+                        {selectedTechnician.user.name.charAt(0)}
+                      </div>
+                      <h3 className="text-lg font-semibold">{selectedTechnician.user.name}</h3>
+                      <p className="text-sm text-gray-500">{selectedTechnician.specialization}</p>
+                      <div className="mt-2 flex items-center">
+                        <div className="flex items-center">
+                          {[1, 2, 3, 4, 5].map((rating) => (
+                            <Star
+                              key={rating}
+                              className="h-4 w-4 text-yellow-400 fill-yellow-400"
+                            />
+                          ))}
+                        </div>
+                        <span className="ml-1 text-xs text-gray-500">(32 reviews)</span>
+                      </div>
+                    </div>
+                    <div className="mt-6 space-y-3">
+                      <div className="flex items-center text-sm">
+                        <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                        <span>{selectedTechnician.user.email}</span>
+                      </div>
+                      {selectedTechnician.user.phone && (
+                        <div className="flex items-center text-sm">
+                          <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                          <span>{selectedTechnician.user.phone}</span>
+                        </div>
+                      )}
+                      {selectedTechnician.user.address && (
+                        <div className="flex items-start text-sm">
+                          <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+                          <span>{selectedTechnician.user.address}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="md:col-span-2 space-y-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center mb-4">
+                      <BadgeCheck className="h-5 w-5 text-primary mr-2" />
+                      <h3 className="text-lg font-semibold">Certifications</h3>
+                    </div>
+                    <div className="space-y-2">
+                      {selectedTechnician.certifications ? (
+                        selectedTechnician.certifications.split(',').map((cert, index) => (
+                          <div key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-primary mr-2 mb-2">
+                            {cert.trim()}
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-sm text-gray-500">No certifications listed.</p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center mb-4">
+                      <Calendar className="h-5 w-5 text-green-500 mr-2" />
+                      <h3 className="text-lg font-semibold">Current Assignments</h3>
+                    </div>
+                    {isLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-20 w-full" />
+                        <Skeleton className="h-20 w-full" />
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="bg-blue-50 p-3 rounded-lg">
+                          <h4 className="font-medium text-sm">Mediterranean Luxury Pool</h4>
+                          <p className="text-xs text-gray-500 mb-2">Construction - Morrison Family</p>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-blue-600">In Progress (68%)</span>
+                            <span className="text-xs text-gray-500">Role: Lead</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center mb-4">
+                      <CalendarCheck className="h-5 w-5 text-yellow-500 mr-2" />
+                      <h3 className="text-lg font-semibold">Upcoming Schedule</h3>
+                    </div>
+                    {isLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-16 w-full" />
+                        <Skeleton className="h-16 w-full" />
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="border border-gray-100 rounded-lg p-3">
+                          <div className="flex items-start">
+                            <div className="flex flex-col items-center justify-center bg-blue-100 rounded-lg p-2 mr-3 flex-shrink-0 w-12 h-12 text-center">
+                              <span className="text-primary text-sm font-semibold">27</span>
+                              <span className="text-primary text-xs">Oct</span>
+                            </div>
+                            <div className="flex-1">
+                              <h4 className="text-sm font-medium text-foreground">Jensen Family</h4>
+                              <p className="text-xs text-gray-500">Weekly Pool Cleaning</p>
+                              <div className="flex items-center mt-1">
+                                <span className="text-xs bg-blue-100 text-primary px-2 py-0.5 rounded-full">10:00 AM</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+    </div>
+  );
+}
