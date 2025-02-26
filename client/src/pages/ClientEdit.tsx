@@ -31,6 +31,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { ChevronLeft } from "lucide-react";
 
+// List of valid contract types
+const VALID_CONTRACT_TYPES = ["residential", "commercial", "service", "maintenance"] as const;
+type ContractType = typeof VALID_CONTRACT_TYPES[number];
+
 // Define the client form schema
 const clientFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters" }),
@@ -38,10 +42,20 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  contractType: z.enum(["residential", "commercial", "service", "maintenance", ""])
+  contractType: z.string()
+    .transform(val => {
+      if (!val || val === "") return null;
+      
+      // Validate it's one of our acceptable values (case-insensitive)
+      const normalizedVal = val.toLowerCase();
+      if (!VALID_CONTRACT_TYPES.includes(normalizedVal as ContractType)) {
+        throw new Error(`Invalid contract type: ${val}`);
+      }
+      
+      return normalizedVal as ContractType;
+    })
     .nullable()
     .optional()
-    .transform(val => val === "" ? null : val), // Handle empty strings
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;
@@ -315,15 +329,19 @@ export default function ClientEdit() {
                     name="contractType"
                     render={({ field }) => {
                       console.log(`[Contract Type Field] Current value: "${field.value}"`);
+                      // Ensure field value is always lowercase for consistency
+                      const safeValue = field.value ? field.value.toLowerCase() : "residential";
+                      
                       return (
                         <FormItem>
                           <FormLabel>Contract Type</FormLabel>
                           <Select 
                             onValueChange={(value) => {
                               console.log(`[Contract Type Field] Select changed to: "${value}"`);
+                              // The schema will handle the actual transformation 
                               field.onChange(value);
                             }}
-                            value={field.value || "residential"}
+                            value={safeValue}
                             defaultValue="residential"
                           >
                             <FormControl>
@@ -339,7 +357,7 @@ export default function ClientEdit() {
                             </SelectContent>
                           </Select>
                           <FormDescription>
-                            Current contract type: {field.value || "residential"}
+                            Current contract type: {safeValue}
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
