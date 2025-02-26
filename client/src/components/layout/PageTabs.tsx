@@ -41,6 +41,12 @@ export function PageTabs() {
     // Check if this is a path we should create a tab for
     if (!path || path === '') return;
     
+    // If the path contains a timestamp parameter, extract the base path
+    let cleanPath = path;
+    if (path.includes('?t=')) {
+      cleanPath = path.split('?')[0];
+    }
+    
     // Create a unique ID for the tab
     const tabId = `tab-${Date.now()}`;
     
@@ -49,7 +55,7 @@ export function PageTabs() {
     let icon = <LayoutDashboard className="h-4 w-4" />;
     
     // Handle special paths
-    switch (path) {
+    switch (cleanPath) {
       case '/':
         title = 'Dashboard';
         icon = <LayoutDashboard className="h-4 w-4" />;
@@ -80,8 +86,8 @@ export function PageTabs() {
         break;
       default:
         // Check if this is a client details page
-        const clientDetailsMatch = path.match(/^\/clients\/(\d+)$/);
-        const clientEditMatch = path.match(/^\/clients\/(\d+)\/edit$/);
+        const clientDetailsMatch = cleanPath.match(/^\/clients\/(\d+)$/);
+        const clientEditMatch = cleanPath.match(/^\/clients\/(\d+)\/edit$/);
         
         if (clientDetailsMatch) {
           title = `Client ${clientDetailsMatch[1]}`;
@@ -89,13 +95,14 @@ export function PageTabs() {
         } else if (clientEditMatch) {
           title = `Edit Client ${clientEditMatch[1]}`;
           icon = <Users className="h-4 w-4" />;
-        } else if (path === '/clients/add') {
+        } else if (cleanPath === '/clients/add') {
           title = 'Add Client';
           icon = <Users className="h-4 w-4" />;
         }
     }
     
-    return { id: tabId, title, path, icon };
+    // Store the clean path in the tab
+    return { id: tabId, title, path: cleanPath, icon };
   };
   
   // Update tabs when location changes
@@ -106,18 +113,27 @@ export function PageTabs() {
       return;
     }
     
-    // Check if a tab already exists for this location
-    const existingTab = tabs.find(tab => tab.path === location);
-    
-    if (existingTab) {
-      // Use the existing tab
-      setActiveTabId(existingTab.id);
-    } else {
-      // Create a new tab
-      const newTab = createTab(location);
-      if (newTab) {
-        setTabs(prev => [...prev, newTab]);
-        setActiveTabId(newTab.id);
+    // Create a new tab for every non-dashboard navigation
+    if (location !== '/') {
+      // Check if we have a special temp path with timestamp (from Sidebar)
+      if (location.includes('?t=')) {
+        // This is a forced navigation - extract the real path
+        const realPath = location.split('?')[0];
+        // Create a new tab for this path
+        const newTab = createTab(realPath);
+        if (newTab) {
+          console.log('Creating new tab from temp path:', newTab);
+          setTabs(prev => [...prev, newTab]);
+          setActiveTabId(newTab.id);
+        }
+      } else {
+        // Regular navigation - create a new tab
+        const newTab = createTab(location);
+        if (newTab) {
+          console.log('Creating new tab:', newTab);
+          setTabs(prev => [...prev, newTab]);
+          setActiveTabId(newTab.id);
+        }
       }
     }
   }, [location]);
@@ -215,10 +231,7 @@ export function PageTabs() {
   
   return (
     <div className="bg-white border-b border-gray-200">
-      <div className="bg-gray-50 px-3 py-1 border-b border-gray-200 flex items-center">
-        <LayoutGrid className="h-4 w-4 mr-2 text-primary" />
-        <span className="text-xs font-medium text-gray-600">Open Pages</span>
-      </div>
+
       
       <div className="flex overflow-x-auto scrollbar-hide">
         {tabs.map((tab) => (

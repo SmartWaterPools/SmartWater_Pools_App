@@ -45,24 +45,23 @@ export function Sidebar({ user }: SidebarProps) {
   };
   
   // Navigate to a path
-  // The TabManager component will detect this and create a new tab if needed
+  // Always create a new tab when clicking a sidebar link (that's not dashboard)
   const handleSidebarNavigation = (path: string) => {
-    // Force the location to change, even if it's the same path
-    // This ensures the TabManager will detect a change
-    if (location === path) {
-      // If we're already on this path, we need to force a location change
-      // to trigger the tab creation
-      const tempPath = `${path}?t=${Date.now()}`;
-      setLocation(tempPath);
-      
-      // Then set back to the original path after a brief timeout
-      setTimeout(() => {
-        setLocation(path);
-      }, 10);
-    } else {
-      // Normal navigation
+    // For dashboard, just activate the dashboard tab
+    if (path === '/') {
       setLocation(path);
+      return;
     }
+    
+    // For all other paths, create a unique path with a timestamp to force a new tab
+    const newTabPath = `${path}?t=${Date.now()}`;
+    console.log('Creating new tab with path:', newTabPath);
+    setLocation(newTabPath);
+    
+    // Then navigate to the real path after a brief delay
+    setTimeout(() => {
+      setLocation(path);
+    }, 50);
   };
   
   // Helper functions to get title and icon for the path
