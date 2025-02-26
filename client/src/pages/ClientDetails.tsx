@@ -40,13 +40,30 @@ export default function ClientDetails() {
     enabled: !!clientId,
     retry: 3,
     staleTime: 5000, // 5 seconds - refresh more frequently
+    queryFn: async () => {
+      console.log(`Fetching client details for ID: ${clientId}`);
+      if (!clientId) throw new Error("Client ID is required");
+      
+      // Use the getQueryFn utility from queryClient directly calling the endpoint
+      const endpoint = `/api/clients/${clientId}`;
+      const response = await fetch(endpoint);
+      
+      if (!response.ok) {
+        console.error(`Error fetching client: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch client: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log("Client data received:", data);
+      return data;
+    }
   });
 
   // Fetch projects for this client directly from backend
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery<ProjectWithDetails[]>({
-    queryKey: ["/api/projects"],
+    queryKey: ["/api/projects", clientId],
     select: (data) => data.filter((project) => project.clientId === clientId),
-    enabled: !!clientId,
+    enabled: !!clientId && !!client,
     retry: 2,
   });
   
