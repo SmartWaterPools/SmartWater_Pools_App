@@ -98,8 +98,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Client not found" });
       }
       
-      res.json(clientWithUser);
+      // Combine the client and user into a single object with the user property
+      // to match what the frontend expects
+      const clientResponse = {
+        ...clientWithUser.client,
+        user: clientWithUser.user
+      };
+      
+      res.json(clientResponse);
     } catch (error) {
+      console.error("Error fetching client:", error);
       res.status(500).json({ message: "Failed to fetch client" });
     }
   });

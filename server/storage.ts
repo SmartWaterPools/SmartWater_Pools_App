@@ -127,7 +127,14 @@ export class MemStorage implements IStorage {
   
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.userId++;
-    const user: User = { ...insertUser, id };
+    // Ensure all required fields have default values if not provided
+    const user: User = { 
+      ...insertUser, 
+      id,
+      role: insertUser.role ?? "client",
+      phone: insertUser.phone ?? null,
+      address: insertUser.address ?? null
+    };
     this.users.set(id, user);
     return user;
   }
@@ -158,7 +165,13 @@ export class MemStorage implements IStorage {
   
   async createClient(insertClient: InsertClient): Promise<Client> {
     const id = this.clientId++;
-    const client: Client = { ...insertClient, id };
+    // Ensure required nullable fields have proper default values
+    const client: Client = { 
+      ...insertClient, 
+      id,
+      companyName: insertClient.companyName ?? null,
+      contractType: insertClient.contractType ?? null
+    };
     this.clients.set(id, client);
     return client;
   }
@@ -190,7 +203,13 @@ export class MemStorage implements IStorage {
   
   async createTechnician(insertTechnician: InsertTechnician): Promise<Technician> {
     const id = this.technicianId++;
-    const technician: Technician = { ...insertTechnician, id };
+    // Ensure required nullable fields have proper default values
+    const technician: Technician = { 
+      ...insertTechnician, 
+      id,
+      specialization: insertTechnician.specialization ?? null,
+      certifications: insertTechnician.certifications ?? null 
+    };
     this.technicians.set(id, technician);
     return technician;
   }
@@ -216,7 +235,17 @@ export class MemStorage implements IStorage {
   
   async createProject(insertProject: InsertProject): Promise<Project> {
     const id = this.projectId++;
-    const project: Project = { ...insertProject, id };
+    // Ensure required fields have proper default values
+    const project: Project = { 
+      ...insertProject, 
+      id,
+      status: insertProject.status ?? "planning",
+      description: insertProject.description ?? null,
+      notes: insertProject.notes ?? null,
+      estimatedCompletionDate: insertProject.estimatedCompletionDate ?? null,
+      actualCompletionDate: insertProject.actualCompletionDate ?? null,
+      budget: insertProject.budget ?? null
+    };
     this.projects.set(id, project);
     return project;
   }
@@ -261,7 +290,14 @@ export class MemStorage implements IStorage {
   
   async createMaintenance(insertMaintenance: InsertMaintenance): Promise<Maintenance> {
     const id = this.maintenanceId++;
-    const maintenance: Maintenance = { ...insertMaintenance, id };
+    // Ensure required fields have proper default values
+    const maintenance: Maintenance = { 
+      ...insertMaintenance, 
+      id,
+      status: insertMaintenance.status ?? "scheduled",
+      notes: insertMaintenance.notes ?? null,
+      completionDate: insertMaintenance.completionDate ?? null
+    };
     this.maintenances.set(id, maintenance);
     return maintenance;
   }
@@ -311,11 +347,18 @@ export class MemStorage implements IStorage {
   
   async createRepair(insertRepair: InsertRepair): Promise<Repair> {
     const id = this.repairId++;
+    // Ensure required fields have proper default values
     const repair: Repair = { 
       ...insertRepair, 
       id, 
-      reportedDate: new Date(), 
-      completionDate: null 
+      reportedDate: new Date(),
+      completionDate: null,
+      status: insertRepair.status ?? "pending",
+      notes: insertRepair.notes ?? null,
+      technicianId: insertRepair.technicianId ?? null,
+      priority: insertRepair.priority ?? "medium",
+      scheduledDate: insertRepair.scheduledDate ?? null,
+      scheduledTime: insertRepair.scheduledTime ?? null
     };
     this.repairs.set(id, repair);
     return repair;
