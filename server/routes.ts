@@ -94,7 +94,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       console.log(`Fetching client with ID: ${id}`);
       
+      if (isNaN(id)) {
+        console.log(`Invalid client ID: ${req.params.id}`);
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
       const clientWithUser = await storage.getClientWithUser(id);
+      console.log(`Result of getClientWithUser(${id}):`, clientWithUser);
       
       if (!clientWithUser) {
         console.log(`Client with ID ${id} not found or user data missing`);
@@ -112,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(clientResponse);
     } catch (error) {
       console.error("Error fetching client:", error);
-      res.status(500).json({ message: "Failed to fetch client" });
+      res.status(500).json({ message: "Failed to fetch client", error: String(error) });
     }
   });
 
