@@ -45,15 +45,24 @@ export function Breadcrumbs() {
         });
       } else if (clientData && clientId && segment === clientId.toString()) {
         // For client detail pages, use the client's name instead of ID
-        const nameParts = clientData.user.name.split(' ');
-        const firstName = nameParts[0];
-        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-        
-        items.push({
-          name: `${firstName} ${lastName}`,
-          path: currentPath,
-          current: index === segments.length - 1
-        });
+        if (clientData && clientData.user && clientData.user.name) {
+          const nameParts = clientData.user.name.split(' ');
+          const firstName = nameParts[0];
+          const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+          
+          items.push({
+            name: `${firstName} ${lastName}`,
+            path: currentPath,
+            current: index === segments.length - 1
+          });
+        } else {
+          // Fallback if user data isn't available yet
+          items.push({
+            name: `Client ${clientId}`,
+            path: currentPath,
+            current: index === segments.length - 1
+          });
+        }
       } else {
         // Default case - just capitalize the segment
         const displayName = segment

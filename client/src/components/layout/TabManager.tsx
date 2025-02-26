@@ -97,7 +97,7 @@ export function TabManager() {
       // Find if there's a tab for this client
       const tabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}`);
       
-      if (tabIndex !== -1) {
+      if (tabIndex !== -1 && clientData.user && clientData.user.name) {
         // Get client name - split by space to get first and last name
         const nameParts = clientData.user.name.split(' ');
         const firstName = nameParts[0];
@@ -109,6 +109,15 @@ export function TabManager() {
         updatedTabs[tabIndex] = {
           ...updatedTabs[tabIndex],
           title: displayName
+        };
+        
+        setTabs(updatedTabs);
+      } else if (tabIndex !== -1) {
+        // Fallback if user data isn't available
+        const updatedTabs = [...tabs];
+        updatedTabs[tabIndex] = {
+          ...updatedTabs[tabIndex],
+          title: `Client ${clientId}`
         };
         
         setTabs(updatedTabs);
