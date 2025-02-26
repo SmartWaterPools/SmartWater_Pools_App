@@ -48,26 +48,26 @@ export function Breadcrumbs() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/" className="flex items-center">
+              <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
                 <Home className="h-3.5 w-3.5 mr-1" />
                 <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
-              </BreadcrumbLink>
+              </div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <BreadcrumbLink href="/clients">Clients</BreadcrumbLink>
+              <div onClick={() => window.location.href="/clients"} className="cursor-pointer">Clients</div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <BreadcrumbLink href={`/clients/${clientId}`}>
+              <div onClick={() => window.location.href=`/clients/${clientId}`} className="cursor-pointer">
                 {clientName}
-              </BreadcrumbLink>
+              </div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
@@ -91,17 +91,17 @@ export function Breadcrumbs() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/" className="flex items-center">
+              <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
                 <Home className="h-3.5 w-3.5 mr-1" />
                 <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
-              </BreadcrumbLink>
+              </div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <BreadcrumbLink href="/clients">Clients</BreadcrumbLink>
+              <div onClick={() => window.location.href="/clients"} className="cursor-pointer">Clients</div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
@@ -123,17 +123,17 @@ export function Breadcrumbs() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink href="/" className="flex items-center">
+              <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
                 <Home className="h-3.5 w-3.5 mr-1" />
                 <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
-              </BreadcrumbLink>
+              </div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <BreadcrumbLink href="/clients">Clients</BreadcrumbLink>
+              <div onClick={() => window.location.href="/clients"} className="cursor-pointer">Clients</div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
@@ -154,10 +154,10 @@ export function Breadcrumbs() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink href="/" className="flex items-center">
+            <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
               <Home className="h-3.5 w-3.5 mr-1" />
               <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
-            </BreadcrumbLink>
+            </div>
           </BreadcrumbItem>
           
           {segments.map((segment, index) => {
@@ -184,7 +184,7 @@ export function Breadcrumbs() {
                   {isLast ? (
                     <BreadcrumbPage>{name}</BreadcrumbPage>
                   ) : (
-                    <BreadcrumbLink href={path}>{name}</BreadcrumbLink>
+                    <div onClick={() => window.location.href=path} className="cursor-pointer">{name}</div>
                   )}
                 </BreadcrumbItem>
               </React.Fragment>

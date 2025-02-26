@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex, relations } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -128,6 +128,81 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   id: true,
   issueDate: true,
 });
+
+// Relations
+export const usersRelations = relations(users, ({ many }) => ({
+  clients: many(clients),
+  technicians: many(technicians)
+}));
+
+export const clientsRelations = relations(clients, ({ one, many }) => ({
+  user: one(users, {
+    fields: [clients.userId],
+    references: [users.id],
+  }),
+  projects: many(projects),
+  maintenances: many(maintenances),
+  repairs: many(repairs),
+  invoices: many(invoices),
+}));
+
+export const techniciansRelations = relations(technicians, ({ one, many }) => ({
+  user: one(users, {
+    fields: [technicians.userId],
+    references: [users.id],
+  }),
+  projectAssignments: many(projectAssignments),
+  maintenances: many(maintenances),
+  repairs: many(repairs),
+}));
+
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  client: one(clients, {
+    fields: [projects.clientId],
+    references: [clients.id],
+  }),
+  assignments: many(projectAssignments),
+}));
+
+export const projectAssignmentsRelations = relations(projectAssignments, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectAssignments.projectId],
+    references: [projects.id],
+  }),
+  technician: one(technicians, {
+    fields: [projectAssignments.technicianId],
+    references: [technicians.id],
+  }),
+}));
+
+export const maintenancesRelations = relations(maintenances, ({ one }) => ({
+  client: one(clients, {
+    fields: [maintenances.clientId],
+    references: [clients.id],
+  }),
+  technician: one(technicians, {
+    fields: [maintenances.technicianId],
+    references: [technicians.id],
+  }),
+}));
+
+export const repairsRelations = relations(repairs, ({ one }) => ({
+  client: one(clients, {
+    fields: [repairs.clientId],
+    references: [clients.id],
+  }),
+  technician: one(technicians, {
+    fields: [repairs.technicianId],
+    references: [technicians.id],
+  }),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one }) => ({
+  client: one(clients, {
+    fields: [invoices.clientId],
+    references: [clients.id],
+  }),
+}));
 
 // Type definitions
 export type User = typeof users.$inferSelect;
