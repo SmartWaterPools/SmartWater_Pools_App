@@ -38,7 +38,10 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  contractType: z.string().optional().nullable(),
+  contractType: z.enum(["residential", "commercial", "service", "maintenance", ""])
+    .nullable()
+    .optional()
+    .transform(val => val === "" ? null : val), // Handle empty strings
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;
@@ -76,13 +79,23 @@ export default function ClientEdit() {
         companyName: client.companyName
       });
       
+      // Process the contractType to ensure it's a valid enum value
+      let contractTypeValue: "residential" | "commercial" | "service" | "maintenance" | null = "residential";
+      
+      if (client.contractType) {
+        // Only use if it's one of our allowed values
+        if (["residential", "commercial", "service", "maintenance"].includes(client.contractType.toLowerCase())) {
+          contractTypeValue = client.contractType.toLowerCase() as "residential" | "commercial" | "service" | "maintenance";
+        }
+      }
+      
       const formValues = {
         name: client.user.name,
         email: client.user.email,
         phone: client.user.phone || "",
         address: client.user.address || "",
         companyName: client.companyName || "",
-        contractType: client.contractType || "residential",
+        contractType: contractTypeValue,
       };
       
       console.log(`[Form Debug] Final form values:`, formValues);
@@ -109,22 +122,14 @@ export default function ClientEdit() {
         await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
         console.log(`[Client Update] User update successful`);
 
-        // Process and validate contract type
-        let contractType = data.contractType;
-        console.log(`[Client Update] Step 2: Processing contract type "${contractType}"`);
+        // The contract type has already been validated and transformed by the schema
+        // data.contractType is already either a valid value or null
+        console.log(`[Client Update] Step 2: Using validated contract type: "${data.contractType}"`);
         
-        // Ensure proper handling of the contract type
-        if (contractType === undefined || contractType === "") {
-          contractType = null;
-          console.log(`[Client Update] Setting null contract type`);
-        } else {
-          console.log(`[Client Update] Using contract type: "${contractType}"`);
-        }
-
-        // Update client data
+        // Update client data - rely on schema validation for correct values
         const clientData = {
           companyName: data.companyName || null,
-          contractType: contractType,
+          contractType: data.contractType,
         };
         
         console.log(`[Client Update] Step 3: Updating client ${clientId} with data:`, clientData);
