@@ -92,32 +92,18 @@ export function TabManager() {
   ]);
   const [activeTabId, setActiveTabId] = useState<string>('dashboard');
   
-  // Listen for new tab open events
+  // Store previous location to track changes
+  const [previousLocation, setPreviousLocation] = useState<string>(location);
+  
+  // Update activeTabId and location when tabs change
   useEffect(() => {
-    const handleOpenNewTab = (event: CustomEvent) => {
-      const { id, title, path, icon } = event.detail;
-      // Check if a tab with the same path already exists
-      const existingTab = tabs.find(tab => tab.path === path);
-      
-      if (existingTab) {
-        // Activate the existing tab instead of creating a new one
-        setActiveTabId(existingTab.id);
-        setLocation(existingTab.path);
-      } else {
-        // Create a new tab
-        const newTab = { id, title, path, icon };
-        setTabs(prevTabs => [...prevTabs, newTab]);
-        setActiveTabId(id);
-        setLocation(path);
-      }
-    };
+    // Check if the current location has a tab
+    const matchingTab = tabs.find(tab => tab.path === location);
     
-    window.addEventListener('open-new-tab', handleOpenNewTab as EventListener);
-    
-    return () => {
-      window.removeEventListener('open-new-tab', handleOpenNewTab as EventListener);
-    };
-  }, [tabs, setLocation]);
+    if (matchingTab) {
+      setActiveTabId(matchingTab.id);
+    }
+  }, [tabs]);
 
   // Extract client ID from path if it's a client page (details or edit)
   const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
@@ -183,14 +169,11 @@ export function TabManager() {
     }
   }, [clientData, clientId]);
 
-  // Store the previous location to detect changes from sidebar navigation
-  const [prevLocation, setPrevLocation] = useState(location);
-  
-  // Update active tab based on location
+  // Update active tab based on location changes
   useEffect(() => {
-    // Check if we've navigated to a new location
-    if (location !== prevLocation) {
-      setPrevLocation(location);
+    // Check if the location actually changed
+    if (location !== previousLocation) {
+      setPreviousLocation(location);
       
       // Special case for dashboard - just activate the existing tab
       if (location === '/') {
@@ -201,7 +184,7 @@ export function TabManager() {
         }
       }
       
-      // Check if this tab already exists
+      // Check if tab with this path already exists
       const existingTab = tabs.find(tab => tab.path === location);
       
       if (existingTab) {
@@ -216,11 +199,11 @@ export function TabManager() {
           icon: getIconForPath(location)
         };
         
-        setTabs([...tabs, newTab]);
+        setTabs(prev => [...prev, newTab]);
         setActiveTabId(newTab.id);
       }
     }
-  }, [location, tabs]);
+  }, [location, previousLocation, tabs]);
 
   const handleTabClick = (tab: Tab) => {
     setLocation(tab.path);

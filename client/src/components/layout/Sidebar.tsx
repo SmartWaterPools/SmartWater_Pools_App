@@ -44,12 +44,25 @@ export function Sidebar({ user }: SidebarProps) {
     setLocation(path);
   };
   
-  // Create a new tab for navigation instead of replacing the current one
+  // Navigate to a path
+  // The TabManager component will detect this and create a new tab if needed
   const handleSidebarNavigation = (path: string) => {
-    // For simplicity, we'll just navigate to the location
-    // The TabManager will handle the tab creation automatically
-    // when detecting a location change
-    setLocation(path);
+    // Force the location to change, even if it's the same path
+    // This ensures the TabManager will detect a change
+    if (location === path) {
+      // If we're already on this path, we need to force a location change
+      // to trigger the tab creation
+      const tempPath = `${path}?t=${Date.now()}`;
+      setLocation(tempPath);
+      
+      // Then set back to the original path after a brief timeout
+      setTimeout(() => {
+        setLocation(path);
+      }, 10);
+    } else {
+      // Normal navigation
+      setLocation(path);
+    }
   };
   
   // Helper functions to get title and icon for the path
