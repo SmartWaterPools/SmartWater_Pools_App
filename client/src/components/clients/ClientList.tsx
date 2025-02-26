@@ -77,7 +77,11 @@ export function ClientList({ clients, isLoading, onClientSelect }: ClientListPro
                 variant="secondary" 
                 className={client.contractType?.toLowerCase() === "commercial" ? "bg-blue-100 text-primary" : "bg-green-100 text-green-600"}
               >
-                {client.contractType?.toLowerCase() === "commercial" ? "Commercial" : "Residential"}
+                {client.contractType?.toLowerCase() === "commercial" 
+                  ? "Commercial" 
+                  : client.contractType?.toLowerCase() === "residential"
+                    ? "Residential"
+                    : client.contractType || "Residential"}
               </Badge>
             </div>
           </div>

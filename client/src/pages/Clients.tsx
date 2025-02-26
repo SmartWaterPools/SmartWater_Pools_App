@@ -36,7 +36,7 @@ export default function Clients() {
     client.contractType?.toLowerCase() === "commercial");
     
   const residentialClients = filteredClients?.filter(client => 
-    client.contractType?.toLowerCase() === "residential");
+    client.contractType?.toLowerCase() === "residential" || !client.contractType);
 
   return (
     <div>
