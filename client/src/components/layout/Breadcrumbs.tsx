@@ -24,13 +24,19 @@ export function Breadcrumbs() {
   });
   
   // Get a formatted client name for display
-  const getClientDisplayName = (clientData: ClientWithUser | undefined, clientId: number | null) => {
+  const getClientDisplayName = (clientData: ClientWithUser | undefined, clientId: number | null, isLoading: boolean) => {
+    if (isLoading) {
+      return 'Loading...';
+    }
+    
     if (clientData && clientData.user && clientData.user.name) {
       const nameParts = clientData.user.name.split(' ');
       const firstName = nameParts[0];
       const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
       return `${firstName} ${lastName}`;
     }
+    
+    // If there's a client ID but no data, use the ID
     return clientId ? `Client ${clientId}` : 'Client';
   };
   
@@ -41,7 +47,7 @@ export function Breadcrumbs() {
   
   // Special case for client edit page
   if (clientEditMatch && clientId) {
-    const clientName = getClientDisplayName(clientData, clientId);
+    const clientName = getClientDisplayName(clientData, clientId, isLoadingClient);
     
     return (
       <div className="mb-4">
@@ -84,7 +90,7 @@ export function Breadcrumbs() {
   
   // Special case for client details page
   if (clientDetailsMatch && clientId) {
-    const clientName = getClientDisplayName(clientData, clientId);
+    const clientName = getClientDisplayName(clientData, clientId, isLoadingClient);
     
     return (
       <div className="mb-4">
