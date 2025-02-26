@@ -42,17 +42,16 @@ export function Sidebar({ user }: SidebarProps) {
   };
 
   // Handle sidebar navigation by adding a new tab or navigating to an existing one
-  const handleSidebarNavigation = (path: string) => {
+  const handleSidebarNavigation = (e: React.MouseEvent, path: string) => {
+    e.preventDefault(); // Prevent the default navigation
     console.log('Sidebar navigation to:', path);
+    
     // When clicking sidebar items, use the appropriate title
     const title = getTitleForPath(path);
     
     // This won't force a complete page reload and will use our tab manager
     // The third parameter is forceNew - setting to false means it will reuse existing tabs
     addTab(path, title, false);
-    
-    // Prevent default navigation that would cause a page reload
-    return false;
   };
   
   // Helper functions to get title and icon for the path
@@ -155,7 +154,7 @@ export function Sidebar({ user }: SidebarProps) {
           isCollapsed ? "px-3" : "px-2"
         )}>
           <div
-            onClick={() => handleSidebarNavigation("/")}
+            onClick={(e) => handleSidebarNavigation(e, "/")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -166,7 +165,7 @@ export function Sidebar({ user }: SidebarProps) {
             {!isCollapsed && <span>Dashboard</span>}
           </div>
           <div
-            onClick={() => handleSidebarNavigation("/projects")}
+            onClick={(e) => handleSidebarNavigation(e, "/projects")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -178,7 +177,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => handleSidebarNavigation("/maintenance")}
+            onClick={(e) => handleSidebarNavigation(e, "/maintenance")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -190,7 +189,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => handleSidebarNavigation("/repairs")}
+            onClick={(e) => handleSidebarNavigation(e, "/repairs")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",

@@ -295,7 +295,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
 }
 
 // Custom hook to use tab context
-export function useTabs() {
+export const useTabs = () => {
   const context = useContext(TabContext);
   if (context === undefined) {
     throw new Error('useTabs must be used within a TabProvider');
