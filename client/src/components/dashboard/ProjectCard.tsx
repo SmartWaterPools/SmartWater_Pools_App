@@ -16,11 +16,13 @@ export function ProjectCard({ project }: ProjectCardProps) {
   
   // Format dates
   const startDate = new Date(project.startDate);
-  const endDate = new Date(project.deadline);
-  const dateRange = `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`;
+  const endDate = project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate) : null;
+  const dateRange = endDate 
+    ? `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`
+    : `${format(startDate, "MMM d, yyyy")}`;
   
-  // Calculate project completion percentage
-  const progress = project.completion || 0;
+  // For now, we'll use a fixed progress value since 'completion' is not in the schema
+  const progress = 0;
   
   return (
     <Card className="overflow-hidden">

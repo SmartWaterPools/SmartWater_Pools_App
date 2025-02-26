@@ -90,7 +90,7 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       // Convert dates to ISO strings for the API
       const dataToSubmit = {
         ...values,
-        deadline: values.estimatedEndDate.toISOString().split('T')[0],
+        estimatedCompletionDate: values.estimatedEndDate.toISOString().split('T')[0],
         startDate: values.startDate.toISOString().split('T')[0],
       };
       
