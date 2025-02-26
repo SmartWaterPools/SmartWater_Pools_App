@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { ClientWithUser } from "@/lib/types";
+import { ClientWithUser, ProjectWithDetails, MaintenanceWithDetails, RepairWithDetails, InvoiceWithDetails } from "@/lib/types";
 import { 
   Building, 
   Calendar, 
@@ -31,7 +31,10 @@ export default function ClientDetails() {
   const [, params] = useRoute("/clients/:id");
   const clientId = params?.id ? parseInt(params.id) : null;
   
-  // Fetch client details
+  // Debug: Log client ID from params
+  console.log("ClientDetails - Client ID from URL params:", clientId, typeof clientId);
+  
+  // Fetch client details with better error handling
   const { data: client, isLoading, error, refetch } = useQuery<ClientWithUser>({
     queryKey: ["/api/clients", clientId],
     enabled: !!clientId,
@@ -40,7 +43,7 @@ export default function ClientDetails() {
   });
 
   // Fetch projects for this client directly from backend
-  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<any[]>({
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<ProjectWithDetails[]>({
     queryKey: ["/api/projects"],
     select: (data) => data.filter((project) => project.clientId === clientId),
     enabled: !!clientId,
@@ -48,7 +51,7 @@ export default function ClientDetails() {
   });
   
   // Fetch maintenances for this client directly from backend
-  const { data: maintenances = [], isLoading: isLoadingMaintenances } = useQuery<any[]>({
+  const { data: maintenances = [], isLoading: isLoadingMaintenances } = useQuery<MaintenanceWithDetails[]>({
     queryKey: ["/api/maintenances"],
     select: (data) => data.filter((maintenance) => maintenance.clientId === clientId),
     enabled: !!clientId,
@@ -56,7 +59,7 @@ export default function ClientDetails() {
   });
   
   // Fetch repairs for this client directly from backend
-  const { data: repairs = [], isLoading: isLoadingRepairs } = useQuery<any[]>({
+  const { data: repairs = [], isLoading: isLoadingRepairs } = useQuery<RepairWithDetails[]>({
     queryKey: ["/api/repairs"],
     select: (data) => data.filter((repair) => repair.clientId === clientId),
     enabled: !!clientId,
@@ -64,7 +67,7 @@ export default function ClientDetails() {
   });
   
   // Fetch invoices for this client directly from backend
-  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<any[]>({
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<InvoiceWithDetails[]>({
     queryKey: ["/api/invoices"],
     select: (data) => data.filter((invoice) => invoice.clientId === clientId),
     enabled: !!clientId,

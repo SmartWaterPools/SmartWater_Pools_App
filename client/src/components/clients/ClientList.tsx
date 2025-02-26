@@ -107,6 +107,8 @@ export function ClientList({ clients, isLoading, onClientSelect }: ClientListPro
                 if (onClientSelect) {
                   onClientSelect(client);
                 } else {
+                  // Log client ID before navigation
+                  console.log("Navigating to client details for ID:", client.id);
                   setLocation(`/clients/${client.id}`);
                 }
               }}
