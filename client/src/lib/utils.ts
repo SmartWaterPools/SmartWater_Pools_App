@@ -53,3 +53,9 @@ export const isEqual = (obj1: any, obj2: any): boolean => {
   
   return true;
 }
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
