@@ -129,14 +129,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid client ID" });
       }
       
+      console.log(`Attempting to update client with ID: ${id}`);
+      console.log(`Update data:`, req.body);
+      
       // Get the existing client
       const client = await storage.getClient(id);
       if (!client) {
+        console.log(`Client with ID ${id} not found`);
         return res.status(404).json({ message: "Client not found" });
       }
       
+      console.log(`Found existing client:`, client);
+      
       // Update client data
       const updatedClient = await storage.updateClient(id, req.body);
+      console.log(`Client updated successfully:`, updatedClient);
       res.json(updatedClient);
     } catch (error) {
       console.error("Error updating client:", error);
