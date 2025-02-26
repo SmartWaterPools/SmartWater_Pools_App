@@ -144,20 +144,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Ensure contract type is properly handled
       let updateData = { ...req.body };
+      
+      // Always process contract type to ensure consistent validation
+      // (even if it's not in the body, we validate to make sure we handle null correctly)
       if (updateData.contractType !== undefined) {
-        if (updateData.contractType === null || updateData.contractType === '') {
-          console.log(`[CLIENT UPDATE API] Received empty contract type, setting to null`);
+        // Handle null, undefined or empty string values
+        if (updateData.contractType === null || 
+            updateData.contractType === undefined || 
+            updateData.contractType === '') {
+          console.log(`[CLIENT UPDATE API] Received empty/null contract type, setting to null`);
           updateData.contractType = null;
         } else {
-          // Force lowercase to ensure consistency
+          // Force to string and lowercase to ensure consistency
           const normalizedType = String(updateData.contractType).toLowerCase();
           
           // Validate against allowed values
-          if (!['residential', 'commercial', 'service', 'maintenance'].includes(normalizedType)) {
+          const validTypes = ['residential', 'commercial', 'service', 'maintenance'];
+          if (!validTypes.includes(normalizedType)) {
             console.error(`[CLIENT UPDATE API] Invalid contract type: "${normalizedType}"`);
             return res.status(400).json({ 
               message: "The contract type must be one of: residential, commercial, service, maintenance",
-              received: normalizedType
+              received: normalizedType,
+              valid_types: validTypes
             });
           }
           
