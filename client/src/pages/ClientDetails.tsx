@@ -21,7 +21,9 @@ import {
   MapPin, 
   Phone, 
   Receipt, 
-  User 
+  User,
+  Pencil as PencilIcon,
+  Edit as EditIcon
 } from "lucide-react";
 
 export default function ClientDetails() {
@@ -90,6 +92,9 @@ export default function ClientDetails() {
       <div className="flex items-center justify-between">
         <Button variant="outline" onClick={handleBack}>
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+        <Button variant="secondary" className="bg-primary text-white hover:bg-primary/90">
+          <PencilIcon className="mr-2 h-4 w-4" /> Edit Client
         </Button>
       </div>
       
@@ -162,6 +167,13 @@ export default function ClientDetails() {
             </TabsList>
             
             <TabsContent value="projects" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Projects</h3>
+                <Button size="sm" variant="outline" className="flex items-center gap-1">
+                  <PencilIcon className="h-3.5 w-3.5" />
+                  Add Project
+                </Button>
+              </div>
               {projects.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   {projects.map((project: any) => (
@@ -213,6 +225,13 @@ export default function ClientDetails() {
             </TabsContent>
             
             <TabsContent value="maintenance" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Maintenance Schedules</h3>
+                <Button size="sm" variant="outline" className="flex items-center gap-1">
+                  <PencilIcon className="h-3.5 w-3.5" />
+                  Schedule Maintenance
+                </Button>
+              </div>
               {maintenances.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   {maintenances.map((maintenance: any) => (
@@ -262,6 +281,13 @@ export default function ClientDetails() {
             </TabsContent>
             
             <TabsContent value="repairs" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Repair Requests</h3>
+                <Button size="sm" variant="outline" className="flex items-center gap-1">
+                  <PencilIcon className="h-3.5 w-3.5" />
+                  Request Repair
+                </Button>
+              </div>
               {repairs.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   {repairs.map((repair: any) => (
@@ -327,6 +353,13 @@ export default function ClientDetails() {
             </TabsContent>
             
             <TabsContent value="invoices" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Invoices</h3>
+                <Button size="sm" variant="outline" className="flex items-center gap-1">
+                  <PencilIcon className="h-3.5 w-3.5" />
+                  Create Invoice
+                </Button>
+              </div>
               {invoices.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   {invoices.map((invoice: any) => (

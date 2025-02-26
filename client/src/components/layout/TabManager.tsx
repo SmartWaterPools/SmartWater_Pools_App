@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { X, Copy, MoreHorizontal } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ClientWithUser } from '@/lib/types';
 import { 
   LayoutDashboard, 
   Building, 
@@ -40,6 +42,13 @@ const getIconForPath = (path: string): React.ReactNode => {
 };
 
 const getTitleForPath = (path: string): string => {
+  // Check if this is a client details page
+  const clientMatch = path.match(/^\/clients\/(\d+)$/);
+  if (clientMatch) {
+    // For client detail pages, we'll get the client name from the API
+    return 'Client Details'; // This will be replaced with actual client name later
+  }
+  
   switch (path) {
     case '/':
       return 'Dashboard';
