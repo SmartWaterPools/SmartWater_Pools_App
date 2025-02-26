@@ -38,9 +38,72 @@ export function Sidebar({ user }: SidebarProps) {
     setIsCollapsed(!isCollapsed);
   };
 
+  // This function is kept for any other place that might use it
   const handleNavigation = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
     e.preventDefault();
     setLocation(path);
+  };
+  
+  // Create a new tab for navigation instead of replacing the current one
+  const handleSidebarNavigation = (path: string) => {
+    // Special case for dashboard - just activate it if it already exists
+    if (path === '/') {
+      setLocation(path);
+      return;
+    }
+    
+    // Create a new tab with the path
+    const id = `tab-${Date.now()}`;
+    const title = getTitleForPath(path);
+    const icon = getIconForPath(path);
+    
+    // Add the new tab to the tabs list
+    window.dispatchEvent(new CustomEvent('open-new-tab', { 
+      detail: { id, title, path, icon } 
+    }));
+  };
+  
+  // Helper functions to get title and icon for the path
+  const getTitleForPath = (path: string): string => {
+    switch (path) {
+      case '/':
+        return 'Dashboard';
+      case '/projects':
+        return 'Projects';
+      case '/maintenance':
+        return 'Maintenance';
+      case '/repairs':
+        return 'Repairs';
+      case '/clients':
+        return 'Clients';
+      case '/technicians':
+        return 'Technicians';
+      case '/settings':
+        return 'Settings';
+      default:
+        return 'New Tab';
+    }
+  };
+  
+  const getIconForPath = (path: string): React.ReactNode => {
+    switch (path) {
+      case '/':
+        return <LayoutDashboard className="h-4 w-4" />;
+      case '/projects':
+        return <Building className="h-4 w-4" />;
+      case '/maintenance':
+        return <CalendarCheck className="h-4 w-4" />;
+      case '/repairs':
+        return <Wrench className="h-4 w-4" />;
+      case '/clients':
+        return <Users className="h-4 w-4" />;
+      case '/technicians':
+        return <UserRound className="h-4 w-4" />;
+      case '/settings':
+        return <Settings className="h-4 w-4" />;
+      default:
+        return <LayoutDashboard className="h-4 w-4" />;
+    }
   };
   
   return (
@@ -100,7 +163,7 @@ export function Sidebar({ user }: SidebarProps) {
           isCollapsed ? "px-3" : "px-2"
         )}>
           <div
-            onClick={() => setLocation("/")}
+            onClick={() => handleSidebarNavigation("/")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -111,7 +174,7 @@ export function Sidebar({ user }: SidebarProps) {
             {!isCollapsed && <span>Dashboard</span>}
           </div>
           <div
-            onClick={() => setLocation("/projects")}
+            onClick={() => handleSidebarNavigation("/projects")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -123,7 +186,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => setLocation("/maintenance")}
+            onClick={() => handleSidebarNavigation("/maintenance")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -135,7 +198,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => setLocation("/repairs")}
+            onClick={() => handleSidebarNavigation("/repairs")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -147,7 +210,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => setLocation("/clients")}
+            onClick={() => handleSidebarNavigation("/clients")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -159,7 +222,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => setLocation("/technicians")}
+            onClick={() => handleSidebarNavigation("/technicians")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -171,7 +234,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => setLocation("/settings")}
+            onClick={() => handleSidebarNavigation("/settings")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",

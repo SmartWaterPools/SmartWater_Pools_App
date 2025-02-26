@@ -184,6 +184,9 @@ export function TabManager() {
   const closeTab = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
     
+    // Don't close if it's the dashboard tab
+    if (tabId === 'dashboard') return;
+    
     // Don't close if it's the last tab
     if (tabs.length <= 1) return;
     
@@ -203,6 +206,9 @@ export function TabManager() {
 
   const duplicateTab = (e: React.MouseEvent, tab: Tab) => {
     e.stopPropagation();
+    
+    // Don't duplicate if it's the dashboard tab
+    if (tab.id === 'dashboard') return;
     
     const newTab = {
       id: `tab-${Date.now()}`,
@@ -233,21 +239,23 @@ export function TabManager() {
               {tab.icon}
             </div>
             <div className="truncate">{tab.title}</div>
-            <div className="ml-3 flex items-center space-x-1">
-              <button
-                onClick={(e) => duplicateTab(e, tab)}
-                className="p-1 rounded-md hover:bg-gray-200"
-              >
-                <Copy className="h-3.5 w-3.5 text-gray-500" />
-              </button>
-              <button
-                onClick={(e) => closeTab(e, tab.id)}
-                className="p-1 rounded-md hover:bg-gray-200"
-                disabled={tabs.length <= 1}
-              >
-                <X className="h-3.5 w-3.5 text-gray-500" />
-              </button>
-            </div>
+            {tab.id !== 'dashboard' && (
+              <div className="ml-3 flex items-center space-x-1">
+                <button
+                  onClick={(e) => duplicateTab(e, tab)}
+                  className="p-1 rounded-md hover:bg-gray-200"
+                >
+                  <Copy className="h-3.5 w-3.5 text-gray-500" />
+                </button>
+                <button
+                  onClick={(e) => closeTab(e, tab.id)}
+                  className="p-1 rounded-md hover:bg-gray-200"
+                  disabled={tabs.length <= 1}
+                >
+                  <X className="h-3.5 w-3.5 text-gray-500" />
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>
