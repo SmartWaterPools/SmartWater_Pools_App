@@ -182,21 +182,30 @@ export class MemStorage implements IStorage {
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
-    console.log(`MemStorage.updateClient: Updating client ${id} with data:`, JSON.stringify(data));
+    console.log(`[MEM STORAGE] Updating client ${id} with data:`, JSON.stringify(data));
     
     const client = await this.getClient(id);
-    if (!client) return undefined;
+    if (!client) {
+      console.log(`[MEM STORAGE] Client with ID ${id} not found`);
+      return undefined;
+    }
     
-    // Make sure contractType is lowercase for consistency
+    // Make sure contractType is properly handled
     const updatedData: Partial<Client> = { ...data };
-    if (updatedData.contractType) {
-      updatedData.contractType = updatedData.contractType.toLowerCase();
-      console.log(`Normalized contract type to lowercase: ${updatedData.contractType}`);
+    if (updatedData.contractType !== undefined) {
+      // Handle null/empty string values and convert to lowercase
+      if (updatedData.contractType === null || updatedData.contractType === '') {
+        console.log(`[MEM STORAGE] Setting null contract type`);
+        updatedData.contractType = null;
+      } else {
+        updatedData.contractType = String(updatedData.contractType).toLowerCase();
+        console.log(`[MEM STORAGE] Normalized contract type: '${updatedData.contractType}'`);
+      }
     }
     
     const updatedClient = { ...client, ...updatedData };
     this.clients.set(id, updatedClient);
-    console.log(`Client updated successfully:`, JSON.stringify(updatedClient));
+    console.log(`[MEM STORAGE] Client updated successfully:`, JSON.stringify(updatedClient));
     return updatedClient;
   }
   

@@ -75,13 +75,18 @@ export function ClientList({ clients, isLoading, onClientSelect }: ClientListPro
               )}
               <Badge 
                 variant="secondary" 
-                className={client.contractType?.toLowerCase() === "commercial" ? "bg-blue-100 text-primary" : "bg-green-100 text-green-600"}
+                className={client.contractType?.toLowerCase() === "commercial" 
+                  ? "bg-blue-100 text-primary" 
+                  : client.contractType?.toLowerCase() === "service" 
+                    ? "bg-purple-100 text-purple-600"
+                    : client.contractType?.toLowerCase() === "maintenance" 
+                      ? "bg-amber-100 text-amber-600"
+                      : "bg-green-100 text-green-600"
+                }
               >
-                {client.contractType?.toLowerCase() === "commercial" 
-                  ? "Commercial" 
-                  : client.contractType?.toLowerCase() === "residential"
-                    ? "Residential"
-                    : client.contractType || "Residential"}
+                {client.contractType 
+                  ? client.contractType.charAt(0).toUpperCase() + client.contractType.slice(1).toLowerCase()
+                  : "Residential"}
               </Badge>
             </div>
           </div>

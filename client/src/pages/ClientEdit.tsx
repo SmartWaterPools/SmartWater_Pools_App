@@ -71,14 +71,22 @@ export default function ClientEdit() {
   // Update form values when client data is loaded
   useEffect(() => {
     if (client && client.user) {
-      form.reset({
+      console.log(`[Form Debug] Setting form with client data:`, {
+        contractType: client.contractType,
+        companyName: client.companyName
+      });
+      
+      const formValues = {
         name: client.user.name,
         email: client.user.email,
         phone: client.user.phone || "",
         address: client.user.address || "",
         companyName: client.companyName || "",
         contractType: client.contractType || "residential",
-      });
+      };
+      
+      console.log(`[Form Debug] Final form values:`, formValues);
+      form.reset(formValues);
     }
   }, [client, form]);
 
@@ -97,13 +105,25 @@ export default function ClientEdit() {
 
       await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
 
+      // Process and validate contract type
+      let contractType = data.contractType;
+      console.log(`[Client Update] Original contract type from form: "${contractType}"`);
+      
+      // Ensure proper handling of the contract type
+      if (contractType === undefined || contractType === "") {
+        contractType = null;
+        console.log(`[Client Update] Setting null contract type`);
+      } else {
+        console.log(`[Client Update] Using contract type: "${contractType}"`);
+      }
+
       // Update client data
       const clientData = {
         companyName: data.companyName || null,
-        contractType: data.contractType ? data.contractType.toLowerCase() : null,
+        contractType: contractType,
       };
       
-      console.log("Sending client update with data:", clientData);
+      console.log("[Client Update] Sending client update with data:", clientData);
 
       return await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
     },
@@ -260,28 +280,38 @@ export default function ClientEdit() {
                   <FormField
                     control={form.control}
                     name="contractType"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Contract Type</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          value={field.value?.toLowerCase() || "residential"}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select contract type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="residential">Residential</SelectItem>
-                            <SelectItem value="commercial">Commercial</SelectItem>
-                            <SelectItem value="service">Service Only</SelectItem>
-                            <SelectItem value="maintenance">Maintenance</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                    render={({ field }) => {
+                      console.log(`[Contract Type Field] Current value: "${field.value}"`);
+                      return (
+                        <FormItem>
+                          <FormLabel>Contract Type</FormLabel>
+                          <Select 
+                            onValueChange={(value) => {
+                              console.log(`[Contract Type Field] Select changed to: "${value}"`);
+                              field.onChange(value);
+                            }}
+                            value={field.value || "residential"}
+                            defaultValue="residential"
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select contract type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="residential">Residential</SelectItem>
+                              <SelectItem value="commercial">Commercial</SelectItem>
+                              <SelectItem value="service">Service Only</SelectItem>
+                              <SelectItem value="maintenance">Maintenance</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Current contract type: {field.value || "residential"}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 </div>
               </div>
