@@ -93,7 +93,11 @@ export default function ClientDetails() {
         <Button variant="outline" onClick={handleBack}>
           <ChevronLeft className="mr-2 h-4 w-4" /> Back
         </Button>
-        <Button variant="secondary" className="bg-primary text-white hover:bg-primary/90">
+        <Button 
+          variant="secondary" 
+          className="bg-primary text-white hover:bg-primary/90"
+          onClick={() => client && setLocation(`/clients/${client.id}/edit`)}
+        >
           <PencilIcon className="mr-2 h-4 w-4" /> Edit Client
         </Button>
       </div>

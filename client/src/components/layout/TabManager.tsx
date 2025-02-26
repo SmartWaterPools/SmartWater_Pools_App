@@ -43,10 +43,21 @@ const getIconForPath = (path: string): React.ReactNode => {
 
 const getTitleForPath = (path: string): string => {
   // Check if this is a client details page
-  const clientMatch = path.match(/^\/clients\/(\d+)$/);
-  if (clientMatch) {
+  const clientDetailsMatch = path.match(/^\/clients\/(\d+)$/);
+  if (clientDetailsMatch) {
     // For client detail pages, we'll get the client name from the API
     return 'Client Details'; // This will be replaced with actual client name later
+  }
+  
+  // Check if this is a client edit page
+  const clientEditMatch = path.match(/^\/clients\/(\d+)\/edit$/);
+  if (clientEditMatch) {
+    return 'Edit Client'; // This will be customized with client name
+  }
+  
+  // Check if this is a client add page
+  if (path === '/clients/add') {
+    return 'Add Client';
   }
   
   switch (path) {
@@ -81,11 +92,13 @@ export function TabManager() {
   ]);
   const [activeTabId, setActiveTabId] = useState<string>('dashboard');
 
-  // Extract client ID from path if it's a client details page
-  const clientMatch = location.match(/^\/clients\/(\d+)$/);
-  const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+  // Extract client ID from path if it's a client page (details or edit)
+  const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
+  const clientEditMatch = location.match(/^\/clients\/(\d+)\/edit$/);
+  const clientId = clientDetailsMatch ? parseInt(clientDetailsMatch[1]) : 
+                   clientEditMatch ? parseInt(clientEditMatch[1]) : null;
 
-  // Fetch client data if this is a client details page
+  // Fetch client data if this is a client-related page
   const { data: clientData } = useQuery<ClientWithUser>({
     queryKey: ['/api/clients', clientId],
     enabled: !!clientId,
@@ -94,36 +107,43 @@ export function TabManager() {
   // Update tab titles when client data is loaded
   useEffect(() => {
     if (clientData && clientId) {
-      // Find if there's a tab for this client
-      const tabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}`);
+      // Find if there's a tab for this client (either details or edit)
+      const detailsTabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}`);
+      const editTabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}/edit`);
       
-      if (tabIndex !== -1 && clientData.user && clientData.user.name) {
-        // Get client name - split by space to get first and last name
+      // Get client name - split by space to get first and last name
+      let displayName = 'Client';
+      if (clientData.user && clientData.user.name) {
         const nameParts = clientData.user.name.split(' ');
         const firstName = nameParts[0];
         const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
-        const displayName = `${firstName} ${lastName}`;
-        
-        // Update the tab title
-        const updatedTabs = [...tabs];
-        updatedTabs[tabIndex] = {
-          ...updatedTabs[tabIndex],
+        displayName = `${firstName} ${lastName}`;
+      } else {
+        displayName = `Client ${clientId}`;
+      }
+      
+      // Create a copy of the tabs array
+      const updatedTabs = [...tabs];
+      
+      // Update the client details tab if it exists
+      if (detailsTabIndex !== -1) {
+        updatedTabs[detailsTabIndex] = {
+          ...updatedTabs[detailsTabIndex],
           title: displayName
         };
-        
-        setTabs(updatedTabs);
-      } else if (tabIndex !== -1) {
-        // Fallback if user data isn't available
-        const updatedTabs = [...tabs];
-        updatedTabs[tabIndex] = {
-          ...updatedTabs[tabIndex],
-          title: `Client ${clientId}`
-        };
-        
-        setTabs(updatedTabs);
       }
+      
+      // Update the client edit tab if it exists
+      if (editTabIndex !== -1) {
+        updatedTabs[editTabIndex] = {
+          ...updatedTabs[editTabIndex],
+          title: `Edit ${displayName}`
+        };
+      }
+      
+      setTabs(updatedTabs);
     }
-  }, [clientData, clientId]);
+  }, [clientData, clientId, tabs]);
 
   // Update active tab based on location
   useEffect(() => {

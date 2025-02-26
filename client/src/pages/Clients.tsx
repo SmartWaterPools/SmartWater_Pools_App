@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { 
   PlusCircle, 
   Search, 
@@ -8,19 +9,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from "@/components/ui/dialog";
 import { ClientList } from "@/components/clients/ClientList";
 import { ClientWithUser } from "@/lib/types";
 
 export default function Clients() {
-  const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [, setLocation] = useLocation();
 
   const { data: clients, isLoading } = useQuery<ClientWithUser[]>({
     queryKey: ["/api/clients"],
@@ -59,23 +53,13 @@ export default function Clients() {
             />
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-white font-medium">
-                <PlusCircle className="h-4 w-4 mr-1" />
-                Add Client
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Add New Client</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                {/* Client form would go here */}
-                <p className="text-sm text-gray-500">Form for adding new clients</p>
-              </div>
-            </DialogContent>
-          </Dialog>
+          <Button 
+            className="bg-primary hover:bg-primary/90 text-white font-medium"
+            onClick={() => setLocation("/clients/add")}
+          >
+            <PlusCircle className="h-4 w-4 mr-1" />
+            Add Client
+          </Button>
         </div>
       </div>
 

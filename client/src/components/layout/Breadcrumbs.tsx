@@ -10,11 +10,13 @@ export function Breadcrumbs() {
   // Get the path segments
   const segments = location.split('/').filter(Boolean);
   
-  // Check if this is a client details page
-  const clientMatch = location.match(/^\/clients\/(\d+)$/);
-  const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+  // Check if this is a client details or edit page
+  const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
+  const clientEditMatch = location.match(/^\/clients\/(\d+)\/edit$/);
+  const clientId = clientDetailsMatch ? parseInt(clientDetailsMatch[1]) : 
+                   clientEditMatch ? parseInt(clientEditMatch[1]) : null;
   
-  // Fetch client data if this is a client details page
+  // Fetch client data if this is a client-related page
   const { data: clientData } = useQuery<ClientWithUser>({
     queryKey: ['/api/clients', clientId],
     enabled: !!clientId,
@@ -63,6 +65,20 @@ export function Breadcrumbs() {
             current: index === segments.length - 1
           });
         }
+      } else if (segment === 'edit' && clientData && segments[index-1] === clientId?.toString()) {
+        // Handle edit page for client
+        items.push({
+          name: 'Edit',
+          path: currentPath,
+          current: index === segments.length - 1
+        });
+      } else if (segment === 'add' && segments[index-1] === 'clients') {
+        // Handle add new client page
+        items.push({
+          name: 'Add Client',
+          path: currentPath,
+          current: index === segments.length - 1
+        });
       } else {
         // Default case - just capitalize the segment
         const displayName = segment
