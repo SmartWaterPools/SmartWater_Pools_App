@@ -42,7 +42,7 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  // Use any string and transform to enum values
+  // Using a pre-processed string value
   contractType: z.string()
     .transform(val => {
       if (!val) return "residential";
@@ -50,8 +50,10 @@ const clientFormSchema = z.object({
       // Convert to lowercase for consistent validation
       const normalized = String(val).toLowerCase();
       
-      // Check if it's a valid contract type
-      if (VALID_CONTRACT_TYPES.includes(normalized as ContractType)) {
+      if (normalized === "residential" || 
+          normalized === "commercial" || 
+          normalized === "service" || 
+          normalized === "maintenance") {
         return normalized;
       }
       
@@ -147,19 +149,31 @@ export default function ClientEdit() {
         await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
         console.log(`[Client Update] User update successful`);
         
-        // Since we're using a zod enum schema, contractType is guaranteed to be valid
-        console.log(`[Client Update] Step 2: Using validated contract type:`, data.contractType);
+        // Make sure contract type is valid and lowercase
+        const normalizedContractType = data.contractType ? 
+          String(data.contractType).toLowerCase() : 
+          "residential";
+         
+        console.log(`[Client Update] Step 2: Using normalized contract type:`, normalizedContractType);
         
-        // Contract type is always lowercase from our component
-        const contractType = data.contractType.toLowerCase();
-        
-        // Update client data
+        // Create client data object
         const clientData = {
           companyName: data.companyName || null,
-          contractType: contractType,
+          // Use the exact string value, not an object
+          contractType: normalizedContractType, 
         };
         
-        console.log(`[Client Update] Step 3: Updating client ${clientId} with data:`, clientData);
+        // Debug output
+        console.log(`[Client Update] Step 3: Raw client data for update:`, JSON.stringify(clientData));
+        
+        // If no changes are needed, return the current client
+        if (client.contractType === normalizedContractType && 
+            client.companyName === clientData.companyName) {
+          console.log(`[Client Update] No changes needed, returning current client`);
+          return client;
+        }
+        
+        console.log(`[Client Update] Step 4: Updating client ${clientId} with data:`, clientData);
         const result = await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
         console.log(`[Client Update] Client update successful, received:`, result);
         
@@ -213,11 +227,27 @@ export default function ClientEdit() {
   function onSubmit(data: ClientFormValues) {
     console.log("[Submit Debug] Submitting form data:", data);
     
-    // Make a copy of the data to avoid modifying the original
+    // Process contract type separately to ensure it's a valid string
+    let contractTypeValue = "residential";
+    
+    if (data.contractType) {
+      const normalizedValue = String(data.contractType).toLowerCase();
+      
+      if (["residential", "commercial", "service", "maintenance"].includes(normalizedValue)) {
+        contractTypeValue = normalizedValue;
+      } else {
+        console.warn(`[Submit Debug] Invalid contract type "${data.contractType}", defaulting to "residential"`);
+      }
+    }
+    
+    // Create a clean copy with proper data types
     const submitData = {
-      ...data,
-      // Ensure contractType is lowercase
-      contractType: data.contractType ? String(data.contractType).toLowerCase() : null
+      name: data.name,
+      email: data.email,
+      phone: data.phone || "",
+      address: data.address || "",
+      companyName: data.companyName || "",
+      contractType: contractTypeValue
     };
     
     console.log("[Submit Debug] Normalized submit data:", submitData);
