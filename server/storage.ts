@@ -404,10 +404,13 @@ export class MemStorage implements IStorage {
   
   async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
     const id = this.invoiceId++;
+    // Ensure required fields have proper default values
     const invoice: Invoice = { 
       ...insertInvoice, 
       id, 
-      issueDate: new Date() 
+      issueDate: new Date(),
+      status: insertInvoice.status ?? "pending",
+      notes: insertInvoice.notes ?? null
     };
     this.invoices.set(id, invoice);
     return invoice;
