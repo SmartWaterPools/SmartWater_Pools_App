@@ -54,14 +54,12 @@ export function Sidebar({ user }: SidebarProps) {
     }
     
     // For all other paths, create a unique path with a timestamp to force a new tab
-    const newTabPath = `${path}?t=${Date.now()}`;
+    const timestamp = Date.now();
+    const newTabPath = `${path}?t=${timestamp}`;
     console.log('Creating new tab with path:', newTabPath);
-    setLocation(newTabPath);
     
-    // Then navigate to the real path after a brief delay
-    setTimeout(() => {
-      setLocation(path);
-    }, 50);
+    // Set the uniquely timestamped path to trigger tab creation
+    setLocation(newTabPath);
   };
   
   // Helper functions to get title and icon for the path

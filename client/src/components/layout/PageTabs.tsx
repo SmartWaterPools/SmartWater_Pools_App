@@ -105,38 +105,57 @@ export function PageTabs() {
     return { id: tabId, title, path: cleanPath, icon };
   };
   
+  // Track active tabs for debug purposes
+  useEffect(() => {
+    console.log('Current tabs:', tabs);
+    console.log('Active tab ID:', activeTabId);
+  }, [tabs, activeTabId]);
+
+  // State to track the timestamp of the last navigation
+  // This helps distinguish between navigation events
+  const [lastNavTimestamp, setLastNavTimestamp] = useState<number>(0);
+  
   // Update tabs when location changes
   useEffect(() => {
+    console.log('Location changed to:', location);
+    
     // If we're going to the dashboard, always use the dashboard tab
     if (location === '/') {
       setActiveTabId('dashboard');
       return;
     }
     
-    // Create a new tab for every non-dashboard navigation
-    if (location !== '/') {
-      // Check if we have a special temp path with timestamp (from Sidebar)
-      if (location.includes('?t=')) {
-        // This is a forced navigation - extract the real path
-        const realPath = location.split('?')[0];
-        // Create a new tab for this path
-        const newTab = createTab(realPath);
+    // Get the clean path without timestamp query
+    const cleanPath = location.includes('?t=') ? location.split('?')[0] : location;
+    
+    // Check if this is a temp path with timestamp from the sidebar
+    if (location.includes('?t=')) {
+      // This is a special navigation from the sidebar - create a new tab
+      const timestamp = parseInt(location.split('?t=')[1]);
+      
+      // Only process if this is a new navigation (prevent duplicates)
+      if (timestamp > lastNavTimestamp) {
+        setLastNavTimestamp(timestamp);
+        
+        // Create a new tab with the clean path
+        const newTab = createTab(cleanPath);
         if (newTab) {
-          console.log('Creating new tab from temp path:', newTab);
-          setTabs(prev => [...prev, newTab]);
-          setActiveTabId(newTab.id);
-        }
-      } else {
-        // Regular navigation - create a new tab
-        const newTab = createTab(location);
-        if (newTab) {
-          console.log('Creating new tab:', newTab);
-          setTabs(prev => [...prev, newTab]);
+          console.log('Creating new tab from sidebar:', newTab);
+          setTabs(prevTabs => [...prevTabs, newTab]);
           setActiveTabId(newTab.id);
         }
       }
+    } else {
+      // This is a regular navigation - check if tab exists
+      const existingTab = tabs.find(tab => tab.path === cleanPath);
+      
+      if (existingTab) {
+        // Just switch to existing tab
+        console.log('Switching to existing tab:', existingTab.id);
+        setActiveTabId(existingTab.id);
+      }
     }
-  }, [location]);
+  }, [location, lastNavTimestamp]);
   
   // Extract client ID from path if it's a client page (details or edit)
   const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
