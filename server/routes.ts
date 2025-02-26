@@ -160,15 +160,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Force to string and lowercase to ensure consistency
           const normalizedType = String(updateData.contractType).toLowerCase();
-
-          // Validate against allowed values from schema
-          const validTypes = CONTRACT_TYPES;
-          if (!validTypes.includes(normalizedType)) {
+          
+          if (!validateContractType(normalizedType)) {
             console.error(`[CLIENT UPDATE API] Invalid contract type: "${normalizedType}"`);
             return res.status(400).json({ 
               message: "The contract type must be one of: residential, commercial, service, maintenance",
               received: normalizedType,
-              valid_types: validTypes
+              valid_types: CONTRACT_TYPES
             });
           }
 
