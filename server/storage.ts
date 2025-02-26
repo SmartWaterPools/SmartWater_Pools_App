@@ -692,4 +692,223 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  // User operations
+  async getUser(id: number): Promise<User | undefined> {
+    return undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const id = 1;
+    return { ...insertUser, id, role: insertUser.role || "client", phone: insertUser.phone || null, address: insertUser.address || null };
+  }
+
+  async updateUser(id: number, data: Partial<User>): Promise<User | undefined> {
+    return undefined;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return [];
+  }
+
+  // Client operations
+  async getClient(id: number): Promise<Client | undefined> {
+    return undefined;
+  }
+
+  async getClientByUserId(userId: number): Promise<Client | undefined> {
+    return undefined;
+  }
+
+  async createClient(insertClient: InsertClient): Promise<Client> {
+    const id = 1;
+    return { ...insertClient, id, companyName: insertClient.companyName || null, contractType: insertClient.contractType || null };
+  }
+
+  async getAllClients(): Promise<Client[]> {
+    return [];
+  }
+
+  async getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined> {
+    return undefined;
+  }
+
+  // Technician operations
+  async getTechnician(id: number): Promise<Technician | undefined> {
+    return undefined;
+  }
+
+  async getTechnicianByUserId(userId: number): Promise<Technician | undefined> {
+    return undefined;
+  }
+
+  async createTechnician(insertTechnician: InsertTechnician): Promise<Technician> {
+    const id = 1;
+    return { ...insertTechnician, id, specialization: insertTechnician.specialization || null, certifications: insertTechnician.certifications || null };
+  }
+
+  async getAllTechnicians(): Promise<Technician[]> {
+    return [];
+  }
+
+  async getTechnicianWithUser(id: number): Promise<{ technician: Technician; user: User } | undefined> {
+    return undefined;
+  }
+
+  // Project operations
+  async getProject(id: number): Promise<Project | undefined> {
+    return undefined;
+  }
+
+  async createProject(insertProject: InsertProject): Promise<Project> {
+    const id = 1;
+    return { 
+      ...insertProject,
+      id,
+      status: insertProject.status || "planning",
+      description: insertProject.description || null,
+      completion: insertProject.completion || 0,
+      budget: insertProject.budget || null,
+      notes: insertProject.notes || null
+    };
+  }
+
+  async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
+    return undefined;
+  }
+
+  async getAllProjects(): Promise<Project[]> {
+    return [];
+  }
+
+  async getProjectsByClientId(clientId: number): Promise<Project[]> {
+    return [];
+  }
+
+  // Project assignment operations
+  async createProjectAssignment(insertAssignment: InsertProjectAssignment): Promise<ProjectAssignment> {
+    const id = 1;
+    return { ...insertAssignment, id };
+  }
+
+  async getProjectAssignments(projectId: number): Promise<ProjectAssignment[]> {
+    return [];
+  }
+
+  // Maintenance operations
+  async getMaintenance(id: number): Promise<Maintenance | undefined> {
+    return undefined;
+  }
+
+  async createMaintenance(insertMaintenance: InsertMaintenance): Promise<Maintenance> {
+    const id = 1;
+    return { 
+      ...insertMaintenance,
+      id,
+      status: insertMaintenance.status || "scheduled",
+      description: insertMaintenance.description || null,
+      notes: insertMaintenance.notes || null,
+      technicianId: insertMaintenance.technicianId || null,
+      completed: insertMaintenance.completed || false
+    };
+  }
+
+  async updateMaintenance(id: number, data: Partial<Maintenance>): Promise<Maintenance | undefined> {
+    return undefined;
+  }
+
+  async getAllMaintenances(): Promise<Maintenance[]> {
+    return [];
+  }
+
+  async getMaintenancesByClientId(clientId: number): Promise<Maintenance[]> {
+    return [];
+  }
+
+  async getMaintenancesByTechnicianId(technicianId: number): Promise<Maintenance[]> {
+    return [];
+  }
+
+  async getUpcomingMaintenances(days: number): Promise<Maintenance[]> {
+    return [];
+  }
+
+  // Repair operations
+  async getRepair(id: number): Promise<Repair | undefined> {
+    return undefined;
+  }
+
+  async createRepair(insertRepair: InsertRepair): Promise<Repair> {
+    const id = 1;
+    return { 
+      ...insertRepair,
+      id,
+      status: insertRepair.status || "pending",
+      priority: insertRepair.priority || "medium",
+      notes: insertRepair.notes || null,
+      technicianId: insertRepair.technicianId || null,
+      scheduledDate: insertRepair.scheduledDate || null,
+      scheduledTime: insertRepair.scheduledTime || null,
+      reportedDate: new Date(),
+      completionDate: null
+    };
+  }
+
+  async updateRepair(id: number, data: Partial<Repair>): Promise<Repair | undefined> {
+    return undefined;
+  }
+
+  async getAllRepairs(): Promise<Repair[]> {
+    return [];
+  }
+
+  async getRepairsByClientId(clientId: number): Promise<Repair[]> {
+    return [];
+  }
+
+  async getRepairsByTechnicianId(technicianId: number): Promise<Repair[]> {
+    return [];
+  }
+
+  async getRecentRepairs(count: number): Promise<Repair[]> {
+    return [];
+  }
+
+  // Invoice operations
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    return undefined;
+  }
+
+  async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    const id = 1;
+    return { 
+      ...insertInvoice,
+      id,
+      status: insertInvoice.status || "pending",
+      notes: insertInvoice.notes || null,
+      issueDate: new Date()
+    };
+  }
+
+  async updateInvoice(id: number, data: Partial<Invoice>): Promise<Invoice | undefined> {
+    return undefined;
+  }
+
+  async getAllInvoices(): Promise<Invoice[]> {
+    return [];
+  }
+
+  async getInvoicesByClientId(clientId: number): Promise<Invoice[]> {
+    return [];
+  }
+}
+
+// Uncomment to use in-memory storage for testing
+// export const storage = new MemStorage();
+
+// Use database storage
+export const storage = new DatabaseStorage();
