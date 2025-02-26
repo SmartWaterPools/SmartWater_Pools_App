@@ -183,25 +183,44 @@ export function TabManager() {
     }
   }, [clientData, clientId]);
 
+  // Store the previous location to detect changes from sidebar navigation
+  const [prevLocation, setPrevLocation] = useState(location);
+  
   // Update active tab based on location
   useEffect(() => {
-    const tabExists = tabs.find(tab => tab.path === location);
-    
-    if (!tabExists) {
-      // Create new tab for this path
-      const newTab = {
-        id: `tab-${Date.now()}`,
-        title: getTitleForPath(location),
-        path: location,
-        icon: getIconForPath(location)
-      };
+    // Check if we've navigated to a new location
+    if (location !== prevLocation) {
+      setPrevLocation(location);
       
-      setTabs([...tabs, newTab]);
-      setActiveTabId(newTab.id);
-    } else {
-      setActiveTabId(tabExists.id);
+      // Special case for dashboard - just activate the existing tab
+      if (location === '/') {
+        const dashboardTab = tabs.find(tab => tab.id === 'dashboard');
+        if (dashboardTab) {
+          setActiveTabId('dashboard');
+          return;
+        }
+      }
+      
+      // Check if this tab already exists
+      const existingTab = tabs.find(tab => tab.path === location);
+      
+      if (existingTab) {
+        // Just activate the existing tab
+        setActiveTabId(existingTab.id);
+      } else {
+        // Create a new tab
+        const newTab = {
+          id: `tab-${Date.now()}`,
+          title: getTitleForPath(location),
+          path: location,
+          icon: getIconForPath(location)
+        };
+        
+        setTabs([...tabs, newTab]);
+        setActiveTabId(newTab.id);
+      }
     }
-  }, [location]);
+  }, [location, tabs]);
 
   const handleTabClick = (tab: Tab) => {
     setLocation(tab.path);

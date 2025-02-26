@@ -46,21 +46,10 @@ export function Sidebar({ user }: SidebarProps) {
   
   // Create a new tab for navigation instead of replacing the current one
   const handleSidebarNavigation = (path: string) => {
-    // Special case for dashboard - just activate it if it already exists
-    if (path === '/') {
-      setLocation(path);
-      return;
-    }
-    
-    // Create a new tab with the path
-    const id = `tab-${Date.now()}`;
-    const title = getTitleForPath(path);
-    const icon = getIconForPath(path);
-    
-    // Add the new tab to the tabs list
-    window.dispatchEvent(new CustomEvent('open-new-tab', { 
-      detail: { id, title, path, icon } 
-    }));
+    // For simplicity, we'll just navigate to the location
+    // The TabManager will handle the tab creation automatically
+    // when detecting a location change
+    setLocation(path);
   };
   
   // Helper functions to get title and icon for the path
