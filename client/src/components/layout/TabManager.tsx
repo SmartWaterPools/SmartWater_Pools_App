@@ -102,6 +102,8 @@ export function TabManager() {
   const { data: clientData } = useQuery<ClientWithUser>({
     queryKey: ['/api/clients', clientId],
     enabled: !!clientId,
+    retry: 3,
+    staleTime: 5000,
   });
 
   // Update tab titles when client data is loaded

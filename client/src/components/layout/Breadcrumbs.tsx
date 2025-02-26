@@ -1,3 +1,4 @@
+import React from "react";
 import { useLocation } from "wouter";
 import { ChevronRight, Home } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -175,16 +176,18 @@ export function Breadcrumbs() {
             }
             
             return (
-              <BreadcrumbItem key={path}>
+              <React.Fragment key={path}>
                 <BreadcrumbSeparator>
                   <ChevronRight className="h-4 w-4" />
                 </BreadcrumbSeparator>
-                {isLast ? (
-                  <BreadcrumbPage>{name}</BreadcrumbPage>
-                ) : (
-                  <BreadcrumbLink href={path}>{name}</BreadcrumbLink>
-                )}
-              </BreadcrumbItem>
+                <BreadcrumbItem>
+                  {isLast ? (
+                    <BreadcrumbPage>{name}</BreadcrumbPage>
+                  ) : (
+                    <BreadcrumbLink href={path}>{name}</BreadcrumbLink>
+                  )}
+                </BreadcrumbItem>
+              </React.Fragment>
             );
           })}
         </BreadcrumbList>

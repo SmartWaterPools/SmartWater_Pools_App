@@ -39,29 +39,37 @@ export default function ClientDetails() {
     staleTime: 30000, // 30 seconds
   });
 
-  // Fetch client projects
-  const { data: projects = [] } = useQuery<any[]>({
-    queryKey: ["/api/projects", { clientId }],
+  // Fetch all projects and filter for this client
+  const { data: allProjects = [] } = useQuery<any[]>({
+    queryKey: ["/api/projects"],
     enabled: !!clientId,
   });
+  // Filter projects for this client
+  const projects = allProjects.filter(project => project.clientId === clientId);
   
-  // Fetch client maintenances
-  const { data: maintenances = [] } = useQuery<any[]>({
-    queryKey: ["/api/maintenances", { clientId }],
+  // Fetch all maintenances and filter for this client
+  const { data: allMaintenances = [] } = useQuery<any[]>({
+    queryKey: ["/api/maintenances"],
     enabled: !!clientId,
   });
+  // Filter maintenances for this client
+  const maintenances = allMaintenances.filter(maintenance => maintenance.clientId === clientId);
   
-  // Fetch client repairs
-  const { data: repairs = [] } = useQuery<any[]>({
-    queryKey: ["/api/repairs", { clientId }],
+  // Fetch all repairs and filter for this client
+  const { data: allRepairs = [] } = useQuery<any[]>({
+    queryKey: ["/api/repairs"],
     enabled: !!clientId,
   });
+  // Filter repairs for this client
+  const repairs = allRepairs.filter(repair => repair.clientId === clientId);
   
-  // Fetch client invoices
-  const { data: invoices = [] } = useQuery<any[]>({
-    queryKey: ["/api/invoices", { clientId }],
+  // Fetch all invoices and filter for this client
+  const { data: allInvoices = [] } = useQuery<any[]>({
+    queryKey: ["/api/invoices"],
     enabled: !!clientId,
   });
+  // Filter invoices for this client
+  const invoices = allInvoices.filter(invoice => invoice.clientId === clientId);
   
   // Go back to clients page
   const handleBack = () => {
