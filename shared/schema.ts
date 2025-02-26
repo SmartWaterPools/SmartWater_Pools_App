@@ -42,9 +42,22 @@ export const clients = pgTable("clients", {
   contractType: text("contract_type"), // Should always be one of CONTRACT_TYPES or null
 });
 
-export const insertClientSchema = createInsertSchema(clients).omit({
-  id: true,
-});
+export const insertClientSchema = createInsertSchema(clients)
+  .omit({
+    id: true,
+  })
+  .extend({
+    // Add custom validation for contract type
+    contractType: z.string()
+      .nullable()
+      .transform(val => {
+        if (val === null || val === undefined || val === '') return null;
+        return String(val).toLowerCase();
+      })
+      .refine((val) => val === null || CONTRACT_TYPES.includes(val as any), {
+        message: `Contract type must be one of: ${CONTRACT_TYPES.join(', ')} or null`
+      })
+  });
 
 // Technician schema
 export const technicians = pgTable("technicians", {
@@ -218,12 +231,28 @@ export const invoicesRelations = relations(invoices, ({ one }) => ({
   }),
 }));
 
+// Create a separate client update schema for PATCH operations
+export const updateClientSchema = z.object({
+  companyName: z.string().nullable().optional(),
+  contractType: z.string()
+    .nullable()
+    .optional()
+    .transform(val => {
+      if (val === null || val === undefined || val === '') return null;
+      return String(val).toLowerCase();
+    })
+    .refine((val) => val === null || CONTRACT_TYPES.includes(val as any), {
+      message: `Contract type must be one of: ${CONTRACT_TYPES.join(', ')} or null`
+    })
+});
+
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Client = typeof clients.$inferSelect;
 export type InsertClient = z.infer<typeof insertClientSchema>;
+export type UpdateClient = z.infer<typeof updateClientSchema>;
 
 export type Technician = typeof technicians.$inferSelect;
 export type InsertTechnician = z.infer<typeof insertTechnicianSchema>;

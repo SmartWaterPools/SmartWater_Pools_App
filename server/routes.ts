@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { 
   insertUserSchema, 
   insertClientSchema, 
+  updateClientSchema,
   insertTechnicianSchema,
   insertProjectSchema,
   insertMaintenanceSchema,
@@ -147,34 +148,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[CLIENT UPDATE API] Found existing client:`, JSON.stringify(client));
 
-      // Make a deep copy of the request body
-      let updateData = JSON.parse(JSON.stringify(req.body));
-
-      // Always process contract type to ensure consistent validation
-      if (updateData.contractType !== undefined) {
-        // Handle null, undefined or empty string values
-        if (updateData.contractType === null || 
-            updateData.contractType === undefined || 
-            updateData.contractType === '') {
-          console.log(`[CLIENT UPDATE API] Received empty/null contract type, setting to null`);
-          updateData.contractType = null;
-        } else {
-          // Force to string and lowercase to ensure consistency
-          const normalizedType = String(updateData.contractType).toLowerCase();
-          
-          if (!validateContractType(normalizedType)) {
-            console.error(`[CLIENT UPDATE API] Invalid contract type: "${normalizedType}"`);
-            return res.status(400).json({ 
-              message: "The contract type must be one of: residential, commercial, service, maintenance",
-              received: normalizedType,
-              valid_types: CONTRACT_TYPES
-            });
-          }
-
-          updateData.contractType = normalizedType;
-          console.log(`[CLIENT UPDATE API] Normalized contract type: "${updateData.contractType}"`);
-        }
+      // Validate the request data using our schema
+      const validationResult = validateRequest(updateClientSchema, req.body);
+      if (!validationResult.success) {
+        console.error(`[CLIENT UPDATE API] Validation error:`, validationResult.error);
+        return res.status(400).json({ 
+          message: validationResult.error || "Invalid client data",
+          received: req.body
+        });
       }
+
+      const updateData = validationResult.data;
+      console.log(`[CLIENT UPDATE API] Validated data:`, JSON.stringify(updateData));
 
       // Only perform update if there are actual changes
       const hasChanges = Object.keys(updateData).some(key => {
