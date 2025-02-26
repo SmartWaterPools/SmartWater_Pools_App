@@ -297,10 +297,10 @@ export class MemStorage implements IStorage {
     endDate.setDate(today.getDate() + days);
     
     return Array.from(this.maintenances.values()).filter((maintenance) => {
-      const maintenanceDate = new Date(maintenance.scheduledDate);
+      const maintenanceDate = new Date(maintenance.scheduleDate);
       return maintenanceDate >= today && maintenanceDate <= endDate;
     }).sort((a, b) => {
-      return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime();
+      return new Date(a.scheduleDate).getTime() - new Date(b.scheduleDate).getTime();
     });
   }
   
@@ -591,13 +591,10 @@ export class MemStorage implements IStorage {
     
     await this.createMaintenance({
       clientId: client3.id,
-      scheduledDate: tomorrow,
-      scheduledTime: "10:00:00",
+      scheduleDate: tomorrow.toISOString().split('T')[0],
       status: "scheduled",
       type: "weekly_cleaning",
-      description: "Weekly pool cleaning and chemical check",
       technicianId: tech1.id,
-      completed: false,
       notes: ""
     });
     
