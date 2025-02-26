@@ -25,7 +25,12 @@ export const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintena
 // Helper function to validate contract type
 export const validateContractType = (type: string | null): boolean => {
   if (!type) return true; // null is valid
-  return CONTRACT_TYPES.includes(type.toLowerCase());
+  
+  // Ensure we have a string and normalize to lowercase
+  const normalizedType = String(type).toLowerCase();
+  
+  // Check if it's in our predefined array
+  return CONTRACT_TYPES.includes(normalizedType as any);
 };
 export type ContractType = typeof CONTRACT_TYPES[number] | null;
 

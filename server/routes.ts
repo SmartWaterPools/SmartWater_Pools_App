@@ -8,7 +8,9 @@ import {
   insertProjectSchema,
   insertMaintenanceSchema,
   insertRepairSchema,
-  insertInvoiceSchema
+  insertInvoiceSchema,
+  validateContractType,
+  CONTRACT_TYPES
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -27,14 +29,7 @@ const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boo
   }
 };
 
-// Define the contract types constant.  This needs to be populated with the actual allowed types.
-const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintenance'];
-
-// Helper function to validate contract types
-const validateContractType = (type: string | null): boolean => {
-  if (type === null) return true;
-  return CONTRACT_TYPES.includes(String(type).toLowerCase());
-};
+// We import CONTRACT_TYPES and validateContractType from shared/schema.ts
 
 
 export async function registerRoutes(app: Express): Promise<Server> {
