@@ -3,14 +3,16 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Building, Mail, Phone, MapPin } from "lucide-react";
+import { useLocation } from "wouter";
 
 interface ClientListProps {
   clients: ClientWithUser[];
   isLoading: boolean;
-  onClientSelect: (client: ClientWithUser) => void;
+  onClientSelect?: (client: ClientWithUser) => void;
 }
 
 export function ClientList({ clients, isLoading, onClientSelect }: ClientListProps) {
+  const [, setLocation] = useLocation();
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -101,7 +103,13 @@ export function ClientList({ clients, isLoading, onClientSelect }: ClientListPro
             </div>
             
             <Button
-              onClick={() => onClientSelect(client)}
+              onClick={() => {
+                if (onClientSelect) {
+                  onClientSelect(client);
+                } else {
+                  setLocation(`/clients/${client.id}`);
+                }
+              }}
               variant="outline"
               className="w-full"
             >
