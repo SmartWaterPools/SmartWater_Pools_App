@@ -150,7 +150,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updateData.contractType = null;
         } else {
           // Force lowercase to ensure consistency
-          updateData.contractType = String(updateData.contractType).toLowerCase();
+          const normalizedType = String(updateData.contractType).toLowerCase();
+          
+          // Validate against allowed values
+          if (!['residential', 'commercial', 'service', 'maintenance'].includes(normalizedType)) {
+            console.error(`[CLIENT UPDATE API] Invalid contract type: "${normalizedType}"`);
+            return res.status(400).json({ 
+              message: "The contract type must be one of: residential, commercial, service, maintenance",
+              received: normalizedType
+            });
+          }
+          
+          updateData.contractType = normalizedType;
           console.log(`[CLIENT UPDATE API] Normalized contract type: "${updateData.contractType}"`);
         }
       }

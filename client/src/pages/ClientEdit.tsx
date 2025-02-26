@@ -42,20 +42,12 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  contractType: z.string()
+  contractType: z.enum(["residential", "commercial", "service", "maintenance"])
+    .or(z.literal(""))
     .transform(val => {
       if (!val || val === "") return null;
-      
-      // Validate it's one of our acceptable values (case-insensitive)
-      const normalizedVal = val.toLowerCase();
-      if (!VALID_CONTRACT_TYPES.includes(normalizedVal as ContractType)) {
-        throw new Error(`Invalid contract type: ${val}`);
-      }
-      
-      return normalizedVal as ContractType;
+      return val.toLowerCase() as ContractType;
     })
-    .nullable()
-    .optional()
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;

@@ -818,8 +818,17 @@ export class DatabaseStorage implements IStorage {
         console.log(`[DB STORAGE] Setting null contract type`);
         updatedData.contractType = null;
       } else {
-        updatedData.contractType = String(updatedData.contractType).toLowerCase();
-        console.log(`[DB STORAGE] Normalized contract type: '${updatedData.contractType}'`);
+        // Normalize and validate the contract type
+        const normalizedType = String(updatedData.contractType).toLowerCase();
+        
+        // Validate against allowed contract types
+        if (!['residential', 'commercial', 'service', 'maintenance'].includes(normalizedType)) {
+          console.error(`[DB STORAGE] Invalid contract type "${normalizedType}" - must be one of: residential, commercial, service, maintenance`);
+          throw new Error(`Invalid contract type: ${normalizedType}`);
+        }
+        
+        updatedData.contractType = normalizedType;
+        console.log(`[DB STORAGE] Validated and normalized contract type: '${updatedData.contractType}'`);
       }
     }
 
