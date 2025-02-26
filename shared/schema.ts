@@ -19,12 +19,16 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
 
+// Valid contract types
+export const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintenance'] as const;
+export type ContractType = typeof CONTRACT_TYPES[number] | null;
+
 // Client schema
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
   companyName: text("company_name"),
-  contractType: text("contract_type"),
+  contractType: text("contract_type"), // Should always be one of CONTRACT_TYPES or null
 });
 
 export const insertClientSchema = createInsertSchema(clients).omit({
