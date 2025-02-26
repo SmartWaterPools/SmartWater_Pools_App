@@ -170,9 +170,10 @@ function App() {
         
         {/* Main content area */}
         <div className="flex flex-col flex-1 overflow-hidden">
+          {/* App Header */}
           <Header toggleMobileMenu={toggleMobileMenu} />
           
-          {/* Tab Manager */}
+          {/* Tab Manager - Now positioned above content */}
           <TabManager />
           
           {/* Main content */}

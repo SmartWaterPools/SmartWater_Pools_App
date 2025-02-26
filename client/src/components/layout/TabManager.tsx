@@ -252,7 +252,14 @@ export function TabManager() {
   };
 
   return (
-    <div className="bg-gray-100 border-b border-gray-200">
+    <div className="bg-white border-b border-gray-200 z-10 relative shadow-sm">
+      {/* Tab Bar Title */}
+      <div className="bg-gray-50 px-3 py-1 border-b border-gray-200 flex items-center">
+        <Tabs className="h-4 w-4 mr-2 text-primary" />
+        <span className="text-xs font-medium text-gray-600">Open Pages</span>
+      </div>
+      
+      {/* Tabs */}
       <div className="flex overflow-x-auto scrollbar-hide">
         {tabs.map(tab => (
           <div
@@ -260,8 +267,8 @@ export function TabManager() {
             onClick={() => handleTabClick(tab)}
             className={`flex items-center min-w-fit max-w-[200px] px-3 py-2 border-r border-gray-200 select-none cursor-pointer transition-colors ${
               activeTabId === tab.id
-                ? 'bg-white text-primary border-b-2 border-b-primary'
-                : 'hover:bg-white/60 text-gray-600'
+                ? 'bg-blue-50 text-primary border-b-2 border-b-primary'
+                : 'hover:bg-gray-50 text-gray-600'
             }`}
           >
             <div className="flex items-center mr-2">
@@ -272,14 +279,16 @@ export function TabManager() {
               <div className="ml-3 flex items-center space-x-1">
                 <button
                   onClick={(e) => duplicateTab(e, tab)}
-                  className="p-1 rounded-md hover:bg-gray-200"
+                  className="p-0.5 rounded-md hover:bg-gray-200"
+                  title="Duplicate tab"
                 >
                   <Copy className="h-3.5 w-3.5 text-gray-500" />
                 </button>
                 <button
                   onClick={(e) => closeTab(e, tab.id)}
-                  className="p-1 rounded-md hover:bg-gray-200"
+                  className="p-0.5 rounded-md hover:bg-gray-200"
                   disabled={tabs.length <= 1}
+                  title="Close tab"
                 >
                   <X className="h-3.5 w-3.5 text-gray-500" />
                 </button>
