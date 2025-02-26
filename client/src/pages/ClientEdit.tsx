@@ -549,46 +549,61 @@ export default function ClientEdit() {
                           <Select 
                             onValueChange={(value) => {
                               console.log(`[Contract Type Field] Select changed to: "${value}" (from UI)`);
-                              // Only allow valid contract types from our predefined list
-                              if (VALID_CONTRACT_TYPES.includes(value as ContractType)) {
-                                // Ensure the value is set to lowercase for consistency
-                                const normalizedValue = value.toLowerCase();
-                                console.log(`[Contract Type Field] Setting normalized value: "${normalizedValue}"`);
-                                
-                                // Set the field value and manually notify React Hook Form
-                                field.onChange(normalizedValue);
-                                console.log(`[Contract Type Field] Field value after onChange:`, normalizedValue);
-                                
-                                // Log the current client value for comparison
-                                if (client) {
-                                  console.log(`[Contract Type Field] Current client.contractType: "${client.contractType}"`);
-                                }
-                                
-                                // Force trigger a form submission immediately after selection
-                                // This is necessary because sometimes the Select component's change
-                                // doesn't trigger the form.watch subscription properly
-                                setTimeout(() => {
-                                  const formValues = form.getValues();
-                                  console.log('[Contract Type Field] Form values after change:', formValues);
-                                  console.log('[Contract Type Field] Force-triggering auto-save with contract type:', normalizedValue);
-                                  
-                                  // Create the clean data just like in the auto-save effect
-                                  const cleanData = {
-                                    name: formValues.name,
-                                    email: formValues.email,
-                                    phone: formValues.phone || "",
-                                    address: formValues.address || "",
-                                    companyName: formValues.companyName || "",
-                                    contractType: normalizedValue
-                                  };
-                                  
-                                  setSaveStatus("saving");
-                                  saveFormData(cleanData as ClientFormValues);
-                                }, 200);
-                              } else {
+                              
+                              if (!VALID_CONTRACT_TYPES.includes(value as ContractType)) {
                                 console.warn(`Invalid contract type selected: "${value}"`);
-                                field.onChange("residential");
+                                toast({
+                                  title: "Invalid selection",
+                                  description: `"${value}" is not a valid contract type`,
+                                  variant: "destructive",
+                                });
+                                return;
                               }
+                              
+                              // Use the dedicated contract type API
+                              setSaveStatus("saving");
+                              
+                              // First update the form field immediately for better UI feedback
+                              const normalizedValue = value.toLowerCase();
+                              field.onChange(normalizedValue);
+                              
+                              console.log(`[Contract Type Field] Using direct API for type update to "${normalizedValue}"`);
+                              
+                              // Call the specialized endpoint just for contract type
+                              apiRequest(`/api/clients/${clientId}/contract-type`, "POST", {
+                                contractType: normalizedValue
+                              })
+                                .then(response => {
+                                  console.log(`[Contract Type Field] Direct API response:`, response);
+                                  
+                                  // Success - update UI state
+                                  setSaveStatus("saved");
+                                  setTimeout(() => setSaveStatus("idle"), 2000);
+                                  
+                                  // Update initial data
+                                  setInitialData({
+                                    ...initialData,
+                                    contractType: normalizedValue
+                                  } as ClientFormValues);
+                                  
+                                  // Force refresh data
+                                  queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+                                  queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+                                  
+                                  toast({
+                                    title: "Contract type updated",
+                                    description: `Contract type successfully changed to ${normalizedValue}`,
+                                  });
+                                })
+                                .catch(error => {
+                                  console.error(`[Contract Type Field] Direct API error:`, error);
+                                  setSaveStatus("error");
+                                  toast({
+                                    title: "Update failed",
+                                    description: `Could not update contract type: ${error.message || "Unknown error"}`,
+                                    variant: "destructive",
+                                  });
+                                });
                             }}
                             value={safeValue}
                             defaultValue="residential"

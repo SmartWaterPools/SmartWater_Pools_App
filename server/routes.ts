@@ -730,6 +730,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard summary route
+  // Special endpoint just for contract type updates
+  app.post("/api/clients/:id/contract-type", async (req: Request, res: Response) => {
+    const id = parseInt(req.params.id);
+    
+    if (isNaN(id)) {
+      return res.status(400).json({ message: "Invalid client ID" });
+    }
+    
+    const { contractType } = req.body;
+    
+    console.log(`[CONTRACT TYPE API] Received update request for client ${id} with type "${contractType}"`);
+    
+    // Normalize and validate
+    let validatedType: string | null = null;
+    
+    if (contractType === null || contractType === undefined || contractType === '') {
+      validatedType = null;
+    } else {
+      const normalizedType = String(contractType).toLowerCase();
+      if (!['residential', 'commercial', 'service', 'maintenance'].includes(normalizedType)) {
+        return res.status(400).json({ 
+          message: `Invalid contract type: ${normalizedType}. Must be one of: residential, commercial, service, maintenance, or null.`
+        });
+      }
+      validatedType = normalizedType;
+    }
+    
+    try {
+      // Get current client
+      const client = await storage.getClient(id);
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      console.log(`[CONTRACT TYPE API] Current type: "${client.contractType}" -> New type: "${validatedType}"`);
+      
+      // Direct update to just the contract type
+      const updatedClient = await storage.updateClient(id, { contractType: validatedType });
+      
+      if (!updatedClient) {
+        return res.status(500).json({ message: "Failed to update client" });
+      }
+      
+      console.log(`[CONTRACT TYPE API] Update successful, new value: "${updatedClient.contractType}"`);
+      res.json(updatedClient);
+    } catch (error) {
+      console.error("[CONTRACT TYPE API] Error:", error);
+      res.status(500).json({ 
+        message: "Error updating contract type",
+        error: String(error)
+      });
+    }
+  });
+
   app.get("/api/dashboard/summary", async (_req: Request, res: Response) => {
     try {
       const projects = await storage.getAllProjects();
