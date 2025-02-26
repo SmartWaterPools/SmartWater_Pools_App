@@ -8,7 +8,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ClientWithUser } from "@/lib/types";
-import { debounce, isEqual } from "@/lib/utils";
+import { debounce } from "@/lib/utils";
 
 import {
   Card,
@@ -16,7 +16,6 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import {
   Form,
@@ -31,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ChevronLeft, Save, Check, RefreshCw } from "lucide-react";
+import { ChevronLeft, Check, RefreshCw } from "lucide-react";
 
 // List of valid contract types
 const VALID_CONTRACT_TYPES = ["residential", "commercial", "service", "maintenance"] as const;
@@ -52,18 +51,16 @@ const clientFormSchema = z.object({
       // Convert to lowercase for consistent validation
       const normalized = String(val).toLowerCase();
       
-      // Verify against our valid contract types
-      if (VALID_CONTRACT_TYPES.includes(normalized as ContractType)) {
+      if (normalized === "residential" || 
+          normalized === "commercial" || 
+          normalized === "service" || 
+          normalized === "maintenance") {
         return normalized;
       }
       
       // Default to residential if invalid
       console.warn(`Invalid contract type "${val}", defaulting to "residential"`);
       return "residential";
-    })
-    // Make sure the result is definitely a valid contract type
-    .refine(val => VALID_CONTRACT_TYPES.includes(val as ContractType), {
-      message: `Contract type must be one of: ${VALID_CONTRACT_TYPES.join(', ')}`
     })
 });
 
@@ -95,6 +92,82 @@ export default function ClientEdit() {
       contractType: "residential",
     },
     mode: "onChange", // Enable validation on change
+  });
+
+  // Update client mutation
+  const updateClientMutation = useMutation({
+    mutationFn: async (data: ClientFormValues) => {
+      if (!client || !clientId) return null;
+      
+      try {
+        // Update user data first
+        console.log(`[Client Update] Starting update process for client ID ${clientId}`);
+        const userData = {
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+        };
+
+        console.log(`[Client Update] Step 1: Updating user ${client.user.id} with data:`, userData);
+        await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
+        console.log(`[Client Update] User update successful`);
+        
+        // Make sure contract type is valid and lowercase
+        const normalizedContractType = data.contractType ? 
+          String(data.contractType).toLowerCase() : 
+          "residential";
+         
+        console.log(`[Client Update] Step 2: Using normalized contract type:`, normalizedContractType);
+        
+        // Create client data object
+        const clientData = {
+          companyName: data.companyName || null,
+          // Use the exact string value, not an object
+          contractType: normalizedContractType, 
+        };
+        
+        // Debug output
+        console.log(`[Client Update] Step 3: Raw client data for update:`, JSON.stringify(clientData));
+        
+        // If no changes are needed, return the current client
+        if (client.contractType === normalizedContractType && 
+            client.companyName === clientData.companyName) {
+          console.log(`[Client Update] No changes needed, returning current client`);
+          return client;
+        }
+        
+        console.log(`[Client Update] Step 4: Updating client ${clientId} with data:`, clientData);
+        const result = await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
+        console.log(`[Client Update] Client update successful, received:`, result);
+        
+        return result;
+      } catch (error) {
+        console.error(`[Client Update] Error during update process:`, error);
+        throw error; // Re-throw to be caught by mutation error handler
+      }
+    },
+    onSuccess: () => {
+      console.log("[Client Update] Invalidating client queries");
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+    },
+    onError: (error: any) => {
+      console.error("[Client Update Error]:", error);
+      
+      // Detailed error message for better debugging
+      const errorMessage = error?.message || "Unknown error occurred";
+      toast({
+        title: "Error updating client",
+        description: `There was a problem updating the client: ${errorMessage}. Please try again.`,
+        variant: "destructive",
+      });
+      
+      // Force refresh queries to ensure consistent state
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+    },
   });
 
   // Update form values when client data is loaded
@@ -140,123 +213,12 @@ export default function ClientEdit() {
       setSaveStatus("idle");
     }
   }, [client, form]);
-  
-  // Update client mutation will be defined first, then used in the saveFormData function
-  const updateClientMutation = useMutation({
-    mutationFn: async (data: ClientFormValues) => {
-      if (!client || !clientId) return null;
-      
-      try {
-        // Update user data first
-        console.log(`[Client Update] Starting update process for client ID ${clientId}`);
-        const userData = {
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          address: data.address,
-        };
 
-        console.log(`[Client Update] Step 1: Updating user ${client.user.id} with data:`, userData);
-        await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
-        console.log(`[Client Update] User update successful`);
-        
-        // Ensure contract type is valid and properly formatted
-        let normalizedContractType = "residential";
-        
-        if (data.contractType) {
-          // First verify it's one of our allowed types
-          const lowercaseType = String(data.contractType).toLowerCase();
-          if (VALID_CONTRACT_TYPES.includes(lowercaseType as ContractType)) {
-            normalizedContractType = lowercaseType;
-          } else {
-            console.warn(`[Client Update] Contract type "${data.contractType}" is not valid, defaulting to "residential"`);
-          }
-        }
-         
-        console.log(`[Client Update] Step 2: Using normalized contract type:`, normalizedContractType);
-        
-        // Create client data object
-        const clientData = {
-          companyName: data.companyName || null,
-          // Use the exact string value, not an object
-          contractType: normalizedContractType, 
-        };
-        
-        // Debug output
-        console.log(`[Client Update] Step 3: Raw client data for update:`, JSON.stringify(clientData));
-        
-        // If no changes are needed, return the current client
-        if (client.contractType === normalizedContractType && 
-            client.companyName === clientData.companyName) {
-          console.log(`[Client Update] No changes needed, returning current client`);
-          return client;
-        }
-        
-        console.log(`[Client Update] Step 4: Updating client ${clientId} with data:`, clientData);
-        try {
-          const result = await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
-          console.log(`[Client Update] Client update successful, received:`, result);
-          return result;
-        } catch (updateError) {
-          console.error(`[Client Update] Error updating client:`, updateError);
-          
-          // Handle specific error cases
-          const errorMsg = typeof updateError === 'object' && updateError !== null 
-            ? (updateError as any).message || JSON.stringify(updateError)
-            : String(updateError);
-            
-          if (errorMsg.includes('match the expected pattern')) {
-            console.error(`[Client Update] Pattern matching error detected. Forcing contractType to standard value.`);
-            // Try one more time with hardcoded values
-            const fallbackData = {
-              companyName: clientData.companyName,
-              contractType: client.contractType || "residential" // Use current type or default
-            };
-            
-            const retryResult = await apiRequest(`/api/clients/${clientId}`, 'PATCH', fallbackData);
-            return retryResult;
-          }
-          
-          throw updateError;
-        }
-      } catch (error) {
-        console.error(`[Client Update] Error during update process:`, error);
-        throw error; // Re-throw to be caught by mutation error handler
-      }
-    },
-    onSuccess: (data) => {
-      console.log("[Client Update Success] Response data:", data);
-      
-      // Force invalidate all client-related queries to ensure fresh data
-      console.log("[Client Update] Invalidating client queries");
-      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
-      
-      // For auto-save, we don't navigate away unless explicitly requested
-    },
-    onError: (error: any) => {
-      console.error("[Client Update Error]:", error);
-      
-      // Detailed error message for better debugging
-      const errorMessage = error?.message || "Unknown error occurred";
-      toast({
-        title: "Error updating client",
-        description: `There was a problem updating the client: ${errorMessage}. Please try again.`,
-        variant: "destructive",
-      });
-      
-      // Force refresh queries to ensure consistent state
-      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
-    },
-  });
-
-  // Create debounced save function after the mutation is defined
+  // Define a function to save form data
   const saveFormData = (data: ClientFormValues) => {
     if (!initialData) return;
     
-    // Check if there are actual changes compared to the initial data
+    // Check if there are actual changes
     if (
       data.name === initialData.name &&
       data.email === initialData.email &&
@@ -276,6 +238,8 @@ export default function ClientEdit() {
       updateClientMutation.mutate(data, {
         onSuccess: () => {
           setSaveStatus("saved");
+          // Update the initial data to prevent redundant saves
+          setInitialData(data);
           // Restore to idle after a delay
           setTimeout(() => setSaveStatus("idle"), 2000);
         },
@@ -291,12 +255,10 @@ export default function ClientEdit() {
     }
   };
   
-  // Create a memoized debounced version of the save function
+  // Create a debounced version of the save function
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const debouncedSave = React.useMemo(
     () => debounce(saveFormData, 1000), 
-    // We use an empty dependency array and add the ESLint disable comment
-    // because we want this debounced function to be created only once
     []
   );
   
@@ -340,17 +302,45 @@ export default function ClientEdit() {
     return () => subscription.unsubscribe();
   }, [form, debouncedSave, initialData]);
 
+  // Handle form submission for manual saving
   function onSubmit(data: ClientFormValues) {
-    console.log("[Submit] Form submitted, navigating back to client details");
+    console.log("[Submit] Submitting form data:", data);
     
-    // Instead of submitting data on form submit, we'll just navigate back
-    // Since the auto-save feature already handles saving the data
+    // Process contract type separately to ensure it's a valid string
+    let contractTypeValue = "residential";
     
-    if (clientId) {
-      setLocation(`/clients/${clientId}`);
-    } else {
-      setLocation("/clients");
+    if (data.contractType) {
+      const normalizedValue = String(data.contractType).toLowerCase();
+      
+      if (VALID_CONTRACT_TYPES.includes(normalizedValue as ContractType)) {
+        contractTypeValue = normalizedValue;
+      } else {
+        console.warn(`[Submit] Invalid contract type "${data.contractType}", defaulting to "residential"`);
+      }
     }
+    
+    // Create a clean copy with proper data types
+    const submitData = {
+      name: data.name,
+      email: data.email,
+      phone: data.phone || "",
+      address: data.address || "",
+      companyName: data.companyName || "",
+      contractType: contractTypeValue
+    };
+    
+    console.log("[Submit] Normalized submit data:", submitData);
+    updateClientMutation.mutate(submitData as ClientFormValues, {
+      onSuccess: () => {
+        toast({
+          title: "Client updated",
+          description: "The client information has been successfully updated.",
+        });
+        
+        // Navigate back to client details page
+        setLocation(`/clients/${clientId}`);
+      }
+    });
   }
 
   // Go back to client details page
@@ -535,35 +525,28 @@ export default function ClientEdit() {
                 </div>
               </div>
 
-              <div className="flex justify-between items-center mt-6">
+              <div className="flex justify-between items-center">
                 <div className="flex items-center space-x-2">
                   {saveStatus === "saving" && (
                     <div className="flex items-center text-orange-500">
                       <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      <span>Auto-saving changes...</span>
+                      <span>Saving changes...</span>
                     </div>
                   )}
                   {saveStatus === "saved" && (
                     <div className="flex items-center text-green-500">
                       <Check className="h-4 w-4 mr-2" />
-                      <span>All changes saved</span>
+                      <span>Changes saved</span>
                     </div>
                   )}
                   {saveStatus === "error" && (
                     <div className="flex items-center text-red-500">
-                      <AlertTriangle className="h-4 w-4 mr-2" />
-                      <span>Error saving changes - please check inputs</span>
-                    </div>
-                  )}
-                  {saveStatus === "idle" && (
-                    <div className="flex items-center text-gray-400">
-                      <Info className="h-4 w-4 mr-2" />
-                      <span>Changes will auto-save as you type</span>
+                      <span>Error saving changes</span>
                     </div>
                   )}
                 </div>
                 <Button 
-                  variant="primary" 
+                  variant="outline" 
                   type="button" 
                   onClick={handleBack}
                 >
