@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createContext, useContext } from 'react';
 import { useLocation } from 'wouter';
 import { 
   X, 
@@ -9,21 +9,34 @@ import {
   Wrench, 
   Users, 
   UserRound,
-  Settings,
-  LayoutGrid
+  Settings
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ClientWithUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-interface TabItem {
+// Define tab interface
+export interface TabItem {
   id: string;
   title: string;
   path: string;
   icon: React.ReactNode;
 }
 
-export function PageTabs() {
+// Create a context to share tab state across components
+interface TabContextType {
+  tabs: TabItem[];
+  activeTabId: string;
+  setActiveTabId: (id: string) => void;
+  addTab: (path: string) => void;
+  closeTab: (id: string) => void;
+  duplicateTab: (tab: TabItem) => void;
+}
+
+const TabContext = createContext<TabContextType | undefined>(undefined);
+
+// Provider component to wrap the application
+export function TabProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [tabs, setTabs] = useState<TabItem[]>([
     { 
@@ -33,193 +46,89 @@ export function PageTabs() {
       icon: <LayoutDashboard className="h-4 w-4" /> 
     }
   ]);
-  
   const [activeTabId, setActiveTabId] = useState<string>('dashboard');
-  
-  // Function to create a new tab
-  const createTab = (path: string) => {
-    // Check if this is a path we should create a tab for
-    if (!path || path === '') return;
-    
-    // If the path contains a timestamp parameter, extract the base path
-    let cleanPath = path;
-    if (path.includes('?t=')) {
-      cleanPath = path.split('?')[0];
-    }
-    
-    // Create a unique ID for the tab
-    const tabId = `tab-${Date.now()}`;
-    
-    // Get the title for the tab based on the path
-    let title = 'New Tab';
-    let icon = <LayoutDashboard className="h-4 w-4" />;
-    
-    // Handle special paths
-    switch (cleanPath) {
+
+  // Helper function to get tab title and icon based on path
+  const getTabInfo = (path: string): { title: string; icon: React.ReactNode } => {
+    switch (path) {
       case '/':
-        title = 'Dashboard';
-        icon = <LayoutDashboard className="h-4 w-4" />;
-        break;
+        return { title: 'Dashboard', icon: <LayoutDashboard className="h-4 w-4" /> };
       case '/projects':
-        title = 'Projects';
-        icon = <Building className="h-4 w-4" />;
-        break;
+        return { title: 'Projects', icon: <Building className="h-4 w-4" /> };
       case '/maintenance':
-        title = 'Maintenance';
-        icon = <CalendarCheck className="h-4 w-4" />;
-        break;
+        return { title: 'Maintenance', icon: <CalendarCheck className="h-4 w-4" /> };
       case '/repairs':
-        title = 'Repairs';
-        icon = <Wrench className="h-4 w-4" />;
-        break;
+        return { title: 'Repairs', icon: <Wrench className="h-4 w-4" /> };
       case '/clients':
-        title = 'Clients';
-        icon = <Users className="h-4 w-4" />;
-        break;
+        return { title: 'Clients', icon: <Users className="h-4 w-4" /> };
       case '/technicians':
-        title = 'Technicians';
-        icon = <UserRound className="h-4 w-4" />;
-        break;
+        return { title: 'Technicians', icon: <UserRound className="h-4 w-4" /> };
       case '/settings':
-        title = 'Settings';
-        icon = <Settings className="h-4 w-4" />;
-        break;
+        return { title: 'Settings', icon: <Settings className="h-4 w-4" /> };
       default:
-        // Check if this is a client details page
-        const clientDetailsMatch = cleanPath.match(/^\/clients\/(\d+)$/);
-        const clientEditMatch = cleanPath.match(/^\/clients\/(\d+)\/edit$/);
+        // Handle client-specific pages
+        const clientDetailsMatch = path.match(/^\/clients\/(\d+)$/);
+        const clientEditMatch = path.match(/^\/clients\/(\d+)\/edit$/);
         
         if (clientDetailsMatch) {
-          title = `Client ${clientDetailsMatch[1]}`;
-          icon = <Users className="h-4 w-4" />;
+          return { title: `Client ${clientDetailsMatch[1]}`, icon: <Users className="h-4 w-4" /> };
         } else if (clientEditMatch) {
-          title = `Edit Client ${clientEditMatch[1]}`;
-          icon = <Users className="h-4 w-4" />;
-        } else if (cleanPath === '/clients/add') {
-          title = 'Add Client';
-          icon = <Users className="h-4 w-4" />;
+          return { title: `Edit Client ${clientEditMatch[1]}`, icon: <Users className="h-4 w-4" /> };
+        } else if (path === '/clients/add') {
+          return { title: 'Add Client', icon: <Users className="h-4 w-4" /> };
         }
+        
+        return { title: 'New Tab', icon: <LayoutDashboard className="h-4 w-4" /> };
     }
-    
-    // Store the clean path in the tab
-    return { id: tabId, title, path: cleanPath, icon };
   };
-  
-  // Track active tabs for debug purposes
-  useEffect(() => {
-    console.log('Current tabs:', tabs);
-    console.log('Active tab ID:', activeTabId);
-  }, [tabs, activeTabId]);
 
-  // State to track the timestamp of the last navigation
-  // This helps distinguish between navigation events
-  const [lastNavTimestamp, setLastNavTimestamp] = useState<number>(0);
-  
-  // Update tabs when location changes
-  useEffect(() => {
-    console.log('Location changed to:', location);
-    
-    // If we're going to the dashboard, always use the dashboard tab
-    if (location === '/') {
+  // Add a new tab
+  const addTab = (path: string) => {
+    // Don't add a tab for the dashboard since it's permanent
+    if (path === '/') {
       setActiveTabId('dashboard');
+      setLocation('/');
       return;
     }
     
-    // Get the clean path without timestamp query
-    const cleanPath = location.includes('?t=') ? location.split('?')[0] : location;
+    // Remove timestamp parameter if present
+    const cleanPath = path.includes('?t=') ? path.split('?')[0] : path;
     
-    // Check if this is a temp path with timestamp from the sidebar
-    if (location.includes('?t=')) {
-      // This is a special navigation from the sidebar - create a new tab
-      const timestamp = parseInt(location.split('?t=')[1]);
-      
-      // Only process if this is a new navigation (prevent duplicates)
-      if (timestamp > lastNavTimestamp) {
-        setLastNavTimestamp(timestamp);
-        
-        // Create a new tab with the clean path
-        const newTab = createTab(cleanPath);
-        if (newTab) {
-          console.log('Creating new tab from sidebar:', newTab);
-          setTabs(prevTabs => [...prevTabs, newTab]);
-          setActiveTabId(newTab.id);
-        }
-      }
-    } else {
-      // This is a regular navigation - check if tab exists
-      const existingTab = tabs.find(tab => tab.path === cleanPath);
-      
-      if (existingTab) {
-        // Just switch to existing tab
-        console.log('Switching to existing tab:', existingTab.id);
-        setActiveTabId(existingTab.id);
-      }
+    // Check if tab already exists for this path
+    const existingTab = tabs.find(tab => tab.path === cleanPath);
+    if (existingTab) {
+      // Just activate the existing tab
+      setActiveTabId(existingTab.id);
+      setLocation(cleanPath);
+      return;
     }
-  }, [location, lastNavTimestamp]);
-  
-  // Extract client ID from path if it's a client page (details or edit)
-  const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
-  const clientEditMatch = location.match(/^\/clients\/(\d+)\/edit$/);
-  const clientId = clientDetailsMatch ? parseInt(clientDetailsMatch[1]) : 
-                 clientEditMatch ? parseInt(clientEditMatch[1]) : null;
-  
-  // Fetch client data if this is a client-related page
-  const { data: clientData } = useQuery<ClientWithUser>({
-    queryKey: ['/api/clients', clientId],
-    enabled: !!clientId,
-  });
-  
-  // Update tab titles when client data is loaded
-  useEffect(() => {
-    if (clientData && clientId) {
-      const detailsTabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}`);
-      const editTabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}/edit`);
-      
-      if (detailsTabIndex === -1 && editTabIndex === -1) return;
-      
-      const clientName = clientData.user?.name || `Client ${clientId}`;
-      const updatedTabs = [...tabs];
-      let hasChanges = false;
-      
-      if (detailsTabIndex !== -1) {
-        updatedTabs[detailsTabIndex] = {
-          ...updatedTabs[detailsTabIndex],
-          title: clientName
-        };
-        hasChanges = true;
-      }
-      
-      if (editTabIndex !== -1) {
-        updatedTabs[editTabIndex] = {
-          ...updatedTabs[editTabIndex],
-          title: `Edit ${clientName}`
-        };
-        hasChanges = true;
-      }
-      
-      if (hasChanges) {
-        setTabs(updatedTabs);
-      }
-    }
-  }, [clientData, clientId]);
-  
-  const handleTabClick = (tab: TabItem) => {
-    setActiveTabId(tab.id);
-    setLocation(tab.path);
+    
+    // Create a new tab
+    const { title, icon } = getTabInfo(cleanPath);
+    const newTab: TabItem = {
+      id: `tab-${Date.now()}`,
+      title,
+      path: cleanPath,
+      icon
+    };
+    
+    // Add the new tab and make it active
+    setTabs(prev => [...prev, newTab]);
+    setActiveTabId(newTab.id);
+    setLocation(cleanPath);
   };
-  
-  const closeTab = (e: React.MouseEvent, tabId: string) => {
-    e.stopPropagation();
-    
+
+  // Close a tab
+  const closeTab = (id: string) => {
     // Don't close the dashboard tab
-    if (tabId === 'dashboard') return;
+    if (id === 'dashboard') return;
     
     // Find the index of the tab to close
-    const tabIndex = tabs.findIndex(tab => tab.id === tabId);
-    const isActiveTab = tabId === activeTabId;
+    const tabIndex = tabs.findIndex(tab => tab.id === id);
+    const isActiveTab = id === activeTabId;
     
     // Remove the tab
-    const newTabs = tabs.filter(tab => tab.id !== tabId);
+    const newTabs = tabs.filter(tab => tab.id !== id);
     setTabs(newTabs);
     
     // If closing the active tab, activate another tab
@@ -230,14 +139,13 @@ export function PageTabs() {
       setLocation(newActiveTab.path);
     }
   };
-  
-  const duplicateTab = (e: React.MouseEvent, tab: TabItem) => {
-    e.stopPropagation();
-    
+
+  // Duplicate a tab
+  const duplicateTab = (tab: TabItem) => {
     // Don't duplicate the dashboard tab
     if (tab.id === 'dashboard') return;
     
-    // Create a duplicate
+    // Create a duplicate with a new ID
     const newTab = {
       ...tab,
       id: `tab-${Date.now()}`,
@@ -247,11 +155,120 @@ export function PageTabs() {
     setTabs(prev => [...prev, newTab]);
     setActiveTabId(newTab.id);
   };
+
+  // Handle direct URL navigation without a sidebar click
+  useEffect(() => {
+    // If we're at the dashboard, just activate dashboard tab
+    if (location === '/') {
+      setActiveTabId('dashboard');
+      return;
+    }
+    
+    // If we're navigating to a path without a timestamp query (not from sidebar)
+    // and there's no tab for this path yet, create one
+    if (!location.includes('?t=')) {
+      const existingTab = tabs.find(tab => tab.path === location);
+      if (!existingTab) {
+        // Create a new tab for this path
+        const { title, icon } = getTabInfo(location);
+        const newTab: TabItem = {
+          id: `tab-${Date.now()}`,
+          title,
+          path: location,
+          icon
+        };
+        
+        setTabs(prev => [...prev, newTab]);
+        setActiveTabId(newTab.id);
+      } else {
+        // Just activate the existing tab
+        setActiveTabId(existingTab.id);
+      }
+    }
+  }, [location]);
+
+  // Log debug information
+  useEffect(() => {
+    console.log('Tabs:', tabs);
+    console.log('Active tab ID:', activeTabId);
+  }, [tabs, activeTabId]);
+
+  // Extract client ID for client-related pages
+  const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
+  const clientEditMatch = location.match(/^\/clients\/(\d+)\/edit$/);
+  const clientId = clientDetailsMatch ? parseInt(clientDetailsMatch[1]) : 
+                 clientEditMatch ? parseInt(clientEditMatch[1]) : null;
+  
+  // Fetch client data to update tab titles
+  const { data: clientData } = useQuery<ClientWithUser>({
+    queryKey: ['/api/clients', clientId],
+    enabled: !!clientId,
+  });
+  
+  // Update tab titles when client data is loaded
+  useEffect(() => {
+    if (clientData && clientId) {
+      const clientName = clientData.user?.name || `Client ${clientId}`;
+      
+      // Update all tabs for this client
+      setTabs(currentTabs => 
+        currentTabs.map(tab => {
+          if (tab.path === `/clients/${clientId}`) {
+            return { ...tab, title: clientName };
+          } else if (tab.path === `/clients/${clientId}/edit`) {
+            return { ...tab, title: `Edit ${clientName}` };
+          }
+          return tab;
+        })
+      );
+    }
+  }, [clientData, clientId]);
+
+  return (
+    <TabContext.Provider value={{ 
+      tabs, 
+      activeTabId, 
+      setActiveTabId, 
+      addTab, 
+      closeTab, 
+      duplicateTab 
+    }}>
+      {children}
+    </TabContext.Provider>
+  );
+}
+
+// Custom hook to use tab context
+export function useTabs() {
+  const context = useContext(TabContext);
+  if (context === undefined) {
+    throw new Error('useTabs must be used within a TabProvider');
+  }
+  return context;
+}
+
+// The actual tab bar component
+export function PageTabs() {
+  const { tabs, activeTabId, setActiveTabId, closeTab, duplicateTab } = useTabs();
+  const [, setLocation] = useLocation();
+  
+  const handleTabClick = (tab: TabItem) => {
+    setActiveTabId(tab.id);
+    setLocation(tab.path);
+  };
+  
+  const handleCloseTab = (e: React.MouseEvent, tabId: string) => {
+    e.stopPropagation();
+    closeTab(tabId);
+  };
+  
+  const handleDuplicateTab = (e: React.MouseEvent, tab: TabItem) => {
+    e.stopPropagation();
+    duplicateTab(tab);
+  };
   
   return (
     <div className="bg-white border-b border-gray-200">
-
-      
       <div className="flex overflow-x-auto scrollbar-hide">
         {tabs.map((tab) => (
           <div
@@ -271,14 +288,14 @@ export function PageTabs() {
             {tab.id !== 'dashboard' && (
               <div className="ml-2 flex items-center space-x-1">
                 <button
-                  onClick={(e) => duplicateTab(e, tab)}
+                  onClick={(e) => handleDuplicateTab(e, tab)}
                   className="p-0.5 rounded-md hover:bg-gray-200"
                   title="Duplicate tab"
                 >
                   <Copy className="h-3.5 w-3.5 text-gray-500" />
                 </button>
                 <button
-                  onClick={(e) => closeTab(e, tab.id)}
+                  onClick={(e) => handleCloseTab(e, tab.id)}
                   className="p-0.5 rounded-md hover:bg-gray-200"
                   title="Close tab"
                 >

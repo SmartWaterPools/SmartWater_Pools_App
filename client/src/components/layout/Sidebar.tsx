@@ -15,6 +15,7 @@ import {
   Droplet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTabs } from "./PageTabs";
 
 interface SidebarProps {
   user: {
@@ -25,7 +26,9 @@ interface SidebarProps {
 
 export function Sidebar({ user }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
+  const { addTab } = useTabs(); // Get addTab function from our tab context
+  
   const [isOnDashboard] = useRoute("/");
   const [isOnProjects] = useRoute("/projects");
   const [isOnMaintenance] = useRoute("/maintenance");
@@ -38,28 +41,11 @@ export function Sidebar({ user }: SidebarProps) {
     setIsCollapsed(!isCollapsed);
   };
 
-  // This function is kept for any other place that might use it
-  const handleNavigation = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
-    e.preventDefault();
-    setLocation(path);
-  };
-  
-  // Navigate to a path
-  // Always create a new tab when clicking a sidebar link (that's not dashboard)
+  // Handle sidebar navigation by adding a new tab
   const handleSidebarNavigation = (path: string) => {
-    // For dashboard, just activate the dashboard tab
-    if (path === '/') {
-      setLocation(path);
-      return;
-    }
-    
-    // For all other paths, create a unique path with a timestamp to force a new tab
-    const timestamp = Date.now();
-    const newTabPath = `${path}?t=${timestamp}`;
-    console.log('Creating new tab with path:', newTabPath);
-    
-    // Set the uniquely timestamped path to trigger tab creation
-    setLocation(newTabPath);
+    console.log('Sidebar navigation to:', path);
+    // Use our context's addTab function to create a new tab
+    addTab(path);
   };
   
   // Helper functions to get title and icon for the path

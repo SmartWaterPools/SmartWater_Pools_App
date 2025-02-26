@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
-import { PageTabs } from "@/components/layout/PageTabs";
+import { PageTabs, TabProvider } from "@/components/layout/PageTabs";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { Toaster } from "@/components/ui/toaster";
 import { X, Droplet } from "lucide-react";
@@ -41,9 +41,10 @@ function App() {
   
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="flex h-screen overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar user={user} />
+      <TabProvider>
+        <div className="flex h-screen overflow-hidden">
+          {/* Sidebar */}
+          <Sidebar user={user} />
         
         {/* Mobile menu (off-canvas) */}
         <div className={`fixed inset-0 z-40 md:hidden ${mobileMenuOpen ? 'block' : 'hidden'}`}>
@@ -202,6 +203,7 @@ function App() {
       <MobileNav />
       
       <Toaster />
+      </TabProvider>
     </QueryClientProvider>
   );
 }
