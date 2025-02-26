@@ -185,7 +185,11 @@ export default function ClientEdit() {
           clientData.companyName = data.companyName || null;
         }
         
-        if (client.contractType !== normalizedContractType) {
+        // For contract type, we need to be extra careful to handle case differences
+        // Compare after normalizing both to lowercase for proper comparison
+        const dbContractType = client.contractType ? String(client.contractType).toLowerCase() : null;
+        
+        if (dbContractType !== normalizedContractType) {
           clientData.contractType = normalizedContractType;
           console.log(`[Client Update] CONTRACT TYPE CHANGE: "${client.contractType}" → "${normalizedContractType}"`);
         }
@@ -602,7 +606,7 @@ export default function ClientEdit() {
                             </SelectContent>
                           </Select>
                           <FormDescription>
-                            Current contract type: {client?.contractType || "none"} (displayed as: {safeValue})
+                            Contract type: {safeValue} (DB value: {client?.contractType || "none"})
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
