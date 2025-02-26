@@ -152,8 +152,8 @@ export default function ClientEdit() {
         const userData = {
           name: data.name,
           email: data.email,
-          phone: data.phone,
-          address: data.address,
+          phone: data.phone || null,
+          address: data.address || null,
         };
 
         console.log(`[Client Update] Step 1: Updating user ${client.user.id} with data:`, userData);
@@ -175,24 +175,28 @@ export default function ClientEdit() {
          
         console.log(`[Client Update] Step 2: Using normalized contract type:`, normalizedContractType);
         
-        // Create client data object
+        // Create client data object - ONLY SEND THE CLIENT FIELDS
+        // Strip out any user fields
         const clientData = {
           companyName: data.companyName || null,
-          // Use the exact string value, not an object
           contractType: normalizedContractType, 
         };
         
         // Debug output
         console.log(`[Client Update] Step 3: Raw client data for update:`, JSON.stringify(clientData));
         
-        // If no changes are needed, return the current client
-        if (client.contractType === normalizedContractType && 
-            client.companyName === clientData.companyName) {
-          console.log(`[Client Update] No changes needed, returning current client`);
+        // Check for real changes to client data
+        const hasClientChanges = 
+          client.contractType !== normalizedContractType || 
+          (client.companyName !== clientData.companyName);
+          
+        // If no client changes, skip the client update
+        if (!hasClientChanges) {
+          console.log(`[Client Update] No client field changes detected, skipping client update`);
           return client;
         }
         
-        console.log(`[Client Update] Step 4: Updating client ${clientId} with data:`, clientData);
+        console.log(`[Client Update] Step 4: Updating client ${clientId} with client-specific data:`, clientData);
         try {
           const result = await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
           console.log(`[Client Update] Client update successful, received:`, result);
@@ -213,6 +217,7 @@ export default function ClientEdit() {
               contractType: client.contractType || "residential" // Use current type or default
             };
             
+            console.log('[Client Update] Trying with fallback data:', fallbackData);
             const retryResult = await apiRequest(`/api/clients/${clientId}`, 'PATCH', fallbackData);
             return retryResult;
           }
@@ -323,13 +328,19 @@ export default function ClientEdit() {
         }
       }
       
-      // Create a clean data object
+      // Create a clean data object - IMPORTANT: Don't send all fields to the API
+      // We have two separate endpoints - one for user data and one for client data
+      // We only need to send the client-specific fields to the client update endpoint
       const cleanData = {
-        ...formValues,
-        contractType: contractTypeValue,
+        // These are user fields, but needed for the form validation and comparison
+        name: formValues.name,
+        email: formValues.email,
         phone: formValues.phone || "",
         address: formValues.address || "",
-        companyName: formValues.companyName || ""
+        
+        // These are client fields, the only ones that will get sent to the client API
+        companyName: formValues.companyName || "",
+        contractType: contractTypeValue
       };
       
       console.log("[Auto-save] Change detected, will save after debounce:", cleanData);
