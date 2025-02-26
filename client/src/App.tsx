@@ -4,7 +4,6 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
-import { MobileNav } from "@/components/layout/MobileNav";
 import { TabProvider } from "@/components/layout/EnhancedTabManager";
 import { EnhancedTabManager } from "@/components/layout/EnhancedTabManager";
 import { EnhancedBreadcrumbs } from "@/components/layout/EnhancedBreadcrumbs";
@@ -183,7 +182,7 @@ function App() {
           <EnhancedTabManager />
           
           {/* Main content */}
-          <main className="flex-1 overflow-y-auto bg-background p-4 md:p-6">
+          <main className="flex-1 overflow-y-auto bg-background p-4 pb-20 md:p-6 md:pb-6">
             {/* Breadcrumbs */}
             <EnhancedBreadcrumbs />
             
@@ -203,9 +202,6 @@ function App() {
           </main>
         </div>
       </div>
-      
-      {/* Mobile bottom navigation */}
-      <MobileNav />
       
       <Toaster />
       </TabProvider>

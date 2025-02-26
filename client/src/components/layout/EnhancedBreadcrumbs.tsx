@@ -1,7 +1,6 @@
 import React, { useMemo } from 'react';
 import { useLocation } from 'wouter';
 import { ChevronRight, Home } from 'lucide-react';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from '@/components/ui/breadcrumb';
 import { useQuery } from '@tanstack/react-query';
 import { ClientWithUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -159,9 +158,9 @@ export function EnhancedBreadcrumbs() {
   }
   
   return (
-    <div className="mb-4">
-      <Breadcrumb>
-        <BreadcrumbList>
+    <div className="mb-4 py-2">
+      <nav className="flex" aria-label="Breadcrumb">
+        <ol className="flex items-center space-x-1 text-sm">
           {breadcrumbSegments.map((segment, index) => {
             const isFirst = index === 0;
             const isLast = index === breadcrumbSegments.length - 1;
@@ -169,45 +168,47 @@ export function EnhancedBreadcrumbs() {
             return (
               <React.Fragment key={segment.path}>
                 {!isFirst && (
-                  <BreadcrumbSeparator>
-                    <ChevronRight className="h-4 w-4" />
-                  </BreadcrumbSeparator>
+                  <li className="flex items-center">
+                    <ChevronRight className="h-4 w-4 text-gray-400 mx-1" />
+                  </li>
                 )}
                 
-                <BreadcrumbItem>
+                <li className={cn(
+                  "flex items-center",
+                  isLast ? "text-gray-600 font-medium" : "text-gray-500"
+                )}>
                   {isLast ? (
-                    <BreadcrumbPage>
+                    <div className="flex items-center">
                       {segment.icon && (
-                        <span className="mr-1 inline-flex items-center">
+                        <span className="mr-1">
                           {segment.icon}
                         </span>
                       )}
                       <span>{segment.title}</span>
-                    </BreadcrumbPage>
+                    </div>
                   ) : (
                     <div
                       className={cn(
-                        "cursor-pointer hover:text-primary transition-colors",
-                        isFirst && "flex items-center"
+                        "flex items-center cursor-pointer hover:text-primary transition-colors",
                       )}
                       onClick={(e) => handleBreadcrumbClick(e, segment.path)}
                     >
                       {segment.icon && (
-                        <span className="mr-1 inline-flex items-center">
+                        <span className="mr-1">
                           {segment.icon}
                         </span>
                       )}
-                      <span className={isFirst ? "sr-only sm:not-sr-only sm:inline" : ""}>
+                      <span className={isFirst ? "sr-only sm:not-sr-only" : ""}>
                         {segment.title}
                       </span>
                     </div>
                   )}
-                </BreadcrumbItem>
+                </li>
               </React.Fragment>
             );
           })}
-        </BreadcrumbList>
-      </Breadcrumb>
+        </ol>
+      </nav>
     </div>
   );
 }
