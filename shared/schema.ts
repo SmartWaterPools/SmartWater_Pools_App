@@ -20,7 +20,7 @@ export const insertUserSchema = createInsertSchema(users).omit({
 });
 
 // Valid contract types
-export const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintenance'] as const;
+export const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintenance', 'Residential', 'Commercial', 'Service', 'Maintenance'] as const;
 export type ContractType = typeof CONTRACT_TYPES[number] | null;
 
 // Client schema

@@ -27,6 +27,10 @@ const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boo
   }
 };
 
+// Define the contract types constant.  This needs to be populated with the actual allowed types.
+const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintenance'];
+
+
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
@@ -44,11 +48,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const user = await storage.getUser(id);
-      
+
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
       res.json(user);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch user" });
@@ -58,11 +62,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users", async (req: Request, res: Response) => {
     try {
       const validation = validateRequest(insertUserSchema, req.body);
-      
+
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
-      
+
       const user = await storage.createUser(validation.data);
       res.status(201).json(user);
     } catch (error) {
@@ -74,7 +78,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/clients", async (_req: Request, res: Response) => {
     try {
       const clients = await storage.getAllClients();
-      
+
       // Fetch the associated user for each client
       const clientsWithUsers = await Promise.all(
         clients.map(async (client) => {
@@ -82,7 +86,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { ...client, user };
         })
       );
-      
+
       res.json(clientsWithUsers);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch clients" });
@@ -93,27 +97,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       console.log(`Fetching client with ID: ${id}`);
-      
+
       if (isNaN(id)) {
         console.log(`Invalid client ID: ${req.params.id}`);
         return res.status(400).json({ message: "Invalid client ID" });
       }
-      
+
       const clientWithUser = await storage.getClientWithUser(id);
       console.log(`Result of getClientWithUser(${id}):`, clientWithUser);
-      
+
       if (!clientWithUser) {
         console.log(`Client with ID ${id} not found or user data missing`);
         return res.status(404).json({ message: "Client not found" });
       }
-      
+
       // Combine the client and user into a single object with the user property
       // to match what the frontend expects
       const clientResponse = {
         ...clientWithUser.client,
         user: clientWithUser.user
       };
-      
+
       console.log(`Successfully retrieved client ${id} with data:`, JSON.stringify(clientResponse));
       res.json(clientResponse);
     } catch (error) {
@@ -129,22 +133,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[CLIENT UPDATE API] Invalid client ID: ${req.params.id}`);
         return res.status(400).json({ message: "Invalid client ID", details: `Received: ${req.params.id}` });
       }
-      
+
       console.log(`[CLIENT UPDATE API] Attempting to update client with ID: ${id}`);
       console.log(`[CLIENT UPDATE API] Original update data:`, JSON.stringify(req.body));
-      
+
       // Get the existing client
       const client = await storage.getClient(id);
       if (!client) {
         console.log(`[CLIENT UPDATE API] Client with ID ${id} not found`);
         return res.status(404).json({ message: "Client not found", clientId: id });
       }
-      
+
       console.log(`[CLIENT UPDATE API] Found existing client:`, JSON.stringify(client));
-      
+
       // Make a deep copy of the request body
       let updateData = JSON.parse(JSON.stringify(req.body));
-      
+
       // Always process contract type to ensure consistent validation
       if (updateData.contractType !== undefined) {
         // Handle null, undefined or empty string values
@@ -156,9 +160,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } else {
           // Force to string and lowercase to ensure consistency
           const normalizedType = String(updateData.contractType).toLowerCase();
-          
-          // Validate against allowed values - using same constant as frontend
-          const validTypes = ['residential', 'commercial', 'service', 'maintenance'];
+
+          // Validate against allowed values from schema
+          const validTypes = CONTRACT_TYPES;
           if (!validTypes.includes(normalizedType)) {
             console.error(`[CLIENT UPDATE API] Invalid contract type: "${normalizedType}"`);
             return res.status(400).json({ 
@@ -167,12 +171,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               valid_types: validTypes
             });
           }
-          
+
           updateData.contractType = normalizedType;
           console.log(`[CLIENT UPDATE API] Normalized contract type: "${updateData.contractType}"`);
         }
       }
-      
+
       // Only perform update if there are actual changes
       const hasChanges = Object.keys(updateData).some(key => {
         // For string values, do case-insensitive comparison for contractType
@@ -181,17 +185,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         return updateData[key] !== client[key];
       });
-      
+
       if (!hasChanges) {
         console.log(`[CLIENT UPDATE API] No actual changes detected, returning existing client`);
         return res.json(client);
       }
-      
+
       // Update client data with detailed error handling
       try {
         console.log(`[CLIENT UPDATE API] Final update data being sent to database:`, JSON.stringify(updateData));
         const updatedClient = await storage.updateClient(id, updateData);
-        
+
         if (!updatedClient) {
           console.error(`[CLIENT UPDATE API] Update operation did not return a client`);
           return res.status(500).json({ 
@@ -199,12 +203,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             clientId: id
           });
         }
-        
+
         console.log(`[CLIENT UPDATE API] Client updated successfully:`, JSON.stringify(updatedClient));
-        
+
         // Return the complete updated client data
         res.json(updatedClient);
-        
+
       } catch (updateError) {
         console.error(`[CLIENT UPDATE API] Database error during client update:`, updateError);
         return res.status(500).json({ 
@@ -227,23 +231,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // First create the user
       const userValidation = validateRequest(insertUserSchema, req.body.user);
-      
+
       if (!userValidation.success) {
         return res.status(400).json({ message: userValidation.error });
       }
-      
+
       const user = await storage.createUser(userValidation.data);
-      
+
       // Then create the client with the user ID
       const clientData = { ...req.body.client, userId: user.id };
       const clientValidation = validateRequest(insertClientSchema, clientData);
-      
+
       if (!clientValidation.success) {
         return res.status(400).json({ message: clientValidation.error });
       }
-      
+
       const client = await storage.createClient(clientValidation.data);
-      
+
       res.status(201).json({ client, user });
     } catch (error) {
       res.status(500).json({ message: "Failed to create client" });
@@ -254,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/technicians", async (_req: Request, res: Response) => {
     try {
       const technicians = await storage.getAllTechnicians();
-      
+
       // Fetch the associated user for each technician
       const techniciansWithUsers = await Promise.all(
         technicians.map(async (technician) => {
@@ -262,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { ...technician, user };
         })
       );
-      
+
       res.json(techniciansWithUsers);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch technicians" });
@@ -273,11 +277,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const technicianWithUser = await storage.getTechnicianWithUser(id);
-      
+
       if (!technicianWithUser) {
         return res.status(404).json({ message: "Technician not found" });
       }
-      
+
       res.json(technicianWithUser);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch technician" });
@@ -288,23 +292,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // First create the user
       const userValidation = validateRequest(insertUserSchema, req.body.user);
-      
+
       if (!userValidation.success) {
         return res.status(400).json({ message: userValidation.error });
       }
-      
+
       const user = await storage.createUser(userValidation.data);
-      
+
       // Then create the technician with the user ID
       const technicianData = { ...req.body.technician, userId: user.id };
       const technicianValidation = validateRequest(insertTechnicianSchema, technicianData);
-      
+
       if (!technicianValidation.success) {
         return res.status(400).json({ message: technicianValidation.error });
       }
-      
+
       const technician = await storage.createTechnician(technicianValidation.data);
-      
+
       res.status(201).json({ technician, user });
     } catch (error) {
       res.status(500).json({ message: "Failed to create technician" });
@@ -315,13 +319,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects", async (_req: Request, res: Response) => {
     try {
       const projects = await storage.getAllProjects();
-      
+
       // Fetch additional data for each project
       const projectsWithDetails = await Promise.all(
         projects.map(async (project) => {
           const clientWithUser = await storage.getClientWithUser(project.clientId);
           const assignments = await storage.getProjectAssignments(project.id);
-          
+
           // Get technician details for each assignment
           const assignmentsWithTechnicians = await Promise.all(
             assignments.map(async (assignment) => {
@@ -329,7 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return { ...assignment, technician: technicianWithUser };
             })
           );
-          
+
           return {
             ...project,
             client: clientWithUser,
@@ -337,7 +341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(projectsWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch projects" });
@@ -348,14 +352,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const project = await storage.getProject(id);
-      
+
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
-      
+
       const clientWithUser = await storage.getClientWithUser(project.clientId);
       const assignments = await storage.getProjectAssignments(project.id);
-      
+
       // Get technician details for each assignment
       const assignmentsWithTechnicians = await Promise.all(
         assignments.map(async (assignment) => {
@@ -363,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return { ...assignment, technician: technicianWithUser };
         })
       );
-      
+
       res.json({
         ...project,
         client: clientWithUser,
@@ -377,13 +381,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/projects", async (req: Request, res: Response) => {
     try {
       const validation = validateRequest(insertProjectSchema, req.body);
-      
+
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
-      
+
       const project = await storage.createProject(validation.data);
-      
+
       // If technicians are assigned, create the assignments
       if (req.body.technicianIds && Array.isArray(req.body.technicianIds)) {
         await Promise.all(
@@ -396,7 +400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
         );
       }
-      
+
       res.status(201).json(project);
     } catch (error) {
       res.status(500).json({ message: "Failed to create project" });
@@ -407,11 +411,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const project = await storage.getProject(id);
-      
+
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
-      
+
       const updatedProject = await storage.updateProject(id, req.body);
       res.json(updatedProject);
     } catch (error) {
@@ -423,17 +427,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/maintenances", async (_req: Request, res: Response) => {
     try {
       const maintenances = await storage.getAllMaintenances();
-      
+
       // Fetch additional data for each maintenance
       const maintenancesWithDetails = await Promise.all(
         maintenances.map(async (maintenance) => {
           const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
           let technicianWithUser = null;
-          
+
           if (maintenance.technicianId) {
             technicianWithUser = await storage.getTechnicianWithUser(maintenance.technicianId);
           }
-          
+
           return {
             ...maintenance,
             client: clientWithUser,
@@ -441,7 +445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(maintenancesWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch maintenances" });
@@ -452,17 +456,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const days = parseInt(req.query.days as string) || 7;
       const upcomingMaintenances = await storage.getUpcomingMaintenances(days);
-      
+
       // Fetch additional data for each maintenance
       const maintenancesWithDetails = await Promise.all(
         upcomingMaintenances.map(async (maintenance) => {
           const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
           let technicianWithUser = null;
-          
+
           if (maintenance.technicianId) {
             technicianWithUser = await storage.getTechnicianWithUser(maintenance.technicianId);
           }
-          
+
           return {
             ...maintenance,
             client: clientWithUser,
@@ -470,7 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(maintenancesWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch upcoming maintenances" });
@@ -481,18 +485,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const maintenance = await storage.getMaintenance(id);
-      
+
       if (!maintenance) {
         return res.status(404).json({ message: "Maintenance not found" });
       }
-      
+
       const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
       let technicianWithUser = null;
-      
+
       if (maintenance.technicianId) {
         technicianWithUser = await storage.getTechnicianWithUser(maintenance.technicianId);
       }
-      
+
       res.json({
         ...maintenance,
         client: clientWithUser,
@@ -506,11 +510,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/maintenances", async (req: Request, res: Response) => {
     try {
       const validation = validateRequest(insertMaintenanceSchema, req.body);
-      
+
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
-      
+
       const maintenance = await storage.createMaintenance(validation.data);
       res.status(201).json(maintenance);
     } catch (error) {
@@ -522,11 +526,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const maintenance = await storage.getMaintenance(id);
-      
+
       if (!maintenance) {
         return res.status(404).json({ message: "Maintenance not found" });
       }
-      
+
       const updatedMaintenance = await storage.updateMaintenance(id, req.body);
       res.json(updatedMaintenance);
     } catch (error) {
@@ -538,17 +542,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/repairs", async (_req: Request, res: Response) => {
     try {
       const repairs = await storage.getAllRepairs();
-      
+
       // Fetch additional data for each repair
       const repairsWithDetails = await Promise.all(
         repairs.map(async (repair) => {
           const clientWithUser = await storage.getClientWithUser(repair.clientId);
           let technicianWithUser = null;
-          
+
           if (repair.technicianId) {
             technicianWithUser = await storage.getTechnicianWithUser(repair.technicianId);
           }
-          
+
           return {
             ...repair,
             client: clientWithUser,
@@ -556,7 +560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(repairsWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch repairs" });
@@ -567,17 +571,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const count = parseInt(req.query.count as string) || 5;
       const recentRepairs = await storage.getRecentRepairs(count);
-      
+
       // Fetch additional data for each repair
       const repairsWithDetails = await Promise.all(
         recentRepairs.map(async (repair) => {
           const clientWithUser = await storage.getClientWithUser(repair.clientId);
           let technicianWithUser = null;
-          
+
           if (repair.technicianId) {
             technicianWithUser = await storage.getTechnicianWithUser(repair.technicianId);
           }
-          
+
           return {
             ...repair,
             client: clientWithUser,
@@ -585,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
-      
+
       res.json(repairsWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch recent repairs" });
@@ -596,18 +600,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const repair = await storage.getRepair(id);
-      
+
       if (!repair) {
         return res.status(404).json({ message: "Repair not found" });
       }
-      
+
       const clientWithUser = await storage.getClientWithUser(repair.clientId);
       let technicianWithUser = null;
-      
+
       if (repair.technicianId) {
         technicianWithUser = await storage.getTechnicianWithUser(repair.technicianId);
       }
-      
+
       res.json({
         ...repair,
         client: clientWithUser,
@@ -621,11 +625,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/repairs", async (req: Request, res: Response) => {
     try {
       const validation = validateRequest(insertRepairSchema, req.body);
-      
+
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
-      
+
       const repair = await storage.createRepair(validation.data);
       res.status(201).json(repair);
     } catch (error) {
@@ -637,11 +641,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const repair = await storage.getRepair(id);
-      
+
       if (!repair) {
         return res.status(404).json({ message: "Repair not found" });
       }
-      
+
       const updatedRepair = await storage.updateRepair(id, req.body);
       res.json(updatedRepair);
     } catch (error) {
@@ -653,19 +657,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/invoices", async (_req: Request, res: Response) => {
     try {
       const invoices = await storage.getAllInvoices();
-      
+
       // Fetch additional data for each invoice
       const invoicesWithDetails = await Promise.all(
         invoices.map(async (invoice) => {
           const clientWithUser = await storage.getClientWithUser(invoice.clientId);
-          
+
           return {
             ...invoice,
             client: clientWithUser
           };
         })
       );
-      
+
       res.json(invoicesWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch invoices" });
@@ -676,13 +680,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const invoice = await storage.getInvoice(id);
-      
+
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
-      
+
       const clientWithUser = await storage.getClientWithUser(invoice.clientId);
-      
+
       res.json({
         ...invoice,
         client: clientWithUser
@@ -695,11 +699,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invoices", async (req: Request, res: Response) => {
     try {
       const validation = validateRequest(insertInvoiceSchema, req.body);
-      
+
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
-      
+
       const invoice = await storage.createInvoice(validation.data);
       res.status(201).json(invoice);
     } catch (error) {
@@ -711,11 +715,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       const invoice = await storage.getInvoice(id);
-      
+
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
-      
+
       const updatedInvoice = await storage.updateInvoice(id, req.body);
       res.json(updatedInvoice);
     } catch (error) {
@@ -730,7 +734,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const maintenances = await storage.getUpcomingMaintenances(7);
       const repairs = await storage.getRecentRepairs(5);
       const clients = await storage.getAllClients();
-      
+
       const summary = {
         metrics: {
           activeProjects: projects.filter(p => p.status !== "completed").length,
@@ -745,7 +749,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             .map(async (project) => {
               const clientWithUser = await storage.getClientWithUser(project.clientId);
               const assignments = await storage.getProjectAssignments(project.id);
-              
+
               return {
                 ...project,
                 client: clientWithUser,
@@ -757,11 +761,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           maintenances.slice(0, 5).map(async (maintenance) => {
             const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
             let technicianWithUser = null;
-            
+
             if (maintenance.technicianId) {
               technicianWithUser = await storage.getTechnicianWithUser(maintenance.technicianId);
             }
-            
+
             return {
               ...maintenance,
               client: clientWithUser,
@@ -773,11 +777,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           repairs.map(async (repair) => {
             const clientWithUser = await storage.getClientWithUser(repair.clientId);
             let technicianWithUser = null;
-            
+
             if (repair.technicianId) {
               technicianWithUser = await storage.getTechnicianWithUser(repair.technicianId);
             }
-            
+
             return {
               ...repair,
               client: clientWithUser,
@@ -786,7 +790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
         )
       };
-      
+
       res.json(summary);
     } catch (error) {
       console.error("Dashboard summary error:", error);
