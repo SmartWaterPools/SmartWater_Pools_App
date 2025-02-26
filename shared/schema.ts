@@ -77,13 +77,11 @@ export const insertProjectAssignmentSchema = createInsertSchema(projectAssignmen
 export const maintenances = pgTable("maintenances", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").references(() => clients.id).notNull(),
-  scheduledDate: date("scheduled_date").notNull(),
-  scheduledTime: time("scheduled_time").notNull(),
+  scheduleDate: date("schedule_date").notNull(),
+  technicianId: integer("technician_id").references(() => technicians.id).notNull(),
+  completionDate: date("completion_date"),
+  type: text("type").notNull(),
   status: text("status").notNull().default("scheduled"), // scheduled, in_progress, completed, cancelled
-  type: text("type").notNull(), // cleaning, inspection, chemical_balance, etc.
-  description: text("description"),
-  technicianId: integer("technician_id").references(() => technicians.id),
-  completed: boolean("completed").default(false),
   notes: text("notes"),
 });
 

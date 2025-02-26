@@ -868,11 +868,11 @@ export class DatabaseStorage implements IStorage {
       .from(maintenances)
       .where(
         and(
-          gte(maintenances.scheduledDate, today.toISOString().split('T')[0]),
-          lte(maintenances.scheduledDate, endDate.toISOString().split('T')[0])
+          gte(maintenances.scheduleDate, today.toISOString().split('T')[0]),
+          lte(maintenances.scheduleDate, endDate.toISOString().split('T')[0])
         )
       )
-      .orderBy(maintenances.scheduledDate);
+      .orderBy(maintenances.scheduleDate);
   }
 
   // Repair operations
