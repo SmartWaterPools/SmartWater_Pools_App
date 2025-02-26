@@ -6,8 +6,11 @@ import {
   ProjectAssignment, InsertProjectAssignment,
   Maintenance, InsertMaintenance,
   Repair, InsertRepair,
-  Invoice, InsertInvoice
+  Invoice, InsertInvoice,
+  users, clients, technicians, projects, projectAssignments, maintenances, repairs, invoices
 } from "@shared/schema";
+import { and, eq, desc, gte, lte } from "drizzle-orm";
+import { db } from "./db";
 
 export interface IStorage {
   // User operations
@@ -695,215 +698,265 @@ export class MemStorage implements IStorage {
 export class DatabaseStorage implements IStorage {
   // User operations
   async getUser(id: number): Promise<User | undefined> {
-    return undefined;
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return undefined;
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = 1;
-    return { ...insertUser, id, role: insertUser.role || "client", phone: insertUser.phone || null, address: insertUser.address || null };
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
   }
 
   async updateUser(id: number, data: Partial<User>): Promise<User | undefined> {
-    return undefined;
+    const [updatedUser] = await db
+      .update(users)
+      .set(data)
+      .where(eq(users.id, id))
+      .returning();
+    return updatedUser || undefined;
   }
 
   async getAllUsers(): Promise<User[]> {
-    return [];
+    return await db.select().from(users);
   }
 
   // Client operations
   async getClient(id: number): Promise<Client | undefined> {
-    return undefined;
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    return client || undefined;
   }
 
   async getClientByUserId(userId: number): Promise<Client | undefined> {
-    return undefined;
+    const [client] = await db.select().from(clients).where(eq(clients.userId, userId));
+    return client || undefined;
   }
 
   async createClient(insertClient: InsertClient): Promise<Client> {
-    const id = 1;
-    return { ...insertClient, id, companyName: insertClient.companyName || null, contractType: insertClient.contractType || null };
+    const [client] = await db.insert(clients).values(insertClient).returning();
+    return client;
   }
 
   async getAllClients(): Promise<Client[]> {
-    return [];
+    return await db.select().from(clients);
   }
 
   async getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined> {
-    return undefined;
+    const [client] = await db.select().from(clients).where(eq(clients.id, id));
+    if (!client) return undefined;
+
+    const [user] = await db.select().from(users).where(eq(users.id, client.userId));
+    if (!user) return undefined;
+
+    return { client, user };
   }
 
   // Technician operations
   async getTechnician(id: number): Promise<Technician | undefined> {
-    return undefined;
+    const [technician] = await db.select().from(technicians).where(eq(technicians.id, id));
+    return technician || undefined;
   }
 
   async getTechnicianByUserId(userId: number): Promise<Technician | undefined> {
-    return undefined;
+    const [technician] = await db.select().from(technicians).where(eq(technicians.userId, userId));
+    return technician || undefined;
   }
 
   async createTechnician(insertTechnician: InsertTechnician): Promise<Technician> {
-    const id = 1;
-    return { ...insertTechnician, id, specialization: insertTechnician.specialization || null, certifications: insertTechnician.certifications || null };
+    const [technician] = await db.insert(technicians).values(insertTechnician).returning();
+    return technician;
   }
 
   async getAllTechnicians(): Promise<Technician[]> {
-    return [];
+    return await db.select().from(technicians);
   }
 
   async getTechnicianWithUser(id: number): Promise<{ technician: Technician; user: User } | undefined> {
-    return undefined;
+    const [technician] = await db.select().from(technicians).where(eq(technicians.id, id));
+    if (!technician) return undefined;
+
+    const [user] = await db.select().from(users).where(eq(users.id, technician.userId));
+    if (!user) return undefined;
+
+    return { technician, user };
   }
 
   // Project operations
   async getProject(id: number): Promise<Project | undefined> {
-    return undefined;
+    const [project] = await db.select().from(projects).where(eq(projects.id, id));
+    return project || undefined;
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
-    const id = 1;
-    return { 
-      ...insertProject,
-      id,
-      status: insertProject.status || "planning",
-      description: insertProject.description || null,
-      completion: insertProject.completion || 0,
-      budget: insertProject.budget || null,
-      notes: insertProject.notes || null
-    };
+    const [project] = await db.insert(projects).values(insertProject).returning();
+    return project;
   }
 
   async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
-    return undefined;
+    const [updatedProject] = await db
+      .update(projects)
+      .set(data)
+      .where(eq(projects.id, id))
+      .returning();
+    return updatedProject || undefined;
   }
 
   async getAllProjects(): Promise<Project[]> {
-    return [];
+    return await db.select().from(projects);
   }
 
   async getProjectsByClientId(clientId: number): Promise<Project[]> {
-    return [];
+    return await db.select().from(projects).where(eq(projects.clientId, clientId));
   }
 
   // Project assignment operations
   async createProjectAssignment(insertAssignment: InsertProjectAssignment): Promise<ProjectAssignment> {
-    const id = 1;
-    return { ...insertAssignment, id };
+    const [assignment] = await db.insert(projectAssignments).values(insertAssignment).returning();
+    return assignment;
   }
 
   async getProjectAssignments(projectId: number): Promise<ProjectAssignment[]> {
-    return [];
+    return await db.select().from(projectAssignments).where(eq(projectAssignments.projectId, projectId));
   }
 
   // Maintenance operations
   async getMaintenance(id: number): Promise<Maintenance | undefined> {
-    return undefined;
+    const [maintenance] = await db.select().from(maintenances).where(eq(maintenances.id, id));
+    return maintenance || undefined;
   }
 
   async createMaintenance(insertMaintenance: InsertMaintenance): Promise<Maintenance> {
-    const id = 1;
-    return { 
-      ...insertMaintenance,
-      id,
-      status: insertMaintenance.status || "scheduled",
-      description: insertMaintenance.description || null,
-      notes: insertMaintenance.notes || null,
-      technicianId: insertMaintenance.technicianId || null,
-      completed: insertMaintenance.completed || false
-    };
+    const [maintenance] = await db.insert(maintenances).values(insertMaintenance).returning();
+    return maintenance;
   }
 
   async updateMaintenance(id: number, data: Partial<Maintenance>): Promise<Maintenance | undefined> {
-    return undefined;
+    const [updatedMaintenance] = await db
+      .update(maintenances)
+      .set(data)
+      .where(eq(maintenances.id, id))
+      .returning();
+    return updatedMaintenance || undefined;
   }
 
   async getAllMaintenances(): Promise<Maintenance[]> {
-    return [];
+    return await db.select().from(maintenances);
   }
 
   async getMaintenancesByClientId(clientId: number): Promise<Maintenance[]> {
-    return [];
+    return await db.select().from(maintenances).where(eq(maintenances.clientId, clientId));
   }
 
   async getMaintenancesByTechnicianId(technicianId: number): Promise<Maintenance[]> {
-    return [];
+    return await db
+      .select()
+      .from(maintenances)
+      .where(eq(maintenances.technicianId, technicianId));
   }
 
   async getUpcomingMaintenances(days: number): Promise<Maintenance[]> {
-    return [];
+    const today = new Date();
+    const endDate = new Date();
+    endDate.setDate(today.getDate() + days);
+    
+    return await db
+      .select()
+      .from(maintenances)
+      .where(
+        and(
+          gte(maintenances.scheduledDate, today.toISOString().split('T')[0]),
+          lte(maintenances.scheduledDate, endDate.toISOString().split('T')[0])
+        )
+      )
+      .orderBy(maintenances.scheduledDate);
   }
 
   // Repair operations
   async getRepair(id: number): Promise<Repair | undefined> {
-    return undefined;
+    const [repair] = await db.select().from(repairs).where(eq(repairs.id, id));
+    return repair || undefined;
   }
 
   async createRepair(insertRepair: InsertRepair): Promise<Repair> {
-    const id = 1;
-    return { 
-      ...insertRepair,
-      id,
-      status: insertRepair.status || "pending",
-      priority: insertRepair.priority || "medium",
-      notes: insertRepair.notes || null,
-      technicianId: insertRepair.technicianId || null,
-      scheduledDate: insertRepair.scheduledDate || null,
-      scheduledTime: insertRepair.scheduledTime || null,
-      reportedDate: new Date(),
-      completionDate: null
-    };
+    const [repair] = await db
+      .insert(repairs)
+      .values({
+        ...insertRepair,
+        reportedDate: new Date(),
+        completionDate: null
+      })
+      .returning();
+    return repair;
   }
 
   async updateRepair(id: number, data: Partial<Repair>): Promise<Repair | undefined> {
-    return undefined;
+    const [updatedRepair] = await db
+      .update(repairs)
+      .set(data)
+      .where(eq(repairs.id, id))
+      .returning();
+    return updatedRepair || undefined;
   }
 
   async getAllRepairs(): Promise<Repair[]> {
-    return [];
+    return await db.select().from(repairs);
   }
 
   async getRepairsByClientId(clientId: number): Promise<Repair[]> {
-    return [];
+    return await db.select().from(repairs).where(eq(repairs.clientId, clientId));
   }
 
   async getRepairsByTechnicianId(technicianId: number): Promise<Repair[]> {
-    return [];
+    return await db
+      .select()
+      .from(repairs)
+      .where(eq(repairs.technicianId, technicianId));
   }
 
   async getRecentRepairs(count: number): Promise<Repair[]> {
-    return [];
+    return await db
+      .select()
+      .from(repairs)
+      .orderBy(desc(repairs.reportedDate))
+      .limit(count);
   }
 
   // Invoice operations
   async getInvoice(id: number): Promise<Invoice | undefined> {
-    return undefined;
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    return invoice || undefined;
   }
 
   async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
-    const id = 1;
-    return { 
-      ...insertInvoice,
-      id,
-      status: insertInvoice.status || "pending",
-      notes: insertInvoice.notes || null,
-      issueDate: new Date()
-    };
+    const [invoice] = await db
+      .insert(invoices)
+      .values({
+        ...insertInvoice,
+        issueDate: new Date()
+      })
+      .returning();
+    return invoice;
   }
 
   async updateInvoice(id: number, data: Partial<Invoice>): Promise<Invoice | undefined> {
-    return undefined;
+    const [updatedInvoice] = await db
+      .update(invoices)
+      .set(data)
+      .where(eq(invoices.id, id))
+      .returning();
+    return updatedInvoice || undefined;
   }
 
   async getAllInvoices(): Promise<Invoice[]> {
-    return [];
+    return await db.select().from(invoices);
   }
 
   async getInvoicesByClientId(clientId: number): Promise<Invoice[]> {
-    return [];
+    return await db.select().from(invoices).where(eq(invoices.clientId, clientId));
   }
 }
 
