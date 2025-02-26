@@ -125,7 +125,7 @@ export default function ClientDetails() {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-xl font-bold">
-                  {client.companyName || (client.user && client.user.name) || "Client"}
+                  {client.companyName || (client.user && client.user.name) || `Client ${clientId}`}
                 </CardTitle>
                 <CardDescription>
                   {client.companyName && client.user && (
@@ -314,7 +314,7 @@ export default function ClientDetails() {
                     <Card key={repair.id}>
                       <CardHeader className="pb-2">
                         <div className="flex justify-between">
-                          <CardTitle className="text-lg font-semibold">{repair.issueType}</CardTitle>
+                          <CardTitle className="text-lg font-semibold">{repair.issue}</CardTitle>
                           <div className="flex gap-2">
                             <Badge 
                               className={
