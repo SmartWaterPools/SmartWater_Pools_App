@@ -182,11 +182,21 @@ export class MemStorage implements IStorage {
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
+    console.log(`MemStorage.updateClient: Updating client ${id} with data:`, JSON.stringify(data));
+    
     const client = await this.getClient(id);
     if (!client) return undefined;
     
-    const updatedClient = { ...client, ...data };
+    // Make sure contractType is lowercase for consistency
+    const updatedData: Partial<Client> = { ...data };
+    if (updatedData.contractType) {
+      updatedData.contractType = updatedData.contractType.toLowerCase();
+      console.log(`Normalized contract type to lowercase: ${updatedData.contractType}`);
+    }
+    
+    const updatedClient = { ...client, ...updatedData };
     this.clients.set(id, updatedClient);
+    console.log(`Client updated successfully:`, JSON.stringify(updatedClient));
     return updatedClient;
   }
   
@@ -789,12 +799,28 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
-    const [updatedClient] = await db
-      .update(clients)
-      .set(data)
-      .where(eq(clients.id, id))
-      .returning();
-    return updatedClient || undefined;
+    console.log(`DatabaseStorage.updateClient: Updating client ${id} with data:`, JSON.stringify(data));
+    
+    // Make sure contractType is lowercase for consistency
+    const updatedData: Partial<Client> = { ...data };
+    if (updatedData.contractType) {
+      updatedData.contractType = updatedData.contractType.toLowerCase();
+      console.log(`Normalized contract type to lowercase: ${updatedData.contractType}`);
+    }
+
+    try {
+      const [updatedClient] = await db
+        .update(clients)
+        .set(updatedData)
+        .where(eq(clients.id, id))
+        .returning();
+      
+      console.log(`Client updated successfully:`, JSON.stringify(updatedClient));
+      return updatedClient || undefined;
+    } catch (error) {
+      console.error(`Error updating client:`, error);
+      throw error;
+    }
   }
 
   async getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined> {

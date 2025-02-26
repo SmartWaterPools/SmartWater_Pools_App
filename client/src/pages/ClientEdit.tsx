@@ -99,9 +99,11 @@ export default function ClientEdit() {
 
       // Update client data
       const clientData = {
-        companyName: data.companyName,
-        contractType: data.contractType,
+        companyName: data.companyName || null,
+        contractType: data.contractType ? data.contractType.toLowerCase() : null,
       };
+      
+      console.log("Sending client update with data:", clientData);
 
       return await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
     },
@@ -263,7 +265,7 @@ export default function ClientEdit() {
                         <FormLabel>Contract Type</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
-                          value={field.value || "residential"}
+                          value={field.value?.toLowerCase() || "residential"}
                         >
                           <FormControl>
                             <SelectTrigger>
