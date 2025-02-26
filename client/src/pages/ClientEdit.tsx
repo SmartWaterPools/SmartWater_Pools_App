@@ -144,12 +144,21 @@ export default function ClientEdit() {
 
         // The contract type has already been validated and transformed by the schema
         // data.contractType is already either a valid value or null
-        console.log(`[Client Update] Step 2: Using validated contract type: "${data.contractType}"`);
+        console.log(`[Client Update] Step 2: Using validated contract type:`, data.contractType);
         
-        // Update client data - rely on schema validation for correct values
+        // Ensure contractType is a valid lowercase string or null
+        let contractType = null;
+        if (data.contractType) {
+          const normalizedType = String(data.contractType).toLowerCase();
+          if (['residential', 'commercial', 'service', 'maintenance'].includes(normalizedType)) {
+            contractType = normalizedType;
+          }
+        }
+        
+        // Update client data with guaranteed valid format
         const clientData = {
           companyName: data.companyName || null,
-          contractType: data.contractType,
+          contractType: contractType,
         };
         
         console.log(`[Client Update] Step 3: Updating client ${clientId} with data:`, clientData);
