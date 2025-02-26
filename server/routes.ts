@@ -670,7 +670,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(summary);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch dashboard summary" });
+      console.error("Dashboard summary error:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard summary", error: error instanceof Error ? error.message : String(error) });
     }
   });
 

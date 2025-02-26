@@ -50,9 +50,9 @@ export const projects = pgTable("projects", {
   description: text("description"),
   clientId: integer("client_id").references(() => clients.id).notNull(),
   startDate: date("start_date").notNull(),
-  deadline: date("deadline").notNull(),
-  status: text("status").notNull().default("planning"), // planning, in_progress, review, completed
-  completion: integer("completion").notNull().default(0), // 0-100 percentage
+  estimatedCompletionDate: date("estimated_completion_date"),
+  actualCompletionDate: date("actual_completion_date"),
+  status: text("status").notNull().default("pending"),
   budget: integer("budget"),
   notes: text("notes"),
 });
