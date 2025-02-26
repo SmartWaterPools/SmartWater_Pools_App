@@ -39,8 +39,19 @@ export default function ClientDetails() {
     queryKey: ["/api/clients", clientId],
     enabled: !!clientId,
     retry: 3,
-    staleTime: 5000, // 5 seconds - refresh more frequently
+    staleTime: 0, // Always consider data stale to force refresh
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    refetchOnReconnect: true,
   });
+  
+  // Effect to force refetch when revisiting this page
+  useEffect(() => {
+    if (clientId) {
+      console.log("ClientDetails - Forcing client data refetch for ID:", clientId);
+      refetch();
+    }
+  }, [clientId, refetch]);
 
   // Fetch projects for this client directly from backend
   const { data: projects = [], isLoading: isLoadingProjects } = useQuery<ProjectWithDetails[]>({

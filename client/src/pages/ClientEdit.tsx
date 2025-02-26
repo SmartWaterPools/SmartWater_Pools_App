@@ -127,18 +127,24 @@ export default function ClientEdit() {
 
       return await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
     },
-    onSuccess: () => {
-      // Invalidate and refetch clients query to update the list
+    onSuccess: (data) => {
+      console.log("[Client Update Success] Response data:", data);
+      
+      // Force invalidate all client-related queries to ensure fresh data
       queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
       
-      toast({
-        title: "Client updated",
-        description: "The client information has been successfully updated.",
-      });
-      
-      // Navigate back to client details page
-      setLocation(`/clients/${clientId}`);
+      // Force a delay before navigation to ensure cache is refreshed
+      setTimeout(() => {
+        toast({
+          title: "Client updated",
+          description: "The client information has been successfully updated.",
+        });
+        
+        // Navigate back to client details page
+        setLocation(`/clients/${clientId}`);
+      }, 300);
     },
     onError: (error) => {
       console.error("Error updating client:", error);
