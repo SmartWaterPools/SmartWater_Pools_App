@@ -99,97 +99,88 @@ export function Sidebar({ user }: SidebarProps) {
           "flex-1 space-y-1",
           isCollapsed ? "px-3" : "px-2"
         )}>
-          <Link href="/">
-            <a 
-              onClick={(e) => handleNavigation(e, "/")}
-              className={cn(
-                "flex items-center py-2 text-sm font-medium rounded-md",
-                isCollapsed ? "justify-center px-2" : "px-3",
-                isOnDashboard ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
-              )}
-            >
-              <LayoutDashboard className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
-              {!isCollapsed && <span>Dashboard</span>}
-            </a>
-          </Link>
-          <Link href="/projects">
-            <a 
-              onClick={(e) => handleNavigation(e, "/projects")}
-              className={cn(
-                "flex items-center py-2 text-sm font-medium rounded-md",
-                isCollapsed ? "justify-center px-2" : "px-3",
-                isOnProjects ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
-              )}
-            >
-              <Building className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
-              {!isCollapsed && <span>Construction Projects</span>}
-            </a>
-          </Link>
-          <Link href="/maintenance">
-            <a 
-              onClick={(e) => handleNavigation(e, "/maintenance")}
-              className={cn(
-                "flex items-center py-2 text-sm font-medium rounded-md",
-                isCollapsed ? "justify-center px-2" : "px-3",
-                isOnMaintenance ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
-              )}
-            >
-              <CalendarCheck className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
-              {!isCollapsed && <span>Maintenance</span>}
-            </a>
-          </Link>
-          <Link href="/repairs">
-            <a 
-              onClick={(e) => handleNavigation(e, "/repairs")}
-              className={cn(
-                "flex items-center py-2 text-sm font-medium rounded-md",
-                isCollapsed ? "justify-center px-2" : "px-3",
-                isOnRepairs ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
-              )}
-            >
-              <Wrench className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
-              {!isCollapsed && <span>Repairs</span>}
-            </a>
-          </Link>
-          <Link href="/clients">
-            <a 
-              onClick={(e) => handleNavigation(e, "/clients")}
-              className={cn(
-                "flex items-center py-2 text-sm font-medium rounded-md",
-                isCollapsed ? "justify-center px-2" : "px-3",
-                isOnClients ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
-              )}
-            >
-              <Users className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
-              {!isCollapsed && <span>Clients</span>}
-            </a>
-          </Link>
-          <Link href="/technicians">
-            <a 
-              onClick={(e) => handleNavigation(e, "/technicians")}
-              className={cn(
-                "flex items-center py-2 text-sm font-medium rounded-md",
-                isCollapsed ? "justify-center px-2" : "px-3",
-                isOnTechnicians ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
-              )}
-            >
-              <UserRound className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
-              {!isCollapsed && <span>Technicians</span>}
-            </a>
-          </Link>
-          <Link href="/settings">
-            <a 
-              onClick={(e) => handleNavigation(e, "/settings")}
-              className={cn(
-                "flex items-center py-2 text-sm font-medium rounded-md",
-                isCollapsed ? "justify-center px-2" : "px-3",
-                isOnSettings ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
-              )}
-            >
-              <Settings className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
-              {!isCollapsed && <span>Settings</span>}
-            </a>
-          </Link>
+          <div
+            onClick={() => setLocation("/")}
+            className={cn(
+              "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
+              isCollapsed ? "justify-center px-2" : "px-3",
+              isOnDashboard ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+            )}
+          >
+            <LayoutDashboard className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            {!isCollapsed && <span>Dashboard</span>}
+          </div>
+          <div
+            onClick={() => setLocation("/projects")}
+            className={cn(
+              "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
+              isCollapsed ? "justify-center px-2" : "px-3",
+              isOnProjects ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+            )}
+          >
+            <Building className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            {!isCollapsed && <span>Construction Projects</span>}
+          </div>
+          
+          <div
+            onClick={() => setLocation("/maintenance")}
+            className={cn(
+              "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
+              isCollapsed ? "justify-center px-2" : "px-3",
+              isOnMaintenance ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+            )}
+          >
+            <CalendarCheck className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            {!isCollapsed && <span>Maintenance</span>}
+          </div>
+          
+          <div
+            onClick={() => setLocation("/repairs")}
+            className={cn(
+              "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
+              isCollapsed ? "justify-center px-2" : "px-3",
+              isOnRepairs ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+            )}
+          >
+            <Wrench className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            {!isCollapsed && <span>Repairs</span>}
+          </div>
+          
+          <div
+            onClick={() => setLocation("/clients")}
+            className={cn(
+              "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
+              isCollapsed ? "justify-center px-2" : "px-3",
+              isOnClients ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+            )}
+          >
+            <Users className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            {!isCollapsed && <span>Clients</span>}
+          </div>
+          
+          <div
+            onClick={() => setLocation("/technicians")}
+            className={cn(
+              "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
+              isCollapsed ? "justify-center px-2" : "px-3",
+              isOnTechnicians ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+            )}
+          >
+            <UserRound className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            {!isCollapsed && <span>Technicians</span>}
+          </div>
+          
+          <div
+            onClick={() => setLocation("/settings")}
+            className={cn(
+              "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
+              isCollapsed ? "justify-center px-2" : "px-3",
+              isOnSettings ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+            )}
+          >
+            <Settings className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+            {!isCollapsed && <span>Settings</span>}
+          </div>
         </nav>
         {!isCollapsed && (
           <div className="px-4 mt-6">

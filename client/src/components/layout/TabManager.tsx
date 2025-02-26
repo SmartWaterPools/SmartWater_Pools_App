@@ -113,6 +113,9 @@ export function TabManager() {
       const detailsTabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}`);
       const editTabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}/edit`);
       
+      // Only update if we actually found tabs that need updating
+      if (detailsTabIndex === -1 && editTabIndex === -1) return;
+      
       // Get client name - split by space to get first and last name
       let displayName = 'Client';
       if (clientData.user && clientData.user.name) {
@@ -126,26 +129,32 @@ export function TabManager() {
       
       // Create a copy of the tabs array
       const updatedTabs = [...tabs];
+      let needsUpdate = false;
       
       // Update the client details tab if it exists
-      if (detailsTabIndex !== -1) {
+      if (detailsTabIndex !== -1 && updatedTabs[detailsTabIndex].title !== displayName) {
         updatedTabs[detailsTabIndex] = {
           ...updatedTabs[detailsTabIndex],
           title: displayName
         };
+        needsUpdate = true;
       }
       
       // Update the client edit tab if it exists
-      if (editTabIndex !== -1) {
+      if (editTabIndex !== -1 && updatedTabs[editTabIndex].title !== `Edit ${displayName}`) {
         updatedTabs[editTabIndex] = {
           ...updatedTabs[editTabIndex],
           title: `Edit ${displayName}`
         };
+        needsUpdate = true;
       }
       
-      setTabs(updatedTabs);
+      // Only update state if we made changes
+      if (needsUpdate) {
+        setTabs(updatedTabs);
+      }
     }
-  }, [clientData, clientId, tabs]);
+  }, [clientData, clientId]);
 
   // Update active tab based on location
   useEffect(() => {
