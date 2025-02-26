@@ -31,7 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ChevronLeft, Save, Check, RefreshCw } from "lucide-react";
+import { ChevronLeft, Save, Check, RefreshCw, AlertTriangle, Info } from "lucide-react";
 
 // List of valid contract types
 const VALID_CONTRACT_TYPES = ["residential", "commercial", "service", "maintenance"] as const;
@@ -563,7 +563,7 @@ export default function ClientEdit() {
                   )}
                 </div>
                 <Button 
-                  variant="primary" 
+                  variant="default" 
                   type="button" 
                   onClick={handleBack}
                 >
