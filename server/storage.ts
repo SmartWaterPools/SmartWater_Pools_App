@@ -181,6 +181,15 @@ export class MemStorage implements IStorage {
     return Array.from(this.clients.values());
   }
   
+  async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
+    const client = await this.getClient(id);
+    if (!client) return undefined;
+    
+    const updatedClient = { ...client, ...data };
+    this.clients.set(id, updatedClient);
+    return updatedClient;
+  }
+  
   async getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined> {
     const client = await this.getClient(id);
     if (!client) return undefined;
@@ -778,6 +787,15 @@ export class DatabaseStorage implements IStorage {
   async getAllClients(): Promise<Client[]> {
     return await db.select().from(clients);
   }
+  
+  async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
+    const [updatedClient] = await db
+      .update(clients)
+      .set(data)
+      .where(eq(clients.id, id))
+      .returning();
+    return updatedClient || undefined;
+  }
 
   async getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined> {
     try {
@@ -979,8 +997,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
-    // Generate current date as ISO string
-    const now = new Date().toISOString();
+    // Generate current date
+    const now = new Date();
     // Create the invoice with the current date
     const [invoice] = await db
       .insert(invoices)
