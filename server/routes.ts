@@ -92,9 +92,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/clients/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      console.log(`Fetching client with ID: ${id}`);
+      
       const clientWithUser = await storage.getClientWithUser(id);
       
       if (!clientWithUser) {
+        console.log(`Client with ID ${id} not found or user data missing`);
         return res.status(404).json({ message: "Client not found" });
       }
       
@@ -105,6 +108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: clientWithUser.user
       };
       
+      console.log(`Successfully retrieved client ${id} with data:`, JSON.stringify(clientResponse));
       res.json(clientResponse);
     } catch (error) {
       console.error("Error fetching client:", error);

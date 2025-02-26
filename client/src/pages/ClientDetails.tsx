@@ -35,41 +35,41 @@ export default function ClientDetails() {
   const { data: client, isLoading, error, refetch } = useQuery<ClientWithUser>({
     queryKey: ["/api/clients", clientId],
     enabled: !!clientId,
-    retry: 2,
-    staleTime: 30000, // 30 seconds
+    retry: 3,
+    staleTime: 5000, // 5 seconds - refresh more frequently
   });
 
-  // Fetch all projects and filter for this client
-  const { data: allProjects = [] } = useQuery<any[]>({
+  // Fetch projects for this client directly from backend
+  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<any[]>({
     queryKey: ["/api/projects"],
+    select: (data) => data.filter((project) => project.clientId === clientId),
     enabled: !!clientId,
+    retry: 2,
   });
-  // Filter projects for this client
-  const projects = allProjects.filter(project => project.clientId === clientId);
   
-  // Fetch all maintenances and filter for this client
-  const { data: allMaintenances = [] } = useQuery<any[]>({
+  // Fetch maintenances for this client directly from backend
+  const { data: maintenances = [], isLoading: isLoadingMaintenances } = useQuery<any[]>({
     queryKey: ["/api/maintenances"],
+    select: (data) => data.filter((maintenance) => maintenance.clientId === clientId),
     enabled: !!clientId,
+    retry: 2,
   });
-  // Filter maintenances for this client
-  const maintenances = allMaintenances.filter(maintenance => maintenance.clientId === clientId);
   
-  // Fetch all repairs and filter for this client
-  const { data: allRepairs = [] } = useQuery<any[]>({
+  // Fetch repairs for this client directly from backend
+  const { data: repairs = [], isLoading: isLoadingRepairs } = useQuery<any[]>({
     queryKey: ["/api/repairs"],
+    select: (data) => data.filter((repair) => repair.clientId === clientId),
     enabled: !!clientId,
+    retry: 2,
   });
-  // Filter repairs for this client
-  const repairs = allRepairs.filter(repair => repair.clientId === clientId);
   
-  // Fetch all invoices and filter for this client
-  const { data: allInvoices = [] } = useQuery<any[]>({
+  // Fetch invoices for this client directly from backend
+  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<any[]>({
     queryKey: ["/api/invoices"],
+    select: (data) => data.filter((invoice) => invoice.clientId === clientId),
     enabled: !!clientId,
+    retry: 2,
   });
-  // Filter invoices for this client
-  const invoices = allInvoices.filter(invoice => invoice.clientId === clientId);
   
   // Go back to clients page
   const handleBack = () => {

@@ -780,13 +780,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined> {
-    const [client] = await db.select().from(clients).where(eq(clients.id, id));
-    if (!client) return undefined;
+    try {
+      const [client] = await db.select().from(clients).where(eq(clients.id, id));
+      if (!client) {
+        console.log(`Client with ID ${id} not found in database`);
+        return undefined;
+      }
 
-    const [user] = await db.select().from(users).where(eq(users.id, client.userId));
-    if (!user) return undefined;
+      const [user] = await db.select().from(users).where(eq(users.id, client.userId));
+      if (!user) {
+        console.log(`User with ID ${client.userId} not found for client ${id}`);
+        return undefined;
+      }
 
-    return { client, user };
+      console.log(`Successfully retrieved client ${id} with user ${user.id}`);
+      return { client, user };
+    } catch (error) {
+      console.error(`Error in getClientWithUser(${id}):`, error);
+      return undefined;
+    }
   }
 
   // Technician operations
@@ -920,6 +932,7 @@ export class DatabaseStorage implements IStorage {
       .insert(repairs)
       .values({
         ...insertRepair,
+        description: insertRepair.description || null,
         reportedDate: new Date(),
         completionDate: null
       })
@@ -970,7 +983,7 @@ export class DatabaseStorage implements IStorage {
       .insert(invoices)
       .values({
         ...insertInvoice,
-        issueDate: new Date()
+        issueDate: new Date().toISOString()
       })
       .returning();
     return invoice;
