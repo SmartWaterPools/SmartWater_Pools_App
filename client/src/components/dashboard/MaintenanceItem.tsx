@@ -11,8 +11,8 @@ interface MaintenanceItemProps {
 
 export function MaintenanceItem({ maintenance }: MaintenanceItemProps) {
   // Format date and time
-  const date = new Date(maintenance.scheduledDate);
-  const time = maintenance.scheduledTime;
+  const date = new Date(maintenance.scheduleDate);
+  const time = maintenance.scheduledTime ? maintenance.scheduledTime : null;
   
   // Get status styling
   const statusClasses = getStatusClasses(maintenance.status);
