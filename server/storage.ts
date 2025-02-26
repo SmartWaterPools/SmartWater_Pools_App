@@ -351,6 +351,7 @@ export class MemStorage implements IStorage {
     const repair: Repair = { 
       ...insertRepair, 
       id, 
+      description: insertRepair.description || null,
       reportedDate: new Date(),
       completionDate: null,
       status: insertRepair.status ?? "pending",
@@ -583,8 +584,8 @@ export class MemStorage implements IStorage {
       name: "Mediterranean Luxury Pool",
       description: "Custom Mediterranean-style pool with spa and waterfall features",
       clientId: client1.id,
-      startDate: new Date("2023-09-01"),
-      deadline: new Date("2023-11-15"),
+      startDate: "2023-09-01",
+      estimatedCompletionDate: "2023-11-15",
       status: "in_progress",
       completion: 68,
       budget: 75000,

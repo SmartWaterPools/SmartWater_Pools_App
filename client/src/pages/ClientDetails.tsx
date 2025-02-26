@@ -222,15 +222,15 @@ export default function ClientDetails() {
                           </div>
                           <div>
                             <p className="text-gray-500">Target Completion:</p>
-                            <p>{new Date(project.deadline).toLocaleDateString()}</p>
+                            <p>{project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate).toLocaleDateString() : 'Not set'}</p>
                           </div>
                           <div>
                             <p className="text-gray-500">Budget:</p>
                             <p>${project.budget?.toLocaleString() || "N/A"}</p>
                           </div>
                           <div>
-                            <p className="text-gray-500">Completion:</p>
-                            <p>{project.completion || 0}%</p>
+                            <p className="text-gray-500">Status:</p>
+                            <p>{project.status.charAt(0).toUpperCase() + project.status.slice(1).replace('_', ' ')}</p>
                           </div>
                         </div>
                       </CardContent>
@@ -278,7 +278,7 @@ export default function ClientDetails() {
                         <div className="flex items-center mb-2">
                           <Calendar className="h-4 w-4 text-gray-400 mr-2" />
                           <span className="text-sm">
-                            {new Date(maintenance.scheduledDate).toLocaleDateString()} at {maintenance.scheduledTime}
+                            {new Date(maintenance.scheduleDate).toLocaleDateString()}
                           </span>
                         </div>
                         {maintenance.technicianId && (
