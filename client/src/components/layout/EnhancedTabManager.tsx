@@ -20,6 +20,12 @@ import { useQuery } from '@tanstack/react-query';
 import { ClientWithUser } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Define tab interface
 export interface TabItem {

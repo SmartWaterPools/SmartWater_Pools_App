@@ -86,14 +86,10 @@ function App() {
                   onClick={(e) => {
                     e.preventDefault();
                     closeMobileMenu();
-                    // Use tab manager instead of regular navigation
-                    const useTabs = window.document.querySelector('[data-add-tab]');
-                    if (useTabs && typeof useTabs.addTab === 'function') {
-                      useTabs.addTab('/', 'Dashboard', false);
-                    } else {
-                      // Fallback if we can't find the tab manager
-                      window.location.href = "/";
-                    }
+                    // Use the TabProvider context directly
+                    // We'll need to get access to the TabProvider context
+                    // For now, we'll use a direct navigation as a fallback
+                    window.location.href = "/";
                   }}
                 >
                   <svg className="mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -107,13 +103,8 @@ function App() {
                   onClick={(e) => {
                     e.preventDefault();
                     closeMobileMenu();
-                    // Use tab manager
-                    const useTabs = window.document.querySelector('[data-add-tab]');
-                    if (useTabs && typeof useTabs.addTab === 'function') {
-                      useTabs.addTab('/projects', 'Projects', false);
-                    } else {
-                      window.location.href = "/projects";
-                    }
+                    // Use direct navigation for now
+                    window.location.href = "/projects";
                   }}
                 >
                   <svg className="mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
