@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useContext } from "react";
 import { useLocation } from "wouter";
 import { ChevronRight, Home } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { useQuery } from "@tanstack/react-query";
 import { ClientWithUser } from "@/lib/types";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function Breadcrumbs() {
   const [location, setLocation] = useLocation();
+  const { state, open, setOpen } = useSidebar();
   
   // Get the path segments
   const segments = location.split('/').filter(Boolean);
@@ -24,6 +26,12 @@ export function Breadcrumbs() {
     retry: 3,
     staleTime: 5000,
   });
+  
+  // Helper function for safe navigation that preserves app state
+  const navigateTo = (path: string) => {
+    // Custom navigation helper that preserves sidebar state and open tabs
+    setLocation(path);
+  };
   
   // Get a formatted client name for display
   const getClientDisplayName = (clientData: ClientWithUser | undefined, clientId: number | null, isLoading: boolean) => {

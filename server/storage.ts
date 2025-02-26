@@ -587,7 +587,6 @@ export class MemStorage implements IStorage {
       startDate: "2023-09-01",
       estimatedCompletionDate: "2023-11-15",
       status: "in_progress",
-      completion: 68,
       budget: 75000,
       notes: "Client requested blue tile accent and extended patio area"
     });
@@ -596,10 +595,9 @@ export class MemStorage implements IStorage {
       name: "Infinity Edge Resort Pool",
       description: "Commercial infinity edge pool with beach entry and lighting system",
       clientId: client2.id,
-      startDate: new Date("2023-08-15"),
-      deadline: new Date("2023-10-30"),
+      startDate: "2023-08-15",
+      estimatedCompletionDate: "2023-10-30",
       status: "review",
-      completion: 92,
       budget: 250000,
       notes: "Final inspection scheduled for next week"
     });
@@ -980,13 +978,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInvoice(insertInvoice: InsertInvoice): Promise<Invoice> {
+    // Generate current date as ISO string
+    const now = new Date().toISOString();
+    // Create the invoice with the current date
     const [invoice] = await db
       .insert(invoices)
-      .values({
-        ...insertInvoice,
-        issueDate: new Date().toISOString()
-      })
+      .values(insertInvoice)
       .returning();
+    
+    // If needed, update the issue date separately
+    if (invoice) {
+      await db
+        .update(invoices)
+        .set({ issueDate: now })
+        .where(eq(invoices.id, invoice.id));
+    }
+    
     return invoice;
   }
 
