@@ -28,7 +28,7 @@ interface TabContextType {
   tabs: TabItem[];
   activeTabId: string;
   setActiveTabId: (id: string) => void;
-  addTab: (path: string) => void;
+  addTab: (path: string, forceNew?: boolean) => void;
   closeTab: (id: string) => void;
   duplicateTab: (tab: TabItem) => void;
 }
@@ -83,7 +83,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Add a new tab
-  const addTab = (path: string) => {
+  const addTab = (path: string, forceNew: boolean = false) => {
     // Don't add a tab for the dashboard since it's permanent
     if (path === '/') {
       setActiveTabId('dashboard');
@@ -94,16 +94,18 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     // Remove timestamp parameter if present
     const cleanPath = path.includes('?t=') ? path.split('?')[0] : path;
     
-    // Check if tab already exists for this path
-    const existingTab = tabs.find(tab => tab.path === cleanPath);
-    if (existingTab) {
-      // Just activate the existing tab
-      setActiveTabId(existingTab.id);
-      setLocation(cleanPath);
-      return;
+    // If not forcing a new tab, check if tab already exists for this path
+    // and just activate it instead of creating a duplicate
+    if (!forceNew) {
+      const existingTab = tabs.find(tab => tab.path === cleanPath);
+      if (existingTab) {
+        setActiveTabId(existingTab.id);
+        setLocation(cleanPath);
+        return;
+      }
     }
     
-    // Create a new tab
+    // Create a new tab with a unique timestamp-based ID
     const { title, icon } = getTabInfo(cleanPath);
     const newTab: TabItem = {
       id: `tab-${Date.now()}`,
@@ -111,6 +113,8 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       path: cleanPath,
       icon
     };
+    
+    console.log('Creating new tab:', newTab);
     
     // Add the new tab and make it active
     setTabs(prev => [...prev, newTab]);

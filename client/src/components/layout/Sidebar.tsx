@@ -44,8 +44,9 @@ export function Sidebar({ user }: SidebarProps) {
   // Handle sidebar navigation by adding a new tab
   const handleSidebarNavigation = (path: string) => {
     console.log('Sidebar navigation to:', path);
-    // Use our context's addTab function to create a new tab
-    addTab(path);
+    // Force creation of a new tab when clicking sidebar items
+    // Set forceNew to true to create a new tab even if one for this path already exists
+    addTab(path, true);
   };
   
   // Helper functions to get title and icon for the path

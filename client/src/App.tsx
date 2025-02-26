@@ -84,7 +84,8 @@ function App() {
                   className="flex items-center px-3 py-2 text-sm font-medium rounded-md bg-primary text-white"
                   onClick={(e) => {
                     e.preventDefault();
-                    window.location.href = "/";
+                    const { addTab } = useTabs();
+                    addTab("/");
                     closeMobileMenu();
                   }}
                 >
