@@ -32,8 +32,11 @@ export default function Clients() {
     return true;
   });
 
-  const commercialClients = filteredClients?.filter(client => client.contractType === "Commercial");
-  const residentialClients = filteredClients?.filter(client => client.contractType === "Residential");
+  const commercialClients = filteredClients?.filter(client => 
+    client.contractType?.toLowerCase() === "commercial");
+    
+  const residentialClients = filteredClients?.filter(client => 
+    client.contractType?.toLowerCase() === "residential");
 
   return (
     <div>

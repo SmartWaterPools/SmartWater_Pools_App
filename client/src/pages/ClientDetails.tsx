@@ -114,7 +114,9 @@ export default function ClientDetails() {
     );
   }
   
-  const clientType = client.companyName ? "Commercial" : "Residential";
+  // Determine client type based on both company name and contract type field
+  const clientType = client.contractType?.toLowerCase() === "commercial" || 
+                     (client.companyName && !client.contractType) ? "Commercial" : "Residential";
   
   return (
     <div className="space-y-6">
@@ -177,7 +179,13 @@ export default function ClientDetails() {
                   <Building className="h-4 w-4 text-gray-500 mt-1 mr-3" />
                   <div>
                     <p className="text-sm text-gray-500">Contract Type</p>
-                    <p className="font-medium">{client.contractType}</p>
+                    <p className="font-medium">
+                      {client.contractType?.toLowerCase() === "commercial" 
+                        ? "Commercial" 
+                        : client.contractType?.toLowerCase() === "residential" 
+                          ? "Residential" 
+                          : client.contractType}
+                    </p>
                   </div>
                 </div>
               )}
