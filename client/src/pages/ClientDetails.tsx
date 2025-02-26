@@ -40,23 +40,6 @@ export default function ClientDetails() {
     enabled: !!clientId,
     retry: 3,
     staleTime: 5000, // 5 seconds - refresh more frequently
-    queryFn: async () => {
-      console.log(`Fetching client details for ID: ${clientId}`);
-      if (!clientId) throw new Error("Client ID is required");
-      
-      // Use the getQueryFn utility from queryClient directly calling the endpoint
-      const endpoint = `/api/clients/${clientId}`;
-      const response = await fetch(endpoint);
-      
-      if (!response.ok) {
-        console.error(`Error fetching client: ${response.status} ${response.statusText}`);
-        throw new Error(`Failed to fetch client: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      console.log("Client data received:", data);
-      return data;
-    }
   });
 
   // Fetch projects for this client directly from backend
@@ -71,7 +54,7 @@ export default function ClientDetails() {
   const { data: maintenances = [], isLoading: isLoadingMaintenances } = useQuery<MaintenanceWithDetails[]>({
     queryKey: ["/api/maintenances"],
     select: (data) => data.filter((maintenance) => maintenance.clientId === clientId),
-    enabled: !!clientId,
+    enabled: !!clientId && !!client,
     retry: 2,
   });
   
@@ -79,7 +62,7 @@ export default function ClientDetails() {
   const { data: repairs = [], isLoading: isLoadingRepairs } = useQuery<RepairWithDetails[]>({
     queryKey: ["/api/repairs"],
     select: (data) => data.filter((repair) => repair.clientId === clientId),
-    enabled: !!clientId,
+    enabled: !!clientId && !!client,
     retry: 2,
   });
   
@@ -87,7 +70,7 @@ export default function ClientDetails() {
   const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<InvoiceWithDetails[]>({
     queryKey: ["/api/invoices"],
     select: (data) => data.filter((invoice) => invoice.clientId === clientId),
-    enabled: !!clientId,
+    enabled: !!clientId && !!client,
     retry: 2,
   });
   
