@@ -24,6 +24,7 @@ export interface IStorage {
   getClient(id: number): Promise<Client | undefined>;
   getClientByUserId(userId: number): Promise<Client | undefined>;
   createClient(client: InsertClient): Promise<Client>;
+  updateClient(id: number, client: Partial<Client>): Promise<Client | undefined>;
   getAllClients(): Promise<Client[]>;
   getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined>;
   
