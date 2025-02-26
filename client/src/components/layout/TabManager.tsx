@@ -91,6 +91,33 @@ export function TabManager() {
     }
   ]);
   const [activeTabId, setActiveTabId] = useState<string>('dashboard');
+  
+  // Listen for new tab open events
+  useEffect(() => {
+    const handleOpenNewTab = (event: CustomEvent) => {
+      const { id, title, path, icon } = event.detail;
+      // Check if a tab with the same path already exists
+      const existingTab = tabs.find(tab => tab.path === path);
+      
+      if (existingTab) {
+        // Activate the existing tab instead of creating a new one
+        setActiveTabId(existingTab.id);
+        setLocation(existingTab.path);
+      } else {
+        // Create a new tab
+        const newTab = { id, title, path, icon };
+        setTabs(prevTabs => [...prevTabs, newTab]);
+        setActiveTabId(id);
+        setLocation(path);
+      }
+    };
+    
+    window.addEventListener('open-new-tab', handleOpenNewTab as EventListener);
+    
+    return () => {
+      window.removeEventListener('open-new-tab', handleOpenNewTab as EventListener);
+    };
+  }, [tabs, setLocation]);
 
   // Extract client ID from path if it's a client page (details or edit)
   const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
