@@ -126,7 +126,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid client ID" });
+        console.log(`[CLIENT UPDATE API] Invalid client ID: ${req.params.id}`);
+        return res.status(400).json({ message: "Invalid client ID", details: `Received: ${req.params.id}` });
       }
       
       console.log(`[CLIENT UPDATE API] Attempting to update client with ID: ${id}`);
@@ -136,7 +137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const client = await storage.getClient(id);
       if (!client) {
         console.log(`[CLIENT UPDATE API] Client with ID ${id} not found`);
-        return res.status(404).json({ message: "Client not found" });
+        return res.status(404).json({ message: "Client not found", clientId: id });
       }
       
       console.log(`[CLIENT UPDATE API] Found existing client:`, JSON.stringify(client));
@@ -144,23 +145,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Ensure contract type is properly handled
       let updateData = { ...req.body };
       if (updateData.contractType !== undefined) {
-        // Force lowercase to ensure consistency
-        updateData.contractType = String(updateData.contractType).toLowerCase();
-        console.log(`[CLIENT UPDATE API] Normalized contract type: ${updateData.contractType}`);
+        if (updateData.contractType === null || updateData.contractType === '') {
+          console.log(`[CLIENT UPDATE API] Received empty contract type, setting to null`);
+          updateData.contractType = null;
+        } else {
+          // Force lowercase to ensure consistency
+          updateData.contractType = String(updateData.contractType).toLowerCase();
+          console.log(`[CLIENT UPDATE API] Normalized contract type: "${updateData.contractType}"`);
+        }
       }
       
-      // Update client data
+      // Update client data with detailed error handling
       try {
+        console.log(`[CLIENT UPDATE API] Final update data being sent to database:`, JSON.stringify(updateData));
         const updatedClient = await storage.updateClient(id, updateData);
+        
+        if (!updatedClient) {
+          console.error(`[CLIENT UPDATE API] Update operation did not return a client`);
+          return res.status(500).json({ 
+            message: "Client update operation did not return updated client data",
+            clientId: id
+          });
+        }
+        
         console.log(`[CLIENT UPDATE API] Client updated successfully:`, JSON.stringify(updatedClient));
+        
+        // Return the complete updated client data
         res.json(updatedClient);
+        
       } catch (updateError) {
         console.error(`[CLIENT UPDATE API] Database error during client update:`, updateError);
-        throw updateError;
+        return res.status(500).json({ 
+          message: "Database error during client update", 
+          error: String(updateError),
+          details: updateError instanceof Error ? updateError.stack : undefined
+        });
       }
     } catch (error) {
       console.error("[CLIENT UPDATE API] Error updating client:", error);
-      res.status(500).json({ message: "Failed to update client", error: String(error) });
+      res.status(500).json({ 
+        message: "Failed to update client", 
+        error: String(error),
+        details: error instanceof Error ? error.stack : undefined
+      });
     }
   });
 

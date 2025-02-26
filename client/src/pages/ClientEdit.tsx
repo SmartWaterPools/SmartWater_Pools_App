@@ -95,45 +95,59 @@ export default function ClientEdit() {
     mutationFn: async (data: ClientFormValues) => {
       if (!client || !clientId) return null;
       
-      // Update user data
-      const userData = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        address: data.address,
-      };
+      try {
+        // Update user data first
+        console.log(`[Client Update] Starting update process for client ID ${clientId}`);
+        const userData = {
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          address: data.address,
+        };
 
-      await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
+        console.log(`[Client Update] Step 1: Updating user ${client.user.id} with data:`, userData);
+        await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
+        console.log(`[Client Update] User update successful`);
 
-      // Process and validate contract type
-      let contractType = data.contractType;
-      console.log(`[Client Update] Original contract type from form: "${contractType}"`);
-      
-      // Ensure proper handling of the contract type
-      if (contractType === undefined || contractType === "") {
-        contractType = null;
-        console.log(`[Client Update] Setting null contract type`);
-      } else {
-        console.log(`[Client Update] Using contract type: "${contractType}"`);
+        // Process and validate contract type
+        let contractType = data.contractType;
+        console.log(`[Client Update] Step 2: Processing contract type "${contractType}"`);
+        
+        // Ensure proper handling of the contract type
+        if (contractType === undefined || contractType === "") {
+          contractType = null;
+          console.log(`[Client Update] Setting null contract type`);
+        } else {
+          console.log(`[Client Update] Using contract type: "${contractType}"`);
+        }
+
+        // Update client data
+        const clientData = {
+          companyName: data.companyName || null,
+          contractType: contractType,
+        };
+        
+        console.log(`[Client Update] Step 3: Updating client ${clientId} with data:`, clientData);
+        const result = await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
+        console.log(`[Client Update] Client update successful, received:`, result);
+        
+        return result;
+      } catch (error) {
+        console.error(`[Client Update] Error during update process:`, error);
+        throw error; // Re-throw to be caught by mutation error handler
       }
-
-      // Update client data
-      const clientData = {
-        companyName: data.companyName || null,
-        contractType: contractType,
-      };
-      
-      console.log("[Client Update] Sending client update with data:", clientData);
-
-      return await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
     },
     onSuccess: (data) => {
       console.log("[Client Update Success] Response data:", data);
       
       // Force invalidate all client-related queries to ensure fresh data
+      console.log("[Client Update] Invalidating client queries");
       queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
       queryClient.invalidateQueries({ queryKey: ['/api/dashboard'] });
+      
+      // Force a refresh of the client details page data
+      queryClient.refetchQueries({ queryKey: ['/api/clients', clientId] });
       
       // Force a delay before navigation to ensure cache is refreshed
       setTimeout(() => {
@@ -143,16 +157,24 @@ export default function ClientEdit() {
         });
         
         // Navigate back to client details page
+        console.log("[Client Update] Navigation to client details page");
         setLocation(`/clients/${clientId}`);
-      }, 300);
+      }, 500); // Increased delay to ensure data is refreshed
     },
-    onError: (error) => {
-      console.error("Error updating client:", error);
+    onError: (error: any) => {
+      console.error("[Client Update Error]:", error);
+      
+      // Detailed error message for better debugging
+      const errorMessage = error?.message || "Unknown error occurred";
       toast({
-        title: "Error",
-        description: "There was a problem updating the client. Please try again.",
+        title: "Error updating client",
+        description: `There was a problem updating the client: ${errorMessage}. Please try again.`,
         variant: "destructive",
       });
+      
+      // Force refresh queries to ensure consistent state
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
     },
   });
 
