@@ -544,19 +544,28 @@ export default function ClientEdit() {
                           <FormLabel>Contract Type</FormLabel>
                           <Select 
                             onValueChange={(value) => {
-                              console.log(`[Contract Type Field] Select changed to: "${value}"`);
+                              console.log(`[Contract Type Field] Select changed to: "${value}" (from UI)`);
                               // Only allow valid contract types from our predefined list
                               if (VALID_CONTRACT_TYPES.includes(value as ContractType)) {
                                 // Ensure the value is set to lowercase for consistency
                                 const normalizedValue = value.toLowerCase();
                                 console.log(`[Contract Type Field] Setting normalized value: "${normalizedValue}"`);
+                                
+                                // Set the field value and manually notify React Hook Form
                                 field.onChange(normalizedValue);
+                                console.log(`[Contract Type Field] Field value after onChange:`, normalizedValue);
+                                
+                                // Log the current client value for comparison
+                                if (client) {
+                                  console.log(`[Contract Type Field] Current client.contractType: "${client.contractType}"`);
+                                }
                                 
                                 // Force trigger a form submission immediately after selection
                                 // This is necessary because sometimes the Select component's change
                                 // doesn't trigger the form.watch subscription properly
                                 setTimeout(() => {
                                   const formValues = form.getValues();
+                                  console.log('[Contract Type Field] Form values after change:', formValues);
                                   console.log('[Contract Type Field] Force-triggering auto-save with contract type:', normalizedValue);
                                   
                                   // Create the clean data just like in the auto-save effect
@@ -571,7 +580,7 @@ export default function ClientEdit() {
                                   
                                   setSaveStatus("saving");
                                   saveFormData(cleanData as ClientFormValues);
-                                }, 100);
+                                }, 200);
                               } else {
                                 console.warn(`Invalid contract type selected: "${value}"`);
                                 field.onChange("residential");
@@ -593,7 +602,7 @@ export default function ClientEdit() {
                             </SelectContent>
                           </Select>
                           <FormDescription>
-                            Current contract type: {safeValue}
+                            Current contract type: {client?.contractType || "none"} (displayed as: {safeValue})
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
