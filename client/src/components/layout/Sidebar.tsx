@@ -1,4 +1,5 @@
-import { Link, useRoute } from "wouter";
+import { useState } from "react";
+import { Link, useRoute, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
   Building, 
@@ -8,8 +9,12 @@ import {
   UserRound, 
   Settings, 
   HelpCircle, 
-  LogOut 
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Droplet
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SidebarProps {
   user: {
@@ -19,6 +24,8 @@ interface SidebarProps {
 }
 
 export function Sidebar({ user }: SidebarProps) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [location, setLocation] = useLocation();
   const [isOnDashboard] = useRoute("/");
   const [isOnProjects] = useRoute("/projects");
   const [isOnMaintenance] = useRoute("/maintenance");
@@ -27,77 +34,185 @@ export function Sidebar({ user }: SidebarProps) {
   const [isOnTechnicians] = useRoute("/technicians");
   const [isOnSettings] = useRoute("/settings");
   
+  const toggleSidebar = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
+  const handleNavigation = (e: React.MouseEvent<HTMLAnchorElement>, path: string) => {
+    e.preventDefault();
+    setLocation(path);
+  };
+  
   return (
-    <div className="hidden md:flex flex-col w-64 bg-white border-r border-gray-200 h-full transition-all duration-300">
-      <div className="flex items-center justify-center h-16 border-b border-gray-200 px-4">
-        <h1 className="text-xl font-bold text-primary font-heading">SmartWater Pools</h1>
+    <div 
+      className={cn(
+        "hidden md:flex flex-col bg-white border-r border-gray-200 h-full transition-all duration-300",
+        isCollapsed ? "w-20" : "w-64"
+      )}
+    >
+      <div className={cn(
+        "flex items-center h-16 border-b border-gray-200 px-4",
+        isCollapsed ? "justify-center" : "justify-between"
+      )}>
+        {!isCollapsed && (
+          <div className="flex items-center">
+            <Droplet className="h-6 w-6 text-primary mr-2" fill="#0077B6" />
+            <h1 className="text-xl font-bold text-primary font-heading">SmartWater Pools</h1>
+          </div>
+        )}
+        {isCollapsed && (
+          <Droplet className="h-8 w-8 text-primary" fill="#0077B6" />
+        )}
+        <button 
+          onClick={toggleSidebar}
+          className="p-1 rounded-md text-gray-500 hover:bg-gray-100"
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-5 w-5" />
+          ) : (
+            <ChevronLeft className="h-5 w-5" />
+          )}
+        </button>
       </div>
       <div className="flex flex-col flex-grow py-4 overflow-y-auto">
-        <div className="px-4 mb-6">
-          <div className="flex items-center p-2 bg-blue-50 rounded-lg">
+        {!isCollapsed && (
+          <div className="px-4 mb-6">
+            <div className="flex items-center p-2 bg-blue-50 rounded-lg">
+              <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-lg">
+                {user.name.charAt(0)}
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-foreground">{user.name}</p>
+                <p className="text-xs text-gray-500">{user.role}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        {isCollapsed && (
+          <div className="flex justify-center py-4">
             <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-lg">
               {user.name.charAt(0)}
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-foreground">{user.name}</p>
-              <p className="text-xs text-gray-500">{user.role}</p>
-            </div>
           </div>
-        </div>
-        <nav className="flex-1 px-2 space-y-1">
+        )}
+        <nav className={cn(
+          "flex-1 space-y-1",
+          isCollapsed ? "px-3" : "px-2"
+        )}>
           <Link href="/">
-            <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isOnDashboard ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'}`}>
-              <LayoutDashboard className="mr-3 h-5 w-5" />
-              Dashboard
+            <a 
+              onClick={(e) => handleNavigation(e, "/")}
+              className={cn(
+                "flex items-center py-2 text-sm font-medium rounded-md",
+                isCollapsed ? "justify-center px-2" : "px-3",
+                isOnDashboard ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+              )}
+            >
+              <LayoutDashboard className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Dashboard</span>}
             </a>
           </Link>
           <Link href="/projects">
-            <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isOnProjects ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'}`}>
-              <Building className="mr-3 h-5 w-5" />
-              Construction Projects
+            <a 
+              onClick={(e) => handleNavigation(e, "/projects")}
+              className={cn(
+                "flex items-center py-2 text-sm font-medium rounded-md",
+                isCollapsed ? "justify-center px-2" : "px-3",
+                isOnProjects ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+              )}
+            >
+              <Building className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Construction Projects</span>}
             </a>
           </Link>
           <Link href="/maintenance">
-            <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isOnMaintenance ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'}`}>
-              <CalendarCheck className="mr-3 h-5 w-5" />
-              Maintenance
+            <a 
+              onClick={(e) => handleNavigation(e, "/maintenance")}
+              className={cn(
+                "flex items-center py-2 text-sm font-medium rounded-md",
+                isCollapsed ? "justify-center px-2" : "px-3",
+                isOnMaintenance ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+              )}
+            >
+              <CalendarCheck className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Maintenance</span>}
             </a>
           </Link>
           <Link href="/repairs">
-            <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isOnRepairs ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'}`}>
-              <Wrench className="mr-3 h-5 w-5" />
-              Repairs
+            <a 
+              onClick={(e) => handleNavigation(e, "/repairs")}
+              className={cn(
+                "flex items-center py-2 text-sm font-medium rounded-md",
+                isCollapsed ? "justify-center px-2" : "px-3",
+                isOnRepairs ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+              )}
+            >
+              <Wrench className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Repairs</span>}
             </a>
           </Link>
           <Link href="/clients">
-            <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isOnClients ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'}`}>
-              <Users className="mr-3 h-5 w-5" />
-              Clients
+            <a 
+              onClick={(e) => handleNavigation(e, "/clients")}
+              className={cn(
+                "flex items-center py-2 text-sm font-medium rounded-md",
+                isCollapsed ? "justify-center px-2" : "px-3",
+                isOnClients ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+              )}
+            >
+              <Users className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Clients</span>}
             </a>
           </Link>
           <Link href="/technicians">
-            <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isOnTechnicians ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'}`}>
-              <UserRound className="mr-3 h-5 w-5" />
-              Technicians
+            <a 
+              onClick={(e) => handleNavigation(e, "/technicians")}
+              className={cn(
+                "flex items-center py-2 text-sm font-medium rounded-md",
+                isCollapsed ? "justify-center px-2" : "px-3",
+                isOnTechnicians ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+              )}
+            >
+              <UserRound className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Technicians</span>}
             </a>
           </Link>
           <Link href="/settings">
-            <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${isOnSettings ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'}`}>
-              <Settings className="mr-3 h-5 w-5" />
-              Settings
+            <a 
+              onClick={(e) => handleNavigation(e, "/settings")}
+              className={cn(
+                "flex items-center py-2 text-sm font-medium rounded-md",
+                isCollapsed ? "justify-center px-2" : "px-3",
+                isOnSettings ? 'bg-primary text-white' : 'text-foreground hover:bg-blue-50'
+              )}
+            >
+              <Settings className={cn("h-5 w-5", isCollapsed ? "" : "mr-3")} />
+              {!isCollapsed && <span>Settings</span>}
             </a>
           </Link>
         </nav>
-        <div className="px-4 mt-6">
-          <a href="#help" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-foreground hover:bg-blue-50">
-            <HelpCircle className="mr-3 h-5 w-5" />
-            Help & Support
-          </a>
-          <a href="#logout" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-red-600 hover:bg-red-50">
-            <LogOut className="mr-3 h-5 w-5" />
-            Logout
-          </a>
-        </div>
+        {!isCollapsed && (
+          <div className="px-4 mt-6">
+            <a href="#help" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-foreground hover:bg-blue-50">
+              <HelpCircle className="mr-3 h-5 w-5" />
+              Help & Support
+            </a>
+            <a href="#logout" className="flex items-center px-3 py-2 text-sm font-medium rounded-md text-red-600 hover:bg-red-50">
+              <LogOut className="mr-3 h-5 w-5" />
+              Logout
+            </a>
+          </div>
+        )}
+        {isCollapsed && (
+          <div className="flex flex-col items-center gap-3 mt-6">
+            <a href="#help" className="p-2 text-foreground hover:bg-blue-50 rounded-md">
+              <HelpCircle className="h-5 w-5" />
+            </a>
+            <a href="#logout" className="p-2 text-red-600 hover:bg-red-50 rounded-md">
+              <LogOut className="h-5 w-5" />
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -5,7 +5,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
+import { TabManager } from "@/components/layout/TabManager";
 import { Toaster } from "@/components/ui/toaster";
+import { X, Droplet } from "lucide-react";
 
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
@@ -50,19 +52,13 @@ function App() {
           {/* Mobile sidebar */}
           <div className="relative flex flex-col w-full max-w-xs bg-white h-full">
             <div className="flex items-center justify-between h-16 border-b border-gray-200 px-4">
-              <h1 className="text-xl font-bold text-primary font-heading">SmartWater Pools</h1>
-              <button className="text-gray-500" onClick={closeMobileMenu}>
+              <div className="flex items-center">
+                <Droplet className="h-6 w-6 text-primary mr-2" fill="#0077B6" />
+                <h1 className="text-xl font-bold text-primary font-heading">SmartWater Pools</h1>
+              </div>
+              <button className="text-gray-500 p-1 rounded-full hover:bg-gray-100" onClick={closeMobileMenu}>
                 <span className="sr-only">Close sidebar</span>
-                <svg 
-                  className="h-6 w-6" 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor" 
-                  aria-hidden="true"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <X className="h-6 w-6" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -171,6 +167,9 @@ function App() {
         {/* Main content area */}
         <div className="flex flex-col flex-1 overflow-hidden">
           <Header toggleMobileMenu={toggleMobileMenu} />
+          
+          {/* Tab Manager */}
+          <TabManager />
           
           {/* Main content */}
           <main className="flex-1 overflow-y-auto bg-background p-4 md:p-6">
