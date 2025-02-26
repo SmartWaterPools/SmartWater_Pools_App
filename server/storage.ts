@@ -810,6 +810,24 @@ export class DatabaseStorage implements IStorage {
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
     console.log(`[DB STORAGE] Updating client ${id} with data:`, JSON.stringify(data));
     
+    // Before retrieving current data, log exactly what contractType was sent
+    if ('contractType' in data) {
+      console.log(`[DB STORAGE] CONTRACT TYPE UPDATE RECEIVED: Value=${
+        data.contractType === null ? 'null' : 
+        data.contractType === undefined ? 'undefined' : 
+        `"${data.contractType}"`}, Type=${typeof data.contractType}`);
+    }
+    
+    // Get the current client to compare before/after
+    try {
+      const [currentClient] = await db.select().from(clients).where(eq(clients.id, id));
+      if (currentClient) {
+        console.log(`[DB STORAGE] Current client before update:`, JSON.stringify(currentClient));
+      }
+    } catch (err) {
+      console.log(`[DB STORAGE] Error reading current client:`, err);
+    }
+    
     // Make sure contractType is properly handled
     const updatedData: Partial<Client> = { ...data };
     if (updatedData.contractType !== undefined) {

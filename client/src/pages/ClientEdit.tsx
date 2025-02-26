@@ -176,25 +176,34 @@ export default function ClientEdit() {
         console.log(`[Client Update] Step 2: Using normalized contract type:`, normalizedContractType);
         
         // Create client data object - ONLY SEND THE CLIENT FIELDS
-        // Strip out any user fields
-        const clientData = {
-          companyName: data.companyName || null,
-          contractType: normalizedContractType, 
-        };
+        // Strip out any user fields, and explicitly send only what changed
+        // This gives us a higher chance of successful updates
+        const clientData: Record<string, any> = {};
+        
+        // Only add fields that have changed
+        if (client.companyName !== (data.companyName || null)) {
+          clientData.companyName = data.companyName || null;
+        }
+        
+        if (client.contractType !== normalizedContractType) {
+          clientData.contractType = normalizedContractType;
+          console.log(`[Client Update] CONTRACT TYPE CHANGE: "${client.contractType}" → "${normalizedContractType}"`);
+        }
         
         // Debug output
         console.log(`[Client Update] Step 3: Raw client data for update:`, JSON.stringify(clientData));
         
-        // Check for real changes to client data
-        const hasClientChanges = 
-          client.contractType !== normalizedContractType || 
-          (client.companyName !== clientData.companyName);
+        // Check if we have any fields to update in clientData
+        const hasClientChanges = Object.keys(clientData).length > 0;
           
         // If no client changes, skip the client update
         if (!hasClientChanges) {
           console.log(`[Client Update] No client field changes detected, skipping client update`);
           return client;
         }
+        
+        // Log what fields are being changed
+        console.log(`[Client Update] Fields being updated:`, Object.keys(clientData).join(", "));
         
         console.log(`[Client Update] Step 4: Updating client ${clientId} with client-specific data:`, clientData);
         try {
@@ -261,6 +270,16 @@ export default function ClientEdit() {
   const saveFormData = (data: ClientFormValues) => {
     if (!initialData) return;
     
+    // Debug logging for contract type changes
+    console.log("[Auto-save] Comparing contract types:", {
+      initial: initialData.contractType,
+      current: data.contractType,
+      initialType: typeof initialData.contractType,
+      currentType: typeof data.contractType,
+      equal: data.contractType === initialData.contractType,
+      normalizedEqual: String(data.contractType).toLowerCase() === String(initialData.contractType).toLowerCase()
+    });
+    
     // Check if there are actual changes compared to the initial data
     if (
       data.name === initialData.name &&
@@ -268,12 +287,23 @@ export default function ClientEdit() {
       data.phone === initialData.phone &&
       data.address === initialData.address &&
       data.companyName === initialData.companyName &&
-      data.contractType === initialData.contractType
+      String(data.contractType).toLowerCase() === String(initialData.contractType).toLowerCase()
     ) {
       console.log("[Auto-save] No changes detected, skipping save");
       setSaveStatus("idle");
       return;
     }
+    
+    // Debug - log the differences
+    const differences = {
+      name: data.name !== initialData.name,
+      email: data.email !== initialData.email,
+      phone: data.phone !== initialData.phone,
+      address: data.address !== initialData.address,
+      companyName: data.companyName !== initialData.companyName,
+      contractType: String(data.contractType).toLowerCase() !== String(initialData.contractType).toLowerCase()
+    };
+    console.log("[Auto-save] Changes detected in:", differences);
 
     if (form.formState.isValid) {
       console.log("[Auto-save] Saving changes:", data);
@@ -281,10 +311,13 @@ export default function ClientEdit() {
       updateClientMutation.mutate(data, {
         onSuccess: () => {
           setSaveStatus("saved");
+          // Update initialData with the new values to prevent duplicate saves
+          setInitialData(data);
           // Restore to idle after a delay
           setTimeout(() => setSaveStatus("idle"), 2000);
         },
-        onError: () => {
+        onError: (error) => {
+          console.error("[Auto-save] Error saving:", error);
           setSaveStatus("error");
           // Attempt to restore to idle after a longer delay
           setTimeout(() => setSaveStatus("idle"), 3000);
@@ -514,7 +547,31 @@ export default function ClientEdit() {
                               console.log(`[Contract Type Field] Select changed to: "${value}"`);
                               // Only allow valid contract types from our predefined list
                               if (VALID_CONTRACT_TYPES.includes(value as ContractType)) {
-                                field.onChange(value);
+                                // Ensure the value is set to lowercase for consistency
+                                const normalizedValue = value.toLowerCase();
+                                console.log(`[Contract Type Field] Setting normalized value: "${normalizedValue}"`);
+                                field.onChange(normalizedValue);
+                                
+                                // Force trigger a form submission immediately after selection
+                                // This is necessary because sometimes the Select component's change
+                                // doesn't trigger the form.watch subscription properly
+                                setTimeout(() => {
+                                  const formValues = form.getValues();
+                                  console.log('[Contract Type Field] Force-triggering auto-save with contract type:', normalizedValue);
+                                  
+                                  // Create the clean data just like in the auto-save effect
+                                  const cleanData = {
+                                    name: formValues.name,
+                                    email: formValues.email,
+                                    phone: formValues.phone || "",
+                                    address: formValues.address || "",
+                                    companyName: formValues.companyName || "",
+                                    contractType: normalizedValue
+                                  };
+                                  
+                                  setSaveStatus("saving");
+                                  saveFormData(cleanData as ClientFormValues);
+                                }, 100);
                               } else {
                                 console.warn(`Invalid contract type selected: "${value}"`);
                                 field.onChange("residential");
