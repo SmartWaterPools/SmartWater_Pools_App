@@ -100,10 +100,10 @@ export default function ClientDetails() {
             <div className="flex justify-between items-start">
               <div>
                 <CardTitle className="text-xl font-bold">
-                  {client.companyName || client.user.name}
+                  {client.companyName || (client.user && client.user.name) || "Client"}
                 </CardTitle>
                 <CardDescription>
-                  {client.companyName && (
+                  {client.companyName && client.user && (
                     <div className="mt-1 text-sm font-medium">
                       Contact: {client.user.name}
                     </div>
@@ -121,21 +121,21 @@ export default function ClientDetails() {
                 <Mail className="h-4 w-4 text-gray-500 mt-1 mr-3" />
                 <div>
                   <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-medium">{client.user.email}</p>
+                  <p className="font-medium">{client.user?.email || "Not provided"}</p>
                 </div>
               </div>
               <div className="flex items-start">
                 <Phone className="h-4 w-4 text-gray-500 mt-1 mr-3" />
                 <div>
                   <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-medium">{client.user.phone || "Not provided"}</p>
+                  <p className="font-medium">{client.user?.phone || "Not provided"}</p>
                 </div>
               </div>
               <div className="flex items-start">
                 <MapPin className="h-4 w-4 text-gray-500 mt-1 mr-3" />
                 <div>
                   <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-medium">{client.user.address || "Not provided"}</p>
+                  <p className="font-medium">{client.user?.address || "Not provided"}</p>
                 </div>
               </div>
               {client.contractType && (
