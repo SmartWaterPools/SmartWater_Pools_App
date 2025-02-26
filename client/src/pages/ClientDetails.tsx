@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { 
   Card, 
@@ -71,9 +71,17 @@ export default function ClientDetails() {
     retry: 2,
   });
   
-  // Go back to clients page
-  const handleBack = () => {
-    setLocation("/clients");
+  // Handle edit navigation - use Link component directly to preserve app state
+  const renderEditButton = () => {
+    if (!client) return null;
+    
+    return (
+      <Link href={`/clients/${client.id}/edit`}>
+        <a className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 h-10 px-4 py-2 shadow-sm transition-colors">
+          <PencilIcon className="mr-2 h-4 w-4" /> Edit Client
+        </a>
+      </Link>
+    );
   };
   
   if (isLoading) {
@@ -90,9 +98,11 @@ export default function ClientDetails() {
         <p className="text-red-500 text-lg font-medium mb-2">Error loading client details.</p>
         <p className="text-gray-600 mb-6">The client information could not be retrieved at this time.</p>
         <div className="flex gap-4">
-          <Button variant="outline" onClick={handleBack}>
-            <ChevronLeft className="mr-2 h-4 w-4" /> Back to Clients
-          </Button>
+          <Link href="/clients">
+            <a className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 border border-input">
+              <ChevronLeft className="mr-2 h-4 w-4" /> Back to Clients
+            </a>
+          </Link>
           <Button variant="default" onClick={() => refetch()}>
             Try Again
           </Button>
@@ -106,16 +116,12 @@ export default function ClientDetails() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Button variant="outline" onClick={handleBack}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back
-        </Button>
-        <Button 
-          variant="secondary" 
-          className="bg-primary text-white hover:bg-primary/90"
-          onClick={() => client && setLocation(`/clients/${client.id}/edit`)}
-        >
-          <PencilIcon className="mr-2 h-4 w-4" /> Edit Client
-        </Button>
+        <Link href="/clients">
+          <a className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 border border-input">
+            <ChevronLeft className="mr-2 h-4 w-4" /> Back
+          </a>
+        </Link>
+        {renderEditButton()}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

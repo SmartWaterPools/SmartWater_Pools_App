@@ -1,14 +1,12 @@
-import React, { useContext } from "react";
-import { useLocation } from "wouter";
+import React from "react";
+import { useLocation, Link } from "wouter";
 import { ChevronRight, Home } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { useQuery } from "@tanstack/react-query";
 import { ClientWithUser } from "@/lib/types";
-import { useSidebar } from "@/components/ui/sidebar";
 
 export function Breadcrumbs() {
   const [location, setLocation] = useLocation();
-  const { state, open, setOpen } = useSidebar();
   
   // Get the path segments
   const segments = location.split('/').filter(Boolean);
@@ -27,11 +25,17 @@ export function Breadcrumbs() {
     staleTime: 5000,
   });
   
-  // Helper function for safe navigation that preserves app state
-  const navigateTo = (path: string) => {
-    // Custom navigation helper that preserves sidebar state and open tabs
-    setLocation(path);
-  };
+  // Helper function for safe navigation
+  // Using Link component from wouter to handle navigation
+  // which naturally preserves React state across navigations
+  // unlike direct calls to setLocation that can cause full component remounts
+  const NavLink = ({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) => (
+    <Link href={to}>
+      <a className={className || "cursor-pointer"}>
+        {children}
+      </a>
+    </Link>
+  );
   
   // Get a formatted client name for display
   const getClientDisplayName = (clientData: ClientWithUser | undefined, clientId: number | null, isLoading: boolean) => {
