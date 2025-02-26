@@ -15,7 +15,7 @@ import {
   Droplet
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useTabs } from "./PageTabs";
+import { useTabs } from "./EnhancedTabManager";
 
 interface SidebarProps {
   user: {
@@ -44,9 +44,9 @@ export function Sidebar({ user }: SidebarProps) {
   // Handle sidebar navigation by adding a new tab
   const handleSidebarNavigation = (path: string) => {
     console.log('Sidebar navigation to:', path);
-    // Force creation of a new tab when clicking sidebar items
-    // Set forceNew to true to create a new tab even if one for this path already exists
-    addTab(path, true);
+    // When clicking sidebar items, create a new tab with the appropriate title
+    const title = getTitleForPath(path);
+    addTab(path, title);
   };
   
   // Helper functions to get title and icon for the path
