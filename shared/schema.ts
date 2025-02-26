@@ -93,8 +93,8 @@ export const insertMaintenanceSchema = createInsertSchema(maintenances).omit({
 export const repairs = pgTable("repairs", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").references(() => clients.id).notNull(),
-  issueType: text("issue_type").notNull(),
-  description: text("description").notNull(),
+  issue: text("issue").notNull(),
+  description: text("description"),
   reportedDate: timestamp("reported_date").notNull().defaultNow(),
   status: text("status").notNull().default("pending"), // pending, assigned, scheduled, in_progress, completed
   priority: text("priority").notNull().default("medium"), // low, medium, high
