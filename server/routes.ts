@@ -30,6 +30,12 @@ const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boo
 // Define the contract types constant.  This needs to be populated with the actual allowed types.
 const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintenance'];
 
+// Helper function to validate contract types
+const validateContractType = (type: string | null): boolean => {
+  if (type === null) return true;
+  return CONTRACT_TYPES.includes(String(type).toLowerCase());
+};
+
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -178,10 +184,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Only perform update if there are actual changes
       const hasChanges = Object.keys(updateData).some(key => {
         // For string values, do case-insensitive comparison for contractType
-        if (key === 'contractType' && updateData[key] !== null && client[key] !== null) {
-          return String(updateData[key]).toLowerCase() !== String(client[key]).toLowerCase();
+        if (key === 'contractType' && updateData.contractType !== null && client.contractType !== null) {
+          return String(updateData.contractType).toLowerCase() !== String(client.contractType).toLowerCase();
         }
-        return updateData[key] !== client[key];
+        
+        // For other fields
+        if (key === 'companyName') {
+          return updateData.companyName !== client.companyName;
+        }
+        
+        // We've handled all possible fields
+        return false;
       });
 
       if (!hasChanges) {

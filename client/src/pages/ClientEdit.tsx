@@ -42,13 +42,23 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  // Use enum for contract type to ensure type safety with automatic lowercase transformation
+  // Use any string and transform to enum values
   contractType: z.string()
     .transform(val => {
+      if (!val) return "residential";
+      
       // Convert to lowercase for consistent validation
-      return val ? String(val).toLowerCase() : val;
+      const normalized = String(val).toLowerCase();
+      
+      // Check if it's a valid contract type
+      if (VALID_CONTRACT_TYPES.includes(normalized as ContractType)) {
+        return normalized;
+      }
+      
+      // Default to residential if invalid
+      console.warn(`Invalid contract type "${val}", defaulting to "residential"`);
+      return "residential";
     })
-    .pipe(z.enum(VALID_CONTRACT_TYPES))
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;
@@ -201,7 +211,17 @@ export default function ClientEdit() {
   });
 
   function onSubmit(data: ClientFormValues) {
-    updateClientMutation.mutate(data);
+    console.log("[Submit Debug] Submitting form data:", data);
+    
+    // Make a copy of the data to avoid modifying the original
+    const submitData = {
+      ...data,
+      // Ensure contractType is lowercase
+      contractType: data.contractType ? String(data.contractType).toLowerCase() : null
+    };
+    
+    console.log("[Submit Debug] Normalized submit data:", submitData);
+    updateClientMutation.mutate(submitData as ClientFormValues);
   }
 
   // Go back to client details page
