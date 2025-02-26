@@ -41,7 +41,7 @@ const repairFormSchema = insertRepairSchema.extend({
   description: z.string().min(10, {
     message: "Description must be at least 10 characters",
   }),
-  issueType: z.string().min(1, {
+  issue: z.string().min(1, {
     message: "Issue type is required",
   }),
   priority: z.enum(["low", "medium", "high"], {
@@ -70,7 +70,7 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
     resolver: zodResolver(repairFormSchema),
     defaultValues: {
       description: "",
-      issueType: "",
+      issue: "",
       priority: "medium",
       status: "pending",
     },
@@ -169,7 +169,7 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
         
         <FormField
           control={form.control}
-          name="issueType"
+          name="issue"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Issue Type</FormLabel>
