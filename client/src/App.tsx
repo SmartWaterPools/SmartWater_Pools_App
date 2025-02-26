@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { MobileNav } from "@/components/layout/MobileNav";
-import { PageTabs, TabProvider } from "@/components/layout/PageTabs";
+import { PageTabs, TabProvider, useTabs } from "@/components/layout/PageTabs";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { Toaster } from "@/components/ui/toaster";
 import { X, Droplet } from "lucide-react";
@@ -84,9 +84,8 @@ function App() {
                   className="flex items-center px-3 py-2 text-sm font-medium rounded-md bg-primary text-white"
                   onClick={(e) => {
                     e.preventDefault();
-                    const { addTab } = useTabs();
-                    addTab("/");
                     closeMobileMenu();
+                    window.location.href = "/"; // Use regular navigation for now
                   }}
                 >
                   <svg className="mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">

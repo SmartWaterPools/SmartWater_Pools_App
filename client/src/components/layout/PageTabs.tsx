@@ -168,26 +168,52 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     
-    // If we're navigating to a path without a timestamp query (not from sidebar)
-    // and there's no tab for this path yet, create one
-    if (!location.includes('?t=')) {
-      const existingTab = tabs.find(tab => tab.path === location);
-      if (!existingTab) {
-        // Create a new tab for this path
-        const { title, icon } = getTabInfo(location);
-        const newTab: TabItem = {
-          id: `tab-${Date.now()}`,
-          title,
-          path: location,
-          icon
-        };
-        
-        setTabs(prev => [...prev, newTab]);
-        setActiveTabId(newTab.id);
-      } else {
-        // Just activate the existing tab
-        setActiveTabId(existingTab.id);
-      }
+    // For navigation with timestamp query from sidebar
+    if (location.includes('?t=')) {
+      // This is already handled by the Sidebar component which calls addTab directly
+      return;
+    }
+    
+    // Special handling for page links (like "Add Client" or links within a form)
+    // We want these to create new tabs too
+    if (location.startsWith('/clients/add') || 
+        location.match(/^\/clients\/\d+\/edit$/) ||
+        location.match(/^\/clients\/\d+$/)) {
+      
+      // Create a new tab for client-specific paths
+      const { title, icon } = getTabInfo(location);
+      const newTab: TabItem = {
+        id: `tab-${Date.now()}`,
+        title,
+        path: location,
+        icon
+      };
+      
+      console.log('Creating new tab for client path:', newTab);
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
+      return;
+    }
+    
+    // For other direct navigation (typing URL, using browser buttons)
+    // Check if tab exists and activate it, otherwise create a new one
+    const existingTab = tabs.find(tab => tab.path === location);
+    if (existingTab) {
+      console.log('Activating existing tab:', existingTab);
+      setActiveTabId(existingTab.id);
+    } else {
+      // Create a new tab for this path
+      const { title, icon } = getTabInfo(location);
+      const newTab: TabItem = {
+        id: `tab-${Date.now()}`,
+        title,
+        path: location,
+        icon
+      };
+      
+      console.log('Creating new tab for direct navigation:', newTab);
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(newTab.id);
     }
   }, [location]);
 
