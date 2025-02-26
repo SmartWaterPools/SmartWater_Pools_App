@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ClientWithUser } from "@/lib/types";
 
 export function Breadcrumbs() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   
   // Get the path segments
   const segments = location.split('/').filter(Boolean);
@@ -21,6 +21,8 @@ export function Breadcrumbs() {
   const { data: clientData, isLoading: isLoadingClient } = useQuery<ClientWithUser>({
     queryKey: ['/api/clients', clientId],
     enabled: !!clientId,
+    retry: 3,
+    staleTime: 5000,
   });
   
   // Get a formatted client name for display
@@ -54,7 +56,7 @@ export function Breadcrumbs() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
+              <div onClick={() => setLocation("/")} className="flex items-center cursor-pointer">
                 <Home className="h-3.5 w-3.5 mr-1" />
                 <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
               </div>
@@ -64,14 +66,14 @@ export function Breadcrumbs() {
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <div onClick={() => window.location.href="/clients"} className="cursor-pointer">Clients</div>
+              <div onClick={() => setLocation("/clients")} className="cursor-pointer">Clients</div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <div onClick={() => window.location.href=`/clients/${clientId}`} className="cursor-pointer">
+              <div onClick={() => setLocation(`/clients/${clientId}`)} className="cursor-pointer">
                 {clientName}
               </div>
             </BreadcrumbItem>
@@ -97,7 +99,7 @@ export function Breadcrumbs() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
+              <div onClick={() => setLocation("/")} className="flex items-center cursor-pointer">
                 <Home className="h-3.5 w-3.5 mr-1" />
                 <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
               </div>
@@ -107,7 +109,7 @@ export function Breadcrumbs() {
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <div onClick={() => window.location.href="/clients"} className="cursor-pointer">Clients</div>
+              <div onClick={() => setLocation("/clients")} className="cursor-pointer">Clients</div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
@@ -129,7 +131,7 @@ export function Breadcrumbs() {
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
+              <div onClick={() => setLocation("/")} className="flex items-center cursor-pointer">
                 <Home className="h-3.5 w-3.5 mr-1" />
                 <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
               </div>
@@ -139,7 +141,7 @@ export function Breadcrumbs() {
             </BreadcrumbSeparator>
             
             <BreadcrumbItem>
-              <div onClick={() => window.location.href="/clients"} className="cursor-pointer">Clients</div>
+              <div onClick={() => setLocation("/clients")} className="cursor-pointer">Clients</div>
             </BreadcrumbItem>
             <BreadcrumbSeparator>
               <ChevronRight className="h-4 w-4" />
@@ -160,7 +162,7 @@ export function Breadcrumbs() {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <div onClick={() => window.location.href="/"} className="flex items-center cursor-pointer">
+            <div onClick={() => setLocation("/")} className="flex items-center cursor-pointer">
               <Home className="h-3.5 w-3.5 mr-1" />
               <span className="sr-only sm:not-sr-only sm:inline">Dashboard</span>
             </div>
@@ -190,7 +192,7 @@ export function Breadcrumbs() {
                   {isLast ? (
                     <BreadcrumbPage>{name}</BreadcrumbPage>
                   ) : (
-                    <div onClick={() => window.location.href=path} className="cursor-pointer">{name}</div>
+                    <div onClick={() => setLocation(path)} className="cursor-pointer">{name}</div>
                   )}
                 </BreadcrumbItem>
               </React.Fragment>
