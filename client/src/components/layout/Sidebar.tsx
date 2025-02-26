@@ -201,7 +201,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => handleSidebarNavigation("/clients")}
+            onClick={(e) => handleSidebarNavigation(e, "/clients")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -213,7 +213,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => handleSidebarNavigation("/technicians")}
+            onClick={(e) => handleSidebarNavigation(e, "/technicians")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",
@@ -225,7 +225,7 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
           
           <div
-            onClick={() => handleSidebarNavigation("/settings")}
+            onClick={(e) => handleSidebarNavigation(e, "/settings")}
             className={cn(
               "flex items-center py-2 text-sm font-medium rounded-md cursor-pointer",
               isCollapsed ? "justify-center px-2" : "px-3",

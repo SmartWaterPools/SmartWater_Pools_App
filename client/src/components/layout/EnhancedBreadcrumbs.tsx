@@ -141,8 +141,16 @@ export function EnhancedBreadcrumbs() {
   }, [segments, clientDetailsMatch, clientEditMatch, clientId, clientData, isLoadingClient]);
   
   // Handle navigation with tabs
-  const handleBreadcrumbClick = (path: string) => {
-    addTab(path);
+  const handleBreadcrumbClick = (e: React.MouseEvent, path: string) => {
+    e.preventDefault();
+    // Get the title for the tab based on the path parts
+    const pathParts = path.split('/').filter(Boolean);
+    const title = pathParts.length > 0 ? 
+      pathParts[pathParts.length - 1].charAt(0).toUpperCase() + pathParts[pathParts.length - 1].slice(1) : 
+      'Dashboard';
+    
+    // Add or navigate to the tab
+    addTab(path, title, false);
   };
   
   // If we're at the root with no segments, don't show breadcrumbs
@@ -182,7 +190,7 @@ export function EnhancedBreadcrumbs() {
                         "cursor-pointer hover:text-primary transition-colors",
                         isFirst && "flex items-center"
                       )}
-                      onClick={() => handleBreadcrumbClick(segment.path)}
+                      onClick={(e) => handleBreadcrumbClick(e, segment.path)}
                     >
                       {segment.icon && (
                         <span className="mr-1 inline-flex items-center">
