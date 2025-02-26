@@ -17,7 +17,7 @@ export function Breadcrumbs() {
                    clientEditMatch ? parseInt(clientEditMatch[1]) : null;
   
   // Fetch client data if this is a client-related page
-  const { data: clientData } = useQuery<ClientWithUser>({
+  const { data: clientData, isLoading: isLoadingClient } = useQuery<ClientWithUser>({
     queryKey: ['/api/clients', clientId],
     enabled: !!clientId,
   });
@@ -82,7 +82,7 @@ export function Breadcrumbs() {
   }
   
   // Special case for client details page
-  if (clientDetailsMatch && clientId && clientData) {
+  if (clientDetailsMatch && clientId) {
     const clientName = getClientDisplayName(clientData, clientId);
     
     return (

@@ -32,9 +32,11 @@ export default function ClientDetails() {
   const clientId = params?.id ? parseInt(params.id) : null;
   
   // Fetch client details
-  const { data: client, isLoading, error } = useQuery<ClientWithUser>({
+  const { data: client, isLoading, error, refetch } = useQuery<ClientWithUser>({
     queryKey: ["/api/clients", clientId],
     enabled: !!clientId,
+    retry: 2,
+    staleTime: 30000, // 30 seconds
   });
 
   // Fetch client projects
@@ -76,11 +78,17 @@ export default function ClientDetails() {
   
   if (error || !client) {
     return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <p className="text-red-500">Error loading client details.</p>
-        <Button variant="outline" className="mt-4" onClick={handleBack}>
-          <ChevronLeft className="mr-2 h-4 w-4" /> Back to Clients
-        </Button>
+      <div className="flex flex-col items-center justify-center h-full p-8">
+        <p className="text-red-500 text-lg font-medium mb-2">Error loading client details.</p>
+        <p className="text-gray-600 mb-6">The client information could not be retrieved at this time.</p>
+        <div className="flex gap-4">
+          <Button variant="outline" onClick={handleBack}>
+            <ChevronLeft className="mr-2 h-4 w-4" /> Back to Clients
+          </Button>
+          <Button variant="default" onClick={() => refetch()}>
+            Try Again
+          </Button>
+        </div>
       </div>
     );
   }
