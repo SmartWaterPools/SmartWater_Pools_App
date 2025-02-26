@@ -138,6 +138,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log(`[CLIENT UPDATE API] Attempting to update client with ID: ${id}`);
       console.log(`[CLIENT UPDATE API] Original update data:`, JSON.stringify(req.body));
+      
+      // DEBUG - Explicitly log contract type if present
+      if (req.body.contractType !== undefined) {
+        console.log(`[CLIENT UPDATE API] CONTRACT TYPE UPDATE REQUESTED:`, 
+          typeof req.body.contractType === 'string' ? `"${req.body.contractType}"` : req.body.contractType,
+          `(type: ${typeof req.body.contractType})`);
+      }
 
       // Get the existing client
       const client = await storage.getClient(id);
@@ -147,6 +154,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`[CLIENT UPDATE API] Found existing client:`, JSON.stringify(client));
+      console.log(`[CLIENT UPDATE API] Current contract type:`, 
+        client.contractType ? `"${client.contractType}"` : client.contractType,
+        `(type: ${typeof client.contractType})`);
+      
 
       // Validate the request data using our schema
       const validationResult = validateRequest(updateClientSchema, req.body);
