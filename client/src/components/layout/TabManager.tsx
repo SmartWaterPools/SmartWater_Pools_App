@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
-import { X, Copy, MoreHorizontal } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { ClientWithUser } from '@/lib/types';
 import { 
+  X, 
+  Copy, 
+  MoreHorizontal, 
   LayoutDashboard, 
   Building, 
   CalendarCheck, 
   Wrench, 
   Users, 
   UserRound,
-  Settings
-} from "lucide-react";
+  Settings,
+  LayoutGrid
+} from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { ClientWithUser } from '@/lib/types';
 
 interface Tab {
   id: string;
@@ -255,7 +258,7 @@ export function TabManager() {
     <div className="bg-white border-b border-gray-200 z-10 relative shadow-sm">
       {/* Tab Bar Title */}
       <div className="bg-gray-50 px-3 py-1 border-b border-gray-200 flex items-center">
-        <Tabs className="h-4 w-4 mr-2 text-primary" />
+        <LayoutGrid className="h-4 w-4 mr-2 text-primary" />
         <span className="text-xs font-medium text-gray-600">Open Pages</span>
       </div>
       
