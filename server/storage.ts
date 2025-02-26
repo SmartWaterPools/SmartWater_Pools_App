@@ -674,7 +674,7 @@ export class MemStorage implements IStorage {
     // Repair requests
     await this.createRepair({
       clientId: client3.id,
-      issueType: "Pump Failure",
+      issue: "Pump Failure",
       description: "Pool pump stopped working, making loud noise before shutting off",
       status: "assigned",
       priority: "high",
@@ -686,7 +686,7 @@ export class MemStorage implements IStorage {
     
     await this.createRepair({
       clientId: client4.id,
-      issueType: "Leaking Pipe",
+      issue: "Leaking Pipe",
       description: "Water loss in equipment area, visible moisture around pipe connections",
       status: "scheduled",
       priority: "medium",
@@ -698,7 +698,7 @@ export class MemStorage implements IStorage {
     
     await this.createRepair({
       clientId: client5.id,
-      issueType: "Heater Issue",
+      issue: "Heater Issue",
       description: "Pool heater not maintaining temperature, inconsistent heating",
       status: "pending",
       priority: "medium",
