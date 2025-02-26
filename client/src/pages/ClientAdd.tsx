@@ -63,27 +63,24 @@ export default function ClientAdd() {
   // Add client mutation
   const addClientMutation = useMutation({
     mutationFn: async (data: ClientFormValues) => {
-      // First, create the user
-      const userData = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone || null,
-        address: data.address || null,
-        username: data.username,
-        password: data.password,
-        role: data.role,
+      // Structure the request to match the API expectations
+      const requestData = {
+        user: {
+          name: data.name,
+          email: data.email,
+          phone: data.phone || null,
+          address: data.address || null,
+          username: data.username,
+          password: data.password,
+          role: data.role,
+        },
+        client: {
+          companyName: data.companyName || null,
+          contractType: data.contractType || null,
+        }
       };
 
-      const userResponse = await apiRequest<{ id: number }>('/api/users', 'POST', userData);
-
-      // Then create the client associated with this user
-      const clientData = {
-        userId: userResponse.id,
-        companyName: data.companyName || null,
-        contractType: data.contractType || null,
-      };
-
-      return await apiRequest('/api/clients', 'POST', clientData);
+      return await apiRequest('/api/clients', 'POST', requestData);
     },
     onSuccess: () => {
       // Invalidate and refetch clients query to update the list
@@ -97,11 +94,20 @@ export default function ClientAdd() {
       // Navigate back to clients page
       setLocation("/clients");
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Error adding client:", error);
+      let errorMessage = "There was a problem adding the client. Please try again.";
+      
+      // Try to extract more specific error message if available
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "There was a problem adding the client. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     },
