@@ -1,12 +1,24 @@
 import { useRoute, useLocation } from "wouter";
 import { ChevronRight, Home } from "lucide-react";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { useQuery } from "@tanstack/react-query";
+import { ClientWithUser } from "@/lib/types";
 
 export function Breadcrumbs() {
   const [location] = useLocation();
   
   // Get the path segments
   const segments = location.split('/').filter(Boolean);
+  
+  // Check if this is a client details page
+  const clientMatch = location.match(/^\/clients\/(\d+)$/);
+  const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+  
+  // Fetch client data if this is a client details page
+  const { data: clientData } = useQuery<ClientWithUser>({
+    queryKey: ['/api/clients', clientId],
+    enabled: !!clientId,
+  });
   
   // Generate breadcrumb items based on path
   const getBreadcrumbItems = () => {
@@ -24,17 +36,37 @@ export function Breadcrumbs() {
     segments.forEach((segment, index) => {
       currentPath += `/${segment}`;
       
-      // Convert segment to display name (capitalized, spaces instead of dashes)
-      const displayName = segment
-        .split('-')
-        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-        .join(' ');
-      
-      items.push({
-        name: displayName,
-        path: currentPath,
-        current: index === segments.length - 1
-      });
+      // Special case for client details - use client name instead of ID
+      if (segment === 'clients' && index === 0) {
+        items.push({
+          name: 'Clients',
+          path: currentPath,
+          current: index === segments.length - 1
+        });
+      } else if (clientData && clientId && segment === clientId.toString()) {
+        // For client detail pages, use the client's name instead of ID
+        const nameParts = clientData.user.name.split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+        
+        items.push({
+          name: `${firstName} ${lastName}`,
+          path: currentPath,
+          current: index === segments.length - 1
+        });
+      } else {
+        // Default case - just capitalize the segment
+        const displayName = segment
+          .split('-')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        
+        items.push({
+          name: displayName,
+          path: currentPath,
+          current: index === segments.length - 1
+        });
+      }
     });
     
     return items;

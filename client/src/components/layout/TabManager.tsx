@@ -81,6 +81,41 @@ export function TabManager() {
   ]);
   const [activeTabId, setActiveTabId] = useState<string>('dashboard');
 
+  // Extract client ID from path if it's a client details page
+  const clientMatch = location.match(/^\/clients\/(\d+)$/);
+  const clientId = clientMatch ? parseInt(clientMatch[1]) : null;
+
+  // Fetch client data if this is a client details page
+  const { data: clientData } = useQuery<ClientWithUser>({
+    queryKey: ['/api/clients', clientId],
+    enabled: !!clientId,
+  });
+
+  // Update tab titles when client data is loaded
+  useEffect(() => {
+    if (clientData && clientId) {
+      // Find if there's a tab for this client
+      const tabIndex = tabs.findIndex(tab => tab.path === `/clients/${clientId}`);
+      
+      if (tabIndex !== -1) {
+        // Get client name - split by space to get first and last name
+        const nameParts = clientData.user.name.split(' ');
+        const firstName = nameParts[0];
+        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+        const displayName = `${firstName} ${lastName}`;
+        
+        // Update the tab title
+        const updatedTabs = [...tabs];
+        updatedTabs[tabIndex] = {
+          ...updatedTabs[tabIndex],
+          title: displayName
+        };
+        
+        setTabs(updatedTabs);
+      }
+    }
+  }, [clientData, clientId]);
+
   // Update active tab based on location
   useEffect(() => {
     const tabExists = tabs.find(tab => tab.path === location);
