@@ -42,20 +42,26 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  // First accept any string
-  contractType: z.string().transform(val => {
-    // Handle empty or null values
-    if (!val || val === "") return null;
-    
-    // Check if it's one of our valid contract types (case insensitive)
-    const normalized = val.toLowerCase();
-    if (VALID_CONTRACT_TYPES.includes(normalized as any)) {
-      return normalized as ContractType;
-    }
-    
-    // Default fallback to residential if not valid
-    return "residential" as ContractType;
-  })
+  // Validate and normalize contract type
+  contractType: z.string()
+    .transform(val => {
+      // Handle empty or null values
+      if (!val || val === "") return null;
+      
+      // Always normalize to lowercase for consistency
+      const normalized = String(val).toLowerCase();
+      
+      // Check if it's one of our valid contract types
+      if (VALID_CONTRACT_TYPES.includes(normalized as any)) {
+        return normalized as ContractType;
+      }
+      
+      // If not valid, throw an error instead of silent fallback
+      // This helps catch validation issues early
+      throw new Error(`Invalid contract type: "${val}". Must be one of: ${VALID_CONTRACT_TYPES.join(', ')}`);
+    })
+    .or(z.literal(''))  // Accept empty string (will be transformed to null)
+    .or(z.null())       // Also accept explicit null
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;
@@ -329,8 +335,20 @@ export default function ClientEdit() {
                     name="contractType"
                     render={({ field }) => {
                       console.log(`[Contract Type Field] Current value: "${field.value}"`);
-                      // Ensure field value is always lowercase for consistency
-                      const safeValue = field.value ? field.value.toLowerCase() : "residential";
+                      
+                      // Ensure field value is always lowercase and valid
+                      let safeValue = field.value;
+                      if (safeValue) {
+                        safeValue = String(safeValue).toLowerCase();
+                        // Ensure it's one of our valid values
+                        if (!VALID_CONTRACT_TYPES.includes(safeValue as any)) {
+                          console.warn(`Invalid contract type detected: "${safeValue}", defaulting to "residential"`);
+                          safeValue = "residential";
+                        }
+                      } else {
+                        // Default for empty/null values
+                        safeValue = "residential";
+                      }
                       
                       return (
                         <FormItem>
@@ -338,8 +356,9 @@ export default function ClientEdit() {
                           <Select 
                             onValueChange={(value) => {
                               console.log(`[Contract Type Field] Select changed to: "${value}"`);
-                              // The schema will handle the actual transformation 
-                              field.onChange(value);
+                              // Always convert to lowercase before sending to form
+                              const normalizedValue = value ? value.toLowerCase() : value;
+                              field.onChange(normalizedValue);
                             }}
                             value={safeValue}
                             defaultValue="residential"
