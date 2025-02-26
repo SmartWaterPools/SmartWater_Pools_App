@@ -600,38 +600,29 @@ export class MemStorage implements IStorage {
     
     await this.createMaintenance({
       clientId: client4.id,
-      scheduledDate: tomorrow,
-      scheduledTime: "14:30:00",
+      scheduleDate: tomorrow.toISOString().split('T')[0],
       status: "scheduled",
       type: "filter_replacement",
-      description: "Replace pool filter and check system",
       technicianId: tech2.id,
-      completed: false,
       notes: "Client requested explanation of maintenance process"
     });
     
     await this.createMaintenance({
       clientId: client5.id,
-      scheduledDate: dayAfterTomorrow,
-      scheduledTime: "09:00:00",
+      scheduleDate: dayAfterTomorrow.toISOString().split('T')[0],
       status: "scheduled",
       type: "chemical_balance",
-      description: "Check chemical levels and adjust as needed",
       technicianId: tech3.id,
-      completed: false,
-      notes: ""
+      notes: "Check chemical levels and adjust as needed"
     });
     
     await this.createMaintenance({
       clientId: client5.id,
-      scheduledDate: dayAfterTomorrow,
-      scheduledTime: "13:00:00",
+      scheduleDate: dayAfterTomorrow.toISOString().split('T')[0],
       status: "scheduled",
       type: "equipment_inspection",
-      description: "Inspect all equipment and check for issues",
       technicianId: tech3.id,
-      completed: false,
-      notes: ""
+      notes: "Inspect all equipment and check for issues"
     });
     
     // Repair requests
@@ -642,7 +633,7 @@ export class MemStorage implements IStorage {
       status: "assigned",
       priority: "high",
       technicianId: tech1.id,
-      scheduledDate: tomorrow,
+      scheduledDate: tomorrow.toISOString().split('T')[0],
       scheduledTime: "13:00:00",
       notes: "Client is concerned about water stagnation"
     });
@@ -654,7 +645,7 @@ export class MemStorage implements IStorage {
       status: "scheduled",
       priority: "medium",
       technicianId: tech2.id,
-      scheduledDate: dayAfterTomorrow,
+      scheduledDate: dayAfterTomorrow.toISOString().split('T')[0],
       scheduledTime: "10:00:00",
       notes: ""
     });
@@ -675,7 +666,7 @@ export class MemStorage implements IStorage {
     await this.createInvoice({
       clientId: client1.id,
       amount: 25000,
-      dueDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15),
+      dueDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 15).toISOString().split('T')[0],
       status: "pending",
       description: "Progress payment for Mediterranean Luxury Pool (35%)",
       notes: ""
@@ -684,7 +675,7 @@ export class MemStorage implements IStorage {
     await this.createInvoice({
       clientId: client3.id,
       amount: 150,
-      dueDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30),
+      dueDate: new Date(today.getFullYear(), today.getMonth(), today.getDate() + 30).toISOString().split('T')[0],
       status: "pending",
       description: "Monthly maintenance service - October",
       notes: ""
