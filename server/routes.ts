@@ -129,24 +129,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid client ID" });
       }
       
-      console.log(`Attempting to update client with ID: ${id}`);
-      console.log(`Update data:`, req.body);
+      console.log(`[CLIENT UPDATE API] Attempting to update client with ID: ${id}`);
+      console.log(`[CLIENT UPDATE API] Update data:`, JSON.stringify(req.body));
       
       // Get the existing client
       const client = await storage.getClient(id);
       if (!client) {
-        console.log(`Client with ID ${id} not found`);
+        console.log(`[CLIENT UPDATE API] Client with ID ${id} not found`);
         return res.status(404).json({ message: "Client not found" });
       }
       
-      console.log(`Found existing client:`, client);
+      console.log(`[CLIENT UPDATE API] Found existing client:`, JSON.stringify(client));
+      
+      // Ensure contract type is properly handled
+      let updateData = { ...req.body };
+      if (updateData.contractType !== undefined) {
+        // Force lowercase to ensure consistency
+        updateData.contractType = String(updateData.contractType).toLowerCase();
+        console.log(`[CLIENT UPDATE API] Normalized contract type: ${updateData.contractType}`);
+      }
       
       // Update client data
-      const updatedClient = await storage.updateClient(id, req.body);
-      console.log(`Client updated successfully:`, updatedClient);
-      res.json(updatedClient);
+      try {
+        const updatedClient = await storage.updateClient(id, updateData);
+        console.log(`[CLIENT UPDATE API] Client updated successfully:`, JSON.stringify(updatedClient));
+        res.json(updatedClient);
+      } catch (updateError) {
+        console.error(`[CLIENT UPDATE API] Database error during client update:`, updateError);
+        throw updateError;
+      }
     } catch (error) {
-      console.error("Error updating client:", error);
+      console.error("[CLIENT UPDATE API] Error updating client:", error);
       res.status(500).json({ message: "Failed to update client", error: String(error) });
     }
   });

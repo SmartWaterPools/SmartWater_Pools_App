@@ -799,26 +799,38 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
-    console.log(`DatabaseStorage.updateClient: Updating client ${id} with data:`, JSON.stringify(data));
+    console.log(`[DB STORAGE] Updating client ${id} with data:`, JSON.stringify(data));
     
-    // Make sure contractType is lowercase for consistency
+    // Make sure contractType is properly handled
     const updatedData: Partial<Client> = { ...data };
-    if (updatedData.contractType) {
-      updatedData.contractType = updatedData.contractType.toLowerCase();
-      console.log(`Normalized contract type to lowercase: ${updatedData.contractType}`);
+    if (updatedData.contractType !== undefined) {
+      // Handle null/empty string values and convert to lowercase
+      if (updatedData.contractType === null || updatedData.contractType === '') {
+        console.log(`[DB STORAGE] Setting null contract type`);
+        updatedData.contractType = null;
+      } else {
+        updatedData.contractType = String(updatedData.contractType).toLowerCase();
+        console.log(`[DB STORAGE] Normalized contract type: '${updatedData.contractType}'`);
+      }
     }
 
     try {
+      console.log(`[DB STORAGE] Executing update query with data:`, JSON.stringify(updatedData));
       const [updatedClient] = await db
         .update(clients)
         .set(updatedData)
         .where(eq(clients.id, id))
         .returning();
       
-      console.log(`Client updated successfully:`, JSON.stringify(updatedClient));
-      return updatedClient || undefined;
+      if (updatedClient) {
+        console.log(`[DB STORAGE] Client updated successfully:`, JSON.stringify(updatedClient));
+        return updatedClient;
+      } else {
+        console.error(`[DB STORAGE] Update query returned no client`);
+        return undefined;
+      }
     } catch (error) {
-      console.error(`Error updating client:`, error);
+      console.error(`[DB STORAGE] Error updating client:`, error);
       throw error;
     }
   }
