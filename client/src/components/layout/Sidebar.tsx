@@ -41,12 +41,18 @@ export function Sidebar({ user }: SidebarProps) {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Handle sidebar navigation by adding a new tab
+  // Handle sidebar navigation by adding a new tab or navigating to an existing one
   const handleSidebarNavigation = (path: string) => {
     console.log('Sidebar navigation to:', path);
-    // When clicking sidebar items, create a new tab with the appropriate title
+    // When clicking sidebar items, use the appropriate title
     const title = getTitleForPath(path);
-    addTab(path, title);
+    
+    // This won't force a complete page reload and will use our tab manager
+    // The third parameter is forceNew - setting to false means it will reuse existing tabs
+    addTab(path, title, false);
+    
+    // Prevent default navigation that would cause a page reload
+    return false;
   };
   
   // Helper functions to get title and icon for the path
