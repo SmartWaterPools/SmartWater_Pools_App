@@ -42,8 +42,13 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  // Use enum for contract type to ensure type safety
-  contractType: z.enum(VALID_CONTRACT_TYPES)
+  // Use enum for contract type to ensure type safety with automatic lowercase transformation
+  contractType: z.string()
+    .transform(val => {
+      // Convert to lowercase for consistent validation
+      return val ? String(val).toLowerCase() : val;
+    })
+    .pipe(z.enum(VALID_CONTRACT_TYPES))
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;
@@ -86,14 +91,17 @@ export default function ClientEdit() {
       
       if (client.contractType) {
         // Convert to lowercase for consistency
-        const normalizedType = client.contractType.toLowerCase();
+        const normalizedType = String(client.contractType).toLowerCase();
         
         // Only use if it's one of our allowed values
         if (VALID_CONTRACT_TYPES.includes(normalizedType as ContractType)) {
           contractTypeValue = normalizedType as ContractType;
+          console.log(`[Form Debug] Found valid contract type: "${normalizedType}"`);
         } else {
           console.warn(`Invalid contract type from server: "${client.contractType}", defaulting to "residential"`);
         }
+      } else {
+        console.log(`[Form Debug] Client has no contract type, using default: "residential"`);
       }
       
       const formValues = {

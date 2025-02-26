@@ -131,7 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       console.log(`[CLIENT UPDATE API] Attempting to update client with ID: ${id}`);
-      console.log(`[CLIENT UPDATE API] Update data:`, JSON.stringify(req.body));
+      console.log(`[CLIENT UPDATE API] Original update data:`, JSON.stringify(req.body));
       
       // Get the existing client
       const client = await storage.getClient(id);
@@ -142,11 +142,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[CLIENT UPDATE API] Found existing client:`, JSON.stringify(client));
       
-      // Ensure contract type is properly handled
-      let updateData = { ...req.body };
+      // Make a deep copy of the request body
+      let updateData = JSON.parse(JSON.stringify(req.body));
       
       // Always process contract type to ensure consistent validation
-      // (even if it's not in the body, we validate to make sure we handle null correctly)
       if (updateData.contractType !== undefined) {
         // Handle null, undefined or empty string values
         if (updateData.contractType === null || 
@@ -158,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Force to string and lowercase to ensure consistency
           const normalizedType = String(updateData.contractType).toLowerCase();
           
-          // Validate against allowed values
+          // Validate against allowed values - using same constant as frontend
           const validTypes = ['residential', 'commercial', 'service', 'maintenance'];
           if (!validTypes.includes(normalizedType)) {
             console.error(`[CLIENT UPDATE API] Invalid contract type: "${normalizedType}"`);
@@ -172,6 +171,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           updateData.contractType = normalizedType;
           console.log(`[CLIENT UPDATE API] Normalized contract type: "${updateData.contractType}"`);
         }
+      }
+      
+      // Only perform update if there are actual changes
+      const hasChanges = Object.keys(updateData).some(key => {
+        // For string values, do case-insensitive comparison for contractType
+        if (key === 'contractType' && updateData[key] !== null && client[key] !== null) {
+          return String(updateData[key]).toLowerCase() !== String(client[key]).toLowerCase();
+        }
+        return updateData[key] !== client[key];
+      });
+      
+      if (!hasChanges) {
+        console.log(`[CLIENT UPDATE API] No actual changes detected, returning existing client`);
+        return res.json(client);
       }
       
       // Update client data with detailed error handling
