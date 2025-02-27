@@ -264,15 +264,17 @@ export function Sidebar({ user }: SidebarProps) {
     </div>
   );
   
-  // Mobile bottom navigation bar (from screenshots)
+  // Mobile bottom navigation bar (matching the UI in screenshots)
   const MobileBottomNav = () => (
     <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-      <div className="flex items-center justify-between px-4 py-2">
+      <div className="flex items-center justify-between px-3 py-2">
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <LayoutDashboard className={cn("h-6 w-6", isOnDashboard ? "text-primary" : "text-gray-500")} />
+          <div className={cn("p-1 rounded-md", isOnDashboard ? "text-primary" : "text-gray-500")}>
+            <LayoutDashboard className="h-5 w-5" />
+          </div>
           <span className={cn("text-xs mt-0.5", isOnDashboard ? "text-primary font-medium" : "text-gray-500")}>Dashboard</span>
         </div>
         
@@ -280,7 +282,9 @@ export function Sidebar({ user }: SidebarProps) {
           onClick={(e) => handleSidebarNavigation(e, "/clients")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <Users className={cn("h-6 w-6", isOnClients ? "text-primary" : "text-gray-500")} />
+          <div className={cn("p-1 rounded-md", isOnClients ? "text-primary" : "text-gray-500")}>
+            <Users className="h-5 w-5" />
+          </div>
           <span className={cn("text-xs mt-0.5", isOnClients ? "text-primary font-medium" : "text-gray-500")}>Clients</span>
         </div>
         
@@ -288,7 +292,9 @@ export function Sidebar({ user }: SidebarProps) {
           onClick={(e) => handleSidebarNavigation(e, "/projects")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <Building className={cn("h-6 w-6", isOnProjects ? "text-primary" : "text-gray-500")} />
+          <div className={cn("p-1 rounded-md", isOnProjects ? "text-primary" : "text-gray-500")}>
+            <Building className="h-5 w-5" />
+          </div>
           <span className={cn("text-xs mt-0.5", isOnProjects ? "text-primary font-medium" : "text-gray-500")}>Build</span>
         </div>
         
@@ -296,7 +302,9 @@ export function Sidebar({ user }: SidebarProps) {
           onClick={(e) => handleSidebarNavigation(e, "/maintenance")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <CalendarCheck className={cn("h-6 w-6", isOnMaintenance ? "text-primary" : "text-gray-500")} />
+          <div className={cn("p-1 rounded-md", isOnMaintenance ? "text-primary" : "text-gray-500")}>
+            <CalendarCheck className="h-5 w-5" />
+          </div>
           <span className={cn("text-xs mt-0.5", isOnMaintenance ? "text-primary font-medium" : "text-gray-500")}>Schedule</span>
         </div>
         
@@ -304,7 +312,9 @@ export function Sidebar({ user }: SidebarProps) {
           onClick={(e) => handleSidebarNavigation(e, "/repairs")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <Wrench className={cn("h-6 w-6", isOnRepairs ? "text-primary" : "text-gray-500")} />
+          <div className={cn("p-1 rounded-md", isOnRepairs ? "text-primary" : "text-gray-500")}>
+            <Wrench className="h-5 w-5" />
+          </div>
           <span className={cn("text-xs mt-0.5", isOnRepairs ? "text-primary font-medium" : "text-gray-500")}>Service</span>
         </div>
         
@@ -312,7 +322,9 @@ export function Sidebar({ user }: SidebarProps) {
           onClick={(e) => handleSidebarNavigation(e, "/settings")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <AlignRight className="h-6 w-6 text-gray-500" />
+          <div className="p-1 rounded-md text-gray-500">
+            <AlignRight className="h-5 w-5" />
+          </div>
           <span className="text-xs mt-0.5 text-gray-500">More</span>
         </div>
       </div>

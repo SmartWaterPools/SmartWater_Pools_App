@@ -56,9 +56,11 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Try to use port 5000, but fallback to another port if not available
+  // Always use port 5001 to avoid conflicts with the existing process
   // this serves both the API and the client
-  const port = process.env.PORT ? parseInt(process.env.PORT) : 5001;
+  const port = 5001;
+  
+  // Use the safe port (5001) to avoid EADDRINUSE errors
   server.listen({
     port,
     host: "0.0.0.0",

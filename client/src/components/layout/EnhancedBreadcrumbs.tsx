@@ -169,18 +169,18 @@ export function EnhancedBreadcrumbs() {
               <React.Fragment key={segment.path}>
                 {!isFirst && (
                   <li className="flex items-center">
-                    <ChevronRight className="h-4 w-4 text-gray-400 mx-1" />
+                    <ChevronRight className="h-3.5 w-3.5 text-gray-400 mx-1" />
                   </li>
                 )}
                 
                 <li className={cn(
                   "flex items-center",
-                  isLast ? "text-gray-600 font-medium" : "text-gray-500"
+                  isLast ? "text-gray-700 font-medium" : "text-gray-500"
                 )}>
                   {isLast ? (
                     <div className="flex items-center">
                       {segment.icon && (
-                        <span className="mr-1">
+                        <span className="mr-1.5 text-gray-500">
                           {segment.icon}
                         </span>
                       )}
@@ -194,7 +194,7 @@ export function EnhancedBreadcrumbs() {
                       onClick={(e) => handleBreadcrumbClick(e, segment.path)}
                     >
                       {segment.icon && (
-                        <span className="mr-1">
+                        <span className="mr-1.5 text-gray-500">
                           {segment.icon}
                         </span>
                       )}

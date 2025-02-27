@@ -406,7 +406,7 @@ export function EnhancedTabManager() {
   
   return (
     <div className="bg-white border-b border-gray-200 relative">
-      {/* Tab Navigation - matching the mobile app style from screenshots */}
+      {/* Tab Navigation - exactly matching the UI in screenshots */}
       <div className="relative flex items-center">
         {/* Left scroll button */}
         {canScrollLeft && (
@@ -421,7 +421,7 @@ export function EnhancedTabManager() {
           </Button>
         )}
         
-        {/* Scrollable tab container - styled to match the screenshot */}
+        {/* Scrollable tab container - styled to exactly match the screenshot */}
         <div 
           ref={scrollContainerRef}
           className="flex overflow-x-auto scrollbar-hide w-full"
@@ -434,21 +434,21 @@ export function EnhancedTabManager() {
               data-tab-id={tab.id}
               onClick={() => handleTabClick(tab.id)}
               className={cn(
-                "flex items-center py-3 px-4 cursor-pointer min-w-fit max-w-[180px] relative border-r border-gray-100",
+                "flex items-center py-2.5 px-4 cursor-pointer min-w-fit max-w-[180px] relative",
                 activeTabId === tab.id 
-                  ? "text-primary border-b-2 border-b-primary" 
-                  : "text-gray-600 border-b-transparent"
+                  ? "text-primary border-b-2 border-b-primary border-t-0 border-l-0 border-r-0" 
+                  : "text-gray-600 border-b-transparent border-b-2 border-t-0 border-l-0 border-r-0"
               )}
             >
-              <div className="flex items-center space-x-2 truncate">
-                {tab.title}
+              <div className="flex items-center space-x-1 truncate">
+                <span className="truncate">{tab.title}</span>
                 {tab.id !== 'dashboard' && (
                   <button
                     onClick={(e) => handleCloseTab(e, tab.id)}
-                    className="p-0.5 rounded-full hover:bg-gray-200 hover:text-red-500 ml-1"
+                    className="p-0.5 rounded-full hover:bg-gray-100 ml-1 flex-shrink-0"
                     title="Close Tab"
                   >
-                    <X className="h-3 w-3 text-gray-400 hover:text-red-500" />
+                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
                   </button>
                 )}
               </div>
@@ -459,7 +459,7 @@ export function EnhancedTabManager() {
           <Button 
             variant="ghost" 
             size="sm" 
-            className="px-3 py-3 h-full rounded-none border-r border-gray-100" 
+            className="px-3 py-3 h-full rounded-none" 
             onClick={handleNewTab}
             title="New Tab"
           >
