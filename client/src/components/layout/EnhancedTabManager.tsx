@@ -421,7 +421,7 @@ export function EnhancedTabManager() {
           </Button>
         )}
         
-        {/* Scrollable tab container - styled to exactly match the screenshot */}
+        {/* Scrollable tab container - exactly matching the screenshots */}
         <div 
           ref={scrollContainerRef}
           className="flex overflow-x-auto scrollbar-hide w-full"
@@ -441,7 +441,16 @@ export function EnhancedTabManager() {
               )}
             >
               <div className="flex items-center space-x-1 truncate">
-                <span className="truncate">{tab.title}</span>
+                {/* Show icon if available */}
+                {tab.icon && (
+                  <span className={cn(
+                    "mr-1.5 flex-shrink-0", 
+                    activeTabId === tab.id ? "text-primary" : "text-gray-500"
+                  )}>
+                    {tab.icon}
+                  </span>
+                )}
+                <span className="truncate text-sm">{tab.title}</span>
                 {tab.id !== 'dashboard' && (
                   <button
                     onClick={(e) => handleCloseTab(e, tab.id)}

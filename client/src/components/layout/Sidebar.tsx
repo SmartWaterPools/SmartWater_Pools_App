@@ -153,20 +153,19 @@ export function Sidebar({ user }: SidebarProps) {
           </div>
         )}
         
-        {/* Primary navigation items - matched to mobile style */}
+        {/* Primary navigation items - exactly matching mobile navigation */}
         <nav className={cn(
           "flex-1",
-          isCollapsed ? "px-2 space-y-3" : "px-4 space-y-2"
+          isCollapsed ? "px-1 space-y-3" : "px-4 space-y-2"
         )}>
-          {/* Dashboard */}
+          {/* Dashboard - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/")}
             className={cn(
               "flex cursor-pointer",
-              isCollapsed ? "flex-col items-center justify-center py-3" : "items-center py-2 rounded-md",
-              isOnDashboard 
-                ? isCollapsed ? "" : "bg-blue-50" 
-                : ""
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
             )}
           >
             <div className={cn(
@@ -185,7 +184,7 @@ export function Sidebar({ user }: SidebarProps) {
               </span>
             ) : (
               <span className={cn(
-                "text-xs mt-1",
+                "text-xs mt-0.5",
                 isOnDashboard ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Dashboard
@@ -193,15 +192,14 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
-          {/* Clients */}
+          {/* Clients - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/clients")}
             className={cn(
               "flex cursor-pointer",
-              isCollapsed ? "flex-col items-center justify-center py-3" : "items-center py-2 rounded-md",
-              isOnClients 
-                ? isCollapsed ? "" : "bg-blue-50" 
-                : ""
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
             )}
           >
             <div className={cn(
@@ -220,7 +218,7 @@ export function Sidebar({ user }: SidebarProps) {
               </span>
             ) : (
               <span className={cn(
-                "text-xs mt-1",
+                "text-xs mt-0.5",
                 isOnClients ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Clients
@@ -228,15 +226,14 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
-          {/* Projects/Build */}
+          {/* Projects/Build - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/projects")}
             className={cn(
               "flex cursor-pointer",
-              isCollapsed ? "flex-col items-center justify-center py-3" : "items-center py-2 rounded-md",
-              isOnProjects 
-                ? isCollapsed ? "" : "bg-blue-50" 
-                : ""
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
             )}
           >
             <div className={cn(
@@ -255,7 +252,7 @@ export function Sidebar({ user }: SidebarProps) {
               </span>
             ) : (
               <span className={cn(
-                "text-xs mt-1",
+                "text-xs mt-0.5",
                 isOnProjects ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Build
@@ -263,15 +260,14 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
-          {/* Maintenance/Schedule */}
+          {/* Maintenance/Schedule - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/maintenance")}
             className={cn(
               "flex cursor-pointer",
-              isCollapsed ? "flex-col items-center justify-center py-3" : "items-center py-2 rounded-md",
-              isOnMaintenance 
-                ? isCollapsed ? "" : "bg-blue-50" 
-                : ""
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
             )}
           >
             <div className={cn(
@@ -290,7 +286,7 @@ export function Sidebar({ user }: SidebarProps) {
               </span>
             ) : (
               <span className={cn(
-                "text-xs mt-1",
+                "text-xs mt-0.5",
                 isOnMaintenance ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Schedule
@@ -298,15 +294,14 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
-          {/* Repairs/Service */}
+          {/* Repairs/Service - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/repairs")}
             className={cn(
               "flex cursor-pointer",
-              isCollapsed ? "flex-col items-center justify-center py-3" : "items-center py-2 rounded-md",
-              isOnRepairs 
-                ? isCollapsed ? "" : "bg-blue-50" 
-                : ""
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
             )}
           >
             <div className={cn(
@@ -325,7 +320,7 @@ export function Sidebar({ user }: SidebarProps) {
               </span>
             ) : (
               <span className={cn(
-                "text-xs mt-1",
+                "text-xs mt-0.5",
                 isOnRepairs ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Service
@@ -333,12 +328,14 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
-          {/* More */}
+          {/* More - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/settings")}
             className={cn(
               "flex cursor-pointer",
-              isCollapsed ? "flex-col items-center justify-center py-3" : "items-center py-2 rounded-md"
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
             )}
           >
             <div className={cn(
@@ -353,7 +350,7 @@ export function Sidebar({ user }: SidebarProps) {
                 More
               </span>
             ) : (
-              <span className="text-xs mt-1 text-gray-500">
+              <span className="text-xs mt-0.5 text-gray-500">
                 More
               </span>
             )}

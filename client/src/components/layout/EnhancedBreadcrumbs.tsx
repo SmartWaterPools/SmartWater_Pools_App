@@ -117,15 +117,15 @@ export function EnhancedBreadcrumbs() {
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
         
-      // Special cases for specific paths
+      // Special cases for specific paths - matching mobile navigation naming
       if (segment === 'clients') {
         title = 'Clients';
       } else if (segment === 'projects') {
-        title = 'Projects';
+        title = 'Build'; // Changed from Projects to Build to match mobile navigation
       } else if (segment === 'maintenance') {
-        title = 'Maintenance';
+        title = 'Schedule'; // Changed from Maintenance to Schedule to match mobile navigation
       } else if (segment === 'repairs') {
-        title = 'Repairs';
+        title = 'Service'; // Changed from Repairs to Service to match mobile navigation
       } else if (segment === 'technicians') {
         title = 'Technicians';
       }
@@ -142,11 +142,28 @@ export function EnhancedBreadcrumbs() {
   // Handle navigation with tabs
   const handleBreadcrumbClick = (e: React.MouseEvent, path: string) => {
     e.preventDefault();
-    // Get the title for the tab based on the path parts
-    const pathParts = path.split('/').filter(Boolean);
-    const title = pathParts.length > 0 ? 
-      pathParts[pathParts.length - 1].charAt(0).toUpperCase() + pathParts[pathParts.length - 1].slice(1) : 
-      'Dashboard';
+    // Get the title for the tab based on the path
+    let title = 'Dashboard';
+    
+    if (path === '/') {
+      title = 'Dashboard';
+    } else if (path === '/clients') {
+      title = 'Clients';
+    } else if (path === '/projects') {
+      title = 'Build';
+    } else if (path === '/maintenance') {
+      title = 'Schedule';
+    } else if (path === '/repairs') {
+      title = 'Service';
+    } else if (path === '/technicians') {
+      title = 'Technicians';
+    } else {
+      // For other paths, use the last segment with first character capitalized
+      const pathParts = path.split('/').filter(Boolean);
+      title = pathParts.length > 0 ? 
+        pathParts[pathParts.length - 1].charAt(0).toUpperCase() + pathParts[pathParts.length - 1].slice(1) : 
+        'Dashboard';
+    }
     
     // Add or navigate to the tab
     addTab(path, title, false);
@@ -158,7 +175,7 @@ export function EnhancedBreadcrumbs() {
   }
   
   return (
-    <div className="mb-4 py-2">
+    <div className="py-2">
       <nav className="flex" aria-label="Breadcrumb">
         <ol className="flex items-center space-x-1 text-sm">
           {breadcrumbSegments.map((segment, index) => {
@@ -175,7 +192,7 @@ export function EnhancedBreadcrumbs() {
                 
                 <li className={cn(
                   "flex items-center",
-                  isLast ? "text-gray-700 font-medium" : "text-gray-500"
+                  isLast ? "text-gray-800 font-medium" : "text-gray-500"
                 )}>
                   {isLast ? (
                     <div className="flex items-center">
