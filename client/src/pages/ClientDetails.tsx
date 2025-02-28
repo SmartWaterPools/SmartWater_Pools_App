@@ -113,9 +113,10 @@ export default function ClientDetails() {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6" onValueChange={setActiveTab}>
-        <TabsList className="bg-white border">
+        <TabsList className="bg-white border min-w-max">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
+          <TabsTrigger value="pool">Pool Details</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
@@ -591,6 +592,207 @@ export default function ClientDetails() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="pool">
+          <div className="space-y-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Pool Details</h2>
+              <Button 
+                onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+                className="flex items-center"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Update Pool Information
+              </Button>
+            </div>
+            
+            {/* Pool Information Details Section */}
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DropletIcon className="h-5 w-5 mr-2 text-primary" />
+                  Pool Specifications
+                </CardTitle>
+                <CardDescription>Technical details about the pool</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Pool Type:</span>
+                      <span>{client.poolType || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Pool Size:</span>
+                      <span>{client.poolSize || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Filter Type:</span>
+                      <span>{client.filterType || 'Not specified'}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="font-medium">Heater Type:</span>
+                      <span>{client.heaterType || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Chemical System:</span>
+                      <span>{client.chemicalSystem || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium">Service Day:</span>
+                      <span>{client.serviceDay || 'Not specified'}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                {client.specialNotes && (
+                  <div className="mt-6">
+                    <h4 className="font-medium mb-2">Special Notes:</h4>
+                    <div className="p-3 bg-gray-50 rounded-md">
+                      <p className="text-sm">{client.specialNotes}</p>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Equipment Inventory Section */}
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Settings className="h-5 w-5 mr-2 text-primary" />
+                  Equipment Inventory
+                </CardTitle>
+                <CardDescription>Pool equipment and components</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {client.equipment && client.equipment.length > 0 ? (
+                  <div className="space-y-4">
+                    {client.equipment.map((item, index) => (
+                      <div key={index} className="p-4 border rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-medium">{item.name}</h3>
+                            <Badge variant="outline" className="mt-1">
+                              {item.type}
+                            </Badge>
+                          </div>
+                          <Badge 
+                            className={
+                              item.status === 'operational' ? 'bg-green-100 text-green-800' :
+                              item.status === 'needs_service' ? 'bg-yellow-100 text-yellow-800' :
+                              item.status === 'replaced' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                            }
+                          >
+                            {item.status === 'operational' ? 'Operational' :
+                             item.status === 'needs_service' ? 'Needs Service' :
+                             item.status === 'replaced' ? 'Replaced' :
+                             item.status === 'obsolete' ? 'Obsolete' : 'Unknown Status'}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                          <div>
+                            <span className="text-xs text-gray-500">Brand</span>
+                            <p className="text-sm">{item.brand || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-xs text-gray-500">Model</span>
+                            <p className="text-sm">{item.model || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <span className="text-xs text-gray-500">Serial Number</span>
+                            <p className="text-sm">{item.serialNumber || 'N/A'}</p>
+                          </div>
+                        </div>
+                        
+                        {item.installDate && (
+                          <div className="mt-2">
+                            <span className="text-xs text-gray-500">Install Date</span>
+                            <p className="text-sm">{formatDate(item.installDate)}</p>
+                          </div>
+                        )}
+                        
+                        {item.notes && (
+                          <div className="mt-2">
+                            <span className="text-xs text-gray-500">Notes</span>
+                            <p className="text-sm">{item.notes}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Settings className="h-12 w-12 mx-auto text-gray-200 mb-2" />
+                    <p className="text-gray-500">No equipment recorded</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+                    >
+                      Add Equipment
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+            
+            {/* Pool Images Gallery Section */}
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Camera className="h-5 w-5 mr-2 text-primary" />
+                  Pool Images
+                </CardTitle>
+                <CardDescription>Photos of the pool and equipment</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {client.images && client.images.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {client.images.map((image, index) => (
+                      <div key={index} className="border rounded-lg overflow-hidden">
+                        <div className="aspect-video relative">
+                          <img
+                            src={image.imageUrl}
+                            alt={image.caption || `Pool image ${index + 1}`}
+                            className="object-cover w-full h-full"
+                          />
+                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-50 text-white p-2">
+                            <p className="text-sm truncate">
+                              {image.caption || `Image ${index + 1}`}
+                            </p>
+                          </div>
+                          <Badge 
+                            className="absolute top-2 right-2 text-xs"
+                            variant="secondary"
+                          >
+                            {image.category || 'pool'}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <Camera className="h-12 w-12 mx-auto text-gray-200 mb-2" />
+                    <p className="text-gray-500">No images available</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+                    >
+                      Add Images
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="documents">
