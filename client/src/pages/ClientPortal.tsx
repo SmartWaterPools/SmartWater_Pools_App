@@ -8,7 +8,8 @@ import {
   Wrench, 
   ChevronRight, 
   Plus, 
-  MessageCircle
+  MessageCircle,
+  Droplet
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -177,7 +178,7 @@ export default function ClientPortal() {
                     <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
                       <div className="bg-primary h-2.5 rounded-full" style={{ width: `${project.completion}%` }}></div>
                     </div>
-                    
+
                     {/* Pool Specifications */}
                     <div className="mb-4 p-3 bg-blue-50 rounded-lg">
                       <h4 className="font-medium text-sm mb-2">Pool Specifications</h4>
@@ -200,7 +201,7 @@ export default function ClientPortal() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="text-sm">
                         <p className="text-gray-500">Next Milestone</p>
@@ -230,7 +231,7 @@ export default function ClientPortal() {
           <TabsTrigger value="repairs">Repairs</TabsTrigger>
           <TabsTrigger value="invoices">Invoices</TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="maintenance">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -273,7 +274,7 @@ export default function ClientPortal() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="repairs">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -322,7 +323,7 @@ export default function ClientPortal() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
         <TabsContent value="invoices">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-2">

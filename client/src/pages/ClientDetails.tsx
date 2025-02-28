@@ -23,7 +23,8 @@ import {
   Receipt, 
   User,
   Pencil as PencilIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Droplet
 } from "lucide-react";
 
 export default function ClientDetails() {
@@ -185,23 +186,27 @@ export default function ClientDetails() {
                   <p className="font-medium">{client.user?.address || "Not provided"}</p>
                 </div>
               </div>
-              <div className="mb-4">
-                <p className="text-sm text-gray-500 mb-1">Pool Service Plan</p>
-                <p className="font-medium">
-                  {!client.contractType 
-                    ? "No Service Plan" 
-                    : client.contractType?.toLowerCase() === "commercial" 
-                      ? "Commercial Pool Service" 
-                    : client.contractType?.toLowerCase() === "residential" 
-                      ? "Residential Pool Service" 
-                    : client.contractType?.toLowerCase() === "service" 
-                      ? "Full Service Pool Care" 
-                    : client.contractType?.toLowerCase() === "maintenance" 
-                      ? "Basic Pool Maintenance"
-                      : client.contractType}
+              <div className="mb-5">
+                <p className="text-sm text-gray-500 mb-2 flex items-center">
+                  <Droplet className="h-4 w-4 text-blue-500 mr-1" />
+                  Pool Service Plan
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {client.contractType?.toLowerCase() === "commercial" 
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-3 rounded-lg border border-blue-100">
+                  <p className="font-medium text-blue-700">
+                    {!client.contractType 
+                      ? "No Service Plan" 
+                      : client.contractType?.toLowerCase() === "commercial" 
+                        ? "Commercial Pool Service" 
+                      : client.contractType?.toLowerCase() === "residential" 
+                        ? "Residential Pool Service" 
+                      : client.contractType?.toLowerCase() === "service" 
+                        ? "Full Service Pool Care" 
+                      : client.contractType?.toLowerCase() === "maintenance" 
+                        ? "Basic Pool Maintenance"
+                        : client.contractType}
+                  </p>
+                  <p className="text-xs text-gray-600 mt-2">
+                    {client.contractType?.toLowerCase() === "commercial" 
                     ? "Includes weekly maintenance, chemicals, and quarterly equipment inspection" 
                   : client.contractType?.toLowerCase() === "residential" 
                     ? "Includes bi-weekly maintenance and basic chemicals" 
