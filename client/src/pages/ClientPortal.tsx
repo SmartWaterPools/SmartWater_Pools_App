@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Skeleton } from '../components/ui/skeleton';
 import { Calendar, Clock, Activity, Clipboard, FileText, DropletIcon, ThermometerIcon, BeakerIcon } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
-import { formatDate } from '../lib/utils';
+import { formatDate } from '../lib/types';
 
 export default function ClientPortal() {
   const { id } = useParams();

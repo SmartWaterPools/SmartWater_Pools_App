@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
 import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon } from 'lucide-react';
-import { formatDate, formatCurrency } from '../lib/utils';
+import { formatDate, formatCurrency } from '../lib/types';
 
 export default function ClientDetails() {
   const { id } = useParams();

@@ -119,3 +119,15 @@ export const formatTime = (time: string): string => {
   const hour = h % 12 || 12;
   return `${hour}:${m} ${ampm}`;
 };
+
+// Format currency helper
+export const formatCurrency = (amount: number | string): string => {
+  if (amount === null || amount === undefined) return "";
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(numAmount);
+};
