@@ -98,6 +98,14 @@ export default function ClientDetails() {
           <Button variant="outline" onClick={() => setLocation(`/clients/${id}/edit`)}>
             Edit Client
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+            className="flex items-center"
+          >
+            <DropletIcon className="h-4 w-4 mr-2" />
+            Pool Wizard
+          </Button>
           <Button onClick={() => setLocation(`/clients/${id}/portal`)}>
             View Client Portal
           </Button>
