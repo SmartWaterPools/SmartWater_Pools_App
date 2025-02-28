@@ -520,8 +520,8 @@ export default function ClientPortal() {
                                   <span className="text-sm text-gray-500 mt-1 sm:mt-0">{formatDate(service.date)}</span>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
-                                <div className="flex items-center mt-3">
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md mr-2">
+                                <div className="flex flex-col xs:flex-row gap-2 mt-3">
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
                                     <span className="text-gray-500">Cost:</span> ${service.cost?.toFixed(2) || '0.00'}
                                   </div>
                                   <div className="text-xs bg-gray-100 p-2 rounded-md">
@@ -565,8 +565,8 @@ export default function ClientPortal() {
                                   <span className="text-sm text-gray-500 mt-1 sm:mt-0">{formatDate(service.date)}</span>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
-                                <div className="flex items-center mt-3">
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md mr-2">
+                                <div className="flex flex-col xs:flex-row gap-2 mt-3">
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
                                     <span className="text-gray-500">Project Value:</span> ${service.cost?.toFixed(2) || '0.00'}
                                   </div>
                                   <div className="text-xs bg-gray-100 p-2 rounded-md">
