@@ -1,478 +1,411 @@
-import { useEffect, useState } from "react";
-import { useRoute, useLocation, Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription,
-  CardHeader, 
-  CardTitle 
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { ClientWithUser, ProjectWithDetails, MaintenanceWithDetails, RepairWithDetails, InvoiceWithDetails } from "@/lib/types";
-import { 
-  Building, 
-  Calendar, 
-  ChevronLeft, 
-  Mail, 
-  MapPin, 
-  Phone, 
-  Receipt, 
-  User,
-  Pencil as PencilIcon,
-  Edit as EditIcon,
-  Droplet
-} from "lucide-react";
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Skeleton } from '../components/ui/skeleton';
+import { Badge } from '../components/ui/badge';
+import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon } from 'lucide-react';
+import { formatDate, formatCurrency } from '../lib/utils';
 
 export default function ClientDetails() {
-  const [, setLocation] = useLocation();
-  const [, params] = useRoute("/clients/:id");
-  const clientId = params?.id ? parseInt(params.id) : null;
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [client, setClient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // Debug: Log client ID from params
-  console.log("ClientDetails - Client ID from URL params:", clientId, typeof clientId);
-
-  // Fetch client details with better error handling
-  const { data: client, isLoading, error, refetch } = useQuery<ClientWithUser>({
-    queryKey: ["/api/clients", clientId],
-    enabled: !!clientId,
-    retry: 3,
-    staleTime: 0, // Always consider data stale to force refresh
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
-    refetchOnReconnect: true,
-  });
-
-  // Effect to force refetch when revisiting this page
   useEffect(() => {
-    if (clientId) {
-      console.log("ClientDetails - Forcing client data refetch for ID:", clientId);
-      refetch();
-    }
-  }, [clientId, refetch]);
+    if (!id) return;
 
-  // Fetch projects for this client directly from backend
-  const { data: projects = [], isLoading: isLoadingProjects } = useQuery<ProjectWithDetails[]>({
-    queryKey: ["/api/projects", clientId],
-    select: (data) => data.filter((project) => project.clientId === clientId),
-    enabled: !!clientId && !!client,
-    retry: 2,
-  });
+    fetch(`/api/clients/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        setClient(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching client:", err);
+        setLoading(false);
+      });
+  }, [id]);
 
-  // Fetch maintenances for this client directly from backend
-  const { data: maintenances = [], isLoading: isLoadingMaintenances } = useQuery<MaintenanceWithDetails[]>({
-    queryKey: ["/api/maintenances"],
-    select: (data) => data.filter((maintenance) => maintenance.clientId === clientId),
-    enabled: !!clientId && !!client,
-    retry: 2,
-  });
-
-  // Fetch repairs for this client directly from backend
-  const { data: repairs = [], isLoading: isLoadingRepairs } = useQuery<RepairWithDetails[]>({
-    queryKey: ["/api/repairs"],
-    select: (data) => data.filter((repair) => repair.clientId === clientId),
-    enabled: !!clientId && !!client,
-    retry: 2,
-  });
-
-  // Fetch invoices for this client directly from backend
-  const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<InvoiceWithDetails[]>({
-    queryKey: ["/api/invoices"],
-    select: (data) => data.filter((invoice) => invoice.clientId === clientId),
-    enabled: !!clientId && !!client,
-    retry: 2,
-  });
-
-  // Handle edit navigation - use Link component directly to preserve app state
-  const renderEditButton = () => {
-    if (!client) return null;
-
+  if (loading) {
     return (
-      <Link href={`/clients/${client.id}/edit`}>
-        <a className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 h-10 px-4 py-2 shadow-sm transition-colors">
-          <PencilIcon className="mr-2 h-4 w-4" /> Edit Client
-        </a>
-      </Link>
-    );
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p>Loading client details...</p>
+      <div className="container mx-auto p-6">
+        <div className="flex items-center mb-6">
+          <Skeleton className="h-8 w-40 mr-4" />
+          <Skeleton className="h-8 w-24" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full" />
+        </div>
       </div>
     );
   }
 
-  if (error || !client) {
+  if (!client) {
     return (
-      <div className="flex flex-col items-center justify-center h-full p-8">
-        <p className="text-red-500 text-lg font-medium mb-2">Error loading client details.</p>
-        <p className="text-gray-600 mb-6">The client information could not be retrieved at this time.</p>
-        <div className="flex gap-4">
-          <Link href="/clients">
-            <a className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 border border-input">
-              <ChevronLeft className="mr-2 h-4 w-4" /> Back to Clients
-            </a>
-          </Link>
-          <Button variant="default" onClick={() => refetch()}>
-            Try Again
+      <div className="container mx-auto p-6">
+        <h1 className="text-2xl font-bold mb-6">Client not found</h1>
+        <Button onClick={() => navigate('/clients')}>Back to Clients</Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">{client.user.name}</h1>
+          <p className="text-gray-500">{client.address}</p>
+        </div>
+        <div className="mt-4 md:mt-0 flex gap-2">
+          <Button variant="outline" onClick={() => navigate(`/clients/${id}/edit`)}>
+            Edit Client
+          </Button>
+          <Button onClick={() => navigate(`/clients/${id}/portal`)}>
+            View Client Portal
           </Button>
         </div>
       </div>
-    );
-  }
 
-  // Determine client type based on both company name and contract type field
-  const clientType = client.contractType?.toLowerCase() === "commercial" || 
-                     (client.companyName && !client.contractType) ? "Commercial" : "Residential";
+      <Tabs defaultValue="overview" className="space-y-6" onValueChange={setActiveTab}>
+        <TabsList className="bg-white border">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="services">Services</TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+        </TabsList>
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <Link href="/clients">
-          <a className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 border border-input">
-            <ChevronLeft className="mr-2 h-4 w-4" /> Back
-          </a>
-        </Link>
-        {renderEditButton()}
-      </div>
+        <TabsContent value="overview">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Contact Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-start">
+                    <MapPin className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />
+                    <div>
+                      <p>{client.address}</p>
+                      <p>{client.city}, {client.state} {client.zipCode}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    <Phone className="h-5 w-5 mr-2 text-gray-500" />
+                    <p>{client.phone}</p>
+                  </div>
+                  <div className="flex items-center">
+                    <Mail className="h-5 w-5 mr-2 text-gray-500" />
+                    <p>{client.user.email}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Client Info Card */}
-        <Card className="md:col-span-1">
-          <CardHeader className="pb-2">
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-xl font-bold">
-                  {client.companyName || (client.user && client.user.name) || `Client ${clientId}`}
-                </CardTitle>
-                <CardDescription>
-                  {client.companyName && client.user && (
-                    <div className="mt-1 text-sm font-medium">
-                      Contact: {client.user.name}
+            <Card className="bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Pool Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Pool Type:</span>
+                    <span>{client.poolType || 'In-ground'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Size:</span>
+                    <span>{client.poolSize || '15,000 gallons'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Filter Type:</span>
+                    <span>{client.filterType || 'Sand'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Chemical System:</span>
+                    <span>{client.chemicalSystem || 'Salt Water'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Features:</span>
+                    <span>{client.poolFeatures || 'Spa, Waterfall'}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Service Contract</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Contract Type:</span>
+                    <Badge variant="outline">
+                      {client.contractType || 'Weekly Service'}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Service Day:</span>
+                    <span>{client.serviceDay || 'Tuesday'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Monthly Rate:</span>
+                    <span className="font-medium">{formatCurrency(client.monthlyRate || 199)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Start Date:</span>
+                    <span>{client.contractStartDate ? formatDate(client.contractStartDate) : '01/01/2023'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Renewal Date:</span>
+                    <span>{client.contractRenewalDate ? formatDate(client.contractRenewalDate) : '01/01/2024'}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle className="text-lg">Upcoming Services</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {client.upcomingServices && client.upcomingServices.length > 0 ? (
+                  <div className="space-y-4">
+                    {client.upcomingServices.map((service, index) => (
+                      <div key={index} className="flex items-start p-3 border rounded-lg">
+                        <div className="bg-blue-100 p-2 rounded-full mr-3">
+                          <Calendar className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <div className="flex justify-between">
+                            <h4 className="font-medium">{service.type}</h4>
+                            <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                          </div>
+                          <div className="flex items-center text-sm text-gray-500 mt-1">
+                            <Clock className="h-3 w-3 mr-1" />
+                            <span>{service.time}</span>
+                          </div>
+                          <div className="flex items-center text-sm text-gray-500 mt-1">
+                            <User className="h-3 w-3 mr-1" />
+                            <span>{service.technician}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <DropletIcon className="h-12 w-12 mx-auto text-blue-200 mb-2" />
+                    <p className="text-gray-500">No upcoming services scheduled</p>
+                    <Button variant="outline" className="mt-4">Schedule Service</Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle className="text-lg">Recent Issues</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {client.issues && client.issues.length > 0 ? (
+                  <div className="space-y-4">
+                    {client.issues.map((issue, index) => (
+                      <div key={index} className="flex items-start p-3 border rounded-lg">
+                        <div className={`p-2 rounded-full mr-3 ${issue.resolved ? 'bg-green-100' : 'bg-amber-100'}`}>
+                          {issue.resolved ? (
+                            <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-amber-600" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex justify-between">
+                            <h4 className="font-medium">{issue.title}</h4>
+                            <Badge variant={issue.resolved ? "outline" : "secondary"}>
+                              {issue.resolved ? "Resolved" : "Open"}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-1">{issue.description}</p>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-xs text-gray-500">
+                              Reported: {formatDate(issue.reportedDate)}
+                            </span>
+                            {issue.resolved && (
+                              <span className="text-xs text-gray-500">
+                                Resolved: {formatDate(issue.resolvedDate)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <CheckCircle2 className="h-12 w-12 mx-auto text-green-200 mb-2" />
+                    <p className="text-gray-500">No recent issues reported</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="services">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle>Service History</CardTitle>
+              <CardDescription>View all past service visits for this client</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {client.serviceHistory && client.serviceHistory.length > 0 ? (
+                  client.serviceHistory.map((service, index) => (
+                    <div key={index} className="flex items-start p-4 border rounded-lg">
+                      <div className="mr-4">
+                        <div className="bg-blue-100 p-3 rounded-full">
+                          <DropletIcon className="h-5 w-5 text-blue-600" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between">
+                          <h4 className="font-medium">{service.type}</h4>
+                          <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                          <div className="text-xs bg-gray-100 p-2 rounded-md">
+                            <span className="text-gray-500">pH:</span> {service.waterChemistry?.ph || 'N/A'}
+                          </div>
+                          <div className="text-xs bg-gray-100 p-2 rounded-md">
+                            <span className="text-gray-500">Chlorine:</span> {service.waterChemistry?.chlorine || 'N/A'} ppm
+                          </div>
+                          <div className="text-xs bg-gray-100 p-2 rounded-md">
+                            <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry?.alkalinity || 'N/A'} ppm
+                          </div>
+                          <div className="text-xs bg-gray-100 p-2 rounded-md">
+                            <span className="text-gray-500">Technician:</span> {service.technician}
+                          </div>
+                        </div>
+                        <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">No service history available</p>
+                    <Button variant="outline" className="mt-4">Schedule First Service</Button>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle>Billing Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <h3 className="font-medium">Payment Details</h3>
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-500">Payment Method:</span>
+                      <span>Credit Card ending in {client.paymentInfo?.lastFour || '1234'}</span>
+                    </div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-gray-500">Billing Cycle:</span>
+                      <span>{client.billingCycle || 'Monthly'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Auto-Pay:</span>
+                      <span>{client.autoPay ? 'Enabled' : 'Disabled'}</span>
+                    </div>
+                  </div>
+                  <Button variant="outline">Update Payment Method</Button>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium">Recent Invoices</h3>
+                  {client.invoices && client.invoices.length > 0 ? (
+                    <div className="space-y-2">
+                      {client.invoices.map((invoice, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 border rounded-lg">
+                          <div>
+                            <p className="font-medium">Invoice #{invoice.number}</p>
+                            <p className="text-sm text-gray-500">{formatDate(invoice.date)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-medium">{formatCurrency(invoice.amount)}</p>
+                            <Badge variant={invoice.status === 'paid' ? 'success' : invoice.status === 'pending' ? 'warning' : 'outline'}>
+                              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 border rounded-lg">
+                      <p className="text-gray-500">No invoices available</p>
                     </div>
                   )}
-                </CardDescription>
-              </div>
-              <Badge className={clientType === "Commercial" ? "bg-blue-100 text-blue-800" : "bg-green-100 text-green-800"}>
-                {clientType}
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 pt-2">
-              <div className="flex items-start">
-                <Mail className="h-4 w-4 text-gray-500 mt-1 mr-3" />
-                <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-medium">{client.user?.email || "Not provided"}</p>
+                  <Button variant="outline">View All Invoices</Button>
                 </div>
               </div>
-              <div className="flex items-start">
-                <Phone className="h-4 w-4 text-gray-500 mt-1 mr-3" />
-                <div>
-                  <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-medium">{client.user?.phone || "Not provided"}</p>
-                </div>
-              </div>
-              <div className="flex items-start">
-                <MapPin className="h-4 w-4 text-gray-500 mt-1 mr-3" />
-                <div>
-                  <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-medium">{client.user?.address || "Not provided"}</p>
-                </div>
-              </div>
-              <div className="mb-5">
-                <p className="text-sm text-gray-500 mb-2 flex items-center">
-                  <Droplet className="h-4 w-4 text-blue-500 mr-1" />
-                  Pool Service Plan
-                </p>
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-3 rounded-lg border border-blue-100">
-                  <p className="font-medium text-blue-700">
-                    {!client.contractType 
-                      ? "No Service Plan" 
-                      : client.contractType?.toLowerCase() === "commercial" 
-                        ? "Commercial Pool Service" 
-                      : client.contractType?.toLowerCase() === "residential" 
-                        ? "Residential Pool Service" 
-                      : client.contractType?.toLowerCase() === "service" 
-                        ? "Full Service Pool Care" 
-                      : client.contractType?.toLowerCase() === "maintenance" 
-                        ? "Basic Pool Maintenance"
-                        : client.contractType}
-                  </p>
-                  <p className="text-xs text-gray-600 mt-2">
-                    {client.contractType?.toLowerCase() === "commercial" 
-                    ? "Includes weekly maintenance, chemicals, and quarterly equipment inspection" 
-                  : client.contractType?.toLowerCase() === "residential" 
-                    ? "Includes bi-weekly maintenance and basic chemicals" 
-                  : client.contractType?.toLowerCase() === "service" 
-                    ? "Includes weekly maintenance, all chemicals, and priority repairs" 
-                  : client.contractType?.toLowerCase() === "maintenance" 
-                    ? "Basic cleaning and water testing only"
-                    : "No service details available"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-        {/* Client Data Tabs */}
-        <div className="md:col-span-2">
-          <Tabs defaultValue="projects" className="w-full">
-            <TabsList className="grid grid-cols-4 mb-4">
-              <TabsTrigger value="projects">Projects</TabsTrigger>
-              <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-              <TabsTrigger value="repairs">Repairs</TabsTrigger>
-              <TabsTrigger value="invoices">Invoices</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="projects" className="space-y-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Projects</h3>
-                <Button size="sm" variant="outline" className="flex items-center gap-1">
-                  <PencilIcon className="h-3.5 w-3.5" />
-                  Add Project
-                </Button>
+        <TabsContent value="documents">
+          <Card className="bg-white">
+            <CardHeader>
+              <CardTitle>Documents</CardTitle>
+              <CardDescription>Contracts, reports, and other documents</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {client.documents && client.documents.length > 0 ? (
+                  client.documents.map((doc, index) => (
+                    <div key={index} className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                      <div className="flex items-center mb-3">
+                        <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                          <svg className="h-6 w-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h4 className="font-medium text-sm">{doc.name}</h4>
+                          <p className="text-xs text-gray-500">{formatDate(doc.date)}</p>
+                        </div>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">Type: {doc.type}</span>
+                        <span className="text-gray-500">{doc.size}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8 col-span-3">
+                    <p className="text-gray-500">No documents available</p>
+                    <Button variant="outline" className="mt-4">Upload Document</Button>
+                  </div>
+                )}
               </div>
-              {projects.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {projects.map((project: any) => (
-                    <Card key={project.id}>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-lg font-semibold">{project.name}</CardTitle>
-                        <Badge 
-                          className={
-                            project.status === "completed" ? "bg-green-100 text-green-800" :
-                            project.status === "in_progress" ? "bg-blue-100 text-blue-800" :
-                            project.status === "planning" ? "bg-purple-100 text-purple-800" :
-                            "bg-yellow-100 text-yellow-800"
-                          }
-                        >
-                          {project.status.replace("_", " ").split(" ").map((word: string) => 
-                            word.charAt(0).toUpperCase() + word.slice(1)
-                          ).join(" ")}
-                        </Badge>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-500 mb-2">{project.description}</p>
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          <div>
-                            <p className="text-gray-500">Start Date:</p>
-                            <p>{new Date(project.startDate).toLocaleDateString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Target Completion:</p>
-                            <p>{project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate).toLocaleDateString() : 'Not set'}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Budget:</p>
-                            <p>${project.budget?.toLocaleString() || "N/A"}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Status:</p>
-                            <p>{project.status.charAt(0).toUpperCase() + project.status.slice(1).replace('_', ' ')}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-md">
-                  No active projects found for this client.
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="maintenance" className="space-y-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Maintenance Schedules</h3>
-                <Button size="sm" variant="outline" className="flex items-center gap-1">
-                  <PencilIcon className="h-3.5 w-3.5" />
-                  Schedule Maintenance
-                </Button>
-              </div>
-              {maintenances.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {maintenances.map((maintenance: any) => (
-                    <Card key={maintenance.id}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between">
-                          <CardTitle className="text-lg font-semibold">{maintenance.type}</CardTitle>
-                          <Badge 
-                            className={
-                              maintenance.status === "completed" ? "bg-green-100 text-green-800" :
-                              maintenance.status === "scheduled" ? "bg-blue-100 text-blue-800" :
-                              maintenance.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
-                              "bg-red-100 text-red-800"
-                            }
-                          >
-                            {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1)}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        {maintenance.description && (
-                          <p className="text-sm text-gray-500 mb-3">{maintenance.description}</p>
-                        )}
-                        <div className="flex items-center mb-2">
-                          <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                          <span className="text-sm">
-                            {new Date(maintenance.scheduleDate).toLocaleDateString()}
-                          </span>
-                        </div>
-                        {maintenance.technicianId && (
-                          <div className="flex items-center">
-                            <User className="h-4 w-4 text-gray-400 mr-2" />
-                            <span className="text-sm">
-                              Assigned to: {maintenance.technician?.user?.name || `Technician #${maintenance.technicianId}`}
-                            </span>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-md">
-                  No maintenance schedules found for this client.
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="repairs" className="space-y-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Repair Requests</h3>
-                <Button size="sm" variant="outline" className="flex items-center gap-1">
-                  <PencilIcon className="h-3.5 w-3.5" />
-                  Request Repair
-                </Button>
-              </div>
-              {repairs.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {repairs.map((repair: any) => (
-                    <Card key={repair.id}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between">
-                          <CardTitle className="text-lg font-semibold">{repair.issue}</CardTitle>
-                          <div className="flex gap-2">
-                            <Badge 
-                              className={
-                                repair.status === "completed" ? "bg-green-100 text-green-800" :
-                                repair.status === "in_progress" ? "bg-yellow-100 text-yellow-800" :
-                                repair.status === "scheduled" ? "bg-blue-100 text-blue-800" :
-                                repair.status === "assigned" ? "bg-purple-100 text-purple-800" :
-                                "bg-red-100 text-red-800"
-                              }
-                            >
-                              {repair.status.replace("_", " ").split(" ").map((word: string) => 
-                                word.charAt(0).toUpperCase() + word.slice(1)
-                              ).join(" ")}
-                            </Badge>
-                            <Badge 
-                              className={
-                                repair.priority === "high" ? "bg-red-100 text-red-800" :
-                                repair.priority === "medium" ? "bg-yellow-100 text-yellow-800" :
-                                "bg-green-100 text-green-800"
-                              }
-                            >
-                              {repair.priority.charAt(0).toUpperCase() + repair.priority.slice(1)} Priority
-                            </Badge>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-500 mb-3">{repair.description}</p>
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          <div>
-                            <p className="text-gray-500">Reported:</p>
-                            <p>{new Date(repair.reportedDate).toLocaleDateString()}</p>
-                          </div>
-                          {repair.scheduledDate && (
-                            <div>
-                              <p className="text-gray-500">Scheduled:</p>
-                              <p>{new Date(repair.scheduledDate).toLocaleDateString()} {repair.scheduledTime}</p>
-                            </div>
-                          )}
-                          {repair.technicianId && (
-                            <div>
-                              <p className="text-gray-500">Assigned To:</p>
-                              <p>{repair.technician?.user?.name || `Technician #${repair.technicianId}`}</p>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-md">
-                  No repair requests found for this client.
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="invoices" className="space-y-4">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Invoices</h3>
-                <Button size="sm" variant="outline" className="flex items-center gap-1">
-                  <PencilIcon className="h-3.5 w-3.5" />
-                  Create Invoice
-                </Button>
-              </div>
-              {invoices.length > 0 ? (
-                <div className="grid grid-cols-1 gap-4">
-                  {invoices.map((invoice: any) => (
-                    <Card key={invoice.id}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between">
-                          <CardTitle className="text-lg font-semibold">Invoice #{invoice.id}</CardTitle>
-                          <Badge 
-                            className={
-                              invoice.status === "paid" ? "bg-green-100 text-green-800" :
-                              invoice.status === "pending" ? "bg-yellow-100 text-yellow-800" :
-                              "bg-red-100 text-red-800"
-                            }
-                          >
-                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <p className="text-sm text-gray-500 mb-3">{invoice.description}</p>
-                        <div className="flex flex-wrap gap-4 text-sm">
-                          <div>
-                            <p className="text-gray-500">Issue Date:</p>
-                            <p>{new Date(invoice.issueDate).toLocaleDateString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Due Date:</p>
-                            <p>{new Date(invoice.dueDate).toLocaleDateString()}</p>
-                          </div>
-                          <div>
-                            <p className="text-gray-500">Amount:</p>
-                            <p className="font-semibold">${invoice.amount.toLocaleString()}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-md">
-                  No invoices found for this client.
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
