@@ -9,10 +9,30 @@ import { Calendar, Clock, Activity, Clipboard, FileText, DropletIcon, Thermomete
 import { Badge } from '@/components/ui/badge';
 import { formatDate, ClientWithUser } from '@/lib/types';
 
+// Create an extended type for the client portal that includes all the properties used
+interface ExtendedClientPortalData extends ClientWithUser {
+  address?: string;
+  lastServiceDate?: string | Date;
+  poolType?: string;
+  poolSize?: string;
+  filterType?: string;
+  chlorineLevel?: number;
+  phLevel?: number;
+  alkalinity?: number;
+  lastWaterTest?: string | Date;
+  upcomingService?: {
+    date: string | Date;
+    time: string;
+    technician: string;
+    type?: string;
+  };
+  maintenanceHistory?: Array<any>;
+}
+
 export default function ClientPortal() {
   const { id } = useParams();
   const [_, setLocation] = useLocation();
-  const [client, setClient] = useState<ClientWithUser | null>(null);
+  const [client, setClient] = useState<ExtendedClientPortalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -64,7 +84,7 @@ export default function ClientPortal() {
           <p className="text-gray-500">{client.address}</p>
         </div>
         <div className="mt-4 md:mt-0 flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/clients/${id}/edit`)}>
+          <Button variant="outline" onClick={() => setLocation(`/clients/${id}/edit`)}>
             Edit Client
           </Button>
           <Button>Schedule Service</Button>
@@ -124,13 +144,13 @@ export default function ClientPortal() {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Chlorine:</span>
-                    <Badge variant={client.chlorineLevel > 1 ? "success" : "destructive"}>
+                    <Badge variant={client.chlorineLevel && client.chlorineLevel > 1 ? "default" : "destructive"}>
                       {client.chlorineLevel || '2.5'} ppm
                     </Badge>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">pH Level:</span>
-                    <Badge variant={client.phLevel > 7.2 && client.phLevel < 7.8 ? "success" : "warning"}>
+                    <Badge variant={client.phLevel && client.phLevel > 7.2 && client.phLevel < 7.8 ? "default" : "secondary"}>
                       {client.phLevel || '7.4'}
                     </Badge>
                   </div>

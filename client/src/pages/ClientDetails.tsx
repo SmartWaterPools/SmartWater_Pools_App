@@ -8,10 +8,38 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser } from '@/lib/types';
 
+// We need to extend the ClientWithUser type to include the additional properties
+// that are used in this component but are not part of the original type
+interface ExtendedClientData extends ClientWithUser {
+  // These properties are used in the component but not defined in ClientWithUser
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  phone?: string;
+  poolType?: string;
+  poolSize?: string;
+  filterType?: string;
+  chemicalSystem?: string;
+  poolFeatures?: string;
+  serviceDay?: string;
+  monthlyRate?: number;
+  contractStartDate?: string | Date;
+  contractRenewalDate?: string | Date;
+  upcomingServices?: Array<any>;
+  issues?: Array<any>;
+  serviceHistory?: Array<any>;
+  paymentInfo?: { lastFour?: string };
+  billingCycle?: string;
+  autoPay?: boolean;
+  invoices?: Array<any>;
+  documents?: Array<any>;
+}
+
 export default function ClientDetails() {
   const { id } = useParams();
   const [_, setLocation] = useLocation();
-  const [client, setClient] = useState<ClientWithUser | null>(null);
+  const [client, setClient] = useState<ExtendedClientData | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -60,7 +88,7 @@ export default function ClientDetails() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold">{client.user.name}</h1>
-          <p className="text-gray-500">{client.address}</p>
+          <p className="text-gray-500">{client.user.address || 'No address provided'}</p>
         </div>
         <div className="mt-4 md:mt-0 flex gap-2">
           <Button variant="outline" onClick={() => setLocation(`/clients/${id}/edit`)}>
@@ -348,7 +376,7 @@ export default function ClientDetails() {
                           </div>
                           <div className="text-right">
                             <p className="font-medium">{formatCurrency(invoice.amount)}</p>
-                            <Badge variant={invoice.status === 'paid' ? 'success' : invoice.status === 'pending' ? 'warning' : 'outline'}>
+                            <Badge variant={invoice.status === 'paid' ? 'default' : invoice.status === 'pending' ? 'secondary' : 'outline'}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                             </Badge>
                           </div>
