@@ -5,12 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera } from 'lucide-react';
+import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera as CameraIcon } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser } from '@/lib/types';
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
-interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'chemicalSystem'> {
+interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'heaterType' | 'chemicalSystem'> {
   // These properties are used in the component but not in the original ClientWithUser
   address?: string;
   city?: string;
@@ -746,7 +746,7 @@ export default function ClientDetails() {
             <Card className="bg-white">
               <CardHeader>
                 <CardTitle className="flex items-center">
-                  <Camera className="h-5 w-5 mr-2 text-primary" />
+                  <CameraIcon className="h-5 w-5 mr-2 text-primary" />
                   Pool Images
                 </CardTitle>
                 <CardDescription>Photos of the pool and equipment</CardDescription>
@@ -779,7 +779,7 @@ export default function ClientDetails() {
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <Camera className="h-12 w-12 mx-auto text-gray-200 mb-2" />
+                    <CameraIcon className="h-12 w-12 mx-auto text-gray-200 mb-2" />
                     <p className="text-gray-500">No images available</p>
                     <Button 
                       variant="outline" 

@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, ArrowRight, Save, Camera, Upload, Check } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Camera as CameraIcon, Upload, Check } from 'lucide-react';
 
 // Define the pool information schema with validation rules
 const poolInfoSchema = z.object({
@@ -659,7 +659,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                         type="button"
                         variant="outline"
                       >
-                        <Camera className="h-4 w-4 mr-2" />
+                        <CameraIcon className="h-4 w-4 mr-2" />
                         Take Photo
                       </Button>
                     </div>
