@@ -40,6 +40,14 @@ export const clients = pgTable("clients", {
   userId: integer("user_id").references(() => users.id).notNull(),
   companyName: text("company_name"),
   contractType: text("contract_type"), // Should always be one of CONTRACT_TYPES or null
+  // Pool details
+  poolType: text("pool_type"), // vinyl, gunite, concrete, fiberglass
+  poolSize: text("pool_size"), // dimensions or gallons
+  filterType: text("filter_type"), // sand, cartridge, DE
+  heaterType: text("heater_type"), // gas, electric, solar, heat pump
+  chemicalSystem: text("chemical_system"), // chlorine, salt, mineral
+  specialNotes: text("special_notes"), // Any special instructions or notes
+  serviceDay: text("service_day"), // Preferred service day
 });
 
 export const insertClientSchema = createInsertSchema(clients)
@@ -156,6 +164,41 @@ export const insertInvoiceSchema = createInsertSchema(invoices).omit({
   issueDate: true,
 });
 
+// Pool equipment schema
+export const poolEquipment = pgTable("pool_equipment", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").references(() => clients.id).notNull(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // pump, filter, heater, chlorinator, etc.
+  brand: text("brand"),
+  model: text("model"),
+  serialNumber: text("serial_number"),
+  installDate: date("install_date"),
+  lastServiceDate: date("last_service_date"),
+  notes: text("notes"),
+  status: text("status").default("operational"), // operational, needs_service, replaced
+});
+
+export const insertPoolEquipmentSchema = createInsertSchema(poolEquipment).omit({
+  id: true,
+});
+
+// Pool images schema
+export const poolImages = pgTable("pool_images", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").references(() => clients.id).notNull(),
+  imageUrl: text("image_url").notNull(),
+  caption: text("caption"),
+  category: text("category"), // equipment, pool, landscape, issue, etc.
+  uploadDate: timestamp("upload_date").notNull().defaultNow(),
+  technician_id: integer("technician_id").references(() => technicians.id),
+});
+
+export const insertPoolImageSchema = createInsertSchema(poolImages).omit({
+  id: true,
+  uploadDate: true,
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
@@ -171,6 +214,8 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
   maintenances: many(maintenances),
   repairs: many(repairs),
   invoices: many(invoices),
+  poolEquipment: many(poolEquipment),
+  poolImages: many(poolImages),
 }));
 
 export const techniciansRelations = relations(technicians, ({ one, many }) => ({
@@ -231,6 +276,24 @@ export const invoicesRelations = relations(invoices, ({ one }) => ({
   }),
 }));
 
+export const poolEquipmentRelations = relations(poolEquipment, ({ one }) => ({
+  client: one(clients, {
+    fields: [poolEquipment.clientId],
+    references: [clients.id],
+  }),
+}));
+
+export const poolImagesRelations = relations(poolImages, ({ one }) => ({
+  client: one(clients, {
+    fields: [poolImages.clientId],
+    references: [clients.id],
+  }),
+  technician: one(technicians, {
+    fields: [poolImages.technician_id],
+    references: [technicians.id],
+  }),
+}));
+
 // Create a separate client update schema for PATCH operations
 export const updateClientSchema = z.object({
   companyName: z.string().nullable().optional(),
@@ -271,3 +334,9 @@ export type InsertRepair = z.infer<typeof insertRepairSchema>;
 
 export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+
+export type PoolEquipment = typeof poolEquipment.$inferSelect;
+export type InsertPoolEquipment = z.infer<typeof insertPoolEquipmentSchema>;
+
+export type PoolImage = typeof poolImages.$inferSelect;
+export type InsertPoolImage = z.infer<typeof insertPoolImageSchema>;

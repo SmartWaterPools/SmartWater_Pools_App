@@ -9,16 +9,19 @@ import { Badge } from '@/components/ui/badge';
 import { formatDate, ClientWithUser } from '@/lib/types';
 
 // Create an extended type for the client portal that includes all the properties used
-interface ExtendedClientPortalData extends ClientWithUser {
+interface ExtendedClientPortalData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'heaterType' | 'chemicalSystem'> {
   address?: string;
   lastServiceDate?: string | Date;
-  poolType?: string;
-  poolSize?: string;
-  filterType?: string;
+  poolType?: string | null;
+  poolSize?: string | null;
+  filterType?: string | null;
+  heaterType?: string | null;
+  chemicalSystem?: string | null;
   chlorineLevel?: number;
   phLevel?: number;
   alkalinity?: number;
   lastWaterTest?: string | Date;
+  specialNotes?: string | null;
   upcomingService?: {
     date: string | Date;
     time: string;
@@ -39,6 +42,25 @@ interface ExtendedClientPortalData extends ClientWithUser {
       chlorine?: number;
       alkalinity?: number;
     };
+  }>;
+  equipment?: Array<{
+    id?: number;
+    name: string;
+    type: string;
+    brand?: string;
+    model?: string;
+    serialNumber?: string;
+    installDate?: string | Date;
+    lastServiceDate?: string | Date;
+    status?: string;
+    notes?: string;
+  }>;
+  images?: Array<{
+    id?: number;
+    imageUrl: string;
+    caption?: string;
+    category?: string;
+    uploadDate?: string | Date;
   }>;
 }
 

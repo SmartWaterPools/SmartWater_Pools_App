@@ -10,19 +10,21 @@ import { formatDate, formatCurrency, ClientWithUser } from '@/lib/types';
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
-interface ExtendedClientData extends ClientWithUser {
-  // These properties are used in the component but not defined in ClientWithUser
+interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'chemicalSystem'> {
+  // These properties are used in the component but not in the original ClientWithUser
   address?: string;
   city?: string;
   state?: string;
   zipCode?: string;
   phone?: string;
-  poolType?: string;
-  poolSize?: string;
-  filterType?: string;
-  chemicalSystem?: string;
+  poolType?: string | null;
+  poolSize?: string | null;
+  filterType?: string | null;
+  heaterType?: string | null;
+  chemicalSystem?: string | null;
   poolFeatures?: string;
-  serviceDay?: string;
+  serviceDay?: string | null;
+  specialNotes?: string | null;
   monthlyRate?: number;
   contractStartDate?: string | Date;
   contractRenewalDate?: string | Date;
@@ -34,6 +36,8 @@ interface ExtendedClientData extends ClientWithUser {
   autoPay?: boolean;
   invoices?: Array<any>;
   documents?: Array<any>;
+  equipment?: Array<any>;
+  images?: Array<any>;
 }
 
 export default function ClientDetails() {
