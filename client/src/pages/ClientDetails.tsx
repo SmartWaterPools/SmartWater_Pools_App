@@ -215,7 +215,8 @@ export default function ClientDetails() {
                   : client.contractType?.toLowerCase() === "maintenance" 
                     ? "Basic cleaning and water testing only"
                     : "No service details available"}
-                </p>
+                  </p>
+                </div>
               </div>
             </div>
           </CardContent>
