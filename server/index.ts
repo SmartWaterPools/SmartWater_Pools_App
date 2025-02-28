@@ -56,8 +56,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use port 3001 since ports 5000 and 3000 may be in use
-  const port = 3001;
+  // Use port 5000 as required by the Replit workflow
+  const port = 5000;
   
   // Simple server setup with proper error handling
   server.listen({
