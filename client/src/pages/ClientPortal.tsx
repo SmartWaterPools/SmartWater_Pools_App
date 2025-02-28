@@ -185,7 +185,7 @@ export default function ClientPortal() {
                     </div>
                     <div className="flex items-center">
                       <Activity className="h-4 w-4 mr-2 text-gray-500" />
-                      <span>{client.upcomingService.type}</span>
+                      <span>{client.upcomingService.type || 'Regular Maintenance'}</span>
                     </div>
                     <div className="mt-4">
                       <Button className="w-full">Reschedule</Button>
@@ -209,8 +209,8 @@ export default function ClientPortal() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {(client.maintenanceHistory || []).length > 0 ? (
-                  client.maintenanceHistory.map((record, index) => (
+                {client.maintenanceHistory && client.maintenanceHistory.length > 0 ? (
+                  client.maintenanceHistory.map((record: any, index: number) => (
                     <div key={index} className="flex items-start p-3 border rounded-lg">
                       <div className="bg-blue-100 p-2 rounded-full mr-3">
                         <Clipboard className="h-5 w-5 text-blue-600" />
@@ -330,7 +330,7 @@ export default function ClientPortal() {
                   <div className="p-4 border rounded-lg">
                     <div className="flex justify-between">
                       <h4 className="font-medium">Heater</h4>
-                      <Badge variant="warning">Maintenance Needed</Badge>
+                      <Badge variant="secondary">Maintenance Needed</Badge>
                     </div>
                     <p className="text-sm text-gray-500 mt-2">Pentair MasterTemp 400</p>
                     <p className="text-sm text-gray-500">Installed: Jan 2022</p>
