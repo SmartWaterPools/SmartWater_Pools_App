@@ -374,7 +374,7 @@ export default function ClientPortal() {
             {/* Sub-tabs for different service types */}
             <Tabs defaultValue="all">
               <div className="flex justify-center w-full overflow-x-auto pb-2">
-                <TabsList className="flex-wrap justify-center">
+                <TabsList className="justify-center min-w-max">
                   <TabsTrigger value="all">All Services</TabsTrigger>
                   <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
                   <TabsTrigger value="repair">Repairs</TabsTrigger>
