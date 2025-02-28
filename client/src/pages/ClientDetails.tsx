@@ -30,10 +30,10 @@ export default function ClientDetails() {
   const [, setLocation] = useLocation();
   const [, params] = useRoute("/clients/:id");
   const clientId = params?.id ? parseInt(params.id) : null;
-  
+
   // Debug: Log client ID from params
   console.log("ClientDetails - Client ID from URL params:", clientId, typeof clientId);
-  
+
   // Fetch client details with better error handling
   const { data: client, isLoading, error, refetch } = useQuery<ClientWithUser>({
     queryKey: ["/api/clients", clientId],
@@ -44,7 +44,7 @@ export default function ClientDetails() {
     refetchOnMount: true,
     refetchOnReconnect: true,
   });
-  
+
   // Effect to force refetch when revisiting this page
   useEffect(() => {
     if (clientId) {
@@ -60,7 +60,7 @@ export default function ClientDetails() {
     enabled: !!clientId && !!client,
     retry: 2,
   });
-  
+
   // Fetch maintenances for this client directly from backend
   const { data: maintenances = [], isLoading: isLoadingMaintenances } = useQuery<MaintenanceWithDetails[]>({
     queryKey: ["/api/maintenances"],
@@ -68,7 +68,7 @@ export default function ClientDetails() {
     enabled: !!clientId && !!client,
     retry: 2,
   });
-  
+
   // Fetch repairs for this client directly from backend
   const { data: repairs = [], isLoading: isLoadingRepairs } = useQuery<RepairWithDetails[]>({
     queryKey: ["/api/repairs"],
@@ -76,7 +76,7 @@ export default function ClientDetails() {
     enabled: !!clientId && !!client,
     retry: 2,
   });
-  
+
   // Fetch invoices for this client directly from backend
   const { data: invoices = [], isLoading: isLoadingInvoices } = useQuery<InvoiceWithDetails[]>({
     queryKey: ["/api/invoices"],
@@ -84,11 +84,11 @@ export default function ClientDetails() {
     enabled: !!clientId && !!client,
     retry: 2,
   });
-  
+
   // Handle edit navigation - use Link component directly to preserve app state
   const renderEditButton = () => {
     if (!client) return null;
-    
+
     return (
       <Link href={`/clients/${client.id}/edit`}>
         <a className="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-white hover:bg-primary/90 h-10 px-4 py-2 shadow-sm transition-colors">
@@ -97,7 +97,7 @@ export default function ClientDetails() {
       </Link>
     );
   };
-  
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -105,7 +105,7 @@ export default function ClientDetails() {
       </div>
     );
   }
-  
+
   if (error || !client) {
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
@@ -124,11 +124,11 @@ export default function ClientDetails() {
       </div>
     );
   }
-  
+
   // Determine client type based on both company name and contract type field
   const clientType = client.contractType?.toLowerCase() === "commercial" || 
                      (client.companyName && !client.contractType) ? "Commercial" : "Residential";
-  
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -139,7 +139,7 @@ export default function ClientDetails() {
         </Link>
         {renderEditButton()}
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Client Info Card */}
         <Card className="md:col-span-1">
@@ -185,25 +185,37 @@ export default function ClientDetails() {
                   <p className="font-medium">{client.user?.address || "Not provided"}</p>
                 </div>
               </div>
-              {client.contractType && (
-                <div className="flex items-start">
-                  <Building className="h-4 w-4 text-gray-500 mt-1 mr-3" />
-                  <div>
-                    <p className="text-sm text-gray-500">Contract Type</p>
-                    <p className="font-medium">
-                      {client.contractType?.toLowerCase() === "commercial" 
-                        ? "Commercial" 
-                        : client.contractType?.toLowerCase() === "residential" 
-                          ? "Residential" 
-                          : client.contractType}
-                    </p>
-                  </div>
-                </div>
-              )}
+              <div className="mb-4">
+                <p className="text-sm text-gray-500 mb-1">Pool Service Plan</p>
+                <p className="font-medium">
+                  {!client.contractType 
+                    ? "No Service Plan" 
+                    : client.contractType?.toLowerCase() === "commercial" 
+                      ? "Commercial Pool Service" 
+                    : client.contractType?.toLowerCase() === "residential" 
+                      ? "Residential Pool Service" 
+                    : client.contractType?.toLowerCase() === "service" 
+                      ? "Full Service Pool Care" 
+                    : client.contractType?.toLowerCase() === "maintenance" 
+                      ? "Basic Pool Maintenance"
+                      : client.contractType}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {client.contractType?.toLowerCase() === "commercial" 
+                    ? "Includes weekly maintenance, chemicals, and quarterly equipment inspection" 
+                  : client.contractType?.toLowerCase() === "residential" 
+                    ? "Includes bi-weekly maintenance and basic chemicals" 
+                  : client.contractType?.toLowerCase() === "service" 
+                    ? "Includes weekly maintenance, all chemicals, and priority repairs" 
+                  : client.contractType?.toLowerCase() === "maintenance" 
+                    ? "Basic cleaning and water testing only"
+                    : "No service details available"}
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
-        
+
         {/* Client Data Tabs */}
         <div className="md:col-span-2">
           <Tabs defaultValue="projects" className="w-full">
@@ -213,7 +225,7 @@ export default function ClientDetails() {
               <TabsTrigger value="repairs">Repairs</TabsTrigger>
               <TabsTrigger value="invoices">Invoices</TabsTrigger>
             </TabsList>
-            
+
             <TabsContent value="projects" className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Projects</h3>
@@ -271,7 +283,7 @@ export default function ClientDetails() {
                 </div>
               )}
             </TabsContent>
-            
+
             <TabsContent value="maintenance" className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Maintenance Schedules</h3>
@@ -327,7 +339,7 @@ export default function ClientDetails() {
                 </div>
               )}
             </TabsContent>
-            
+
             <TabsContent value="repairs" className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Repair Requests</h3>
@@ -399,7 +411,7 @@ export default function ClientDetails() {
                 </div>
               )}
             </TabsContent>
-            
+
             <TabsContent value="invoices" className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Invoices</h3>

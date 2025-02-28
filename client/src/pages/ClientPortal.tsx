@@ -85,11 +85,18 @@ export default function ClientPortal() {
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <h1 className="text-2xl font-bold text-foreground font-heading">Client Portal</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground font-heading">SmartWater Pool Portal</h1>
+          <p className="text-gray-500 text-sm">Managing your pool has never been easier</p>
+        </div>
         <div className="mt-3 md:mt-0 space-x-2">
           <Button variant="outline" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" />
-            Contact Support
+            Pool Support
+          </Button>
+          <Button variant="outline" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Schedule Service
           </Button>
           <Button className="bg-primary hover:bg-primary/90 text-white">
             Make Payment
@@ -158,7 +165,7 @@ export default function ClientPortal() {
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-foreground">{project.name}</h3>
                       <span className="bg-blue-100 text-primary text-xs font-medium px-2.5 py-1 rounded-full">
-                        In Progress
+                        {project.status || "In Progress"}
                       </span>
                     </div>
                   </div>
@@ -170,6 +177,30 @@ export default function ClientPortal() {
                     <div className="w-full bg-gray-200 rounded-full h-2.5 mb-4">
                       <div className="bg-primary h-2.5 rounded-full" style={{ width: `${project.completion}%` }}></div>
                     </div>
+                    
+                    {/* Pool Specifications */}
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                      <h4 className="font-medium text-sm mb-2">Pool Specifications</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-gray-500">Pool Type</p>
+                          <p className="font-medium">{project.poolType || "Custom"}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Size</p>
+                          <p className="font-medium">{project.poolSize || "Standard"}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Water Volume</p>
+                          <p className="font-medium">{project.waterVolume || "N/A"} gallons</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500">Filtration System</p>
+                          <p className="font-medium">{project.filtrationSystem || "Standard"}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
                     <div className="grid grid-cols-2 gap-4 mb-4">
                       <div className="text-sm">
                         <p className="text-gray-500">Next Milestone</p>
