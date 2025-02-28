@@ -373,12 +373,14 @@ export default function ClientPortal() {
           <div className="space-y-6">
             {/* Sub-tabs for different service types */}
             <Tabs defaultValue="all">
-              <TabsList>
-                <TabsTrigger value="all">All Services</TabsTrigger>
-                <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-                <TabsTrigger value="repair">Repairs</TabsTrigger>
-                <TabsTrigger value="construction">Construction</TabsTrigger>
-              </TabsList>
+              <div className="flex justify-center w-full overflow-x-auto pb-2">
+                <TabsList className="flex-wrap justify-center">
+                  <TabsTrigger value="all">All Services</TabsTrigger>
+                  <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+                  <TabsTrigger value="repair">Repairs</TabsTrigger>
+                  <TabsTrigger value="construction">Construction</TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* All Services Tab */}
               <TabsContent value="all">
@@ -407,7 +409,7 @@ export default function ClientPortal() {
                               </div>
                             </div>
                             <div className="flex-1">
-                              <div className="flex justify-between">
+                              <div className="flex flex-col sm:flex-row sm:justify-between">
                                 <div>
                                   <h4 className="font-medium">{service.type}</h4>
                                   <Badge className="mt-1" variant={
@@ -418,7 +420,7 @@ export default function ClientPortal() {
                                     {service.category}
                                   </Badge>
                                 </div>
-                                <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                <span className="text-sm text-gray-500 mt-1 sm:mt-0">{formatDate(service.date)}</span>
                               </div>
                               <p className="text-sm text-gray-600 mt-2">{service.notes}</p>
                               <div className="flex items-center mt-2">
@@ -458,13 +460,13 @@ export default function ClientPortal() {
                                 </div>
                               </div>
                               <div className="flex-1">
-                                <div className="flex justify-between">
+                                <div className="flex flex-col sm:flex-row sm:justify-between">
                                   <h4 className="font-medium">{service.type || 'Regular Maintenance'}</h4>
-                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                  <span className="text-sm text-gray-500 mt-1 sm:mt-0">{formatDate(service.date)}</span>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
                                 {service.waterChemistry && (
-                                  <div className="grid grid-cols-3 gap-2 mt-3">
+                                  <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-2 mt-3">
                                     <div className="text-xs bg-gray-100 p-2 rounded-md">
                                       <span className="text-gray-500">pH:</span> {service.waterChemistry.ph || 'N/A'}
                                     </div>
@@ -513,9 +515,9 @@ export default function ClientPortal() {
                                 </div>
                               </div>
                               <div className="flex-1">
-                                <div className="flex justify-between">
+                                <div className="flex flex-col sm:flex-row sm:justify-between">
                                   <h4 className="font-medium">{service.type || 'Equipment Repair'}</h4>
-                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                  <span className="text-sm text-gray-500 mt-1 sm:mt-0">{formatDate(service.date)}</span>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
                                 <div className="flex items-center mt-3">
@@ -558,9 +560,9 @@ export default function ClientPortal() {
                                 </div>
                               </div>
                               <div className="flex-1">
-                                <div className="flex justify-between">
+                                <div className="flex flex-col sm:flex-row sm:justify-between">
                                   <h4 className="font-medium">{service.type || 'Construction'}</h4>
-                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                  <span className="text-sm text-gray-500 mt-1 sm:mt-0">{formatDate(service.date)}</span>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
                                 <div className="flex items-center mt-3">

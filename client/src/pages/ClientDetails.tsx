@@ -291,12 +291,14 @@ export default function ClientDetails() {
           <div className="space-y-6">
             {/* Sub-tabs for different service types */}
             <Tabs defaultValue="all">
-              <TabsList>
-                <TabsTrigger value="all">All Services</TabsTrigger>
-                <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-                <TabsTrigger value="repair">Repairs</TabsTrigger>
-                <TabsTrigger value="construction">Construction</TabsTrigger>
-              </TabsList>
+              <div className="flex justify-center w-full overflow-x-auto pb-2">
+                <TabsList className="flex-wrap justify-center">
+                  <TabsTrigger value="all">All Services</TabsTrigger>
+                  <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+                  <TabsTrigger value="repair">Repairs</TabsTrigger>
+                  <TabsTrigger value="construction">Construction</TabsTrigger>
+                </TabsList>
+              </div>
 
               {/* All Services Tab */}
               <TabsContent value="all">
