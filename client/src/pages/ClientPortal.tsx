@@ -1,18 +1,18 @@
 
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Skeleton } from '../components/ui/skeleton';
+import { useParams, useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Calendar, Clock, Activity, Clipboard, FileText, DropletIcon, ThermometerIcon, BeakerIcon } from 'lucide-react';
-import { Badge } from '../components/ui/badge';
-import { formatDate } from '../lib/types';
+import { Badge } from '@/components/ui/badge';
+import { formatDate, ClientWithUser } from '@/lib/types';
 
 export default function ClientPortal() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const [client, setClient] = useState(null);
+  const [_, setLocation] = useLocation();
+  const [client, setClient] = useState<ClientWithUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -51,7 +51,7 @@ export default function ClientPortal() {
     return (
       <div className="container mx-auto p-6">
         <h1 className="text-2xl font-bold mb-6">Client not found</h1>
-        <Button onClick={() => navigate('/clients')}>Back to Clients</Button>
+        <Button onClick={() => setLocation('/clients')}>Back to Clients</Button>
       </div>
     );
   }

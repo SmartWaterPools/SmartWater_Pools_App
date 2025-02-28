@@ -1,17 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Skeleton } from '../components/ui/skeleton';
-import { Badge } from '../components/ui/badge';
+import { useParams, useLocation } from 'wouter';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon } from 'lucide-react';
-import { formatDate, formatCurrency } from '../lib/types';
+import { formatDate, formatCurrency, ClientWithUser } from '@/lib/types';
 
 export default function ClientDetails() {
   const { id } = useParams();
-  const navigate = useNavigate();
-  const [client, setClient] = useState(null);
+  const [_, setLocation] = useLocation();
+  const [client, setClient] = useState<ClientWithUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -50,7 +50,7 @@ export default function ClientDetails() {
     return (
       <div className="container mx-auto p-6">
         <h1 className="text-2xl font-bold mb-6">Client not found</h1>
-        <Button onClick={() => navigate('/clients')}>Back to Clients</Button>
+        <Button onClick={() => setLocation('/clients')}>Back to Clients</Button>
       </div>
     );
   }
@@ -63,10 +63,10 @@ export default function ClientDetails() {
           <p className="text-gray-500">{client.address}</p>
         </div>
         <div className="mt-4 md:mt-0 flex gap-2">
-          <Button variant="outline" onClick={() => navigate(`/clients/${id}/edit`)}>
+          <Button variant="outline" onClick={() => setLocation(`/clients/${id}/edit`)}>
             Edit Client
           </Button>
-          <Button onClick={() => navigate(`/clients/${id}/portal`)}>
+          <Button onClick={() => setLocation(`/clients/${id}/portal`)}>
             View Client Portal
           </Button>
         </div>
