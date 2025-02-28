@@ -487,7 +487,7 @@ export default function ClientDetails() {
                             <div key={index} className="flex items-start p-4 border rounded-lg">
                               <div className="mr-4">
                                 <div className="bg-indigo-100 p-3 rounded-full">
-                                  <HardHat className="h-5 w-5 text-indigo-600" />
+                                  <Building2 className="h-5 w-5 text-indigo-600" />
                                 </div>
                               </div>
                               <div className="flex-1">
