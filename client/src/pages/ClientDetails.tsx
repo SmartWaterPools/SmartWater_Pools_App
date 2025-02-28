@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon } from 'lucide-react';
+import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2 } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser } from '@/lib/types';
 
 // We need to extend the ClientWithUser type to include the additional properties
@@ -288,54 +288,238 @@ export default function ClientDetails() {
         </TabsContent>
 
         <TabsContent value="services">
-          <Card className="bg-white">
-            <CardHeader>
-              <CardTitle>Service History</CardTitle>
-              <CardDescription>View all past service visits for this client</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {client.serviceHistory && client.serviceHistory.length > 0 ? (
-                  client.serviceHistory.map((service, index) => (
-                    <div key={index} className="flex items-start p-4 border rounded-lg">
-                      <div className="mr-4">
-                        <div className="bg-blue-100 p-3 rounded-full">
-                          <DropletIcon className="h-5 w-5 text-blue-600" />
+          <div className="space-y-6">
+            {/* Sub-tabs for different service types */}
+            <Tabs defaultValue="all">
+              <TabsList>
+                <TabsTrigger value="all">All Services</TabsTrigger>
+                <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
+                <TabsTrigger value="repair">Repairs</TabsTrigger>
+                <TabsTrigger value="construction">Construction</TabsTrigger>
+              </TabsList>
+
+              {/* All Services Tab */}
+              <TabsContent value="all">
+                <Card className="bg-white">
+                  <CardHeader>
+                    <CardTitle>Service History</CardTitle>
+                    <CardDescription>All service visits for this client</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {client.serviceHistory && client.serviceHistory.length > 0 ? (
+                        client.serviceHistory.map((service, index) => (
+                          <div key={index} className="flex items-start p-4 border rounded-lg">
+                            <div className="mr-4">
+                              <div className={`p-3 rounded-full ${
+                                service.category === 'repair' ? 'bg-amber-100' : 
+                                service.category === 'construction' ? 'bg-indigo-100' : 
+                                'bg-blue-100'
+                              }`}>
+                                <DropletIcon className={`h-5 w-5 ${
+                                  service.category === 'repair' ? 'text-amber-600' : 
+                                  service.category === 'construction' ? 'text-indigo-600' : 
+                                  'text-blue-600'
+                                }`} />
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex justify-between">
+                                <div>
+                                  <h4 className="font-medium">{service.type}</h4>
+                                  <Badge className="mt-1" variant={
+                                    service.category === 'repair' ? 'destructive' : 
+                                    service.category === 'construction' ? 'secondary' : 
+                                    'default'
+                                  }>
+                                    {service.category || 'Maintenance'}
+                                  </Badge>
+                                </div>
+                                <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-2">{service.notes}</p>
+                              {service.category === 'maintenance' && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">pH:</span> {service.waterChemistry?.ph || 'N/A'}
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Chlorine:</span> {service.waterChemistry?.chlorine || 'N/A'} ppm
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry?.alkalinity || 'N/A'} ppm
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Technician:</span> {service.technician}
+                                  </div>
+                                </div>
+                              )}
+                              <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500">No service history available</p>
+                          <Button variant="outline" className="mt-4">Schedule Service</Button>
                         </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between">
-                          <h4 className="font-medium">{service.type}</h4>
-                          <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
-                        </div>
-                        <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                          <div className="text-xs bg-gray-100 p-2 rounded-md">
-                            <span className="text-gray-500">pH:</span> {service.waterChemistry?.ph || 'N/A'}
-                          </div>
-                          <div className="text-xs bg-gray-100 p-2 rounded-md">
-                            <span className="text-gray-500">Chlorine:</span> {service.waterChemistry?.chlorine || 'N/A'} ppm
-                          </div>
-                          <div className="text-xs bg-gray-100 p-2 rounded-md">
-                            <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry?.alkalinity || 'N/A'} ppm
-                          </div>
-                          <div className="text-xs bg-gray-100 p-2 rounded-md">
-                            <span className="text-gray-500">Technician:</span> {service.technician}
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
-                      </div>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-gray-500">No service history available</p>
-                    <Button variant="outline" className="mt-4">Schedule First Service</Button>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Maintenance Tab */}
+              <TabsContent value="maintenance">
+                <Card className="bg-white">
+                  <CardHeader>
+                    <CardTitle>Maintenance History</CardTitle>
+                    <CardDescription>Regular pool maintenance visits</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {client.serviceHistory && client.serviceHistory.filter(s => s.category === 'maintenance' || !s.category).length > 0 ? (
+                        client.serviceHistory
+                          .filter(s => s.category === 'maintenance' || !s.category)
+                          .map((service, index) => (
+                            <div key={index} className="flex items-start p-4 border rounded-lg">
+                              <div className="mr-4">
+                                <div className="bg-blue-100 p-3 rounded-full">
+                                  <DropletIcon className="h-5 w-5 text-blue-600" />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between">
+                                  <h4 className="font-medium">{service.type || 'Regular Maintenance'}</h4>
+                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">pH:</span> {service.waterChemistry?.ph || 'N/A'}
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Chlorine:</span> {service.waterChemistry?.chlorine || 'N/A'} ppm
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry?.alkalinity || 'N/A'} ppm
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Technician:</span> {service.technician}
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
+                              </div>
+                            </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500">No maintenance history available</p>
+                          <Button variant="outline" className="mt-4">Schedule Maintenance</Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Repairs Tab */}
+              <TabsContent value="repair">
+                <Card className="bg-white">
+                  <CardHeader>
+                    <CardTitle>Repair History</CardTitle>
+                    <CardDescription>Equipment and system repairs</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {client.serviceHistory && client.serviceHistory.filter(s => s.category === 'repair').length > 0 ? (
+                        client.serviceHistory
+                          .filter(s => s.category === 'repair')
+                          .map((service, index) => (
+                            <div key={index} className="flex items-start p-4 border rounded-lg">
+                              <div className="mr-4">
+                                <div className="bg-amber-100 p-3 rounded-full">
+                                  <Settings className="h-5 w-5 text-amber-600" />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between">
+                                  <h4 className="font-medium">{service.type || 'Equipment Repair'}</h4>
+                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
+                                <div className="flex items-center mt-3">
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md mr-2">
+                                    <span className="text-gray-500">Cost:</span> {formatCurrency(service.cost || 0)}
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Technician:</span> {service.technician}
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
+                              </div>
+                            </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500">No repair history available</p>
+                          <Button variant="outline" className="mt-4">Request Repair</Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              {/* Construction Tab */}
+              <TabsContent value="construction">
+                <Card className="bg-white">
+                  <CardHeader>
+                    <CardTitle>Construction History</CardTitle>
+                    <CardDescription>Pool construction and major renovations</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {client.serviceHistory && client.serviceHistory.filter(s => s.category === 'construction').length > 0 ? (
+                        client.serviceHistory
+                          .filter(s => s.category === 'construction')
+                          .map((service, index) => (
+                            <div key={index} className="flex items-start p-4 border rounded-lg">
+                              <div className="mr-4">
+                                <div className="bg-indigo-100 p-3 rounded-full">
+                                  <HardHat className="h-5 w-5 text-indigo-600" />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex justify-between">
+                                  <h4 className="font-medium">{service.type || 'Construction'}</h4>
+                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                </div>
+                                <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
+                                <div className="flex items-center mt-3">
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md mr-2">
+                                    <span className="text-gray-500">Project Value:</span> {formatCurrency(service.cost || 0)}
+                                  </div>
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Supervisor:</span> {service.technician}
+                                  </div>
+                                </div>
+                                <Button variant="ghost" size="sm" className="mt-2">View Project Details</Button>
+                              </div>
+                            </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8">
+                          <p className="text-gray-500">No construction/renovation history available</p>
+                          <Button variant="outline" className="mt-4">Discuss Renovation Options</Button>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </TabsContent>
 
         <TabsContent value="billing">
