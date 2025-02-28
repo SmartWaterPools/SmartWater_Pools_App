@@ -82,9 +82,9 @@ const getIconForPath = (path: string): React.ReactNode => {
 
 const getTitleForPath = (path: string): string => {
   if (path === '/') return 'Dashboard';
-  if (path === '/projects') return 'Projects';
-  if (path === '/maintenance') return 'Maintenance';
-  if (path === '/repairs') return 'Repairs';
+  if (path === '/projects') return 'Build';
+  if (path === '/maintenance') return 'Schedule';
+  if (path === '/repairs') return 'Service';
   if (path === '/clients') return 'Clients';
   if (path === '/technicians') return 'Technicians';
   if (path === '/client-portal') return 'Client Portal';
