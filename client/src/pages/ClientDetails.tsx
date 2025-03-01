@@ -11,7 +11,7 @@ import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } 
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
-interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'chemicalSystem' | 'heaterType'> {
+interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'chemicalSystem' | 'heaterType' | 'specialNotes' | 'serviceDay'> {
   // These properties are used in the component but not in the original ClientWithUser
   address?: string;
   city?: string;
@@ -21,11 +21,11 @@ interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize
   poolType?: string | null;
   poolSize?: string | null;
   filterType?: string | null;
-  heaterType?: string | null;  // added to fix type issue
+  heaterType?: string | null;
   chemicalSystem?: string | null;
   poolFeatures?: string;
-  serviceDay?: string | null;
-  specialNotes?: string | null;
+  serviceDay: string | null;
+  specialNotes: string | null;
   monthlyRate?: number;
   contractStartDate?: string | Date;
   contractRenewalDate?: string | Date;
@@ -658,38 +658,38 @@ export default function ClientDetails() {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="font-medium">Pool Type:</span>
-                      <span>{client.poolType || 'Not specified'}</span>
+                      <span>{displayClient.poolType || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Pool Size:</span>
-                      <span>{client.poolSize || 'Not specified'}</span>
+                      <span>{displayClient.poolSize || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Filter Type:</span>
-                      <span>{client.filterType || 'Not specified'}</span>
+                      <span>{displayClient.filterType || 'Not specified'}</span>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="font-medium">Heater Type:</span>
-                      <span>{client.heaterType || 'Not specified'}</span>
+                      <span>{displayClient.heaterType || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Chemical System:</span>
-                      <span>{client.chemicalSystem || 'Not specified'}</span>
+                      <span>{displayClient.chemicalSystem || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Service Day:</span>
-                      <span>{client.serviceDay || 'Not specified'}</span>
+                      <span>{displayClient.serviceDay || 'Not specified'}</span>
                     </div>
                   </div>
                 </div>
                 
-                {client.specialNotes && (
+                {displayClient.specialNotes && (
                   <div className="mt-6">
                     <h4 className="font-medium mb-2">Special Notes:</h4>
                     <div className="p-3 bg-gray-50 rounded-md">
-                      <p className="text-sm">{client.specialNotes}</p>
+                      <p className="text-sm">{displayClient.specialNotes}</p>
                     </div>
                   </div>
                 )}
@@ -706,9 +706,9 @@ export default function ClientDetails() {
                 <CardDescription>Pool equipment and components</CardDescription>
               </CardHeader>
               <CardContent>
-                {client.equipment && client.equipment.length > 0 ? (
+                {displayClient.equipment && displayClient.equipment.length > 0 ? (
                   <div className="space-y-4">
-                    {client.equipment.map((item, index) => (
+                    {displayClient.equipment.map((item, index) => (
                       <div key={index} className="p-4 border rounded-lg">
                         <div className="flex justify-between items-start">
                           <div>
@@ -789,9 +789,9 @@ export default function ClientDetails() {
                 <CardDescription>Photos of the pool and equipment</CardDescription>
               </CardHeader>
               <CardContent>
-                {client.images && client.images.length > 0 ? (
+                {displayClient.images && displayClient.images.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {client.images.map((image, index) => (
+                    {displayClient.images.map((image, index) => (
                       <div key={index} className="border rounded-lg overflow-hidden">
                         <div className="aspect-video relative">
                           <img
