@@ -10,6 +10,8 @@ import {
   insertMaintenanceSchema,
   insertRepairSchema,
   insertInvoiceSchema,
+  insertPoolEquipmentSchema,
+  insertPoolImageSchema,
   validateContractType,
   CONTRACT_TYPES
 } from "@shared/schema";
@@ -781,6 +783,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Error updating contract type",
         error: String(error)
       });
+    }
+  });
+
+  // Pool Equipment endpoints
+  app.get("/api/clients/:id/equipment", async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+
+      const equipment = await storage.getPoolEquipmentByClientId(clientId);
+      res.json(equipment);
+    } catch (error) {
+      console.error("Error fetching pool equipment:", error);
+      res.status(500).json({ message: "Failed to fetch pool equipment" });
+    }
+  });
+
+  app.post("/api/clients/:id/equipment", async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+
+      const equipmentData = insertPoolEquipmentSchema.parse({
+        ...req.body,
+        clientId: clientId
+      });
+
+      const newEquipment = await storage.createPoolEquipment(equipmentData);
+      res.status(201).json(newEquipment);
+    } catch (error) {
+      console.error("Error creating pool equipment:", error);
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ 
+          message: "Validation error", 
+          details: validationError.message 
+        });
+      }
+      res.status(500).json({ message: "Failed to create pool equipment" });
+    }
+  });
+
+  app.patch("/api/pool-equipment/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid equipment ID" });
+      }
+
+      const updatedEquipment = await storage.updatePoolEquipment(id, req.body);
+      if (!updatedEquipment) {
+        return res.status(404).json({ message: "Equipment not found" });
+      }
+
+      res.json(updatedEquipment);
+    } catch (error) {
+      console.error("Error updating pool equipment:", error);
+      res.status(500).json({ message: "Failed to update pool equipment" });
+    }
+  });
+
+  // Pool Images endpoints
+  app.get("/api/clients/:id/images", async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+
+      const images = await storage.getPoolImagesByClientId(clientId);
+      res.json(images);
+    } catch (error) {
+      console.error("Error fetching pool images:", error);
+      res.status(500).json({ message: "Failed to fetch pool images" });
+    }
+  });
+
+  app.post("/api/clients/:id/images", async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+
+      const imageData = insertPoolImageSchema.parse({
+        ...req.body,
+        clientId: clientId
+      });
+
+      const newImage = await storage.createPoolImage(imageData);
+      res.status(201).json(newImage);
+    } catch (error) {
+      console.error("Error creating pool image:", error);
+      if (error instanceof z.ZodError) {
+        const validationError = fromZodError(error);
+        return res.status(400).json({ 
+          message: "Validation error", 
+          details: validationError.message 
+        });
+      }
+      res.status(500).json({ message: "Failed to create pool image" });
     }
   });
 
