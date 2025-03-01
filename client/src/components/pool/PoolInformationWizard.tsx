@@ -133,20 +133,24 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
     },
   });
 
+  // Define a type for client update data
+  type ClientUpdateData = {
+    poolType: string;
+    poolSize: string;
+    filterType: string;
+    heaterType: string | null | undefined;
+    chemicalSystem: string;
+    specialNotes?: string;
+    serviceDay?: string;
+  };
+
   const updateClientMutation = useMutation({
-    mutationFn: async (data: PoolInfoFormValues) => {
+    mutationFn: async (data: ClientUpdateData) => {
+      console.log('Updating client with data:', data);
       return await apiRequest(
         `/api/clients/${clientId}`,
         'PATCH',
-        {
-          poolType: data.poolType,
-          poolSize: data.poolSize,
-          filterType: data.filterType,
-          heaterType: data.heaterType,
-          chemicalSystem: data.chemicalSystem,
-          specialNotes: data.specialNotes,
-          serviceDay: data.serviceDay,
-        }
+        data
       );
     },
     onSuccess: () => {

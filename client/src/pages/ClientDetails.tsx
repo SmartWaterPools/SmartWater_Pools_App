@@ -193,23 +193,23 @@ export default function ClientDetails() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Pool Type:</span>
-                    <span>{client.poolType || 'In-ground'}</span>
+                    <span>{displayClient.poolType || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Size:</span>
-                    <span>{client.poolSize || '15,000 gallons'}</span>
+                    <span>{displayClient.poolSize || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Filter Type:</span>
-                    <span>{client.filterType || 'Sand'}</span>
+                    <span>{displayClient.filterType || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Chemical System:</span>
-                    <span>{client.chemicalSystem || 'Salt Water'}</span>
+                    <span>{displayClient.chemicalSystem || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Features:</span>
-                    <span>{client.poolFeatures || 'Spa, Waterfall'}</span>
+                    <span className="text-gray-500">Heater Type:</span>
+                    <span>{displayClient.heaterType || 'Not specified'}</span>
                   </div>
                 </div>
               </CardContent>
@@ -224,24 +224,24 @@ export default function ClientDetails() {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Contract Type:</span>
                     <Badge variant="outline">
-                      {client.contractType || 'Weekly Service'}
+                      {displayClient.contractType || 'Not Specified'}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Service Day:</span>
-                    <span>{client.serviceDay || 'Tuesday'}</span>
+                    <span>{displayClient.serviceDay || 'Not Specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Monthly Rate:</span>
-                    <span className="font-medium">{formatCurrency(client.monthlyRate || 199)}</span>
+                    <span className="font-medium">{formatCurrency(displayClient.monthlyRate || 199)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Start Date:</span>
-                    <span>{client.contractStartDate ? formatDate(client.contractStartDate) : '01/01/2023'}</span>
+                    <span className="text-gray-500">Special Notes:</span>
+                    <span>{displayClient.specialNotes || 'None'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Renewal Date:</span>
-                    <span>{client.contractRenewalDate ? formatDate(client.contractRenewalDate) : '01/01/2024'}</span>
+                    <span className="text-gray-500">Last Updated:</span>
+                    <span>{new Date().toLocaleDateString()}</span>
                   </div>
                 </div>
               </CardContent>
@@ -698,12 +698,22 @@ export default function ClientDetails() {
             
             {/* Equipment Inventory Section */}
             <Card className="bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Settings className="h-5 w-5 mr-2 text-primary" />
-                  Equipment Inventory
-                </CardTitle>
-                <CardDescription>Pool equipment and components</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center">
+                    <Settings className="h-5 w-5 mr-2 text-primary" />
+                    Equipment Inventory
+                  </CardTitle>
+                  <CardDescription>Pool equipment and components</CardDescription>
+                </div>
+                <Button
+                  onClick={() => setLocation(`/pool-wizard/${id}`)}
+                  size="sm"
+                  className="ml-auto"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Equipment
+                </Button>
               </CardHeader>
               <CardContent>
                 {isEquipmentLoading ? (
