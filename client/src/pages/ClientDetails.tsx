@@ -706,7 +706,12 @@ export default function ClientDetails() {
                 <CardDescription>Pool equipment and components</CardDescription>
               </CardHeader>
               <CardContent>
-                {displayClient.equipment && displayClient.equipment.length > 0 ? (
+                {isEquipmentLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-24 w-full" />
+                    <Skeleton className="h-24 w-full" />
+                  </div>
+                ) : displayClient.equipment && displayClient.equipment.length > 0 ? (
                   <div className="space-y-4">
                     {displayClient.equipment.map((item, index) => (
                       <div key={index} className="p-4 border rounded-lg">
@@ -789,7 +794,13 @@ export default function ClientDetails() {
                 <CardDescription>Photos of the pool and equipment</CardDescription>
               </CardHeader>
               <CardContent>
-                {displayClient.images && displayClient.images.length > 0 ? (
+                {isImagesLoading ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    <Skeleton className="h-48 w-full rounded-lg" />
+                    <Skeleton className="h-48 w-full rounded-lg" />
+                    <Skeleton className="h-48 w-full rounded-lg" />
+                  </div>
+                ) : displayClient.images && displayClient.images.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {displayClient.images.map((image, index) => (
                       <div key={index} className="border rounded-lg overflow-hidden">
@@ -840,8 +851,8 @@ export default function ClientDetails() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {client.documents && client.documents.length > 0 ? (
-                  client.documents.map((doc, index) => (
+                {displayClient.documents && displayClient.documents.length > 0 ? (
+                  displayClient.documents.map((doc, index) => (
                     <div key={index} className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
                       <div className="flex items-center mb-3">
                         <div className="bg-blue-100 p-2 rounded-lg mr-3">
