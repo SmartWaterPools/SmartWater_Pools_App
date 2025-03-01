@@ -306,15 +306,7 @@ export const updateClientSchema = z.object({
     })
     .refine((val) => val === null || CONTRACT_TYPES.includes(val as any), {
       message: `Contract type must be one of: ${CONTRACT_TYPES.join(', ')} or null`
-    }),
-  // Pool details
-  poolType: z.string().nullable().optional(),
-  poolSize: z.string().nullable().optional(),
-  filterType: z.string().nullable().optional(),
-  heaterType: z.string().nullable().optional(),
-  chemicalSystem: z.string().nullable().optional(),
-  specialNotes: z.string().nullable().optional(),
-  serviceDay: z.string().nullable().optional()
+    })
 });
 
 // Type definitions

@@ -172,9 +172,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updateData = validationResult.data;
       console.log(`[CLIENT UPDATE API] Validated data:`, JSON.stringify(updateData));
 
-      // Skip the change detection and always update
-      console.log(`[CLIENT UPDATE API] Pool-related fields being updated:`, JSON.stringify(updateData));
-      const hasChanges = true;
+      // Only perform update if there are actual changes
+      const hasChanges = Object.keys(updateData).some(key => {
+        // For string values, do case-insensitive comparison for contractType
+        if (key === 'contractType' && updateData.contractType !== null && client.contractType !== null) {
+          return String(updateData.contractType).toLowerCase() !== String(client.contractType).toLowerCase();
+        }
+        
+        // For other fields
+        if (key === 'companyName') {
+          return updateData.companyName !== client.companyName;
+        }
+        
+        // We've handled all possible fields
+        return false;
+      });
 
       if (!hasChanges) {
         console.log(`[CLIENT UPDATE API] No actual changes detected, returning existing client`);
