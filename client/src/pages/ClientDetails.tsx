@@ -66,13 +66,13 @@ export default function ClientDetails() {
     data: equipmentData,
     isLoading: isEquipmentLoading
   } = useQuery({
-    queryKey: ['/api/clients/equipment', id],
+    queryKey: [`/api/clients/${id}/equipment`],
     queryFn: async () => {
       const res = await fetch(`/api/clients/${id}/equipment`);
       if (!res.ok) throw new Error('Failed to fetch equipment');
       return res.json() as Promise<PoolEquipment[]>;
     },
-    enabled: !!id && activeTab === 'pool'
+    enabled: !!id
   });
 
   // Fetch images data when pool tab is active
@@ -80,13 +80,13 @@ export default function ClientDetails() {
     data: imagesData,
     isLoading: isImagesLoading
   } = useQuery({
-    queryKey: ['/api/clients/images', id],
+    queryKey: [`/api/clients/${id}/images`],
     queryFn: async () => {
       const res = await fetch(`/api/clients/${id}/images`);
       if (!res.ok) throw new Error('Failed to fetch images');
       return res.json() as Promise<PoolImage[]>;
     },
-    enabled: !!id && activeTab === 'pool'
+    enabled: !!id
   });
 
   // Update ExtendedClientData with the fetched equipment and images

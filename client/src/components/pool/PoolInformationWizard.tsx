@@ -220,6 +220,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
   // Add mutations for equipment and images
   const addEquipmentMutation = useMutation({
     mutationFn: async (equipment: any) => {
+      console.log('Adding equipment:', equipment);
       return await apiRequest(
         `/api/clients/${clientId}/equipment`,
         'POST',
@@ -227,6 +228,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       );
     },
     onSuccess: () => {
+      console.log('Equipment added successfully');
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/equipment`] });
     },
     onError: (error) => {
@@ -241,6 +243,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
 
   const addImageMutation = useMutation({
     mutationFn: async (image: any) => {
+      console.log('Adding image:', image);
       return await apiRequest(
         `/api/clients/${clientId}/images`,
         'POST',
@@ -248,6 +251,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       );
     },
     onSuccess: () => {
+      console.log('Image added successfully');
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/images`] });
     },
     onError: (error) => {
@@ -265,19 +269,37 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
     
     try {
       // 1. First update basic pool information
-      await updateClientMutation.mutateAsync(data);
+      const clientUpdateData = {
+        poolType: data.poolType,
+        poolSize: data.poolSize,
+        filterType: data.filterType,
+        heaterType: data.heaterType,
+        chemicalSystem: data.chemicalSystem,
+        specialNotes: data.specialNotes,
+        serviceDay: data.serviceDay,
+      };
+      
+      await updateClientMutation.mutateAsync(clientUpdateData);
       
       // 2. Save each equipment item
       if (data.equipment && data.equipment.length > 0) {
         for (const equipment of data.equipment) {
-          await addEquipmentMutation.mutateAsync(equipment);
+          // Ensure clientId is included in each equipment item
+          await addEquipmentMutation.mutateAsync({
+            ...equipment,
+            clientId: clientId
+          });
         }
       }
       
       // 3. Save each image
       if (data.images && data.images.length > 0) {
         for (const image of data.images) {
-          await addImageMutation.mutateAsync(image);
+          // Ensure clientId is included in each image
+          await addImageMutation.mutateAsync({
+            ...image,
+            clientId: clientId
+          });
         }
       }
       
@@ -288,6 +310,8 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       
       // Update client data in the cache
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/equipment`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/images`] });
       
       // Redirect back to client details
       setLocation(`/clients/${clientId}`);
