@@ -217,22 +217,91 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
     });
   };
   
+  // Add mutations for equipment and images
+  const addEquipmentMutation = useMutation({
+    mutationFn: async (equipment: any) => {
+      return await apiRequest(
+        `/api/clients/${clientId}/equipment`,
+        'POST',
+        equipment
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/equipment`] });
+    },
+    onError: (error) => {
+      console.error('Error adding equipment:', error);
+      toast({
+        title: 'Failed to add equipment',
+        description: 'There was a problem saving the equipment details.',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const addImageMutation = useMutation({
+    mutationFn: async (image: any) => {
+      return await apiRequest(
+        `/api/clients/${clientId}/images`,
+        'POST',
+        image
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/images`] });
+    },
+    onError: (error) => {
+      console.error('Error adding image:', error);
+      toast({
+        title: 'Failed to add image',
+        description: 'There was a problem saving the image.',
+        variant: 'destructive',
+      });
+    }
+  });
+
   const handleSubmit = async (data: PoolInfoFormValues) => {
     console.log('Submitting pool information:', data);
     
-    // First update basic pool information
-    await updateClientMutation.mutateAsync(data);
-    
-    // TODO: In a real implementation, we would upload images to a storage service
-    // and save equipment details with separate API calls
-    
-    toast({
-      title: 'Pool information wizard completed',
-      description: 'All information has been successfully saved.',
-    });
-    
-    if (onComplete) {
-      onComplete();
+    try {
+      // 1. First update basic pool information
+      await updateClientMutation.mutateAsync(data);
+      
+      // 2. Save each equipment item
+      if (data.equipment && data.equipment.length > 0) {
+        for (const equipment of data.equipment) {
+          await addEquipmentMutation.mutateAsync(equipment);
+        }
+      }
+      
+      // 3. Save each image
+      if (data.images && data.images.length > 0) {
+        for (const image of data.images) {
+          await addImageMutation.mutateAsync(image);
+        }
+      }
+      
+      toast({
+        title: 'Pool information wizard completed',
+        description: 'All information has been successfully saved.',
+      });
+      
+      // Update client data in the cache
+      queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+      
+      // Redirect back to client details
+      setLocation(`/clients/${clientId}`);
+      
+      if (onComplete) {
+        onComplete();
+      }
+    } catch (error) {
+      console.error('Error saving pool information:', error);
+      toast({
+        title: 'Save failed',
+        description: 'There was a problem saving the pool information.',
+        variant: 'destructive',
+      });
     }
   };
 
