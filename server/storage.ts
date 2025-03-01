@@ -7,7 +7,9 @@ import {
   Maintenance, InsertMaintenance,
   Repair, InsertRepair,
   Invoice, InsertInvoice,
-  users, clients, technicians, projects, projectAssignments, maintenances, repairs, invoices
+  PoolEquipment, InsertPoolEquipment,
+  PoolImage, InsertPoolImage,
+  users, clients, technicians, projects, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages
 } from "@shared/schema";
 import { and, eq, desc, gte, lte } from "drizzle-orm";
 import { db } from "./db";
@@ -190,7 +192,14 @@ export class MemStorage implements IStorage {
       ...insertClient, 
       id,
       companyName: insertClient.companyName ?? null,
-      contractType: insertClient.contractType ?? null
+      contractType: insertClient.contractType ?? null,
+      poolType: insertClient.poolType ?? null,
+      poolSize: insertClient.poolSize ?? null,
+      filterType: insertClient.filterType ?? null,
+      heaterType: insertClient.heaterType ?? null,
+      chemicalSystem: insertClient.chemicalSystem ?? null,
+      specialNotes: insertClient.specialNotes ?? null,
+      serviceDay: insertClient.serviceDay ?? null
     };
     this.clients.set(id, client);
     return client;
@@ -493,8 +502,11 @@ export class MemStorage implements IStorage {
     const id = this.poolEquipmentId++;
     // Ensure required fields have proper default values
     const equipment: PoolEquipment = { 
-      ...insertEquipment, 
       id,
+      name: insertEquipment.name,
+      type: insertEquipment.type,
+      clientId: insertEquipment.clientId,
+      status: insertEquipment.status ?? null,
       brand: insertEquipment.brand ?? null,
       model: insertEquipment.model ?? null,
       serialNumber: insertEquipment.serialNumber ?? null,
@@ -528,10 +540,17 @@ export class MemStorage implements IStorage {
   
   async createPoolImage(insertImage: InsertPoolImage): Promise<PoolImage> {
     const id = this.poolImageId++;
-    // Ensure required fields have proper default values
+    // Ensure all required fields are explicitly set to handle undefined values
+    let technicianId: number | null = null;
+    if (insertImage.technician_id !== undefined) {
+      technicianId = insertImage.technician_id;
+    }
+    
     const image: PoolImage = { 
-      ...insertImage, 
       id,
+      clientId: insertImage.clientId,
+      imageUrl: insertImage.imageUrl,
+      technician_id: technicianId,
       caption: insertImage.caption ?? null,
       category: insertImage.category ?? null,
       uploadDate: new Date()
@@ -1186,6 +1205,49 @@ export class DatabaseStorage implements IStorage {
 
   async getInvoicesByClientId(clientId: number): Promise<Invoice[]> {
     return await db.select().from(invoices).where(eq(invoices.clientId, clientId));
+  }
+
+  // Pool Equipment operations
+  async getPoolEquipment(id: number): Promise<PoolEquipment | undefined> {
+    const [equipment] = await db.select().from(poolEquipment).where(eq(poolEquipment.id, id));
+    return equipment || undefined;
+  }
+  
+  async createPoolEquipment(insertEquipment: InsertPoolEquipment): Promise<PoolEquipment> {
+    const [equipment] = await db.insert(poolEquipment).values(insertEquipment).returning();
+    return equipment;
+  }
+  
+  async updatePoolEquipment(id: number, data: Partial<PoolEquipment>): Promise<PoolEquipment | undefined> {
+    const [updatedEquipment] = await db
+      .update(poolEquipment)
+      .set(data)
+      .where(eq(poolEquipment.id, id))
+      .returning();
+    return updatedEquipment || undefined;
+  }
+  
+  async getPoolEquipmentByClientId(clientId: number): Promise<PoolEquipment[]> {
+    return await db.select().from(poolEquipment).where(eq(poolEquipment.clientId, clientId));
+  }
+  
+  // Pool Images operations
+  async getPoolImage(id: number): Promise<PoolImage | undefined> {
+    const [image] = await db.select().from(poolImages).where(eq(poolImages.id, id));
+    return image || undefined;
+  }
+  
+  async createPoolImage(insertImage: InsertPoolImage): Promise<PoolImage> {
+    const imageWithDate = {
+      ...insertImage,
+      uploadDate: new Date()
+    };
+    const [image] = await db.insert(poolImages).values(imageWithDate).returning();
+    return image;
+  }
+  
+  async getPoolImagesByClientId(clientId: number): Promise<PoolImage[]> {
+    return await db.select().from(poolImages).where(eq(poolImages.clientId, clientId));
   }
 }
 
