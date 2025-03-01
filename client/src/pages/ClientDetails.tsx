@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera } from 'lucide-react';
+import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } from '@/lib/types';
 
 // We need to extend the ClientWithUser type to include the additional properties
@@ -137,7 +137,7 @@ export default function ClientDetails() {
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+            onClick={() => setLocation(`/pool-wizard/${id}`)}
             className="flex items-center"
           >
             <DropletIcon className="h-4 w-4 mr-2" />
@@ -785,7 +785,7 @@ export default function ClientDetails() {
                     <Button 
                       variant="outline" 
                       className="mt-4"
-                      onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+                      onClick={() => setLocation(`/pool-wizard/${id}`)}
                     >
                       Add Equipment
                     </Button>
@@ -796,12 +796,22 @@ export default function ClientDetails() {
             
             {/* Pool Images Gallery Section */}
             <Card className="bg-white">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Camera className="h-5 w-5 mr-2 text-primary" />
-                  Pool Images
-                </CardTitle>
-                <CardDescription>Photos of the pool and equipment</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center">
+                    <Camera className="h-5 w-5 mr-2 text-primary" />
+                    Pool Images
+                  </CardTitle>
+                  <CardDescription>Photos of the pool and equipment</CardDescription>
+                </div>
+                <Button
+                  onClick={() => setLocation(`/pool-wizard/${id}`)}
+                  size="sm"
+                  className="ml-auto"
+                >
+                  <ImagePlus className="h-4 w-4 mr-1" />
+                  Add Images
+                </Button>
               </CardHeader>
               <CardContent>
                 {isImagesLoading ? (
@@ -842,8 +852,9 @@ export default function ClientDetails() {
                     <Button 
                       variant="outline" 
                       className="mt-4"
-                      onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+                      onClick={() => setLocation(`/pool-wizard/${id}`)}
                     >
+                      <ImagePlus className="h-4 w-4 mr-1" />
                       Add Images
                     </Button>
                   </div>
