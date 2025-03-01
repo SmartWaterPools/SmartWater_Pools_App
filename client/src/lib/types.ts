@@ -1,8 +1,12 @@
 import { 
   User, Client, Technician, 
   Project, ProjectAssignment, 
-  Maintenance, Repair, Invoice 
+  Maintenance, Repair, Invoice,
+  PoolEquipment, PoolImage
 } from "@shared/schema";
+
+// Re-export the pool-related types
+export type { PoolEquipment, PoolImage };
 
 // Enhanced types with relationships
 export interface ClientWithUser extends Client {

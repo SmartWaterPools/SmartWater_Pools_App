@@ -11,7 +11,7 @@ import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } 
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
-interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'chemicalSystem'> {
+interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'chemicalSystem' | 'heaterType'> {
   // These properties are used in the component but not in the original ClientWithUser
   address?: string;
   city?: string;
@@ -21,7 +21,7 @@ interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize
   poolType?: string | null;
   poolSize?: string | null;
   filterType?: string | null;
-  heaterType?: string | null;
+  heaterType?: string | null;  // added to fix type issue
   chemicalSystem?: string | null;
   poolFeatures?: string;
   serviceDay?: string | null;
@@ -37,33 +37,66 @@ interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize
   autoPay?: boolean;
   invoices?: Array<any>;
   documents?: Array<any>;
-  equipment?: Array<any>;
-  images?: Array<any>;
+  equipment?: Array<PoolEquipment>;
+  images?: Array<PoolImage>;
 }
 
 export default function ClientDetails() {
   const { id } = useParams();
   const [_, setLocation] = useLocation();
-  const [client, setClient] = useState<ExtendedClientData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // Fetch client data
+  const { 
+    data: client, 
+    isLoading: isClientLoading,
+    error: clientError
+  } = useQuery({
+    queryKey: ['/api/clients', id],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${id}`);
+      if (!res.ok) throw new Error('Failed to fetch client');
+      return res.json() as Promise<ExtendedClientData>;
+    },
+    enabled: !!id
+  });
 
-  useEffect(() => {
-    if (!id) return;
+  // Fetch equipment data when pool tab is active
+  const { 
+    data: equipmentData,
+    isLoading: isEquipmentLoading
+  } = useQuery({
+    queryKey: ['/api/clients/equipment', id],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${id}/equipment`);
+      if (!res.ok) throw new Error('Failed to fetch equipment');
+      return res.json() as Promise<PoolEquipment[]>;
+    },
+    enabled: !!id && activeTab === 'pool'
+  });
 
-    fetch(`/api/clients/${id}`)
-      .then(res => res.json())
-      .then(data => {
-        setClient(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error("Error fetching client:", err);
-        setLoading(false);
-      });
-  }, [id]);
+  // Fetch images data when pool tab is active
+  const { 
+    data: imagesData,
+    isLoading: isImagesLoading
+  } = useQuery({
+    queryKey: ['/api/clients/images', id],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${id}/images`);
+      if (!res.ok) throw new Error('Failed to fetch images');
+      return res.json() as Promise<PoolImage[]>;
+    },
+    enabled: !!id && activeTab === 'pool'
+  });
 
-  if (loading) {
+  // Update ExtendedClientData with the fetched equipment and images
+  const clientWithData: ExtendedClientData | null = client ? {
+    ...client,
+    equipment: equipmentData || [],
+    images: imagesData || []
+  } : null;
+
+  if (isClientLoading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-6">
@@ -87,6 +120,9 @@ export default function ClientDetails() {
       </div>
     );
   }
+
+  // Use the enhanced client data with equipment and images
+  const displayClient = clientWithData || client;
 
   return (
     <div className="container mx-auto p-6">
