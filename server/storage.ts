@@ -70,6 +70,17 @@ export interface IStorage {
   updateInvoice(id: number, invoice: Partial<Invoice>): Promise<Invoice | undefined>;
   getAllInvoices(): Promise<Invoice[]>;
   getInvoicesByClientId(clientId: number): Promise<Invoice[]>;
+  
+  // Pool Equipment operations
+  getPoolEquipment(id: number): Promise<PoolEquipment | undefined>;
+  createPoolEquipment(equipment: InsertPoolEquipment): Promise<PoolEquipment>;
+  updatePoolEquipment(id: number, equipment: Partial<PoolEquipment>): Promise<PoolEquipment | undefined>;
+  getPoolEquipmentByClientId(clientId: number): Promise<PoolEquipment[]>;
+  
+  // Pool Images operations
+  getPoolImage(id: number): Promise<PoolImage | undefined>;
+  createPoolImage(image: InsertPoolImage): Promise<PoolImage>;
+  getPoolImagesByClientId(clientId: number): Promise<PoolImage[]>;
 }
 
 // In-memory storage implementation
@@ -82,6 +93,8 @@ export class MemStorage implements IStorage {
   private maintenances: Map<number, Maintenance>;
   private repairs: Map<number, Repair>;
   private invoices: Map<number, Invoice>;
+  private poolEquipment: Map<number, PoolEquipment>;
+  private poolImages: Map<number, PoolImage>;
   
   private userId: number;
   private clientId: number;
@@ -91,6 +104,8 @@ export class MemStorage implements IStorage {
   private maintenanceId: number;
   private repairId: number;
   private invoiceId: number;
+  private poolEquipmentId: number;
+  private poolImageId: number;
   
   constructor() {
     this.users = new Map();
@@ -101,6 +116,8 @@ export class MemStorage implements IStorage {
     this.maintenances = new Map();
     this.repairs = new Map();
     this.invoices = new Map();
+    this.poolEquipment = new Map();
+    this.poolImages = new Map();
     
     this.userId = 1;
     this.clientId = 1;
@@ -110,6 +127,8 @@ export class MemStorage implements IStorage {
     this.maintenanceId = 1;
     this.repairId = 1;
     this.invoiceId = 1;
+    this.poolEquipmentId = 1;
+    this.poolImageId = 1;
     
     // Add sample data
     this.initSampleData();
@@ -462,6 +481,68 @@ export class MemStorage implements IStorage {
   async getInvoicesByClientId(clientId: number): Promise<Invoice[]> {
     return Array.from(this.invoices.values()).filter(
       (invoice) => invoice.clientId === clientId,
+    );
+  }
+  
+  // Pool Equipment operations
+  async getPoolEquipment(id: number): Promise<PoolEquipment | undefined> {
+    return this.poolEquipment.get(id);
+  }
+  
+  async createPoolEquipment(insertEquipment: InsertPoolEquipment): Promise<PoolEquipment> {
+    const id = this.poolEquipmentId++;
+    // Ensure required fields have proper default values
+    const equipment: PoolEquipment = { 
+      ...insertEquipment, 
+      id,
+      brand: insertEquipment.brand ?? null,
+      model: insertEquipment.model ?? null,
+      serialNumber: insertEquipment.serialNumber ?? null,
+      installDate: insertEquipment.installDate ?? null,
+      lastServiceDate: insertEquipment.lastServiceDate ?? null,
+      notes: insertEquipment.notes ?? null
+    };
+    this.poolEquipment.set(id, equipment);
+    return equipment;
+  }
+  
+  async updatePoolEquipment(id: number, data: Partial<PoolEquipment>): Promise<PoolEquipment | undefined> {
+    const equipment = await this.getPoolEquipment(id);
+    if (!equipment) return undefined;
+    
+    const updatedEquipment = { ...equipment, ...data };
+    this.poolEquipment.set(id, updatedEquipment);
+    return updatedEquipment;
+  }
+  
+  async getPoolEquipmentByClientId(clientId: number): Promise<PoolEquipment[]> {
+    return Array.from(this.poolEquipment.values()).filter(
+      (equipment) => equipment.clientId === clientId,
+    );
+  }
+  
+  // Pool Images operations
+  async getPoolImage(id: number): Promise<PoolImage | undefined> {
+    return this.poolImages.get(id);
+  }
+  
+  async createPoolImage(insertImage: InsertPoolImage): Promise<PoolImage> {
+    const id = this.poolImageId++;
+    // Ensure required fields have proper default values
+    const image: PoolImage = { 
+      ...insertImage, 
+      id,
+      caption: insertImage.caption ?? null,
+      category: insertImage.category ?? null,
+      uploadDate: new Date()
+    };
+    this.poolImages.set(id, image);
+    return image;
+  }
+  
+  async getPoolImagesByClientId(clientId: number): Promise<PoolImage[]> {
+    return Array.from(this.poolImages.values()).filter(
+      (image) => image.clientId === clientId,
     );
   }
   
