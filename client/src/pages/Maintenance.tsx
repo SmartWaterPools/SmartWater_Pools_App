@@ -55,7 +55,7 @@ export default function Maintenance() {
   });
 
   const groupedByDate = filteredMaintenances?.reduce((acc, maintenance) => {
-    const date = maintenance.scheduledDate;
+    const date = maintenance.scheduleDate;
     if (!acc[date]) {
       acc[date] = [];
     }
@@ -233,7 +233,7 @@ export default function Maintenance() {
                                 </div>
                                 <div className="flex items-center text-sm text-gray-600 mb-2">
                                   <CalendarIcon className="h-4 w-4 mr-1" />
-                                  {formatTime(maintenance.scheduledTime)}
+                                  {maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}
                                 </div>
                                 <div className="flex items-center justify-between mt-2">
                                   <div className="flex items-center text-sm text-gray-600">
