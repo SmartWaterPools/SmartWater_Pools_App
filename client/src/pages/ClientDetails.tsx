@@ -223,23 +223,23 @@ export default function ClientDetails() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-500">Pool Type:</span>
-                    <span>{displayClient.poolType || 'Not specified'}</span>
+                    <span>{client.poolType || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Size:</span>
-                    <span>{displayClient.poolSize || 'Not specified'}</span>
+                    <span>{client.poolSize || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Filter Type:</span>
-                    <span>{displayClient.filterType || 'Not specified'}</span>
+                    <span>{client.filterType || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Chemical System:</span>
-                    <span>{displayClient.chemicalSystem || 'Not specified'}</span>
+                    <span>{client.chemicalSystem || 'Not specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Heater Type:</span>
-                    <span>{displayClient.heaterType || 'Not specified'}</span>
+                    <span>{client.heaterType || 'Not specified'}</span>
                   </div>
                 </div>
               </CardContent>
@@ -254,20 +254,20 @@ export default function ClientDetails() {
                   <div className="flex justify-between items-center">
                     <span className="text-gray-500">Contract Type:</span>
                     <Badge variant="outline">
-                      {displayClient.contractType || 'Not Specified'}
+                      {client.contractType || 'Not Specified'}
                     </Badge>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Service Day:</span>
-                    <span>{displayClient.serviceDay || 'Not Specified'}</span>
+                    <span>{client.serviceDay || 'Not Specified'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Monthly Rate:</span>
-                    <span className="font-medium">{formatCurrency(displayClient.monthlyRate || 199)}</span>
+                    <span className="font-medium">{formatCurrency(client.monthlyRate || 199)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Special Notes:</span>
-                    <span>{displayClient.specialNotes || 'None'}</span>
+                    <span>{client.specialNotes || 'None'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">Last Updated:</span>
@@ -669,15 +669,15 @@ export default function ClientDetails() {
                 onClick={() => {
                   // Prepare existing data for the wizard
                   const poolData = {
-                    poolType: displayClient.poolType || '',
-                    poolSize: displayClient.poolSize || '',
-                    filterType: displayClient.filterType || '',
-                    heaterType: displayClient.heaterType || null,
-                    chemicalSystem: displayClient.chemicalSystem || '',
-                    specialNotes: displayClient.specialNotes || '',
-                    serviceDay: displayClient.serviceDay || '',
-                    equipment: displayClient.equipment || [],
-                    images: displayClient.images || []
+                    poolType: client.poolType || '',
+                    poolSize: client.poolSize || '',
+                    filterType: client.filterType || '',
+                    heaterType: client.heaterType || null,
+                    chemicalSystem: client.chemicalSystem || '',
+                    specialNotes: client.specialNotes || '',
+                    serviceDay: client.serviceDay || '',
+                    equipment: equipmentData || [],
+                    images: imagesData || []
                   };
                   
                   // Save existing data to localStorage for the wizard to use
@@ -707,38 +707,38 @@ export default function ClientDetails() {
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="font-medium">Pool Type:</span>
-                      <span>{displayClient.poolType || 'Not specified'}</span>
+                      <span>{client.poolType || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Pool Size:</span>
-                      <span>{displayClient.poolSize || 'Not specified'}</span>
+                      <span>{client.poolSize || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Filter Type:</span>
-                      <span>{displayClient.filterType || 'Not specified'}</span>
+                      <span>{client.filterType || 'Not specified'}</span>
                     </div>
                   </div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="font-medium">Heater Type:</span>
-                      <span>{displayClient.heaterType || 'Not specified'}</span>
+                      <span>{client.heaterType || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Chemical System:</span>
-                      <span>{displayClient.chemicalSystem || 'Not specified'}</span>
+                      <span>{client.chemicalSystem || 'Not specified'}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium">Service Day:</span>
-                      <span>{displayClient.serviceDay || 'Not specified'}</span>
+                      <span>{client.serviceDay || 'Not specified'}</span>
                     </div>
                   </div>
                 </div>
                 
-                {displayClient.specialNotes && (
+                {client.specialNotes && (
                   <div className="mt-6">
                     <h4 className="font-medium mb-2">Special Notes:</h4>
                     <div className="p-3 bg-gray-50 rounded-md">
-                      <p className="text-sm">{displayClient.specialNotes}</p>
+                      <p className="text-sm">{client.specialNotes}</p>
                     </div>
                   </div>
                 )}
@@ -921,8 +921,8 @@ export default function ClientDetails() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {displayClient.documents && displayClient.documents.length > 0 ? (
-                  displayClient.documents.map((doc, index) => (
+                {client.documents && client.documents.length > 0 ? (
+                  client.documents.map((doc: any, index: number) => (
                     <div key={index} className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
                       <div className="flex items-center mb-3">
                         <div className="bg-blue-100 p-2 rounded-lg mr-3">
