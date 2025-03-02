@@ -814,7 +814,7 @@ export default function ClientDetails() {
                         {item.installDate && (
                           <div className="mt-2">
                             <span className="text-xs text-gray-500">Install Date</span>
-                            <p className="text-sm">{formatDate(item.installDate)}</p>
+                            <p className="text-sm">{formatDate(new Date(item.installDate))}</p>
                           </div>
                         )}
                         

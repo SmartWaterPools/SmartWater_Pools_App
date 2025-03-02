@@ -799,7 +799,11 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                             <FormItem>
                               <FormLabel>Install Date</FormLabel>
                               <FormControl>
-                                <Input type="date" {...field} />
+                                <Input 
+                                  type="date" 
+                                  {...field} 
+                                  value={field.value || ''}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>

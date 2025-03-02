@@ -21,7 +21,7 @@ interface ExtendedClientPortalData extends Omit<ClientWithUser, 'poolType' | 'po
   phLevel?: number;
   alkalinity?: number;
   lastWaterTest?: string | Date;
-  specialNotes?: string | null;
+  specialNotes: string | null;
   upcomingService?: {
     date: string | Date;
     time: string;
