@@ -597,14 +597,125 @@ export default function ClientEdit() {
     }
   };
   
-  // Create a memoized debounced version of the save function
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const debouncedSave = React.useMemo(
-    () => debounce(saveFormData, 1000), 
-    // We use an empty dependency array and add the ESLint disable comment
-    // because we want this debounced function to be created only once
-    []
-  );
+  // Create a properly debounced version of saveFormData for autosave
+  const debouncedSave = (values: ClientFormValues) => {
+    console.log("[Auto-save] Called debounced save with:", values);
+    if (isAutoSaveEnabled) {
+      setSaveStatus("saving");
+      
+      // First save to localStorage
+      saveToLocalStorage(values);
+      
+      // Then after a delay, try to save to the server if online
+      setTimeout(() => {
+        if (isOnline && initialData && client) {
+          // Check if there are changes worth saving to the server
+          if (
+            values.name === initialData.name &&
+            values.email === initialData.email &&
+            values.phone === initialData.phone &&
+            values.address === initialData.address &&
+            values.companyName === initialData.companyName &&
+            String(values.contractType).toLowerCase() === String(initialData.contractType).toLowerCase()
+          ) {
+            console.log("[Auto-save] No changes detected, skipping server save");
+            setSaveStatus("saved");
+            setTimeout(() => setSaveStatus("idle"), 2000);
+            return;
+          }
+          
+          // Execute the save process
+          const saveProcess = async () => {
+            try {
+              // Step 1: Update user data first
+              console.log(`[Manual Save] Updating user ${client.user.id} with data`);
+              const userData = {
+                name: values.name,
+                email: values.email,
+                phone: values.phone || null,
+                address: values.address || null,
+              };
+              
+              // Direct API call to update user
+              await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
+              console.log('[Manual Save] User update successful');
+              
+              // Step 2: Update client data if needed
+              const clientData: Record<string, any> = {};
+              
+              if (client.companyName !== (values.companyName || null)) {
+                clientData.companyName = values.companyName || null;
+              }
+              
+              // Normalize and compare contract types
+              const normalizedType = String(values.contractType).toLowerCase();
+              const dbContractType = client.contractType 
+                ? String(client.contractType).toLowerCase() 
+                : null;
+                
+              if (dbContractType !== normalizedType) {
+                clientData.contractType = normalizedType;
+              }
+              
+              // If client data needs updating
+              if (Object.keys(clientData).length > 0) {
+                console.log(`[Manual Save] Updating client ${clientId} with data:`, clientData);
+                await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
+              }
+              
+              console.log('[Manual Save] Save completed successfully');
+              
+              // Success handling
+              setSaveStatus("saved");
+              
+              // Force refresh data
+              queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+              
+              // Update initialData with the new values to prevent duplicate saves
+              setInitialData(values);
+              
+              // Clear any offline data since we successfully saved
+              setOfflineData(null);
+              
+              // Remove localStorage data on successful save
+              if (clientId) {
+                localStorage.removeItem(`client_edit_${clientId}`);
+              }
+              
+              // Restore to idle after a delay
+              setTimeout(() => setSaveStatus("idle"), 2000);
+              
+              setLastSaved(new Date());
+              setForceSaving(false);
+              
+              return true;
+            } catch (error) {
+              console.error("[Manual Save] Error saving data:", error);
+              setSaveStatus("error");
+              
+              // Store for offline mode
+              setOfflineData(values);
+              
+              // Attempt to restore to idle after a longer delay
+              setTimeout(() => setSaveStatus("idle"), 3000);
+              
+              setForceSaving(false);
+              return false;
+            }
+          };
+          
+          saveProcess();
+        } else if (!isOnline) {
+          // If we're offline, just store the data for later sync
+          console.log("[Auto-save] Device offline, storing changes for later sync");
+          setOfflineData(values);
+          setSaveStatus("saved"); // Show saved state even though it's just local
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        }
+      }, 500); // Small delay to ensure localStorage is saved first
+    }
+  };
   
   // Watch for changes and auto-save
   useEffect(() => {
@@ -646,11 +757,15 @@ export default function ClientEdit() {
       
       console.log("[Auto-save] Change detected, will save after debounce:", cleanData);
       setSaveStatus("saving");
-      debouncedSave(cleanData as ClientFormValues);
+      
+      // Timeout to avoid excessive saves during rapid changes - just like the pool wizard
+      setTimeout(() => {
+        debouncedSave(cleanData as ClientFormValues);
+      }, 1000);
     });
     
     return () => subscription.unsubscribe();
-  }, [form, debouncedSave, initialData]);
+  }, [form, initialData, client, clientId, isAutoSaveEnabled, isOnline]);
 
   function onSubmit(data: ClientFormValues) {
     console.log("[Submit] Form submitted, navigating back to client details");
