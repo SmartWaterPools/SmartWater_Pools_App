@@ -15,6 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -963,6 +966,41 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
             
             <Separator />
             
+            {/* Autosave toggle and status */}
+            <div className="flex items-center justify-between mb-4 bg-muted/30 p-3 rounded-md">
+              <div className="flex items-center space-x-2">
+                <Label htmlFor="autosave" className="cursor-pointer">
+                  Autosave
+                </Label>
+                <Switch
+                  id="autosave"
+                  checked={isAutoSaveEnabled}
+                  onCheckedChange={setIsAutoSaveEnabled}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                {isOnline ? (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <Wifi className="h-3 w-3 mr-1" />
+                    Online
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                    <WifiOff className="h-3 w-3 mr-1" />
+                    Offline
+                  </Badge>
+                )}
+                
+                {lastSaved && (
+                  <span className="text-xs text-muted-foreground flex items-center">
+                    <Clock className="h-3 w-3 mr-1" />
+                    Last saved: {lastSaved.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="flex justify-between">
               <div>
                 {step > 1 && (
@@ -988,14 +1026,47 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                   </Button>
                 ) : (
                   <Button 
-                    type="submit"
-                    disabled={updateClientMutation.isPending}
+                    type="button"
+                    onClick={() => {
+                      setForceSaving(true);
+                      try {
+                        // Save to localStorage first (always works even offline)
+                        const formData = form.getValues();
+                        saveToLocalStorage(formData);
+                        
+                        if (isOnline) {
+                          // If online, submit to server
+                          form.handleSubmit(handleSubmit)();
+                        } else {
+                          // If offline, store for later and notify user
+                          setOfflineData(formData);
+                          toast({
+                            title: "Saved locally",
+                            description: "Your changes have been saved offline. They will upload automatically when you're back online.",
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error in Save All Information:', error);
+                        toast({
+                          title: "Error saving information",
+                          description: "There was a problem saving your changes.",
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setForceSaving(false);
+                      }
+                    }}
+                    disabled={updateClientMutation.isPending || forceSaving}
                   >
-                    {updateClientMutation.isPending ? (
+                    {updateClientMutation.isPending || forceSaving ? (
                       <span>Saving...</span>
                     ) : (
                       <>
-                        <Save className="h-4 w-4 mr-2" />
+                        {isOnline ? (
+                          <Database className="h-4 w-4 mr-2" />
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
                         Save All Information
                       </>
                     )}
