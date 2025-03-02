@@ -709,21 +709,57 @@ export default function ClientEdit() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Network status indicator */}
-              <div className="flex justify-end mb-4">
-                <Badge variant={isOnline ? "default" : "outline"} className="flex items-center gap-1">
-                  {isOnline ? (
-                    <>
-                      <Wifi className="h-3 w-3" />
-                      <span>Online</span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="h-3 w-3" />
-                      <span>Offline</span>
-                    </>
+              {/* Autosave toggle and status */}
+              <div className="flex items-center justify-between mb-4 bg-muted/30 p-3 rounded-md">
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="autosave" className="cursor-pointer">
+                    Autosave
+                  </Label>
+                  <Switch
+                    id="autosave"
+                    checked={isAutoSaveEnabled}
+                    onCheckedChange={setIsAutoSaveEnabled}
+                  />
+                  {saveStatus === "saving" && (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 animate-pulse">
+                      <Database className="h-3 w-3 mr-1 animate-pulse" />
+                      Saving...
+                    </Badge>
                   )}
-                </Badge>
+                  {saveStatus === "saved" && (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Check className="h-3 w-3 mr-1" />
+                      Saved
+                    </Badge>
+                  )}
+                  {saveStatus === "error" && (
+                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                      <span className="h-3 w-3 mr-1">!</span>
+                      Error Saving
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  {isOnline ? (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      <Wifi className="h-3 w-3 mr-1" />
+                      Online
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                      <WifiOff className="h-3 w-3 mr-1" />
+                      Offline
+                    </Badge>
+                  )}
+                  
+                  {lastSaved && (
+                    <span className="text-xs text-muted-foreground flex items-center">
+                      <Clock className="h-3 w-3 mr-1" />
+                      Last saved: {lastSaved.toLocaleTimeString()}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Basic Information</h3>
@@ -911,55 +947,7 @@ export default function ClientEdit() {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4 mt-6">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="autosave"
-                    checked={isAutoSaveEnabled}
-                    onCheckedChange={setIsAutoSaveEnabled}
-                  />
-                  <Label htmlFor="autosave">Auto-save</Label>
-                </div>
-                
-                {lastSaved && (
-                  <div className="flex items-center text-gray-400 text-sm">
-                    <Clock className="h-3 w-3 mr-1" />
-                    <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex justify-between items-center mt-6">
-                <div className="flex items-center space-x-2">
-                  {saveStatus === "saving" && (
-                    <div className="flex items-center text-orange-500">
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      <span>Auto-saving changes...</span>
-                    </div>
-                  )}
-                  {saveStatus === "saved" && (
-                    <div className="flex items-center text-green-500">
-                      <Check className="h-4 w-4 mr-2" />
-                      <span>{isOnline ? "All changes saved" : "Saved locally"}</span>
-                    </div>
-                  )}
-                  {saveStatus === "error" && (
-                    <div className="flex items-center text-red-500">
-                      <AlertTriangle className="h-4 w-4 mr-2" />
-                      <span>Error saving changes - please check inputs</span>
-                    </div>
-                  )}
-                  {saveStatus === "idle" && (
-                    <div className="flex items-center text-gray-400">
-                      <Info className="h-4 w-4 mr-2" />
-                      <span>
-                        {isAutoSaveEnabled 
-                          ? "Changes will auto-save as you type" 
-                          : "Auto-save is disabled"}
-                      </span>
-                    </div>
-                  )}
-                </div>
+              <div className="flex justify-end items-center mt-6">
                 <Button 
                   variant="default" 
                   type="button" 
