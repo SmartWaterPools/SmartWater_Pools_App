@@ -7,6 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
 
 import {
   Card,
@@ -221,8 +222,16 @@ export default function ClientAdd() {
                       <FormItem>
                         <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="123 Main St, City, State" {...field} />
+                          <AddressAutocomplete 
+                            onAddressSelect={(address) => field.onChange(address)}
+                            value={field.value || ""}
+                            id={field.name}
+                            onBlur={field.onBlur}
+                          />
                         </FormControl>
+                        <FormDescription>
+                          Start typing to see address suggestions
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
