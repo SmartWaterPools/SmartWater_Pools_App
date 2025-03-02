@@ -182,17 +182,16 @@ export default function ClientDetails() {
                   <div className="flex items-start">
                     <MapPin className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />
                     <div>
-                      <p>{client.address}</p>
-                      <p>{client.city}, {client.state} {client.zipCode}</p>
+                      <p>{client.user.address || 'No address provided'}</p>
                     </div>
                   </div>
                   <div className="flex items-center">
                     <Phone className="h-5 w-5 mr-2 text-gray-500" />
-                    <p>{client.phone}</p>
+                    <p>{client.user.phone || 'No phone provided'}</p>
                   </div>
                   <div className="flex items-center">
                     <Mail className="h-5 w-5 mr-2 text-gray-500" />
-                    <p>{client.user.email}</p>
+                    <p>{client.user.email || 'No email provided'}</p>
                   </div>
                 </div>
               </CardContent>
