@@ -116,20 +116,39 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
   const [_, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [tempImages, setTempImages] = useState<{ dataUrl: string; file: File }[]>([]);
+  const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(true);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [offlineData, setOfflineData] = useState<PoolInfoFormValues | null>(null);
   
-  // Initialize form with default values or existing data
+  // Check if there's saved form data in localStorage
+  const getSavedFormData = (): PoolInfoFormValues | null => {
+    const savedData = localStorage.getItem(`pool_wizard_${clientId}`);
+    if (savedData) {
+      try {
+        return JSON.parse(savedData);
+      } catch (e) {
+        console.error('Error parsing saved form data:', e);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  // Initialize form with saved data, existing data, or defaults
+  const savedFormData = getSavedFormData();
+  
   const form = useForm<PoolInfoFormValues>({
     resolver: zodResolver(poolInfoSchema),
     defaultValues: {
-      poolType: existingData?.poolType || "",
-      poolSize: existingData?.poolSize || "",
-      filterType: existingData?.filterType || "",
-      heaterType: existingData?.heaterType || null,
-      chemicalSystem: existingData?.chemicalSystem || "",
-      specialNotes: existingData?.specialNotes || "",
-      serviceDay: existingData?.serviceDay || "",
-      equipment: existingData?.equipment || [],
-      images: existingData?.images || [],
+      poolType: savedFormData?.poolType || existingData?.poolType || "",
+      poolSize: savedFormData?.poolSize || existingData?.poolSize || "",
+      filterType: savedFormData?.filterType || existingData?.filterType || "",
+      heaterType: savedFormData?.heaterType || existingData?.heaterType || null,
+      chemicalSystem: savedFormData?.chemicalSystem || existingData?.chemicalSystem || "",
+      specialNotes: savedFormData?.specialNotes || existingData?.specialNotes || "",
+      serviceDay: savedFormData?.serviceDay || existingData?.serviceDay || "",
+      equipment: savedFormData?.equipment || existingData?.equipment || [],
+      images: savedFormData?.images || existingData?.images || [],
     },
   });
 
