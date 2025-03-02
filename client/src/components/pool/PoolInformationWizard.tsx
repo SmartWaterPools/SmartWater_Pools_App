@@ -260,10 +260,24 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
   const addEquipmentMutation = useMutation({
     mutationFn: async (equipment: any) => {
       console.log('Adding equipment:', equipment);
+      
+      // Process date fields - if they're empty strings, convert to null
+      const processedEquipment = {
+        ...equipment,
+        installDate: equipment.installDate && equipment.installDate.trim() !== '' 
+          ? equipment.installDate 
+          : null,
+        lastServiceDate: equipment.lastServiceDate && equipment.lastServiceDate.trim() !== '' 
+          ? equipment.lastServiceDate 
+          : null
+      };
+      
+      console.log('Processed equipment for saving:', processedEquipment);
+      
       return await apiRequest(
         `/api/clients/${clientId}/equipment`,
         'POST',
-        equipment
+        processedEquipment
       );
     },
     onSuccess: () => {
