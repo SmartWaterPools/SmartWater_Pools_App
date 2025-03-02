@@ -18,28 +18,28 @@ async function createTestCustomers() {
     // Create users first (with hashed passwords)
     const users = [
       {
-        username: 'john.smith',
+        username: 'test.client1',
         password: await hash('password123', 10),
         name: 'John Smith',
-        email: 'john.smith@example.com',
+        email: 'test.client1@example.com',
         role: 'client',
         phone: '555-123-4567',
         address: '123 Main Street, Anytown, CA 90210'
       },
       {
-        username: 'sarah.jones',
+        username: 'test.client2',
         password: await hash('password123', 10),
         name: 'Sarah Jones',
-        email: 'sarah.jones@example.com',
+        email: 'test.client2@example.com',
         role: 'client',
         phone: '555-234-5678',
         address: '456 Park Avenue, Springfield, CA 90211'
       },
       {
-        username: 'michael.wilson',
+        username: 'test.client3',
         password: await hash('password123', 10),
         name: 'Michael Wilson',
-        email: 'michael.wilson@example.com',
+        email: 'test.client3@example.com',
         role: 'client',
         phone: '555-345-6789',
         address: '789 Ocean Drive, Seaside, CA 90212'
@@ -252,40 +252,40 @@ async function createTestCustomers() {
       {
         clientId: clientIds[0],
         technicianId: null, // Will be assigned later
-        scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString(),
-        completedDate: null,
+        scheduleDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
+        completionDate: null,
+        type: 'regular',
         status: 'scheduled',
-        notes: 'Regular weekly maintenance',
-        priority: 'medium'
+        notes: 'Regular weekly maintenance'
       },
       // Maintenance for Sarah Jones
       {
         clientId: clientIds[1],
         technicianId: null,
-        scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2).toISOString(),
-        completedDate: null,
+        scheduleDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2),
+        completionDate: null,
+        type: 'chemical',
         status: 'scheduled',
-        notes: 'Check salt levels and backwash filter',
-        priority: 'high'
+        notes: 'Check salt levels and backwash filter'
       },
       // Maintenance for Michael Wilson
       {
         clientId: clientIds[2],
         technicianId: null,
-        scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 4).toISOString(),
-        completedDate: null,
+        scheduleDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 4),
+        completionDate: null,
+        type: 'deep-clean',
         status: 'scheduled',
-        notes: 'Deep cleaning and chemistry balance',
-        priority: 'medium'
+        notes: 'Deep cleaning and chemistry balance'
       }
     ];
     
     // Insert maintenance
     for (const maintenance of maintenanceRecords) {
       await pool.query(
-        `INSERT INTO maintenances (client_id, technician_id, scheduled_date, completed_date, status, notes, priority) 
+        `INSERT INTO maintenances (client_id, technician_id, schedule_date, completion_date, type, status, notes) 
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [maintenance.clientId, maintenance.technicianId, maintenance.scheduledDate, maintenance.completedDate, maintenance.status, maintenance.notes, maintenance.priority]
+        [maintenance.clientId, maintenance.technicianId, maintenance.scheduleDate, maintenance.completionDate, maintenance.type, maintenance.status, maintenance.notes]
       );
     }
     console.log(`Added maintenance records for ${maintenanceRecords.length} clients`);
@@ -296,44 +296,44 @@ async function createTestCustomers() {
       {
         clientId: clientIds[0],
         technicianId: null,
-        requestDate: new Date().toISOString(),
-        scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3).toISOString(),
-        completedDate: null,
+        reportedDate: new Date(),
+        scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3),
+        completionDate: null,
+        issue: 'noise',
         description: 'Pump making unusual noise',
-        resolution: null,
+        notes: 'May need new impeller',
         status: 'scheduled',
         priority: 'medium',
-        parts: 'May need new impeller',
-        cost: 150.00
+        scheduledTime: '10:00:00'
       },
       // Repair for Sarah Jones
       {
         clientId: clientIds[1],
         technicianId: null,
-        requestDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2).toISOString(),
-        scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).toISOString(),
-        completedDate: null,
+        reportedDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2),
+        scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1),
+        completionDate: null,
+        issue: 'error',
         description: 'Salt cell reporting error code E-77',
-        resolution: null,
+        notes: 'Possible salt cell replacement needed',
         status: 'assigned',
         priority: 'high',
-        parts: 'Possible salt cell replacement',
-        cost: 350.00
+        scheduledTime: '14:30:00'
       }
     ];
     
     // Insert repairs
     for (const repair of repairRecords) {
       await pool.query(
-        `INSERT INTO repairs (client_id, technician_id, request_date, scheduled_date, completed_date, description, resolution, status, priority, parts, cost) 
+        `INSERT INTO repairs (client_id, technician_id, reported_date, scheduled_date, completion_date, issue, description, notes, status, priority, scheduled_time) 
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-        [repair.clientId, repair.technicianId, repair.requestDate, repair.scheduledDate, repair.completedDate, repair.description, repair.resolution, repair.status, repair.priority, repair.parts, repair.cost]
+        [repair.clientId, repair.technicianId, repair.reportedDate, repair.scheduledDate, repair.completionDate, repair.issue, repair.description, repair.notes, repair.status, repair.priority, repair.scheduledTime]
       );
     }
     console.log(`Added repair records for ${repairRecords.length} clients`);
     
     console.log('Test customers created successfully!');
-    console.log('Login with any of these usernames: john.smith, sarah.jones, michael.wilson');
+    console.log('Login with any of these usernames: test.client1, test.client2, test.client3');
     console.log('Password for all test accounts: password123');
     
   } catch (error) {
