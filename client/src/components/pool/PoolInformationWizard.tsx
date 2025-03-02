@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -15,7 +15,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, ArrowRight, Save, Camera, Upload, Check } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  ArrowRight, 
+  Save, 
+  Camera, 
+  Upload, 
+  Check, 
+  Wifi, 
+  WifiOff, 
+  Clock,
+  Database
+} from 'lucide-react';
 
 // Define the pool information schema with validation rules
 const poolInfoSchema = z.object({
@@ -119,6 +130,8 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
   const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(true);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [offlineData, setOfflineData] = useState<PoolInfoFormValues | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [forceSaving, setForceSaving] = useState(false);
   
   // Check if there's saved form data in localStorage
   const getSavedFormData = (): PoolInfoFormValues | null => {
@@ -286,6 +299,87 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       });
     }
   });
+
+  // Function to save form data to localStorage
+  const saveToLocalStorage = (data: PoolInfoFormValues) => {
+    try {
+      localStorage.setItem(`pool_wizard_${clientId}`, JSON.stringify(data));
+      setLastSaved(new Date());
+      console.log('Saved pool wizard data to localStorage');
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  };
+
+  // Create a debounced version of saveToLocalStorage for autosave
+  const debouncedSave = (values: PoolInfoFormValues) => {
+    if (isAutoSaveEnabled) {
+      saveToLocalStorage(values);
+    }
+  };
+
+  // Setup online/offline event listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      toast({
+        title: "You're back online",
+        description: "You can now save your work to the server.",
+      });
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      toast({
+        title: "You're offline",
+        description: "Don't worry, your work is automatically saved locally.",
+        variant: "destructive"
+      });
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Setup form watcher for autosave
+    const subscription = form.watch((values) => {
+      // Timeout to avoid excessive saves during rapid changes
+      setTimeout(() => {
+        debouncedSave(values as PoolInfoFormValues);
+      }, 2000);
+    });
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      subscription.unsubscribe();
+    };
+  }, [isAutoSaveEnabled, clientId, form]);
+  
+  // Attempt to save offline data when back online
+  useEffect(() => {
+    if (isOnline && offlineData) {
+      const saveOfflineData = async () => {
+        try {
+          await handleSubmit(offlineData);
+          setOfflineData(null);
+          localStorage.removeItem(`pool_wizard_${clientId}`);
+          toast({
+            title: "Offline data saved",
+            description: "Your offline changes have been successfully uploaded to the server.",
+          });
+        } catch (error) {
+          console.error('Failed to save offline data:', error);
+          toast({
+            title: "Failed to save offline data",
+            description: "Please try again by clicking 'Save All Information'.",
+            variant: "destructive"
+          });
+        }
+      };
+      
+      saveOfflineData();
+    }
+  }, [isOnline, offlineData]);
 
   const handleSubmit = async (data: PoolInfoFormValues) => {
     console.log('Submitting pool information:', data);
