@@ -272,30 +272,79 @@ export default function ClientEdit() {
       });
 
       // If we have offline data, try to sync it
-      if (offlineData && clientId) {
+      if (offlineData && clientId && client) {
         console.log('[Network] Attempting to sync offline data');
         setForceSaving(true);
-        updateClientMutation.mutate(offlineData, {
-          onSuccess: () => {
-            console.log('[Network] Offline data successfully synced');
+        
+        // Manual sync process when coming back online
+        const syncOfflineData = async () => {
+          try {
+            // Step 1: Update user data first
+            console.log(`[Network Sync] Updating user ${client.user.id} with offline data`);
+            const userData = {
+              name: offlineData.name,
+              email: offlineData.email,
+              phone: offlineData.phone || null,
+              address: offlineData.address || null,
+            };
+            
+            // Direct API call to update user
+            await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
+            console.log('[Network Sync] User update successful');
+            
+            // Step 2: Update client data if needed
+            const clientData: Record<string, any> = {};
+            
+            if (client.companyName !== (offlineData.companyName || null)) {
+              clientData.companyName = offlineData.companyName || null;
+            }
+            
+            // Normalize and compare contract types
+            const normalizedType = String(offlineData.contractType).toLowerCase();
+            const dbContractType = client.contractType 
+              ? String(client.contractType).toLowerCase() 
+              : null;
+              
+            if (dbContractType !== normalizedType) {
+              clientData.contractType = normalizedType;
+            }
+            
+            // If client data needs updating
+            if (Object.keys(clientData).length > 0) {
+              console.log(`[Network Sync] Updating client ${clientId} with data:`, clientData);
+              await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
+            }
+            
+            console.log('[Network Sync] Sync completed successfully');
+            
+            // Success handling
             localStorage.removeItem(`client_edit_${clientId}`);
             setOfflineData(null);
             setForceSaving(false);
+            
+            // Force refresh data
+            queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+            
             toast({
               title: "Data synced",
               description: "Your offline changes have been saved to the server",
             });
-          },
-          onError: (error) => {
-            console.error('[Network] Failed to sync offline data:', error);
+            
+            return true;
+          } catch (error) {
+            console.error('[Network Sync] Failed to sync offline data:', error);
             setForceSaving(false);
             toast({
               title: "Sync failed",
               description: "Unable to save your offline changes. They'll be saved locally until you're back online.",
               variant: "destructive",
             });
+            return false;
           }
-        });
+        };
+        
+        syncOfflineData();
       }
     };
 
@@ -318,7 +367,7 @@ export default function ClientEdit() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [clientId, offlineData, toast, updateClientMutation]);
+  }, [clientId, offlineData, toast, client, queryClient]);
 
   // Check for saved data in localStorage when component mounts
   useEffect(() => {
@@ -405,7 +454,7 @@ export default function ClientEdit() {
   
   // Create debounced save function after the mutation is defined
   const saveFormData = (data: ClientFormValues) => {
-    if (!initialData) return;
+    if (!initialData || !client) return;
     
     // Always save to localStorage for offline support
     if (isAutoSaveEnabled) {
@@ -448,14 +497,61 @@ export default function ClientEdit() {
     console.log("[Auto-save] Changes detected in:", differences);
 
     // Only attempt to save to server if we're online
-    if (form.formState.isValid && isOnline) {
+    if (form.formState.isValid && (isOnline || forceSaving)) {
       console.log("[Auto-save] Saving changes to server:", data);
       setSaveStatus("saving");
-      updateClientMutation.mutate(data, {
-        onSuccess: () => {
+      
+      // Manual implementation of the update process
+      const saveProcess = async () => {
+        try {
+          // Step 1: Update user data first
+          console.log(`[Manual Save] Updating user ${client.user.id} with data`);
+          const userData = {
+            name: data.name,
+            email: data.email,
+            phone: data.phone || null,
+            address: data.address || null,
+          };
+          
+          // Direct API call to update user
+          await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
+          console.log('[Manual Save] User update successful');
+          
+          // Step 2: Update client data if needed
+          const clientData: Record<string, any> = {};
+          
+          if (client.companyName !== (data.companyName || null)) {
+            clientData.companyName = data.companyName || null;
+          }
+          
+          // Normalize and compare contract types
+          const normalizedType = String(data.contractType).toLowerCase();
+          const dbContractType = client.contractType 
+            ? String(client.contractType).toLowerCase() 
+            : null;
+            
+          if (dbContractType !== normalizedType) {
+            clientData.contractType = normalizedType;
+          }
+          
+          // If client data needs updating
+          if (Object.keys(clientData).length > 0) {
+            console.log(`[Manual Save] Updating client ${clientId} with data:`, clientData);
+            await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
+          }
+          
+          console.log('[Manual Save] Save completed successfully');
+          
+          // Success handling
           setSaveStatus("saved");
+          
+          // Force refresh data
+          queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+          queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
+          
           // Update initialData with the new values to prevent duplicate saves
           setInitialData(data);
+          
           // Clear any offline data since we successfully saved
           setOfflineData(null);
           
@@ -466,22 +562,35 @@ export default function ClientEdit() {
           
           // Restore to idle after a delay
           setTimeout(() => setSaveStatus("idle"), 2000);
-        },
-        onError: (error) => {
-          console.error("[Auto-save] Error saving to server:", error);
+          
+          setLastSaved(new Date());
+          setForceSaving(false);
+          
+          return true;
+        } catch (error) {
+          console.error("[Manual Save] Error saving data:", error);
           setSaveStatus("error");
+          
           // Store for offline mode
           setOfflineData(data);
+          
           // Attempt to restore to idle after a longer delay
           setTimeout(() => setSaveStatus("idle"), 3000);
+          
+          setForceSaving(false);
+          return false;
         }
-      });
+      };
+      
+      // Execute the save process
+      saveProcess();
     } else if (!isOnline) {
       // If we're offline, just store the data for later sync
       console.log("[Auto-save] Device offline, storing changes for later sync");
       setOfflineData(data);
       setSaveStatus("saved"); // Show saved state even though it's just local
       setTimeout(() => setSaveStatus("idle"), 2000);
+      setLastSaved(new Date());
     } else {
       console.log("[Auto-save] Form has validation errors, not saving");
       setSaveStatus("error");
