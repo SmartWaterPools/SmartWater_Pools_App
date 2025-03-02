@@ -3,8 +3,7 @@ import { useRoute, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ClientWithUser } from "@/lib/types";
@@ -88,8 +87,29 @@ export default function ClientEdit() {
   const clientId = params?.id ? parseInt(params.id) : null;
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [initialData, setInitialData] = useState<ClientFormValues | null>(null);
+  const [isAutoSaveEnabled, setIsAutoSaveEnabled] = useState(true);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [offlineData, setOfflineData] = useState<ClientFormValues | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [forceSaving, setForceSaving] = useState(false);
+  
+  // Check if there's saved form data in localStorage
+  const getSavedFormData = (): ClientFormValues | null => {
+    if (!clientId) return null;
+    const savedData = localStorage.getItem(`client_edit_${clientId}`);
+    if (savedData) {
+      try {
+        return JSON.parse(savedData);
+      } catch (e) {
+        console.error('Error parsing saved form data:', e);
+        return null;
+      }
+    }
+    return null;
+  };
   
   // Fetch client details
   const { data: client, isLoading, error } = useQuery<ClientWithUser>({
@@ -110,52 +130,8 @@ export default function ClientEdit() {
     },
     mode: "onChange", // Enable validation on change
   });
-
-  // Update form values when client data is loaded
-  useEffect(() => {
-    if (client && client.user) {
-      console.log(`[Form Debug] Setting form with client data:`, {
-        contractType: client.contractType,
-        companyName: client.companyName
-      });
-      
-      // Process the contractType to ensure it's a valid enum value
-      let contractTypeValue: ContractType = "residential";
-      
-      if (client.contractType) {
-        // Convert to lowercase for consistency
-        const normalizedType = String(client.contractType).toLowerCase();
-        
-        // Only use if it's one of our allowed values
-        if (VALID_CONTRACT_TYPES.includes(normalizedType as ContractType)) {
-          contractTypeValue = normalizedType as ContractType;
-          console.log(`[Form Debug] Found valid contract type: "${normalizedType}"`);
-        } else {
-          console.warn(`Invalid contract type from server: "${client.contractType}", defaulting to "residential"`);
-        }
-      } else {
-        console.log(`[Form Debug] Client has no contract type, using default: "residential"`);
-      }
-      
-      const formValues = {
-        name: client.user.name,
-        email: client.user.email,
-        phone: client.user.phone || "",
-        address: client.user.address || "",
-        companyName: client.companyName || "",
-        contractType: contractTypeValue,
-      };
-      
-      console.log(`[Form Debug] Final form values:`, formValues);
-      form.reset(formValues);
-      
-      // Store initial data for comparison
-      setInitialData(formValues);
-      setSaveStatus("idle");
-    }
-  }, [client, form]);
   
-  // Update client mutation will be defined first, then used in the saveFormData function
+  // Update client mutation definition
   const updateClientMutation = useMutation({
     mutationFn: async (data: ClientFormValues) => {
       if (!client || !clientId) return null;
@@ -284,9 +260,157 @@ export default function ClientEdit() {
     },
   });
 
+  // Set up online/offline listeners
+  useEffect(() => {
+    // Define event handlers
+    const handleOnline = () => {
+      console.log('[Network] Device is now online');
+      setIsOnline(true);
+      toast({
+        title: "Back online",
+        description: "Your changes will now sync with the server",
+      });
+
+      // If we have offline data, try to sync it
+      if (offlineData && clientId) {
+        console.log('[Network] Attempting to sync offline data');
+        setForceSaving(true);
+        updateClientMutation.mutate(offlineData, {
+          onSuccess: () => {
+            console.log('[Network] Offline data successfully synced');
+            localStorage.removeItem(`client_edit_${clientId}`);
+            setOfflineData(null);
+            setForceSaving(false);
+            toast({
+              title: "Data synced",
+              description: "Your offline changes have been saved to the server",
+            });
+          },
+          onError: (error) => {
+            console.error('[Network] Failed to sync offline data:', error);
+            setForceSaving(false);
+            toast({
+              title: "Sync failed",
+              description: "Unable to save your offline changes. They'll be saved locally until you're back online.",
+              variant: "destructive",
+            });
+          }
+        });
+      }
+    };
+
+    const handleOffline = () => {
+      console.log('[Network] Device is now offline');
+      setIsOnline(false);
+      toast({
+        title: "You're offline",
+        description: "Changes will be saved locally until you reconnect",
+        variant: "default",
+      });
+    };
+
+    // Add event listeners
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Clean up
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [clientId, offlineData, toast, updateClientMutation]);
+
+  // Check for saved data in localStorage when component mounts
+  useEffect(() => {
+    if (clientId) {
+      const savedData = getSavedFormData();
+      if (savedData) {
+        console.log('[Local Storage] Found saved form data:', savedData);
+        setOfflineData(savedData);
+        toast({
+          title: "Unsaved changes found",
+          description: "We've restored your previous edits",
+        });
+      }
+    }
+  }, [clientId, toast]);
+
+  // Update form values when client data is loaded
+  useEffect(() => {
+    if (client && client.user) {
+      console.log(`[Form Debug] Setting form with client data:`, {
+        contractType: client.contractType,
+        companyName: client.companyName
+      });
+      
+      // Process the contractType to ensure it's a valid enum value
+      let contractTypeValue: ContractType = "residential";
+      
+      if (client.contractType) {
+        // Convert to lowercase for consistency
+        const normalizedType = String(client.contractType).toLowerCase();
+        
+        // Only use if it's one of our allowed values
+        if (VALID_CONTRACT_TYPES.includes(normalizedType as ContractType)) {
+          contractTypeValue = normalizedType as ContractType;
+          console.log(`[Form Debug] Found valid contract type: "${normalizedType}"`);
+        } else {
+          console.warn(`Invalid contract type from server: "${client.contractType}", defaulting to "residential"`);
+        }
+      } else {
+        console.log(`[Form Debug] Client has no contract type, using default: "residential"`);
+      }
+      
+      // Check if we have local changes that should be used instead
+      const savedData = getSavedFormData();
+      
+      const formValues = savedData || {
+        name: client.user.name,
+        email: client.user.email,
+        phone: client.user.phone || "",
+        address: client.user.address || "",
+        companyName: client.companyName || "",
+        contractType: contractTypeValue,
+      };
+      
+      console.log(`[Form Debug] Final form values:`, formValues);
+      form.reset(formValues);
+      
+      // Store initial data for comparison
+      setInitialData(formValues);
+      setSaveStatus("idle");
+      
+      // If we loaded from saved data, notify the user
+      if (savedData) {
+        toast({
+          title: "Restored unsaved changes",
+          description: "You had unsaved changes that have been restored",
+        });
+      }
+    }
+  }, [client, form, toast]);
+
+  // Function to save form data to localStorage
+  const saveToLocalStorage = (data: ClientFormValues) => {
+    if (!clientId) return;
+    
+    try {
+      localStorage.setItem(`client_edit_${clientId}`, JSON.stringify(data));
+      setLastSaved(new Date());
+      console.log('[Local Storage] Saved client edit data to localStorage');
+    } catch (error) {
+      console.error('[Local Storage] Error saving to localStorage:', error);
+    }
+  };
+  
   // Create debounced save function after the mutation is defined
   const saveFormData = (data: ClientFormValues) => {
     if (!initialData) return;
+    
+    // Always save to localStorage for offline support
+    if (isAutoSaveEnabled) {
+      saveToLocalStorage(data);
+    }
     
     // Debug logging for contract type changes
     console.log("[Auto-save] Comparing contract types:", {
@@ -307,7 +431,7 @@ export default function ClientEdit() {
       data.companyName === initialData.companyName &&
       String(data.contractType).toLowerCase() === String(initialData.contractType).toLowerCase()
     ) {
-      console.log("[Auto-save] No changes detected, skipping save");
+      console.log("[Auto-save] No changes detected, skipping server save");
       setSaveStatus("idle");
       return;
     }
@@ -323,24 +447,41 @@ export default function ClientEdit() {
     };
     console.log("[Auto-save] Changes detected in:", differences);
 
-    if (form.formState.isValid) {
-      console.log("[Auto-save] Saving changes:", data);
+    // Only attempt to save to server if we're online
+    if (form.formState.isValid && isOnline) {
+      console.log("[Auto-save] Saving changes to server:", data);
       setSaveStatus("saving");
       updateClientMutation.mutate(data, {
         onSuccess: () => {
           setSaveStatus("saved");
           // Update initialData with the new values to prevent duplicate saves
           setInitialData(data);
+          // Clear any offline data since we successfully saved
+          setOfflineData(null);
+          
+          // Remove localStorage data on successful save
+          if (clientId) {
+            localStorage.removeItem(`client_edit_${clientId}`);
+          }
+          
           // Restore to idle after a delay
           setTimeout(() => setSaveStatus("idle"), 2000);
         },
         onError: (error) => {
-          console.error("[Auto-save] Error saving:", error);
+          console.error("[Auto-save] Error saving to server:", error);
           setSaveStatus("error");
+          // Store for offline mode
+          setOfflineData(data);
           // Attempt to restore to idle after a longer delay
           setTimeout(() => setSaveStatus("idle"), 3000);
         }
       });
+    } else if (!isOnline) {
+      // If we're offline, just store the data for later sync
+      console.log("[Auto-save] Device offline, storing changes for later sync");
+      setOfflineData(data);
+      setSaveStatus("saved"); // Show saved state even though it's just local
+      setTimeout(() => setSaveStatus("idle"), 2000);
     } else {
       console.log("[Auto-save] Form has validation errors, not saving");
       setSaveStatus("error");
@@ -459,6 +600,22 @@ export default function ClientEdit() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Network status indicator */}
+              <div className="flex justify-end mb-4">
+                <Badge variant={isOnline ? "default" : "outline"} className="flex items-center gap-1">
+                  {isOnline ? (
+                    <>
+                      <Wifi className="h-3 w-3" />
+                      <span>Online</span>
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3" />
+                      <span>Offline</span>
+                    </>
+                  )}
+                </Badge>
+              </div>
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Basic Information</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -645,6 +802,24 @@ export default function ClientEdit() {
                 </div>
               </div>
 
+              <div className="flex items-center space-x-4 mt-6">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="autosave"
+                    checked={isAutoSaveEnabled}
+                    onCheckedChange={setIsAutoSaveEnabled}
+                  />
+                  <Label htmlFor="autosave">Auto-save</Label>
+                </div>
+                
+                {lastSaved && (
+                  <div className="flex items-center text-gray-400 text-sm">
+                    <Clock className="h-3 w-3 mr-1" />
+                    <span>Last saved: {lastSaved.toLocaleTimeString()}</span>
+                  </div>
+                )}
+              </div>
+              
               <div className="flex justify-between items-center mt-6">
                 <div className="flex items-center space-x-2">
                   {saveStatus === "saving" && (
@@ -656,7 +831,7 @@ export default function ClientEdit() {
                   {saveStatus === "saved" && (
                     <div className="flex items-center text-green-500">
                       <Check className="h-4 w-4 mr-2" />
-                      <span>All changes saved</span>
+                      <span>{isOnline ? "All changes saved" : "Saved locally"}</span>
                     </div>
                   )}
                   {saveStatus === "error" && (
@@ -668,7 +843,11 @@ export default function ClientEdit() {
                   {saveStatus === "idle" && (
                     <div className="flex items-center text-gray-400">
                       <Info className="h-4 w-4 mr-2" />
-                      <span>Changes will auto-save as you type</span>
+                      <span>
+                        {isAutoSaveEnabled 
+                          ? "Changes will auto-save as you type" 
+                          : "Auto-save is disabled"}
+                      </span>
                     </div>
                   )}
                 </div>
