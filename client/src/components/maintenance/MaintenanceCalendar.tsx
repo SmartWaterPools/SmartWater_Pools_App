@@ -33,13 +33,13 @@ export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendar
   // Filter maintenances for selected day
   const selectedDayMaintenances = selectedDay
     ? maintenances.filter((m) => {
-        const maintenanceDate = new Date(m.scheduledDate);
+        const maintenanceDate = new Date(m.scheduleDate);
         return isSameDay(maintenanceDate, selectedDay);
       })
     : [];
   
   // Calculate which days have maintenance scheduled
-  const maintenanceDays = maintenances.map((m) => new Date(m.scheduledDate));
+  const maintenanceDays = maintenances.map((m) => new Date(m.scheduleDate));
   
   return (
     <div className="space-y-4">
@@ -126,13 +126,13 @@ export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendar
                         {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1)}
                       </Badge>
                     </CardTitle>
-                    <CardDescription>{maintenance.description}</CardDescription>
+                    <CardDescription>{maintenance.notes || "No details available"}</CardDescription>
                   </CardHeader>
                   <CardContent className="pb-2">
                     <div className="flex flex-wrap gap-2">
                       <div className="flex items-center text-sm">
                         <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>{formatTime(maintenance.scheduledTime)}</span>
+                        <span>{maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <User className="h-4 w-4 mr-2 text-muted-foreground" />
