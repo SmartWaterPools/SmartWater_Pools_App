@@ -43,6 +43,15 @@ async function createTestCustomers() {
         role: 'client',
         phone: '555-345-6789',
         address: '789 Ocean Drive, Seaside, CA 90212'
+      },
+      {
+        username: 'test.tech',
+        password: await hash('password123', 10),
+        name: 'Test Technician',
+        email: 'test.tech@example.com',
+        role: 'technician',
+        phone: '555-987-6543',
+        address: '100 Service Road, Anytown, CA 90210'
       }
     ];
     
@@ -57,6 +66,15 @@ async function createTestCustomers() {
       userIds.push(result.rows[0].id);
       console.log(`Created user: ${user.name} with ID: ${result.rows[0].id}`);
     }
+    
+    // Create technician
+    const technicianResult = await pool.query(
+      `INSERT INTO technicians (user_id, specialization, certification, hire_date) 
+       VALUES ($1, $2, $3, $4) RETURNING id`,
+      [userIds[3], 'General Pool Maintenance', 'Certified Pool Operator', new Date('2022-01-15').toISOString()]
+    );
+    const technicianId = technicianResult.rows[0].id;
+    console.log(`Created technician record for user ${userIds[3]} with technician ID: ${technicianId}`);
     
     // Create clients with different pool information
     const clients = [
@@ -251,7 +269,7 @@ async function createTestCustomers() {
       // Maintenance for John Smith
       {
         clientId: clientIds[0],
-        technicianId: null, // Will be assigned later
+        technicianId: technicianId,
         scheduleDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7),
         completionDate: null,
         type: 'regular',
@@ -261,7 +279,7 @@ async function createTestCustomers() {
       // Maintenance for Sarah Jones
       {
         clientId: clientIds[1],
-        technicianId: null,
+        technicianId: technicianId,
         scheduleDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2),
         completionDate: null,
         type: 'chemical',
@@ -271,7 +289,7 @@ async function createTestCustomers() {
       // Maintenance for Michael Wilson
       {
         clientId: clientIds[2],
-        technicianId: null,
+        technicianId: technicianId,
         scheduleDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 4),
         completionDate: null,
         type: 'deep-clean',
@@ -295,7 +313,7 @@ async function createTestCustomers() {
       // Repair for John Smith
       {
         clientId: clientIds[0],
-        technicianId: null,
+        technicianId: technicianId,
         reportedDate: new Date(),
         scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3),
         completionDate: null,
@@ -309,7 +327,7 @@ async function createTestCustomers() {
       // Repair for Sarah Jones
       {
         clientId: clientIds[1],
-        technicianId: null,
+        technicianId: technicianId,
         reportedDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2),
         scheduledDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1),
         completionDate: null,
@@ -332,8 +350,10 @@ async function createTestCustomers() {
     }
     console.log(`Added repair records for ${repairRecords.length} clients`);
     
-    console.log('Test customers created successfully!');
-    console.log('Login with any of these usernames: test.client1, test.client2, test.client3');
+    console.log('Test accounts created successfully!');
+    console.log('Login with any of these usernames:');
+    console.log('- Clients: test.client1, test.client2, test.client3');
+    console.log('- Technician: test.tech');
     console.log('Password for all test accounts: password123');
     
   } catch (error) {
