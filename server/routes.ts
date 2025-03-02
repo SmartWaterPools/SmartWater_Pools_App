@@ -176,9 +176,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Only perform update if there are actual changes
       const hasChanges = Object.keys(updateData).some(key => {
-        // For string values, do case-insensitive comparison for contractType
-        if (key === 'contractType' && updateData.contractType !== null && client.contractType !== null) {
-          return String(updateData.contractType).toLowerCase() !== String(client.contractType).toLowerCase();
+        // Special handling for contractType since this is the only field we might accidentally clear
+        if (key === 'contractType') {
+          // Only include contractType in the update if it was explicitly set in the request
+          if (req.body.contractType !== undefined) {
+            if (updateData.contractType !== null && client.contractType !== null) {
+              return String(updateData.contractType).toLowerCase() !== String(client.contractType).toLowerCase();
+            }
+            return updateData.contractType !== client.contractType; // Handle null cases
+          }
+          // If contractType wasn't in the original request, remove it from updateData
+          delete updateData.contractType;
+          return false;
+        }
+        
+        // Pool-related fields - compare exact values
+        if ([
+          'poolType', 
+          'poolSize', 
+          'filterType', 
+          'heaterType', 
+          'chemicalSystem', 
+          'specialNotes', 
+          'serviceDay'
+        ].includes(key)) {
+          // Safely handle null/undefined values
+          const updateValue = updateData[key as keyof typeof updateData];
+          const clientValue = client[key as keyof typeof client];
+          
+          // Different null/undefined handling
+          if (updateValue === null || updateValue === undefined) {
+            return clientValue !== null && clientValue !== undefined;
+          }
+          if (clientValue === null || clientValue === undefined) {
+            return updateValue !== null && updateValue !== undefined;
+          }
+          
+          // Otherwise compare string values
+          return String(updateValue) !== String(clientValue);
         }
         
         // For other fields
@@ -186,7 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return updateData.companyName !== client.companyName;
         }
         
-        // We've handled all possible fields
+        // Log unhandled fields for debugging
+        console.log(`[CLIENT UPDATE API] Unhandled field in change detection: ${key}`);
         return false;
       });
 
