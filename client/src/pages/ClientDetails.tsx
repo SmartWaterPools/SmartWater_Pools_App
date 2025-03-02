@@ -186,8 +186,25 @@ export default function ClientDetails() {
             </Card>
 
             <Card className="bg-white">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex justify-between items-center">
                 <CardTitle className="text-lg">Pool Information</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-primary hover:text-primary/80"
+                  onClick={() => {
+                    setActiveTab('pool');
+                    // Use setTimeout to ensure tab content is rendered before scrolling
+                    setTimeout(() => {
+                      const poolSection = document.getElementById('pool-details-section');
+                      if (poolSection) {
+                        poolSection.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }, 100);
+                  }}
+                >
+                  View Details
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -632,11 +649,30 @@ export default function ClientDetails() {
         </TabsContent>
 
         <TabsContent value="pool">
-          <div className="space-y-6">
+          <div id="pool-details-section" className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-2xl font-bold">Pool Details</h2>
               <Button 
-                onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
+                onClick={() => {
+                  // Prepare existing data for the wizard
+                  const poolData = {
+                    poolType: displayClient.poolType || '',
+                    poolSize: displayClient.poolSize || '',
+                    filterType: displayClient.filterType || '',
+                    heaterType: displayClient.heaterType || null,
+                    chemicalSystem: displayClient.chemicalSystem || '',
+                    specialNotes: displayClient.specialNotes || '',
+                    serviceDay: displayClient.serviceDay || '',
+                    equipment: displayClient.equipment || [],
+                    images: displayClient.images || []
+                  };
+                  
+                  // Save existing data to localStorage for the wizard to use
+                  localStorage.setItem(`pool_wizard_${id}`, JSON.stringify(poolData));
+                  
+                  // Navigate to the pool wizard
+                  setLocation(`/pool-wizard/${id}`);
+                }}
                 className="flex items-center"
               >
                 <Settings className="h-4 w-4 mr-2" />
