@@ -520,7 +520,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/maintenances/upcoming", async (req: Request, res: Response) => {
     try {
       const days = parseInt(req.query.days as string) || 7;
-      const upcomingMaintenances = await storage.getUpcomingMaintenances(days);
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
+      
+      // If clientId is provided, get maintenances for that client
+      let upcomingMaintenances;
+      if (clientId) {
+        console.log(`[API] Getting upcoming maintenances for client ${clientId} within ${days} days`);
+        upcomingMaintenances = await storage.getMaintenancesByClientId(clientId);
+        
+        // Filter to only include future maintenances
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        upcomingMaintenances = upcomingMaintenances.filter(maintenance => {
+          const scheduleDate = new Date(maintenance.scheduleDate);
+          scheduleDate.setHours(0, 0, 0, 0);
+          
+          // Calculate days difference
+          const diffTime = scheduleDate.getTime() - today.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          return diffDays >= 0 && diffDays <= days;
+        });
+      } else {
+        upcomingMaintenances = await storage.getUpcomingMaintenances(days);
+      }
 
       // Fetch additional data for each maintenance
       const maintenancesWithDetails = await Promise.all(
@@ -542,6 +566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(maintenancesWithDetails);
     } catch (error) {
+      console.error("[API] Error fetching upcoming maintenances:", error);
       res.status(500).json({ message: "Failed to fetch upcoming maintenances" });
     }
   });

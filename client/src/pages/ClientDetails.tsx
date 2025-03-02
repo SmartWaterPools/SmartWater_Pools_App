@@ -88,12 +88,27 @@ export default function ClientDetails() {
     },
     enabled: !!id
   });
+  
+  // Fetch upcoming maintenance services for this client
+  const {
+    data: upcomingServicesData,
+    isLoading: isServicesLoading
+  } = useQuery({
+    queryKey: [`/api/maintenances/upcoming`, id],
+    queryFn: async () => {
+      const res = await fetch(`/api/maintenances/upcoming?clientId=${id}&days=30`);
+      if (!res.ok) throw new Error('Failed to fetch upcoming services');
+      return res.json();
+    },
+    enabled: !!id
+  });
 
-  // Update ExtendedClientData with the fetched equipment and images
+  // Update ExtendedClientData with the fetched equipment, images, and services
   const clientWithData: ExtendedClientData | null = client ? {
     ...client,
     equipment: equipmentData || [],
-    images: imagesData || []
+    images: imagesData || [],
+    upcomingServices: upcomingServicesData || []
   } : null;
   
   // Add console logs for debugging
@@ -283,25 +298,25 @@ export default function ClientDetails() {
                 <CardTitle className="text-lg">Upcoming Services</CardTitle>
               </CardHeader>
               <CardContent>
-                {client.upcomingServices && client.upcomingServices.length > 0 ? (
+                {upcomingServicesData && upcomingServicesData.length > 0 ? (
                   <div className="space-y-4">
-                    {client.upcomingServices.map((service, index) => (
+                    {upcomingServicesData.map((service, index) => (
                       <div key={index} className="flex items-start p-3 border rounded-lg">
                         <div className="bg-blue-100 p-2 rounded-full mr-3">
                           <Calendar className="h-4 w-4 text-blue-600" />
                         </div>
                         <div>
                           <div className="flex justify-between">
-                            <h4 className="font-medium">{service.type}</h4>
-                            <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                            <h4 className="font-medium">{service.type || 'Maintenance'}</h4>
+                            <span className="text-sm text-gray-500">{formatDate(service.scheduleDate)}</span>
                           </div>
                           <div className="flex items-center text-sm text-gray-500 mt-1">
                             <Clock className="h-3 w-3 mr-1" />
-                            <span>{service.time}</span>
+                            <span>{service.scheduleTime || '09:00 AM'}</span>
                           </div>
                           <div className="flex items-center text-sm text-gray-500 mt-1">
                             <User className="h-3 w-3 mr-1" />
-                            <span>{service.technician}</span>
+                            <span>{service.technician?.user?.name || 'Not assigned'}</span>
                           </div>
                         </div>
                       </div>
@@ -311,7 +326,16 @@ export default function ClientDetails() {
                   <div className="text-center py-6">
                     <DropletIcon className="h-12 w-12 mx-auto text-blue-200 mb-2" />
                     <p className="text-gray-500">No upcoming services scheduled</p>
-                    <Button variant="outline" className="mt-4">Schedule Service</Button>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => {
+                        // Navigate to maintenance page
+                        setLocation('/maintenance');
+                      }}
+                    >
+                      Schedule Service
+                    </Button>
                   </div>
                 )}
               </CardContent>
