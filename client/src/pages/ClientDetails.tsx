@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } from '@/lib/types';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
@@ -45,6 +46,7 @@ export default function ClientDetails() {
   const { id } = useParams();
   const [_, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState('overview');
+  const isMobile = useIsMobile();
   
   // Fetch client data
   const { 
@@ -300,12 +302,12 @@ export default function ClientDetails() {
               <CardContent>
                 {upcomingServicesData && upcomingServicesData.length > 0 ? (
                   <div className="space-y-4">
-                    {upcomingServicesData.map((service, index) => (
+                    {upcomingServicesData.map((service: any, index: number) => (
                       <div key={index} className="flex items-start p-3 border rounded-lg">
                         <div className="bg-blue-100 p-2 rounded-full mr-3">
                           <Calendar className="h-4 w-4 text-blue-600" />
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <div className="flex justify-between">
                             <h4 className="font-medium">{service.type || 'Maintenance'}</h4>
                             <span className="text-sm text-gray-500">{formatDate(service.scheduleDate)}</span>
@@ -321,6 +323,19 @@ export default function ClientDetails() {
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Add Schedule Service button at the bottom when on mobile */}
+                    {isMobile && (
+                      <Button 
+                        variant="outline" 
+                        className="w-full mt-2"
+                        onClick={() => {
+                          setLocation('/maintenance');
+                        }}
+                      >
+                        Schedule Additional Service
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-6">
