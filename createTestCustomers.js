@@ -69,9 +69,9 @@ async function createTestCustomers() {
     
     // Create technician
     const technicianResult = await pool.query(
-      `INSERT INTO technicians (user_id, specialization, certification, hire_date) 
-       VALUES ($1, $2, $3, $4) RETURNING id`,
-      [userIds[3], 'General Pool Maintenance', 'Certified Pool Operator', new Date('2022-01-15').toISOString()]
+      `INSERT INTO technicians (user_id, specialization, certifications) 
+       VALUES ($1, $2, $3) RETURNING id`,
+      [userIds[3], 'General Pool Maintenance', 'Certified Pool Operator']
     );
     const technicianId = technicianResult.rows[0].id;
     console.log(`Created technician record for user ${userIds[3]} with technician ID: ${technicianId}`);

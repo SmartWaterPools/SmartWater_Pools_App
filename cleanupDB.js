@@ -1,4 +1,5 @@
-const { Pool } = require('pg');
+import pg from 'pg';
+const { Pool } = pg;
 
 async function cleanupDatabase() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
