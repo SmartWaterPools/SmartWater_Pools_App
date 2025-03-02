@@ -77,6 +77,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create user" });
     }
   });
+  
+  app.patch("/api/users/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      console.log(`[API] Updating user ${id} with data:`, req.body);
+      
+      if (isNaN(id)) {
+        console.log(`[API] Invalid user ID: ${req.params.id}`);
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      const updatedUser = await storage.updateUser(id, req.body);
+      
+      if (!updatedUser) {
+        console.log(`[API] User ${id} not found for update`);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      console.log(`[API] User ${id} updated successfully:`, updatedUser);
+      return res.json(updatedUser);
+    } catch (error) {
+      console.error("[API] Error updating user:", error);
+      return res.status(500).json({ message: "Failed to update user" });
+    }
+  });
 
   // Client routes
   app.get("/api/clients", async (_req: Request, res: Response) => {
