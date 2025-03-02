@@ -217,23 +217,25 @@ export default function ClientDetails() {
             <Card className="bg-white">
               <CardHeader className="pb-2 flex justify-between items-center">
                 <CardTitle className="text-lg">Pool Information</CardTitle>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="text-primary hover:text-primary/80"
-                  onClick={() => {
-                    setActiveTab('pool');
-                    // Use setTimeout to ensure tab content is rendered before scrolling
-                    setTimeout(() => {
-                      const poolSection = document.getElementById('pool-details-section');
-                      if (poolSection) {
-                        poolSection.scrollIntoView({ behavior: 'smooth' });
-                      }
-                    }, 100);
-                  }}
-                >
-                  View Details
-                </Button>
+                {!isMobile && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-primary hover:text-primary/80"
+                    onClick={() => {
+                      setActiveTab('pool');
+                      // Use setTimeout to ensure tab content is rendered before scrolling
+                      setTimeout(() => {
+                        const poolSection = document.getElementById('pool-details-section');
+                        if (poolSection) {
+                          poolSection.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }, 100);
+                    }}
+                  >
+                    View Details
+                  </Button>
+                )}
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -257,12 +259,43 @@ export default function ClientDetails() {
                     <span className="text-gray-500">Heater Type:</span>
                     <span>{client.heaterType || 'Not specified'}</span>
                   </div>
+                  
+                  {/* Add buttons for mobile view */}
+                  {isMobile && (
+                    <div className="flex flex-col gap-2 pt-3">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="w-full"
+                        onClick={() => {
+                          setActiveTab('pool');
+                          // Use setTimeout to ensure tab content is rendered before scrolling
+                          setTimeout(() => {
+                            const poolSection = document.getElementById('pool-details-section');
+                            if (poolSection) {
+                              poolSection.scrollIntoView({ behavior: 'smooth' });
+                            }
+                          }, 100);
+                        }}
+                      >
+                        View Pool Details
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setLocation(`/pool-wizard/${id}`)}
+                      >
+                        Edit Pool Information
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
 
             <Card className="bg-white">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex justify-between items-center">
                 <CardTitle className="text-lg">Service Contract</CardTitle>
               </CardHeader>
               <CardContent>
@@ -289,6 +322,18 @@ export default function ClientDetails() {
                     <span className="text-gray-500">Last Updated:</span>
                     <span>{new Date().toLocaleDateString()}</span>
                   </div>
+                  
+                  {/* Add Edit Contract button for mobile */}
+                  {isMobile && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="w-full mt-3"
+                      onClick={() => setLocation(`/clients/${id}/edit`)}
+                    >
+                      Edit Contract
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
