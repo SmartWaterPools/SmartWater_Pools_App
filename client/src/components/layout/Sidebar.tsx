@@ -61,11 +61,11 @@ export function Sidebar({ user }: SidebarProps) {
       case '/':
         return 'Dashboard';
       case '/projects':
-        return 'Projects';
+        return 'Build';
       case '/maintenance':
         return 'Maintenance';
       case '/repairs':
-        return 'Repairs';
+        return 'Repair';
       case '/clients':
         return 'Clients';
       case '/technicians':
