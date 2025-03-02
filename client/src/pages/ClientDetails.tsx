@@ -95,6 +95,19 @@ export default function ClientDetails() {
     equipment: equipmentData || [],
     images: imagesData || []
   } : null;
+  
+  // Add console logs for debugging
+  useEffect(() => {
+    if (client) {
+      console.log('Client data loaded:', client);
+    }
+    if (equipmentData) {
+      console.log('Equipment data loaded:', equipmentData);
+    }
+    if (imagesData) {
+      console.log('Images data loaded:', imagesData);
+    }
+  }, [client, equipmentData, imagesData]);
 
   if (isClientLoading) {
     return (
@@ -121,8 +134,8 @@ export default function ClientDetails() {
     );
   }
 
-  // Use the enhanced client data with equipment and images
-  const displayClient = clientWithData || client;
+  // Client data is directly available via client, equipment via equipmentData, and images via imagesData
+  // We don't need to rely on displayClient anymore as we're accessing direct data sources
 
   return (
     <div className="container mx-auto p-6">
@@ -757,9 +770,9 @@ export default function ClientDetails() {
                     <Skeleton className="h-24 w-full" />
                     <Skeleton className="h-24 w-full" />
                   </div>
-                ) : displayClient.equipment && displayClient.equipment.length > 0 ? (
+                ) : equipmentData && equipmentData.length > 0 ? (
                   <div className="space-y-4">
-                    {displayClient.equipment.map((item, index) => (
+                    {equipmentData.map((item, index) => (
                       <div key={index} className="p-4 border rounded-lg">
                         <div className="flex justify-between items-start">
                           <div>
@@ -856,9 +869,9 @@ export default function ClientDetails() {
                     <Skeleton className="h-48 w-full rounded-lg" />
                     <Skeleton className="h-48 w-full rounded-lg" />
                   </div>
-                ) : displayClient.images && displayClient.images.length > 0 ? (
+                ) : imagesData && imagesData.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {displayClient.images.map((image, index) => (
+                    {imagesData.map((image, index) => (
                       <div key={index} className="border rounded-lg overflow-hidden">
                         <div className="aspect-video relative">
                           <img
