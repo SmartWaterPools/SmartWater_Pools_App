@@ -31,7 +31,21 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { ChevronLeft, Save, Check, RefreshCw, AlertTriangle, Info } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { 
+  ChevronLeft, 
+  Save, 
+  Check, 
+  RefreshCw, 
+  AlertTriangle, 
+  Info,
+  Wifi,
+  WifiOff,
+  Database,
+  Clock
+} from "lucide-react";
 
 // List of valid contract types
 const VALID_CONTRACT_TYPES = ["residential", "commercial", "service", "maintenance"] as const;
