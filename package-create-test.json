@@ -1,0 +1,11 @@
+{
+  "name": "create-test-customers",
+  "version": "1.0.0",
+  "description": "Script to create test customers for the pool management system",
+  "main": "createTestCustomers.js",
+  "type": "module",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "pg": "^8.11.3"
+  }
+}

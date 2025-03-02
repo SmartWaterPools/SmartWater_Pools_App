@@ -237,20 +237,59 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    // Process each file
+    // Process each file with image resizing for better performance
     Array.from(files).forEach(file => {
       const reader = new FileReader();
       reader.onload = (e) => {
         const dataUrl = e.target?.result as string;
-        setTempImages(prev => [...prev, { dataUrl, file }]);
         
-        // Add to form
-        const images = form.getValues('images') || [];
-        form.setValue('images', [...images, {
-          imageUrl: dataUrl,
-          caption: '',
-          category: 'pool',
-        }]);
+        // Compress/resize image before saving
+        const img = new Image();
+        img.onload = () => {
+          // Create canvas for resizing
+          const canvas = document.createElement('canvas');
+          // Max dimensions to keep image size reasonable
+          const MAX_WIDTH = 1200;
+          const MAX_HEIGHT = 1200;
+          
+          let width = img.width;
+          let height = img.height;
+          
+          // Resize while maintaining aspect ratio
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw resized image to canvas
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          // Get compressed image data as JPEG with quality 0.8 (80%)
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          
+          setTempImages(prev => [...prev, { dataUrl: compressedDataUrl, file }]);
+          
+          // Add to form
+          const images = form.getValues('images') || [];
+          form.setValue('images', [...images, {
+            imageUrl: compressedDataUrl,
+            caption: '',
+            category: 'pool',
+          }]);
+        };
+        
+        img.src = dataUrl;
       };
       reader.readAsDataURL(file);
     });
