@@ -260,7 +260,7 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
-          {/* Maintenance/Schedule - matched to mobile navigation */}
+          {/* Maintenance - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/maintenance")}
             className={cn(
@@ -282,19 +282,19 @@ export function Sidebar({ user }: SidebarProps) {
                 "text-sm font-medium",
                 isOnMaintenance ? "text-primary" : "text-gray-700"
               )}>
-                Schedule
+                Maintenance
               </span>
             ) : (
               <span className={cn(
                 "text-xs mt-0.5",
                 isOnMaintenance ? "text-primary font-medium" : "text-gray-500"
               )}>
-                Schedule
+                Maintenance
               </span>
             )}
           </div>
           
-          {/* Repairs/Service - matched to mobile navigation */}
+          {/* Repairs - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/repairs")}
             className={cn(
@@ -316,14 +316,14 @@ export function Sidebar({ user }: SidebarProps) {
                 "text-sm font-medium",
                 isOnRepairs ? "text-primary" : "text-gray-700"
               )}>
-                Service
+                Repair
               </span>
             ) : (
               <span className={cn(
                 "text-xs mt-0.5",
                 isOnRepairs ? "text-primary font-medium" : "text-gray-500"
               )}>
-                Service
+                Repair
               </span>
             )}
           </div>
@@ -437,7 +437,7 @@ export function Sidebar({ user }: SidebarProps) {
           <div className={cn("p-1 rounded-md", isOnMaintenance ? "text-primary" : "text-gray-500")}>
             <CalendarCheck className="h-5 w-5" />
           </div>
-          <span className={cn("text-xs mt-0.5", isOnMaintenance ? "text-primary font-medium" : "text-gray-500")}>Schedule</span>
+          <span className={cn("text-xs mt-0.5", isOnMaintenance ? "text-primary font-medium" : "text-gray-500")}>Maintenance</span>
         </div>
         
         <div 
@@ -447,7 +447,7 @@ export function Sidebar({ user }: SidebarProps) {
           <div className={cn("p-1 rounded-md", isOnRepairs ? "text-primary" : "text-gray-500")}>
             <Wrench className="h-5 w-5" />
           </div>
-          <span className={cn("text-xs mt-0.5", isOnRepairs ? "text-primary font-medium" : "text-gray-500")}>Service</span>
+          <span className={cn("text-xs mt-0.5", isOnRepairs ? "text-primary font-medium" : "text-gray-500")}>Repair</span>
         </div>
         
         <div 
