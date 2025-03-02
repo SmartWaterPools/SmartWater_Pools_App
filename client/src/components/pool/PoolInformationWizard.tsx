@@ -399,28 +399,35 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
         serviceDay: data.serviceDay,
       };
       
+      // Wait for client update to complete
+      console.log('Updating client with pool information:', clientUpdateData);
       await updateClientMutation.mutateAsync(clientUpdateData);
+      console.log('Client update completed successfully');
       
       // 2. Save each equipment item
       if (data.equipment && data.equipment.length > 0) {
-        for (const equipment of data.equipment) {
-          // Ensure clientId is included in each equipment item
-          await addEquipmentMutation.mutateAsync({
+        console.log(`Saving ${data.equipment.length} equipment items...`);
+        const equipmentPromises = data.equipment.map(equipment => 
+          addEquipmentMutation.mutateAsync({
             ...equipment,
             clientId: clientId
-          });
-        }
+          })
+        );
+        await Promise.all(equipmentPromises);
+        console.log('All equipment saved successfully');
       }
       
       // 3. Save each image
       if (data.images && data.images.length > 0) {
-        for (const image of data.images) {
-          // Ensure clientId is included in each image
-          await addImageMutation.mutateAsync({
+        console.log(`Saving ${data.images.length} images...`);
+        const imagePromises = data.images.map(image => 
+          addImageMutation.mutateAsync({
             ...image,
             clientId: clientId
-          });
-        }
+          })
+        );
+        await Promise.all(imagePromises);
+        console.log('All images saved successfully');
       }
       
       toast({
