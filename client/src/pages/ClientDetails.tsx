@@ -260,26 +260,9 @@ export default function ClientDetails() {
                     <span>{client.heaterType || 'Not specified'}</span>
                   </div>
                   
-                  {/* Add buttons for mobile view */}
+                  {/* Add button for mobile view */}
                   {isMobile && (
                     <div className="flex flex-col gap-2 pt-3">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="w-full"
-                        onClick={() => {
-                          setActiveTab('pool');
-                          // Use setTimeout to ensure tab content is rendered before scrolling
-                          setTimeout(() => {
-                            const poolSection = document.getElementById('pool-details-section');
-                            if (poolSection) {
-                              poolSection.scrollIntoView({ behavior: 'smooth' });
-                            }
-                          }, 100);
-                        }}
-                      >
-                        View Pool Details
-                      </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
@@ -438,11 +421,35 @@ export default function ClientDetails() {
                         </div>
                       </div>
                     ))}
+                    
+                    {/* Add Report Issue button for mobile view */}
+                    {isMobile && (
+                      <Button 
+                        variant="outline" 
+                        className="w-full mt-2"
+                        onClick={() => {
+                          setLocation(`/repairs`);
+                        }}
+                      >
+                        Report New Issue
+                      </Button>
+                    )}
                   </div>
                 ) : (
                   <div className="text-center py-6">
                     <CheckCircle2 className="h-12 w-12 mx-auto text-green-200 mb-2" />
                     <p className="text-gray-500">No recent issues reported</p>
+                    
+                    {/* Always show the button when there are no issues */}
+                    <Button 
+                      variant="outline" 
+                      className="mt-4"
+                      onClick={() => {
+                        setLocation(`/repairs`);
+                      }}
+                    >
+                      Report New Issue
+                    </Button>
                   </div>
                 )}
               </CardContent>
