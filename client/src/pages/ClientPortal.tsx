@@ -137,13 +137,30 @@ export default function ClientPortal() {
 
         <TabsContent value="overview">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Pool Status Card */}
+            {/* Pool Information Card */}
             <Card className="bg-white">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-2 flex justify-between items-center">
                 <CardTitle className="flex items-center text-lg">
                   <DropletIcon className="mr-2 h-5 w-5 text-blue-500" />
-                  Pool Status
+                  Pool Information
                 </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-primary hover:text-primary/80"
+                  onClick={() => {
+                    setActiveTab('equipment');
+                    // Use setTimeout to ensure tab content is rendered before scrolling
+                    setTimeout(() => {
+                      const equipmentTab = document.querySelector('[value="equipment"]');
+                      if (equipmentTab) {
+                        equipmentTab.scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }, 100);
+                  }}
+                >
+                  View Details
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
