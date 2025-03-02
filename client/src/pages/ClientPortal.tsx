@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { formatDate, ClientWithUser } from '@/lib/types';
 
 // Create an extended type for the client portal that includes all the properties used
-interface ExtendedClientPortalData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'heaterType' | 'chemicalSystem'> {
+interface ExtendedClientPortalData extends Omit<ClientWithUser, 'poolType' | 'poolSize' | 'filterType' | 'heaterType' | 'chemicalSystem' | 'specialNotes'> {
   address?: string;
   lastServiceDate?: string | Date;
   poolType?: string | null;
