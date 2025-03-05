@@ -183,45 +183,41 @@ export function EnhancedBreadcrumbs() {
             const isLast = index === breadcrumbSegments.length - 1;
             
             return (
-              <React.Fragment key={segment.path}>
-                {!isFirst && (
-                  <li className="flex items-center">
-                    <ChevronRight className="h-3.5 w-3.5 text-gray-400 mx-1" />
-                  </li>
-                )}
-                
-                <li className={cn(
+              <li key={segment.path} className={cn(
                   "flex items-center",
                   isLast ? "text-gray-800 font-medium" : "text-gray-500"
                 )}>
-                  {isLast ? (
-                    <div className="flex items-center">
-                      {segment.icon && (
-                        <span className="mr-1.5 text-gray-500">
-                          {segment.icon}
-                        </span>
-                      )}
-                      <span>{segment.title}</span>
-                    </div>
-                  ) : (
-                    <div
-                      className={cn(
-                        "flex items-center cursor-pointer hover:text-primary transition-colors",
-                      )}
-                      onClick={(e) => handleBreadcrumbClick(e, segment.path)}
-                    >
-                      {segment.icon && (
-                        <span className="mr-1.5 text-gray-500">
-                          {segment.icon}
-                        </span>
-                      )}
-                      <span className={isFirst ? "sr-only sm:not-sr-only" : ""}>
-                        {segment.title}
+                {!isFirst && (
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-400 mx-1" />
+                )}
+                
+                {isLast ? (
+                  <div className="flex items-center">
+                    {segment.icon && (
+                      <span className="mr-1.5 text-gray-500">
+                        {segment.icon}
                       </span>
-                    </div>
-                  )}
-                </li>
-              </React.Fragment>
+                    )}
+                    <span>{segment.title}</span>
+                  </div>
+                ) : (
+                  <div
+                    className={cn(
+                      "flex items-center cursor-pointer hover:text-primary transition-colors",
+                    )}
+                    onClick={(e) => handleBreadcrumbClick(e, segment.path)}
+                  >
+                    {segment.icon && (
+                      <span className="mr-1.5 text-gray-500">
+                        {segment.icon}
+                      </span>
+                    )}
+                    <span className={isFirst ? "sr-only sm:not-sr-only" : ""}>
+                      {segment.title}
+                    </span>
+                  </div>
+                )}
+              </li>
             );
           })}
         </ol>
