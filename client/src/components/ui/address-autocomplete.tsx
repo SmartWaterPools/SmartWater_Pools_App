@@ -4,77 +4,69 @@ import { Button } from '@/components/ui/button';
 import { Search, MapPin, X } from 'lucide-react';
 import { useDebounce } from '../../hooks/use-debounce';
 
-// Service for address suggestions (currently mock, could be replaced with Google Places API)
-const getAddressSuggestions = (input: string): Promise<Array<{text: string, mainText: string, secondaryText: string}>> => {
+// Mock service for address suggestions (simulating Google Places API)
+const mockAddressSuggestions = (input: string): Promise<string[]> => {
   // Only return suggestions if input is at least 3 characters
   if (!input || input.length < 3) {
     return Promise.resolve([]);
   }
 
-  // Production implementation would call a real API
-  // For example:
-  // return fetch(`https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${API_KEY}`)
-  //   .then(res => res.json())
-  //   .then(data => data.predictions.map(p => ({
-  //     text: p.description,
-  //     mainText: p.structured_formatting.main_text,
-  //     secondaryText: p.structured_formatting.secondary_text
-  //   })));
-
-  // For now, use realistic mock data
+  // Simulation of API delay
   return new Promise((resolve) => {
     setTimeout(() => {
-      // Common pool service locations in major cities with actual street names
-      const realAddresses = [
-        { 
-          text: "123 Ocean View Dr, Miami, FL 33139",
-          mainText: "123 Ocean View Dr", 
-          secondaryText: "Miami, FL 33139"
-        },
-        { 
-          text: "456 Palm Ave, Los Angeles, CA 90210",
-          mainText: "456 Palm Ave", 
-          secondaryText: "Los Angeles, CA 90210"
-        },
-        { 
-          text: "789 Desert Springs Rd, Phoenix, AZ 85001",
-          mainText: "789 Desert Springs Rd", 
-          secondaryText: "Phoenix, AZ 85001"
-        },
-        { 
-          text: "234 Lake Shore Dr, Chicago, IL 60611",
-          mainText: "234 Lake Shore Dr", 
-          secondaryText: "Chicago, IL 60611"
-        },
-        { 
-          text: "567 Gulf Blvd, Tampa, FL 33607",
-          mainText: "567 Gulf Blvd", 
-          secondaryText: "Tampa, FL 33607"
-        },
-        { 
-          text: "890 Mountain View Rd, Denver, CO 80202",
-          mainText: "890 Mountain View Rd", 
-          secondaryText: "Denver, CO 80202"
-        },
-        { 
-          text: "345 Beachside Ave, San Diego, CA 92101",
-          mainText: "345 Beachside Ave", 
-          secondaryText: "San Diego, CA 92101"
-        },
-        { 
-          text: "678 Sunshine Pkwy, Orlando, FL 32801",
-          mainText: "678 Sunshine Pkwy", 
-          secondaryText: "Orlando, FL 32801"
+      // Realistic address suggestions based on input
+      const cityState = ['CA', 'FL', 'NY', 'TX', 'IL'];
+      const streets = ['Main', 'Park', 'Oak', 'Maple', 'Washington', 'Cedar'];
+      const types = ['St', 'Ave', 'Blvd', 'Dr', 'Ln', 'Rd'];
+      const cities = ['Springfield', 'Riverside', 'Oakdale', 'Lakeside', 'Maplewood'];
+      
+      // Generate 5 random but realistic looking addresses
+      const suggestions = [];
+      
+      // First, direct match if input looks like a number + street
+      if (/^\d+\s+\w+/.test(input)) {
+        const parts = input.split(' ');
+        const number = parts[0];
+        const streetName = parts.slice(1).join(' ');
+        
+        // Add variations of the street name with different suffixes and states
+        for (let i = 0; i < 3 && i < types.length; i++) {
+          for (let j = 0; j < 2 && j < cities.length; j++) {
+            const zip = Math.floor(90000 + Math.random() * 10000);
+            suggestions.push(`${number} ${streetName} ${types[i]}, ${cities[j]}, ${cityState[j % cityState.length]} ${zip}`);
+          }
         }
-      ];
+      }
       
-      // Filter addresses based on input
-      const filteredAddresses = realAddresses.filter(address => 
-        address.text.toLowerCase().includes(input.toLowerCase())
-      );
+      // Add some more variations based on the input string
+      for (let i = 0; i < 5 - suggestions.length; i++) {
+        const number = Math.floor(100 + Math.random() * 900);
+        const street = streets[Math.floor(Math.random() * streets.length)];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const city = cities[Math.floor(Math.random() * cities.length)];
+        const state = cityState[Math.floor(Math.random() * cityState.length)];
+        const zip = Math.floor(90000 + Math.random() * 10000);
+        
+        // If input seems to match part of this suggestion, include it
+        const suggestion = `${number} ${street} ${type}, ${city}, ${state} ${zip}`;
+        if (suggestion.toLowerCase().includes(input.toLowerCase())) {
+          suggestions.push(suggestion);
+        }
+      }
       
-      // Limit to 5 suggestions
-      resolve(filteredAddresses.slice(0, 5));
+      // If we still don't have enough suggestions, add some generic ones
+      while (suggestions.length < 3) {
+        const number = Math.floor(100 + Math.random() * 900);
+        const street = streets[Math.floor(Math.random() * streets.length)];
+        const type = types[Math.floor(Math.random() * types.length)];
+        const city = cities[Math.floor(Math.random() * cities.length)];
+        const state = cityState[Math.floor(Math.random() * cityState.length)];
+        const zip = Math.floor(90000 + Math.random() * 10000);
+        
+        suggestions.push(`${number} ${street} ${type}, ${city}, ${state} ${zip}`);
+      }
+      
+      resolve(suggestions);
     }, 300); // Simulate network delay
   });
 };
@@ -90,7 +82,7 @@ export function AddressAutocomplete({
   ...props 
 }: AddressAutocompleteProps) {
   const [inputValue, setInputValue] = useState(value || '');
-  const [suggestions, setSuggestions] = useState<Array<{text: string, mainText: string, secondaryText: string}>>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
   const debouncedValue = useDebounce(inputValue, 300);
@@ -106,7 +98,7 @@ export function AddressAutocomplete({
 
       setLoading(true);
       try {
-        const results = await getAddressSuggestions(debouncedValue);
+        const results = await mockAddressSuggestions(debouncedValue);
         setSuggestions(results);
         setShowSuggestions(results.length > 0);
       } catch (error) {
@@ -147,9 +139,9 @@ export function AddressAutocomplete({
     setShowSuggestions(e.target.value.length >= 3);
   };
 
-  const handleSelectSuggestion = (suggestion: {text: string, mainText: string, secondaryText: string}) => {
-    setInputValue(suggestion.text);
-    onAddressSelect(suggestion.text);
+  const handleSelectSuggestion = (suggestion: string) => {
+    setInputValue(suggestion);
+    onAddressSelect(suggestion);
     setShowSuggestions(false);
   };
 
@@ -193,14 +185,11 @@ export function AddressAutocomplete({
               {suggestions.map((suggestion, index) => (
                 <li 
                   key={index} 
-                  className="px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer flex items-start"
+                  className="px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer flex items-center"
                   onClick={() => handleSelectSuggestion(suggestion)}
                 >
-                  <MapPin className="h-4 w-4 mr-2 text-blue-500 mt-0.5" />
-                  <div>
-                    <p className="font-medium">{suggestion.mainText}</p>
-                    <p className="text-gray-500 text-xs">{suggestion.secondaryText}</p>
-                  </div>
+                  <MapPin className="h-4 w-4 mr-2 text-blue-500" />
+                  <span>{suggestion}</span>
                 </li>
               ))}
             </ul>
