@@ -98,10 +98,7 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
   // Create maintenance mutation
   const createMaintenanceMutation = useMutation({
     mutationFn: async (values: MaintenanceFormValues) => {
-      return await apiRequest('/api/maintenances', {
-        method: 'POST',
-        body: JSON.stringify(values),
-      });
+      return await apiRequest('/api/maintenances', 'POST', values);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });

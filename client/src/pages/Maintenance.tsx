@@ -8,7 +8,11 @@ import {
   ChevronRight,
   Filter,
   User,
-  MoreHorizontal
+  MoreHorizontal,
+  Check,
+  XCircle,
+  Loader2,
+  Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,43 +21,69 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { 
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
+import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
-  formatTime, 
   getStatusClasses 
 } from "@/lib/types";
-import { format, addMonths, subMonths } from "date-fns";
+import { format, addMonths, subMonths, isSameDay, isToday } from "date-fns";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+
+// Format a maintenance type for display
+const formatMaintenanceType = (type: string) => {
+  return type
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export default function Maintenance() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
+  // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
     queryKey: ["/api/maintenances"],
   });
 
+  // Filter maintenances based on search and status
   const filteredMaintenances = maintenances?.filter(maintenance => {
+    // If date filter is applied, only show maintenances for that date
+    if (date && !isSameDay(new Date(maintenance.scheduleDate), date)) return false;
+    
+    // Apply status filter if not set to "all"
     if (statusFilter !== "all" && maintenance.status !== statusFilter) return false;
+    
+    // Apply search filter to client name
     if (searchTerm && !maintenance.client.user.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    
     return true;
   });
 
+  // Group maintenances by date for list view
   const groupedByDate = filteredMaintenances?.reduce((acc, maintenance) => {
     const date = maintenance.scheduleDate;
     if (!acc[date]) {
@@ -63,12 +93,50 @@ export default function Maintenance() {
     return acc;
   }, {} as Record<string, MaintenanceWithDetails[]>);
 
+  // Mutation to update maintenance status
+  const updateMaintenanceMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      return await apiRequest(`/api/maintenances/${id}`, 'PATCH', { status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+      toast({
+        title: "Maintenance updated",
+        description: "The maintenance status has been updated successfully.",
+      });
+      setIsUpdatingStatus(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to update maintenance",
+        description: "There was an error updating the maintenance status. Please try again.",
+        variant: "destructive",
+      });
+      setIsUpdatingStatus(false);
+    }
+  });
+
+  // Update status handler
+  const handleStatusUpdate = (maintenance: MaintenanceWithDetails, newStatus: string) => {
+    setSelectedMaintenance(maintenance);
+    setIsUpdatingStatus(true);
+    updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
+  };
+
+  // Month navigation handlers
   const handlePreviousMonth = () => {
     setMonth(subMonths(month, 1));
   };
 
   const handleNextMonth = () => {
     setMonth(addMonths(month, 1));
+  };
+
+  // Clear date filter
+  const clearDateFilter = () => {
+    setDate(undefined);
   };
 
   return (
@@ -95,6 +163,19 @@ export default function Maintenance() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
+                <div className="p-2 flex justify-between items-center border-b">
+                  <span className="text-sm font-medium">Filter by date</span>
+                  {date && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={clearDateFilter}
+                      className="h-8 px-2 text-xs"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
                 <Calendar
                   mode="single"
                   selected={date}
@@ -107,13 +188,18 @@ export default function Maintenance() {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex gap-2">
                   <Filter className="h-4 w-4" />
-                  Filter
+                  {statusFilter !== "all" ? (
+                    <span className="capitalize">{statusFilter}</span>
+                  ) : (
+                    "Status"
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => setStatusFilter("all")}>
                   All Status
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => setStatusFilter("scheduled")}>
                   Scheduled
                 </DropdownMenuItem>
@@ -128,21 +214,13 @@ export default function Maintenance() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button className="bg-primary hover:bg-primary/90 text-white font-medium">
-                  <PlusCircle className="h-4 w-4 mr-1" />
-                  Schedule Maintenance
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <div className="space-y-4">
-                  <h2 className="text-lg font-semibold">Schedule New Maintenance</h2>
-                  <p className="text-sm text-gray-500">Schedule a new maintenance appointment</p>
-                  {/* Form would go here - implemented in a component for actual usage */}
-                </div>
-              </DialogContent>
-            </Dialog>
+            <Button 
+              className="bg-primary hover:bg-primary/90 text-white font-medium"
+              onClick={() => setOpen(true)}
+            >
+              <PlusCircle className="h-4 w-4 mr-1" />
+              Schedule Maintenance
+            </Button>
           </div>
         </div>
       </div>
@@ -173,6 +251,20 @@ export default function Maintenance() {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
+                {date && (
+                  <Badge variant="outline" className="flex items-center gap-1 px-3 py-1">
+                    <CalendarIcon className="h-3 w-3" />
+                    {format(date, "PPP")}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-4 w-4 ml-2 p-0"
+                      onClick={clearDateFilter}
+                    >
+                      <XCircle className="h-3 w-3" />
+                    </Button>
+                  </Badge>
+                )}
               </div>
               {isLoading ? (
                 <div className="space-y-4">
@@ -182,6 +274,9 @@ export default function Maintenance() {
                 <MaintenanceCalendar 
                   maintenances={filteredMaintenances || []} 
                   month={month}
+                  onStatusUpdate={handleStatusUpdate}
+                  isUpdatingStatus={isUpdatingStatus}
+                  selectedMaintenance={selectedMaintenance}
                 />
               )}
             </CardContent>
@@ -209,7 +304,12 @@ export default function Maintenance() {
                     .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
                     .map(([date, maintenances]) => (
                       <div key={date} className="space-y-2">
-                        <h3 className="text-md font-semibold">{formatDate(date)}</h3>
+                        <h3 className="text-md font-semibold flex items-center gap-2">
+                          {formatDate(date)}
+                          {isToday(new Date(date)) && (
+                            <Badge variant="outline" className="bg-primary/10 text-primary">Today</Badge>
+                          )}
+                        </h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {maintenances.map(maintenance => {
                             const statusClasses = getStatusClasses(maintenance.status);
@@ -224,15 +324,15 @@ export default function Maintenance() {
                                       {maintenance.client.user.name}
                                     </h4>
                                     <p className="text-sm text-gray-500">
-                                      {maintenance.type.replace('_', ' ')}
+                                      {formatMaintenanceType(maintenance.type)}
                                     </p>
                                   </div>
                                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusClasses.bg} ${statusClasses.text}`}>
-                                    {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1)}
+                                    {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
                                   </span>
                                 </div>
                                 <div className="flex items-center text-sm text-gray-600 mb-2">
-                                  <CalendarIcon className="h-4 w-4 mr-1" />
+                                  <Clock className="h-4 w-4 mr-1" />
                                   {maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}
                                 </div>
                                 <div className="flex items-center justify-between mt-2">
@@ -240,13 +340,47 @@ export default function Maintenance() {
                                     <User className="h-4 w-4 mr-1" />
                                     {maintenance.technician ? maintenance.technician.user.name : 'Unassigned'}
                                   </div>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="icon" 
-                                    className="h-8 w-8 text-gray-600"
-                                  >
-                                    <MoreHorizontal className="h-4 w-4" />
-                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 text-gray-600"
+                                        disabled={isUpdatingStatus && selectedMaintenance?.id === maintenance.id}
+                                      >
+                                        {isUpdatingStatus && selectedMaintenance?.id === maintenance.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        disabled={maintenance.status === "in_progress"}
+                                        onClick={() => handleStatusUpdate(maintenance, "in_progress")}
+                                      >
+                                        Mark In Progress
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        disabled={maintenance.status === "completed"}
+                                        onClick={() => handleStatusUpdate(maintenance, "completed")}
+                                      >
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Mark Completed
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        disabled={maintenance.status === "cancelled"}
+                                        onClick={() => handleStatusUpdate(maintenance, "cancelled")}
+                                      >
+                                        <XCircle className="h-4 w-4 mr-1" />
+                                        Cancel Maintenance
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </div>
                             );
@@ -264,6 +398,13 @@ export default function Maintenance() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Maintenance form dialog */}
+      <MaintenanceForm 
+        open={open} 
+        onOpenChange={setOpen} 
+        initialDate={date}
+      />
     </div>
   );
 }

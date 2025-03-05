@@ -10,16 +10,41 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, User } from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Calendar as CalendarIcon, 
+  Clock, 
+  User, 
+  MoreHorizontal,
+  Check,
+  XCircle,
+  Loader2 
+} from "lucide-react";
 import { MaintenanceWithDetails } from "@/lib/types";
-import { formatTime, getStatusClasses } from "@/lib/types";
+import { getStatusClasses } from "@/lib/types";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
   month: Date;
+  onStatusUpdate?: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
+  isUpdatingStatus?: boolean;
+  selectedMaintenance?: MaintenanceWithDetails | null;
 }
 
-export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendarProps) {
+export function MaintenanceCalendar({ 
+  maintenances, 
+  month, 
+  onStatusUpdate,
+  isUpdatingStatus = false,
+  selectedMaintenance = null
+}: MaintenanceCalendarProps) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
   
   // Get days in month
@@ -40,6 +65,61 @@ export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendar
   
   // Calculate which days have maintenance scheduled
   const maintenanceDays = maintenances.map((m) => new Date(m.scheduleDate));
+  
+  // Count maintenances by day for badge display
+  const maintenanceCountByDay = maintenances.reduce((acc, m) => {
+    const dateStr = m.scheduleDate;
+    const date = new Date(dateStr);
+    const dayStr = format(date, "yyyy-MM-dd");
+    
+    if (!acc[dayStr]) {
+      acc[dayStr] = { total: 0, statusCounts: {} };
+    }
+    
+    acc[dayStr].total += 1;
+    
+    if (!acc[dayStr].statusCounts[m.status]) {
+      acc[dayStr].statusCounts[m.status] = 0;
+    }
+    
+    acc[dayStr].statusCounts[m.status] += 1;
+    
+    return acc;
+  }, {} as Record<string, { total: number, statusCounts: Record<string, number> }>);
+  
+  // Format the maintenance type for display
+  const formatMaintenanceType = (type: string) => {
+    return type
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+  
+  // Get day class based on maintenance status counts
+  const getDayClass = (day: Date) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    const counts = maintenanceCountByDay[dateStr];
+    
+    if (!counts) return "";
+    
+    if (counts.statusCounts["completed"] === counts.total) {
+      return "bg-green-50 border-green-200";
+    }
+    
+    if (counts.statusCounts["in_progress"] > 0) {
+      return "bg-blue-50 border-blue-200";
+    }
+    
+    if (counts.statusCounts["scheduled"] > 0) {
+      return "bg-yellow-50 border-yellow-200";
+    }
+    
+    if (counts.statusCounts["cancelled"] === counts.total) {
+      return "bg-gray-50 border-gray-200";
+    }
+    
+    return "";
+  };
   
   return (
     <div className="space-y-4">
@@ -66,9 +146,12 @@ export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendar
               
               {days.map((day) => {
                 // Check if this day has maintenance
-                const hasMaintenances = maintenanceDays.some((m) => isSameDay(m, day));
+                const dateStr = format(day, "yyyy-MM-dd");
+                const dayMaintenances = maintenanceCountByDay[dateStr];
+                const hasMaintenances = !!dayMaintenances;
                 const isSelected = selectedDay ? isSameDay(day, selectedDay) : false;
                 const isCurrentMonth = isSameMonth(day, month);
+                const dayClass = getDayClass(day);
                 
                 return (
                   <Button
@@ -79,13 +162,15 @@ export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendar
                         ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
                         : isToday(day)
                         ? "bg-muted border border-primary"
-                        : ""
+                        : dayClass
                     } ${!isCurrentMonth ? "text-muted-foreground" : ""}`}
                     onClick={() => setSelectedDay(day)}
                   >
                     <time dateTime={format(day, "yyyy-MM-dd")}>{format(day, "d")}</time>
                     {hasMaintenances && (
-                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+                      <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 text-[10px] font-medium">
+                        {dayMaintenances.total}
+                      </div>
                     )}
                   </Button>
                 );
@@ -112,46 +197,99 @@ export function MaintenanceCalendar({ maintenances, month }: MaintenanceCalendar
             </Card>
           ) : (
             <div className="space-y-3">
-              {selectedDayMaintenances.map((maintenance) => (
-                <Card key={maintenance.id}>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg flex justify-between items-center">
-                      <span>{maintenance.type}</span>
-                      <Badge 
-                        className={
-                          getStatusClasses(maintenance.status).bg + " " + 
-                          getStatusClasses(maintenance.status).text
-                        }
-                      >
-                        {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1)}
-                      </Badge>
-                    </CardTitle>
-                    <CardDescription>{maintenance.notes || "No details available"}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="pb-2">
-                    <div className="flex flex-wrap gap-2">
-                      <div className="flex items-center text-sm">
-                        <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>{maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
+              {selectedDayMaintenances.map((maintenance) => {
+                const statusClasses = getStatusClasses(maintenance.status);
+                const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
+                
+                return (
+                  <Card key={maintenance.id} className={maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg flex justify-between items-center">
+                        <span className="capitalize">{formatMaintenanceType(maintenance.type)}</span>
+                        <Badge 
+                          className={`${statusClasses.bg} ${statusClasses.text}`}
+                        >
+                          {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
+                        </Badge>
+                      </CardTitle>
+                      <CardDescription>{maintenance.notes || "No details available"}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <div className="flex flex-wrap gap-4">
+                        <div className="flex items-center text-sm">
+                          <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <span>{maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
+                        </div>
+                        <div className="flex items-center text-sm">
+                          <User className="h-4 w-4 mr-2 text-muted-foreground" />
+                          <span>{maintenance.client.user.name}</span>
+                        </div>
                       </div>
-                      <div className="flex items-center text-sm">
-                        <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                        <span>{maintenance.client.user.name}</span>
+                    </CardContent>
+                    <CardFooter className="border-t pt-3 flex justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {maintenance.technician ? (
+                          <span>Assigned to: {maintenance.technician.user.name}</span>
+                        ) : (
+                          <span className="text-amber-500 font-medium">Not assigned</span>
+                        )}
                       </div>
-                    </div>
-                  </CardContent>
-                  <CardFooter className="border-t pt-3 flex justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      {maintenance.technician ? (
-                        <span>Assigned to: {maintenance.technician.user.name}</span>
+                      
+                      {onStatusUpdate ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              disabled={isUpdating}
+                              className="gap-1"
+                            >
+                              {isUpdating ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Updating...
+                                </>
+                              ) : (
+                                <>
+                                  Update Status
+                                  <MoreHorizontal className="h-3 w-3 ml-1" />
+                                </>
+                              )}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              disabled={maintenance.status === "in_progress"}
+                              onClick={() => onStatusUpdate(maintenance, "in_progress")}
+                            >
+                              Mark In Progress
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              disabled={maintenance.status === "completed"}
+                              onClick={() => onStatusUpdate(maintenance, "completed")}
+                            >
+                              <Check className="h-4 w-4 mr-1" />
+                              Mark Completed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              disabled={maintenance.status === "cancelled"}
+                              onClick={() => onStatusUpdate(maintenance, "cancelled")}
+                            >
+                              <XCircle className="h-4 w-4 mr-1" />
+                              Cancel Maintenance
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       ) : (
-                        <span>Not assigned</span>
+                        <Button variant="outline" size="sm">View Details</Button>
                       )}
-                    </div>
-                    <Button variant="outline" size="sm">View Details</Button>
-                  </CardFooter>
-                </Card>
-              ))}
+                    </CardFooter>
+                  </Card>
+                );
+              })}
             </div>
           )}
         </div>
