@@ -249,8 +249,8 @@ export default function Repairs() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{repair.issueType}</div>
-                            <div className="text-xs text-gray-500">{repair.description.substring(0, 30)}...</div>
+                            <div className="text-sm text-gray-900">{repair.issue}</div>
+                            <div className="text-xs text-gray-500">{repair.description ? repair.description.substring(0, 30) + '...' : 'No description'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${priorityClasses.bg} ${priorityClasses.text}`}>

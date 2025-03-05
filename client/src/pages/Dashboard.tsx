@@ -114,10 +114,8 @@ export default function Dashboard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-100 lg:col-span-2">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-foreground font-heading">Construction Projects</h2>
-            <Link href="/projects">
-              <a className="text-sm text-primary hover:text-primary/80 font-medium flex items-center">
-                View All <ArrowRight className="ml-1 h-4 w-4" />
-              </a>
+            <Link href="/projects" className="text-sm text-primary hover:text-primary/80 font-medium flex items-center">
+              View All <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </div>
           <div className="p-4">
@@ -165,10 +163,8 @@ export default function Dashboard() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-100">
           <div className="flex items-center justify-between p-4 border-b border-gray-100">
             <h2 className="text-lg font-semibold text-foreground font-heading">Upcoming Maintenance</h2>
-            <Link href="/maintenance">
-              <a className="text-sm text-primary hover:text-primary/80 font-medium flex items-center">
-                View All <ArrowRight className="ml-1 h-4 w-4" />
-              </a>
+            <Link href="/maintenance" className="text-sm text-primary hover:text-primary/80 font-medium flex items-center">
+              View All <ArrowRight className="ml-1 h-4 w-4" />
             </Link>
           </div>
           <div className="p-4">
@@ -202,10 +198,8 @@ export default function Dashboard() {
       <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-100">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-foreground font-heading">Recent Repair Requests</h2>
-          <Link href="/repairs">
-            <a className="text-sm text-primary hover:text-primary/80 font-medium flex items-center">
-              View All <ArrowRight className="ml-1 h-4 w-4" />
-            </a>
+          <Link href="/repairs" className="text-sm text-primary hover:text-primary/80 font-medium flex items-center">
+            View All <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </div>
         <div className="overflow-x-auto">
@@ -252,8 +246,8 @@ export default function Dashboard() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{repair.issueType}</div>
-                        <div className="text-xs text-gray-500">{repair.description.substring(0, 30)}...</div>
+                        <div className="text-sm text-gray-900">{repair.issue}</div>
+                        <div className="text-xs text-gray-500">{repair.description ? repair.description.substring(0, 30) + '...' : 'No description'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${priorityClasses.bg} ${priorityClasses.text}`}>
