@@ -22,6 +22,7 @@ import Technicians from "@/pages/Technicians";
 import ClientPortal from "@/pages/ClientPortal";
 import PoolWizardPage from "@/pages/PoolWizardPage";
 import ServiceReport from "@/pages/ServiceReport";
+import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
 // Mock user data - in a real app this would come from authentication
