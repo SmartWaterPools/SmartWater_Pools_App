@@ -210,259 +210,267 @@ export function ServiceTemplates() {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end items-center">
-        <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Template
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingTemplate ? "Edit Template" : "Create Template"}</DialogTitle>
-              <DialogDescription>
-                {editingTemplate
-                  ? "Update an existing service template"
-                  : "Create a new service template for technicians to use during maintenance visits"}
-              </DialogDescription>
-            </DialogHeader>
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle>Service Templates</CardTitle>
+            <CardDescription>
+              Configure default service templates for different pool types and maintenance services. 
+              These templates will be available in service reports and can be customized for each client.
+            </CardDescription>
+          </div>
+          <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Template
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingTemplate ? "Edit Template" : "Create Template"}</DialogTitle>
+                <DialogDescription>
+                  {editingTemplate
+                    ? "Update an existing service template"
+                    : "Create a new service template for technicians to use during maintenance visits"}
+                </DialogDescription>
+              </DialogHeader>
 
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Template Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Weekly Pool Service" {...field} />
-                      </FormControl>
-                      <FormDescription>
-                        A descriptive name for this service template
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Template Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template Name</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a type" />
-                          </SelectTrigger>
+                          <Input placeholder="Weekly Pool Service" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pool_service">Pool Service</SelectItem>
-                          <SelectItem value="hot_tub_service">Hot Tub Service</SelectItem>
-                          <SelectItem value="combined_service">Combined Service</SelectItem>
-                          <SelectItem value="startup_service">Startup Service</SelectItem>
-                          <SelectItem value="closing_service">Closing Service</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        The type of service this template is for
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Standard weekly pool maintenance service including chemistry checks and cleaning"
-                          className="min-h-20"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        A detailed description of what this service template is used for
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="isDefault"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                      <FormControl>
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 mt-1"
-                          checked={field.value}
-                          onChange={field.onChange}
-                        />
-                      </FormControl>
-                      <div className="space-y-1 leading-none">
-                        <FormLabel>Default Template</FormLabel>
                         <FormDescription>
-                          Make this the default template for this service type
+                          A descriptive name for this service template
                         </FormDescription>
-                      </div>
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <FormLabel>Checklist Items</FormLabel>
-                    <Button type="button" variant="outline" size="sm" onClick={addChecklistItem}>
-                      <Plus className="h-4 w-4 mr-1" /> Add Item
-                    </Button>
-                  </div>
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Template Type</FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="pool_service">Pool Service</SelectItem>
+                            <SelectItem value="hot_tub_service">Hot Tub Service</SelectItem>
+                            <SelectItem value="combined_service">Combined Service</SelectItem>
+                            <SelectItem value="startup_service">Startup Service</SelectItem>
+                            <SelectItem value="closing_service">Closing Service</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          The type of service this template is for
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                  {form.watch("checklistItems")?.map((item, index) => (
-                    <div key={item.id} className="flex items-start gap-2">
-                      <FormField
-                        control={form.control}
-                        name={`checklistItems.${index}.text`}
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input placeholder="Checklist item" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name={`checklistItems.${index}.required`}
-                        render={({ field }) => (
-                          <FormItem className="flex items-center space-x-1 mt-2">
-                            <FormControl>
-                              <input
-                                type="checkbox"
-                                className="h-4 w-4"
-                                checked={field.value}
-                                onChange={field.onChange}
-                              />
-                            </FormControl>
-                            <FormLabel className="text-xs font-normal">Required</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeChecklistItem(index)}
-                      >
-                        <Trash className="h-4 w-4 text-red-500" />
+                  <FormField
+                    control={form.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Standard weekly pool maintenance service including chemistry checks and cleaning"
+                            className="min-h-20"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          A detailed description of what this service template is used for
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="isDefault"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 mt-1"
+                            checked={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Default Template</FormLabel>
+                          <FormDescription>
+                            Make this the default template for this service type
+                          </FormDescription>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Checklist Items</FormLabel>
+                      <Button type="button" variant="outline" size="sm" onClick={addChecklistItem}>
+                        <Plus className="h-4 w-4 mr-1" /> Add Item
                       </Button>
                     </div>
-                  ))}
-                </div>
 
-                <DialogFooter>
-                  <Button type="submit" disabled={mutation.isPending}>
-                    {mutation.isPending ? "Saving..." : "Save Template"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
-      </div>
+                    {form.watch("checklistItems")?.map((item, index) => (
+                      <div key={item.id} className="flex items-start gap-2">
+                        <FormField
+                          control={form.control}
+                          name={`checklistItems.${index}.text`}
+                          render={({ field }) => (
+                            <FormItem className="flex-1">
+                              <FormControl>
+                                <Input placeholder="Checklist item" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name={`checklistItems.${index}.required`}
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-1 mt-2">
+                              <FormControl>
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4"
+                                  checked={field.value}
+                                  onChange={field.onChange}
+                                />
+                              </FormControl>
+                              <FormLabel className="text-xs font-normal">Required</FormLabel>
+                            </FormItem>
+                          )}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeChecklistItem(index)}
+                        >
+                          <Trash className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
 
-      {isLoading ? (
-        <div className="flex justify-center p-8">
-          <div className="animate-pulse">Loading templates...</div>
+                  <DialogFooter>
+                    <Button type="submit" disabled={mutation.isPending}>
+                      {mutation.isPending ? "Saving..." : "Save Template"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </div>
-      ) : error ? (
-        <div className="bg-red-50 text-red-800 p-4 rounded-md">
-          Error loading templates. Please try again.
-        </div>
-      ) : templates.length === 0 ? (
-        <Card>
-          <CardContent className="p-8 flex flex-col items-center justify-center text-center">
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center p-8">
+            <div className="animate-pulse">Loading templates...</div>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 text-red-800 p-4 rounded-md">
+            Error loading templates. Please try again.
+          </div>
+        ) : templates.length === 0 ? (
+          <div className="p-8 flex flex-col items-center justify-center text-center">
             <div className="text-gray-500 mb-4">No service templates created yet</div>
             <Button onClick={() => setOpen(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Create Your First Template
             </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {templates.map((template) => (
-            <Card key={template.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle>{template.name}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {template.type.replace("_", " ")}
-                    </CardDescription>
-                  </div>
-                  {template.isDefault && (
-                    <Badge variant="default" className="ml-2">
-                      Default
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="text-sm">
-                <p className="text-gray-500 mb-4">{template.description || "No description"}</p>
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Checklist Items:</h4>
-                  <ul className="list-disc pl-5 space-y-1">
-                    {(template.checklistItems || []).slice(0, 3).map((item, i) => (
-                      <li key={i} className="text-sm text-gray-700">{item}</li>
-                    ))}
-                    {(template.checklistItems || []).length > 3 && (
-                      <li className="text-sm text-gray-500 italic">
-                        +{(template.checklistItems || []).length - 3} more items
-                      </li>
+          </div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {templates.map((template) => (
+              <Card key={template.id} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle>{template.name}</CardTitle>
+                      <CardDescription className="mt-1">
+                        {template.type.replace("_", " ")}
+                      </CardDescription>
+                    </div>
+                    {template.isDefault && (
+                      <Badge variant="default" className="ml-2">
+                        Default
+                      </Badge>
                     )}
-                  </ul>
-                </div>
-              </CardContent>
-              <CardFooter className="flex justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(template)}
-                >
-                  <Edit className="h-4 w-4 mr-1" /> Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => {
-                    if (window.confirm("Are you sure you want to delete this template?")) {
-                      deleteMutation.mutate(template.id);
-                    }
-                  }}
-                >
-                  <Trash className="h-4 w-4 mr-1" /> Delete
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </div>
-      )}
-    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="text-sm">
+                  <p className="text-gray-500 mb-4">{template.description || "No description"}</p>
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-sm">Checklist Items:</h4>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {(template.checklistItems || []).slice(0, 3).map((item, i) => (
+                        <li key={i} className="text-sm text-gray-700">{item}</li>
+                      ))}
+                      {(template.checklistItems || []).length > 3 && (
+                        <li className="text-sm text-gray-500 italic">
+                          +{(template.checklistItems || []).length - 3} more items
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleEdit(template)}
+                  >
+                    <Edit className="h-4 w-4 mr-1" /> Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => {
+                      if (window.confirm("Are you sure you want to delete this template?")) {
+                        deleteMutation.mutate(template.id);
+                      }
+                    }}
+                  >
+                    <Trash className="h-4 w-4 mr-1" /> Delete
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -53,18 +53,7 @@ export default function Settings() {
         </TabsList>
         
         <TabsContent value="service-templates" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Templates</CardTitle>
-              <CardDescription>
-                Configure default service templates for different pool types and maintenance services. 
-                These templates will be available in service reports and can be customized for each client.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ServiceTemplates />
-            </CardContent>
-          </Card>
+          <ServiceTemplates />
         </TabsContent>
         
         <TabsContent value="user-management" className="space-y-4">
