@@ -21,6 +21,7 @@ import ClientEdit from "@/pages/ClientEdit";
 import Technicians from "@/pages/Technicians";
 import ClientPortal from "@/pages/ClientPortal";
 import PoolWizardPage from "@/pages/PoolWizardPage";
+import ServiceReport from "@/pages/ServiceReport";
 import NotFound from "@/pages/not-found";
 
 // Mock user data - in a real app this would come from authentication
@@ -200,6 +201,7 @@ function App() {
               <Route path="/clients/:id" component={ClientDetails} />
               <Route path="/technicians" component={Technicians} />
               <Route path="/client-portal" component={ClientPortal} />
+              <Route path="/maintenance/:id/service-report" component={ServiceReport} />
               <Route component={NotFound} />
             </Switch>
           </main>
