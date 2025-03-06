@@ -405,10 +405,17 @@ export default function Maintenance() {
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem 
                                         className="cursor-pointer"
-                                        onClick={() => handleServiceReportOpen(maintenance)}
+                                        onClick={() => handleServiceReportOpen(maintenance, true)}
                                       >
                                         <ClipboardList className="h-4 w-4 mr-2" />
                                         {hasServiceReport ? "View/Edit Service Report" : "Submit Service Report"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        onClick={() => handleServiceReportOpen(maintenance, false)}
+                                      >
+                                        <ClipboardList className="h-4 w-4 mr-2" />
+                                        {hasServiceReport ? "Quick Edit (Dialog)" : "Quick Submit (Dialog)"}
                                       </DropdownMenuItem>
                                       
                                       <DropdownMenuSeparator />
