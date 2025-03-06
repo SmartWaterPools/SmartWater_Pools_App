@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useTabs } from "@/components/layout/EnhancedTabManager";
 import { useQuery } from "@tanstack/react-query";
 import { 
   CalendarIcon, 
@@ -38,8 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
 import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
-// Service report is now handled through a dedicated page
-// import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
+import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
@@ -68,6 +66,8 @@ export default function Maintenance() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [serviceReportOpen, setServiceReportOpen] = useState(false);
+  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
 
   // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
@@ -130,17 +130,10 @@ export default function Maintenance() {
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
-
-
-  // Navigate to service report page using the tab system
+  // Open service report form
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    // Use the tab manager to open a new tab
-    const { addTab } = useTabs();
-    const path = `/maintenance/service-report/${maintenance.id}`;
-    const title = `Service Report: ${maintenance.client?.user?.name || 'Client'}`;
-    
-    // Add a new tab for the service report
-    addTab(path, title);
+    setSelectedServiceMaintenance(maintenance);
+    setServiceReportOpen(true);
   };
 
   // Month navigation handlers
@@ -464,7 +457,12 @@ export default function Maintenance() {
         initialDate={date}
       />
 
-      {/* Service Report Form - Now handled by a dedicated page */}
+      {/* Service Report Form */}
+      <ServiceReportForm 
+        open={serviceReportOpen} 
+        onOpenChange={setServiceReportOpen}
+        maintenance={selectedServiceMaintenance}
+      />
     </div>
   );
 }

@@ -31,10 +31,8 @@ import {
   ClipboardList
 } from "lucide-react";
 import { MaintenanceWithDetails } from "@/lib/types";
-import { useTabs } from "@/components/layout/EnhancedTabManager";
 import { getStatusClasses } from "@/lib/types";
-// Service report is now handled through dedicated page
-// import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
+import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -52,7 +50,8 @@ export function MaintenanceCalendar({
   selectedMaintenance = null
 }: MaintenanceCalendarProps) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
-  // No longer need dialog state variables for service report form
+  const [serviceReportOpen, setServiceReportOpen] = useState(false);
+  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
   
   // Get days in month
   const monthStart = startOfMonth(month);
@@ -128,15 +127,10 @@ export function MaintenanceCalendar({
     return "";
   };
 
-  // Handle opening service report form using the tab system
+  // Handle opening service report form
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    // Use the tab manager to open a new tab
-    const { addTab } = useTabs();
-    const path = `/maintenance/service-report/${maintenance.id}`;
-    const title = `Service Report: ${maintenance.client?.user?.name || 'Client'}`;
-    
-    // Add a new tab for the service report
-    addTab(path, title);
+    setSelectedServiceMaintenance(maintenance);
+    setServiceReportOpen(true);
   };
   
   return (
@@ -353,7 +347,12 @@ export function MaintenanceCalendar({
         </div>
       </div>
 
-      {/* Service Report Form - Now handled by a dedicated page */}
+      {/* Service Report Form */}
+      <ServiceReportForm 
+        open={serviceReportOpen} 
+        onOpenChange={setServiceReportOpen}
+        maintenance={selectedServiceMaintenance}
+      />
     </div>
   );
 }
