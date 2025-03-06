@@ -180,7 +180,7 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Service Report</DialogTitle>
         </DialogHeader>
@@ -265,7 +265,7 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
             {/* Tasks Completed Field */}
             <FormItem>
               <FormLabel>Tasks Completed</FormLabel>
-              <div className="grid grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                 {STANDARD_TASKS.map((task) => (
                   <FormField
                     key={task}
@@ -320,7 +320,7 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
             {showWaterReadings && (
               <div className="space-y-4 border rounded-md p-4 bg-muted/30">
                 <h3 className="text-sm font-medium">Water Test Readings</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="waterReadings.phLevel"

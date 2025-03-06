@@ -135,12 +135,12 @@ export function MaintenanceCalendar({
   
   return (
     <div className="space-y-4">
-      <div className="flex flex-col space-y-4">
+      <div className="flex flex-col space-y-6">
         {/* Calendar grid */}
-        <div className="bg-white rounded-lg border shadow-sm">
+        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
           {/* Calendar header */}
-          <div className="p-4 border-b">
-            <div className="grid grid-cols-7 gap-1 text-center text-sm font-medium">
+          <div className="p-2 sm:p-4 border-b">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs sm:text-sm font-medium min-w-[490px]">
               {weekDays.map((day) => (
                 <div key={day} className="py-2">
                   {day}
@@ -150,8 +150,8 @@ export function MaintenanceCalendar({
           </div>
           
           {/* Calendar body */}
-          <div className="p-4">
-            <div className="grid grid-cols-7 gap-1 text-center">
+          <div className="p-2 sm:p-4">
+            <div className="grid grid-cols-7 gap-1 text-center min-w-[490px]">
               {Array.from({ length: new Date(monthStart).getDay() }).map((_, i) => (
                 <div key={`empty-start-${i}`} className="h-10 w-10 rounded-full mx-auto" />
               ))}
