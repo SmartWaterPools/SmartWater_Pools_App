@@ -36,7 +36,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
-import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
 import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
   MaintenanceWithDetails, 
@@ -227,7 +226,10 @@ export default function Maintenance() {
             </DropdownMenu>
             <Button 
               className="bg-primary hover:bg-primary/90 text-white font-medium"
-              onClick={() => setOpen(true)}
+              onClick={() => {
+                // Navigate to the dedicated maintenance add page
+                window.location.href = '/maintenance/add' + (date ? `?date=${date.toISOString()}` : '');
+              }}
             >
               <PlusCircle className="h-4 w-4 mr-1" />
               Schedule Maintenance
@@ -450,12 +452,7 @@ export default function Maintenance() {
         </TabsContent>
       </Tabs>
 
-      {/* Maintenance form dialog */}
-      <MaintenanceForm 
-        open={open} 
-        onOpenChange={setOpen} 
-        initialDate={date}
-      />
+      {/* Maintenance form dialog is replaced by MaintenanceAdd page */}
 
       {/* Service Report Form */}
       <ServiceReportForm 
