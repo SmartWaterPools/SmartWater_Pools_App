@@ -13,6 +13,7 @@ import { X, Droplet } from "lucide-react";
 import Dashboard from "@/pages/Dashboard";
 import Projects from "@/pages/Projects";
 import Maintenance from "@/pages/Maintenance";
+import MaintenanceAdd from "@/pages/MaintenanceAdd";
 import Repairs from "@/pages/Repairs";
 import Clients from "@/pages/Clients";
 import ClientDetails from "@/pages/ClientDetails";
@@ -191,6 +192,7 @@ function App() {
               <Route path="/" component={Dashboard} />
               <Route path="/projects" component={Projects} />
               <Route path="/maintenance" component={Maintenance} />
+              <Route path="/maintenance/add" component={MaintenanceAdd} />
               <Route path="/repairs" component={Repairs} />
               <Route path="/clients" component={Clients} />
               <Route path="/clients/add" component={ClientAdd} />
