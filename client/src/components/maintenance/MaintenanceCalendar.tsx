@@ -129,8 +129,8 @@ export function MaintenanceCalendar({
 
   // Handle opening service report form
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    setSelectedServiceMaintenance(maintenance);
-    setServiceReportOpen(true);
+    // Navigate to the service report page instead of opening a dialog
+    window.location.href = `/maintenance/service-report/${maintenance.id}`;
   };
   
   return (
