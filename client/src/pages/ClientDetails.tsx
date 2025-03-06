@@ -104,13 +104,78 @@ export default function ClientDetails() {
     },
     enabled: !!id
   });
+  
+  // Fetch all maintenance history for this client
+  const {
+    data: maintenanceHistoryData,
+    isLoading: isHistoryLoading
+  } = useQuery({
+    queryKey: [`/api/maintenances`, id],
+    queryFn: async () => {
+      const res = await fetch(`/api/maintenances?clientId=${id}`);
+      if (!res.ok) throw new Error('Failed to fetch maintenance history');
+      return res.json();
+    },
+    enabled: !!id
+  });
+  
+  // Process maintenance history to create service history items
+  const serviceHistory = maintenanceHistoryData?.map((maintenance: any) => {
+    // Only include completed maintenances in service history
+    if (maintenance.status !== 'completed') return null;
+    
+    // Extract water chemistry values from notes if they exist
+    let waterChemistry = { ph: null, chlorine: null, alkalinity: null };
+    let notes = maintenance.notes || '';
+    
+    // Parse service report data if it exists
+    if (notes.includes('Service Report:')) {
+      try {
+        const reportSection = notes.split('Service Report:')[1].trim();
+        
+        // Extract pH, chlorine, and alkalinity from report
+        const phMatch = reportSection.match(/pH\s*:\s*([\d.]+)/i);
+        const chlorineMatch = reportSection.match(/Chlorine\s*:\s*([\d.]+)/i);
+        const alkalinityMatch = reportSection.match(/Alkalinity\s*:\s*([\d.]+)/i);
+        
+        waterChemistry = {
+          ph: phMatch ? phMatch[1] : null,
+          chlorine: chlorineMatch ? chlorineMatch[1] : null,
+          alkalinity: alkalinityMatch ? alkalinityMatch[1] : null
+        };
+        
+        // Clean up the notes to remove technical details
+        const cleanNotes = reportSection
+          .split('\n')
+          .filter((line: string) => !line.match(/^(pH|Chlorine|Alkalinity|Date|Time|Weather)/i))
+          .join('\n')
+          .trim();
+          
+        notes = cleanNotes || 'Regular maintenance performed';
+      } catch (e) {
+        console.error('Error parsing service report:', e);
+      }
+    }
+    
+    return {
+      id: maintenance.id,
+      date: maintenance.scheduleDate,
+      type: maintenance.type || 'Regular Maintenance',
+      category: 'maintenance',
+      notes: notes,
+      technician: maintenance.technician?.user?.name || 'Unassigned',
+      waterChemistry,
+      status: maintenance.status
+    };
+  }).filter(Boolean); // Remove null entries
 
   // Update ExtendedClientData with the fetched equipment, images, and services
   const clientWithData: ExtendedClientData | null = client ? {
     ...client,
     equipment: equipmentData || [],
     images: imagesData || [],
-    upcomingServices: upcomingServicesData || []
+    upcomingServices: upcomingServicesData || [],
+    serviceHistory: serviceHistory || []
   } : null;
   
   // Add console logs for debugging
@@ -124,7 +189,13 @@ export default function ClientDetails() {
     if (imagesData) {
       console.log('Images data loaded:', imagesData);
     }
-  }, [client, equipmentData, imagesData]);
+    if (maintenanceHistoryData) {
+      console.log('Maintenance history loaded:', maintenanceHistoryData);
+    }
+    if (serviceHistory) {
+      console.log('Service history processed:', serviceHistory);
+    }
+  }, [client, equipmentData, imagesData, maintenanceHistoryData, serviceHistory]);
 
   if (isClientLoading) {
     return (
@@ -479,8 +550,8 @@ export default function ClientDetails() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {client.serviceHistory && client.serviceHistory.length > 0 ? (
-                        client.serviceHistory.map((service, index) => (
+                      {serviceHistory && serviceHistory.length > 0 ? (
+                        serviceHistory.map((service: any, index: number) => (
                           <div key={index} className="flex items-start p-4 border rounded-lg">
                             <div className="mr-4">
                               <div className={`p-3 rounded-full ${
@@ -510,30 +581,50 @@ export default function ClientDetails() {
                                 <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
                               </div>
                               <p className="text-sm text-gray-600 mt-2">{service.notes}</p>
-                              {service.category === 'maintenance' && (
+                              {service.waterChemistry && (service.waterChemistry.ph || service.waterChemistry.chlorine || service.waterChemistry.alkalinity) && (
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">pH:</span> {service.waterChemistry?.ph || 'N/A'}
-                                  </div>
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Chlorine:</span> {service.waterChemistry?.chlorine || 'N/A'} ppm
-                                  </div>
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry?.alkalinity || 'N/A'} ppm
-                                  </div>
+                                  {service.waterChemistry.ph && (
+                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                      <span className="text-gray-500">pH:</span> {service.waterChemistry.ph}
+                                    </div>
+                                  )}
+                                  {service.waterChemistry.chlorine && (
+                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                      <span className="text-gray-500">Chlorine:</span> {service.waterChemistry.chlorine} ppm
+                                    </div>
+                                  )}
+                                  {service.waterChemistry.alkalinity && (
+                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                      <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry.alkalinity} ppm
+                                    </div>
+                                  )}
                                   <div className="text-xs bg-gray-100 p-2 rounded-md">
                                     <span className="text-gray-500">Technician:</span> {service.technician}
                                   </div>
                                 </div>
                               )}
-                              <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="mt-2"
+                                onClick={() => setLocation(`/service-report/${service.id}`)}
+                              >
+                                View Full Report
+                              </Button>
                             </div>
                           </div>
                         ))
                       ) : (
                         <div className="text-center py-8">
+                          <History className="h-12 w-12 mx-auto text-blue-200 mb-2" />
                           <p className="text-gray-500">No service history available</p>
-                          <Button variant="outline" className="mt-4">Schedule Service</Button>
+                          <Button 
+                            variant="outline" 
+                            className="mt-4"
+                            onClick={() => setLocation('/maintenance')}
+                          >
+                            Schedule Service
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -550,10 +641,10 @@ export default function ClientDetails() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {client.serviceHistory && client.serviceHistory.filter(s => s.category === 'maintenance' || !s.category).length > 0 ? (
-                        client.serviceHistory
-                          .filter(s => s.category === 'maintenance' || !s.category)
-                          .map((service, index) => (
+                      {serviceHistory && serviceHistory.length > 0 ? (
+                        serviceHistory
+                          .filter((s: any) => s.category === 'maintenance')
+                          .map((service: any, index: number) => (
                             <div key={index} className="flex items-start p-4 border rounded-lg">
                               <div className="mr-4">
                                 <div className="bg-blue-100 p-3 rounded-full">
@@ -566,28 +657,50 @@ export default function ClientDetails() {
                                   <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">pH:</span> {service.waterChemistry?.ph || 'N/A'}
+                                {service.waterChemistry && (service.waterChemistry.ph || service.waterChemistry.chlorine || service.waterChemistry.alkalinity) && (
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
+                                    {service.waterChemistry.ph && (
+                                      <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                        <span className="text-gray-500">pH:</span> {service.waterChemistry.ph}
+                                      </div>
+                                    )}
+                                    {service.waterChemistry.chlorine && (
+                                      <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                        <span className="text-gray-500">Chlorine:</span> {service.waterChemistry.chlorine} ppm
+                                      </div>
+                                    )}
+                                    {service.waterChemistry.alkalinity && (
+                                      <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                        <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry.alkalinity} ppm
+                                      </div>
+                                    )}
+                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                      <span className="text-gray-500">Technician:</span> {service.technician}
+                                    </div>
                                   </div>
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Chlorine:</span> {service.waterChemistry?.chlorine || 'N/A'} ppm
-                                  </div>
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry?.alkalinity || 'N/A'} ppm
-                                  </div>
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Technician:</span> {service.technician}
-                                  </div>
-                                </div>
-                                <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
+                                )}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="mt-2"
+                                  onClick={() => setLocation(`/service-report/${service.id}`)}
+                                >
+                                  View Full Report
+                                </Button>
                               </div>
                             </div>
                         ))
                       ) : (
                         <div className="text-center py-8">
+                          <History className="h-12 w-12 mx-auto text-blue-200 mb-2" />
                           <p className="text-gray-500">No maintenance history available</p>
-                          <Button variant="outline" className="mt-4">Schedule Maintenance</Button>
+                          <Button 
+                            variant="outline" 
+                            className="mt-4"
+                            onClick={() => setLocation('/maintenance')}
+                          >
+                            Schedule Maintenance
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -604,10 +717,10 @@ export default function ClientDetails() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {client.serviceHistory && client.serviceHistory.filter(s => s.category === 'repair').length > 0 ? (
-                        client.serviceHistory
-                          .filter(s => s.category === 'repair')
-                          .map((service, index) => (
+                      {serviceHistory && serviceHistory.filter((s: any) => s.category === 'repair').length > 0 ? (
+                        serviceHistory
+                          .filter((s: any) => s.category === 'repair')
+                          .map((service: any, index: number) => (
                             <div key={index} className="flex items-start p-4 border rounded-lg">
                               <div className="mr-4">
                                 <div className="bg-amber-100 p-3 rounded-full">
@@ -628,14 +741,28 @@ export default function ClientDetails() {
                                     <span className="text-gray-500">Technician:</span> {service.technician}
                                   </div>
                                 </div>
-                                <Button variant="ghost" size="sm" className="mt-2">View Full Report</Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="mt-2"
+                                  onClick={() => setLocation(`/service-report/${service.id}`)}
+                                >
+                                  View Full Report
+                                </Button>
                               </div>
                             </div>
                         ))
                       ) : (
                         <div className="text-center py-8">
+                          <Settings className="h-12 w-12 mx-auto text-amber-200 mb-2" />
                           <p className="text-gray-500">No repair history available</p>
-                          <Button variant="outline" className="mt-4">Request Repair</Button>
+                          <Button 
+                            variant="outline" 
+                            className="mt-4"
+                            onClick={() => setLocation('/repairs')}
+                          >
+                            Request Repair
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -652,10 +779,10 @@ export default function ClientDetails() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {client.serviceHistory && client.serviceHistory.filter(s => s.category === 'construction').length > 0 ? (
-                        client.serviceHistory
-                          .filter(s => s.category === 'construction')
-                          .map((service, index) => (
+                      {serviceHistory && serviceHistory.filter((s: any) => s.category === 'construction').length > 0 ? (
+                        serviceHistory
+                          .filter((s: any) => s.category === 'construction')
+                          .map((service: any, index: number) => (
                             <div key={index} className="flex items-start p-4 border rounded-lg">
                               <div className="mr-4">
                                 <div className="bg-indigo-100 p-3 rounded-full">
@@ -676,14 +803,28 @@ export default function ClientDetails() {
                                     <span className="text-gray-500">Supervisor:</span> {service.technician}
                                   </div>
                                 </div>
-                                <Button variant="ghost" size="sm" className="mt-2">View Project Details</Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="mt-2"
+                                  onClick={() => setLocation(`/service-report/${service.id}`)}
+                                >
+                                  View Project Details
+                                </Button>
                               </div>
                             </div>
                         ))
                       ) : (
                         <div className="text-center py-8">
+                          <Building2 className="h-12 w-12 mx-auto text-indigo-200 mb-2" />
                           <p className="text-gray-500">No construction/renovation history available</p>
-                          <Button variant="outline" className="mt-4">Discuss Renovation Options</Button>
+                          <Button 
+                            variant="outline" 
+                            className="mt-4"
+                            onClick={() => setLocation('/projects')}
+                          >
+                            Discuss Renovation Options
+                          </Button>
                         </div>
                       )}
                     </div>
