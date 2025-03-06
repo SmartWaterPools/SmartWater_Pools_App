@@ -212,7 +212,9 @@ export class MemStorage implements IStorage {
       heaterType: insertClient.heaterType ?? null,
       chemicalSystem: insertClient.chemicalSystem ?? null,
       specialNotes: insertClient.specialNotes ?? null,
-      serviceDay: insertClient.serviceDay ?? null
+      serviceDay: insertClient.serviceDay ?? null,
+      serviceLevel: insertClient.serviceLevel ?? null,
+      customServiceInstructions: insertClient.customServiceInstructions ?? null
     };
     this.clients.set(id, client);
     return client;
@@ -589,10 +591,12 @@ export class MemStorage implements IStorage {
       ...insertTemplate,
       id,
       name: insertTemplate.name,
+      type: insertTemplate.type,
       description: insertTemplate.description ?? null,
-      serviceType: insertTemplate.serviceType ?? "regular",
       isDefault: insertTemplate.isDefault ?? false,
-      checklistItems: insertTemplate.checklistItems ?? []
+      checklistItems: insertTemplate.checklistItems ?? [],
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     this.serviceTemplates.set(id, template);
     return template;
@@ -621,7 +625,7 @@ export class MemStorage implements IStorage {
   
   async getDefaultServiceTemplate(type: string): Promise<ServiceTemplate | undefined> {
     return Array.from(this.serviceTemplates.values()).find(
-      (template) => template.serviceType === type && template.isDefault
+      (template) => template.type === type && template.isDefault
     );
   }
   
@@ -1308,6 +1312,80 @@ export class DatabaseStorage implements IStorage {
   
   async getPoolImagesByClientId(clientId: number): Promise<PoolImage[]> {
     return await db.select().from(poolImages).where(eq(poolImages.clientId, clientId));
+  }
+  
+  // Service Template operations
+  async getServiceTemplate(id: number): Promise<ServiceTemplate | undefined> {
+    const [template] = await db.select().from(serviceTemplates).where(eq(serviceTemplates.id, id));
+    return template || undefined;
+  }
+  
+  async createServiceTemplate(insertTemplate: InsertServiceTemplate): Promise<ServiceTemplate> {
+    // If this is being set as a default template for a service type, unset any existing defaults
+    if (insertTemplate.isDefault) {
+      await db
+        .update(serviceTemplates)
+        .set({ isDefault: false })
+        .where(eq(serviceTemplates.type, insertTemplate.type));
+    }
+    
+    const [template] = await db.insert(serviceTemplates).values(insertTemplate).returning();
+    return template;
+  }
+  
+  async updateServiceTemplate(id: number, data: Partial<ServiceTemplate>): Promise<ServiceTemplate | undefined> {
+    // If this is being set as a default template, unset any existing defaults
+    if (data.isDefault && data.type) {
+      await db
+        .update(serviceTemplates)
+        .set({ isDefault: false })
+        .where(eq(serviceTemplates.type, data.type));
+    } else if (data.isDefault) {
+      // Get the existing template to find its service type
+      const [existingTemplate] = await db.select().from(serviceTemplates).where(eq(serviceTemplates.id, id));
+      if (existingTemplate) {
+        await db
+          .update(serviceTemplates)
+          .set({ isDefault: false })
+          .where(and(
+            eq(serviceTemplates.type, existingTemplate.type),
+            eq(serviceTemplates.isDefault, true)
+          ));
+      }
+    }
+    
+    const [updatedTemplate] = await db
+      .update(serviceTemplates)
+      .set(data)
+      .where(eq(serviceTemplates.id, id))
+      .returning();
+      
+    return updatedTemplate || undefined;
+  }
+  
+  async deleteServiceTemplate(id: number): Promise<boolean> {
+    const [deletedTemplate] = await db
+      .delete(serviceTemplates)
+      .where(eq(serviceTemplates.id, id))
+      .returning();
+      
+    return !!deletedTemplate;
+  }
+  
+  async getAllServiceTemplates(): Promise<ServiceTemplate[]> {
+    return await db.select().from(serviceTemplates);
+  }
+  
+  async getDefaultServiceTemplate(type: string): Promise<ServiceTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(serviceTemplates)
+      .where(and(
+        eq(serviceTemplates.type, type),
+        eq(serviceTemplates.isDefault, true)
+      ));
+      
+    return template || undefined;
   }
 }
 
