@@ -123,10 +123,11 @@ export function CustomInstructions({ clientId, initialData }: CustomInstructions
     const template = templates.find(t => t.id === templateId);
     if (!template) return;
     
-    form.setValue("customServiceInstructions", template.checklistItems);
+    const checklistItems = template.checklistItems || [];
+    form.setValue("customServiceInstructions", checklistItems as string[]);
     toast({
       title: "Template imported",
-      description: `Imported ${template.checklistItems.length} items from "${template.name}" template`,
+      description: `Imported ${checklistItems.length} items from "${template.name}" template`,
     });
   };
 
