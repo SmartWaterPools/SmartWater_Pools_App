@@ -12,6 +12,7 @@ import {
   insertInvoiceSchema,
   insertPoolEquipmentSchema,
   insertPoolImageSchema,
+  insertServiceTemplateSchema,
   validateContractType,
   CONTRACT_TYPES
 } from "@shared/schema";
@@ -974,6 +975,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       res.status(500).json({ message: "Failed to create pool image" });
+    }
+  });
+
+  // Service Template routes
+  app.get("/api/service-templates", async (_req: Request, res: Response) => {
+    try {
+      const templates = await storage.getAllServiceTemplates();
+      res.json(templates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch service templates" });
+    }
+  });
+  
+  app.get("/api/service-templates/default/:type", async (req: Request, res: Response) => {
+    try {
+      const type = req.params.type;
+      const template = await storage.getDefaultServiceTemplate(type);
+      
+      if (!template) {
+        return res.status(404).json({ message: "Default template not found for this type" });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch default service template" });
+    }
+  });
+
+  app.get("/api/service-templates/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      const template = await storage.getServiceTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Service template not found" });
+      }
+      
+      res.json(template);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch service template" });
+    }
+  });
+
+  app.post("/api/service-templates", async (req: Request, res: Response) => {
+    try {
+      const result = validateSchema(insertServiceTemplateSchema, req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: result.error });
+      }
+
+      // If setting as default, make sure to include at least one checklist item
+      if (req.body.isDefault && (!req.body.checklistItems || req.body.checklistItems.length === 0)) {
+        return res.status(400).json({ 
+          message: "Default templates must include at least one checklist item" 
+        });
+      }
+
+      const template = await storage.createServiceTemplate(req.body);
+      res.status(201).json(template);
+    } catch (error) {
+      console.error("Error creating service template:", error);
+      res.status(500).json({ message: "Failed to create service template" });
+    }
+  });
+
+  app.patch("/api/service-templates/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      const template = await storage.getServiceTemplate(id);
+      if (!template) {
+        return res.status(404).json({ message: "Service template not found" });
+      }
+      
+      const updatedTemplate = await storage.updateServiceTemplate(id, req.body);
+      res.json(updatedTemplate);
+    } catch (error) {
+      console.error("Error updating service template:", error);
+      res.status(500).json({ message: "Failed to update service template" });
+    }
+  });
+
+  app.delete("/api/service-templates/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid template ID" });
+      }
+      
+      const success = await storage.deleteServiceTemplate(id);
+      if (!success) {
+        return res.status(404).json({ message: "Service template not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting service template:", error);
+      res.status(500).json({ message: "Failed to delete service template" });
     }
   });
 
