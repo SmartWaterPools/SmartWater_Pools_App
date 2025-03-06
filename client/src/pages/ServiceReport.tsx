@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,7 +82,6 @@ const formatMaintenanceType = (type: string): string => {
 export default function ServiceReport() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const maintenanceId = id ? parseInt(id) : 0;
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -186,7 +185,8 @@ export default function ServiceReport() {
         title: "Service report submitted",
         description: "The service report has been submitted successfully.",
       });
-      navigate("/maintenance");
+      // Use window.location instead of navigate
+      window.location.href = "/maintenance";
     },
     onError: (error) => {
       toast({
@@ -248,7 +248,7 @@ export default function ServiceReport() {
 
   // Handle user cancelling the form
   const handleCancel = () => {
-    navigate("/maintenance");
+    window.location.href = "/maintenance";
   };
 
   if (isLoading) {
