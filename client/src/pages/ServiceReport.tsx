@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "wouter";
+import { useTabs } from "@/components/layout/EnhancedTabManager";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -163,6 +164,10 @@ export default function ServiceReport() {
     }
   }, [maintenance, form]);
 
+  // For tab navigation using wouter
+  const [, setLocation] = useLocation();
+  const { tabs, getTabByPath, navigateToTab, addTab } = useTabs();
+  
   // Update maintenance mutation
   const updateMaintenanceMutation = useMutation({
     mutationFn: async (values: ServiceReportValues) => {
@@ -186,8 +191,14 @@ export default function ServiceReport() {
         description: "The service report has been submitted successfully.",
       });
       
-      // Use simple navigation for now
-      window.location.href = "/maintenance";
+      // Use tab manager to navigate back to maintenance page
+      const maintenanceTab = getTabByPath('/maintenance');
+      if (maintenanceTab) {
+        navigateToTab(maintenanceTab.id);
+      } else {
+        // If no maintenance tab exists, create one
+        addTab('/maintenance', 'Schedule');
+      }
     },
     onError: (error) => {
       toast({
@@ -249,8 +260,14 @@ export default function ServiceReport() {
 
   // Handle user cancelling the form
   const handleCancel = () => {
-    // Use regular navigation for now
-    window.location.href = "/maintenance";
+    // Use tab manager to navigate back to maintenance page
+    const maintenanceTab = getTabByPath('/maintenance');
+    if (maintenanceTab) {
+      navigateToTab(maintenanceTab.id);
+    } else {
+      // If no maintenance tab exists, create one
+      addTab('/maintenance', 'Schedule');
+    }
   };
 
   if (isLoading) {

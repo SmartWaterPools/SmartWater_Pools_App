@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTabs } from "@/components/layout/EnhancedTabManager";
 import { useQuery } from "@tanstack/react-query";
 import { 
   CalendarIcon, 
@@ -16,7 +17,6 @@ import {
   ClipboardList,
   FileText
 } from "lucide-react";
-import { useTabs } from "@/components/layout/EnhancedTabManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -132,10 +132,15 @@ export default function Maintenance() {
 
 
 
-  // Navigate to service report page
+  // Navigate to service report page using the tab system
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    // For now, use direct navigation until we implement the tab system properly
-    window.location.href = `/maintenance/service-report/${maintenance.id}`;
+    // Use the tab manager to open a new tab
+    const { addTab } = useTabs();
+    const path = `/maintenance/service-report/${maintenance.id}`;
+    const title = `Service Report: ${maintenance.client?.user?.name || 'Client'}`;
+    
+    // Add a new tab for the service report
+    addTab(path, title);
   };
 
   // Month navigation handlers
