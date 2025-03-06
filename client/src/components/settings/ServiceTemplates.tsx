@@ -210,19 +210,19 @@ export function ServiceTemplates() {
   };
 
   return (
-    <Card>
+    <Card className="mb-6">
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>
             <CardTitle>Service Templates</CardTitle>
-            <CardDescription>
+            <CardDescription className="mt-1">
               Configure default service templates for different pool types and maintenance services. 
               These templates will be available in service reports and can be customized for each client.
             </CardDescription>
           </div>
           <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
-              <Button>
+              <Button size="default" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Template
               </Button>
@@ -411,7 +411,7 @@ export function ServiceTemplates() {
             </Button>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {templates.map((template) => (
               <Card key={template.id} className="overflow-hidden">
                 <CardHeader className="pb-2">

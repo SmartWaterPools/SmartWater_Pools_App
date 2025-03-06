@@ -24,33 +24,30 @@ export default function Settings() {
         onValueChange={setActiveTab}
         className="space-y-4"
       >
-        <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-2">
-          <TabsTrigger value="service-templates" className="flex gap-2 items-center">
-            <FileText className="h-4 w-4" />
-            <span className="hidden md:inline">Service Templates</span>
-            <span className="md:hidden">Templates</span>
-          </TabsTrigger>
-          <TabsTrigger value="user-management" className="flex gap-2 items-center" disabled>
-            <Users className="h-4 w-4" />
-            <span className="hidden md:inline">User Management</span>
-            <span className="md:hidden">Users</span>
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex gap-2 items-center" disabled>
-            <Bell className="h-4 w-4" />
-            <span className="hidden md:inline">Notifications</span>
-            <span className="md:hidden">Alerts</span>
-          </TabsTrigger>
-          <TabsTrigger value="permissions" className="flex gap-2 items-center" disabled>
-            <Shield className="h-4 w-4" />
-            <span className="hidden md:inline">Permissions</span>
-            <span className="md:hidden">Roles</span>
-          </TabsTrigger>
-          <TabsTrigger value="appearance" className="flex gap-2 items-center" disabled>
-            <LayoutGrid className="h-4 w-4" />
-            <span className="hidden md:inline">Appearance</span>
-            <span className="md:hidden">Theme</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="mb-6 overflow-x-auto pb-2">
+          <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground w-auto">
+            <TabsTrigger value="service-templates" className="flex gap-2 items-center px-4 py-2">
+              <FileText className="h-4 w-4" />
+              <span className="whitespace-nowrap">Service Templates</span>
+            </TabsTrigger>
+            <TabsTrigger value="user-management" className="flex gap-2 items-center px-4 py-2" disabled>
+              <Users className="h-4 w-4" />
+              <span className="whitespace-nowrap">User Management</span>
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="flex gap-2 items-center px-4 py-2" disabled>
+              <Bell className="h-4 w-4" />
+              <span className="whitespace-nowrap">Notifications</span>
+            </TabsTrigger>
+            <TabsTrigger value="permissions" className="flex gap-2 items-center px-4 py-2" disabled>
+              <Shield className="h-4 w-4" />
+              <span className="whitespace-nowrap">Permissions</span>
+            </TabsTrigger>
+            <TabsTrigger value="appearance" className="flex gap-2 items-center px-4 py-2" disabled>
+              <LayoutGrid className="h-4 w-4" />
+              <span className="whitespace-nowrap">Appearance</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
         
         <TabsContent value="service-templates" className="space-y-4">
           <ServiceTemplates />
