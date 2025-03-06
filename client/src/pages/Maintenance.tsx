@@ -129,9 +129,19 @@ export default function Maintenance() {
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
-  // Navigate to service report page
+  // Import the useTabs hook
+  const { useTabs } = require("@/components/layout/EnhancedTabManager");
+
+  // Navigate to service report page using the tab system
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    window.location.href = `/maintenance/service-report/${maintenance.id}`;
+    try {
+      // Try to use the tab manager
+      const { addTab } = useTabs();
+      addTab(`/maintenance/service-report/${maintenance.id}`, `Service Report: ${maintenance.client.user.name}`);
+    } catch (e) {
+      // Fallback to direct navigation if tab manager is not available
+      window.location.href = `/maintenance/service-report/${maintenance.id}`;
+    }
   };
 
   // Month navigation handlers
