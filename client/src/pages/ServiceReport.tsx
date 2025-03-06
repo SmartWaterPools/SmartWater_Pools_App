@@ -42,7 +42,8 @@ import {
   CalendarIcon,
   Loader2,
   Check,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
@@ -51,6 +52,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { ServiceTemplate } from "../../../shared/schema";
 
 // Form validation schema
 const serviceReportSchema = z.object({
@@ -90,12 +92,21 @@ export default function ServiceReport() {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showWaterReadings, setShowWaterReadings] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
 
   // Fetch maintenance data
-  const { data: maintenance, isLoading, error } = useQuery<MaintenanceWithDetails>({
+  const { data: maintenance, isLoading: maintenanceLoading, error: maintenanceError } = useQuery<MaintenanceWithDetails>({
     queryKey: ["/api/maintenances", parseInt(id)],
     enabled: !!id,
   });
+  
+  // Fetch service templates
+  const { data: templates, isLoading: templatesLoading } = useQuery<ServiceTemplate[]>({
+    queryKey: ["/api/service-templates"],
+  });
+  
+  const isLoading = maintenanceLoading || templatesLoading;
+  const error = maintenanceError;
 
   // Form definition
   const form = useForm<ServiceReportValues>({
@@ -238,6 +249,40 @@ export default function ServiceReport() {
     }
     
     return sections.join("\n");
+  };
+
+  // Helper function to apply a template to the tasks
+  const applyTemplate = (templateId: number) => {
+    if (!templates) return;
+    
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    setSelectedTemplate(templateId);
+    
+    // Get the checklist items from the template
+    const checklistItems = template.checklistItems || [];
+    
+    // Get current tasks
+    const currentTasks = form.getValues("tasksCompleted") || [];
+    
+    // Merge the template tasks with existing tasks (avoiding duplicates)
+    const combinedTasks = [...currentTasks];
+    
+    // Add any checklist items that don't already exist
+    checklistItems.forEach(item => {
+      if (!combinedTasks.includes(item)) {
+        combinedTasks.push(item);
+      }
+    });
+    
+    // Update the form
+    form.setValue("tasksCompleted", combinedTasks);
+    
+    toast({
+      title: "Template Applied",
+      description: `Applied "${template.name}" template with ${checklistItems.length} tasks`,
+    });
   };
 
   // Form submission handler
@@ -402,39 +447,121 @@ export default function ServiceReport() {
 
                   {/* Tasks Completed Field */}
                   <FormItem>
-                    <FormLabel>Tasks Completed</FormLabel>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2">
-                      {STANDARD_TASKS.map((task) => (
-                        <FormField
-                          key={task}
-                          control={form.control}
-                          name="tasksCompleted"
-                          render={({ field }) => {
-                            return (
-                              <FormItem
-                                key={task}
-                                className="flex flex-row items-start space-x-3 space-y-0"
-                              >
-                                <FormControl>
-                                  <Checkbox
-                                    checked={field.value?.includes(task)}
-                                    onCheckedChange={(checked) => {
-                                      const currentTasks = field.value || [];
-                                      const updatedTasks = checked
-                                        ? [...currentTasks, task]
-                                        : currentTasks.filter((value) => value !== task);
-                                      field.onChange(updatedTasks);
-                                    }}
-                                  />
-                                </FormControl>
-                                <FormLabel className="text-sm font-normal">
-                                  {task}
-                                </FormLabel>
-                              </FormItem>
-                            );
-                          }}
-                        />
-                      ))}
+                    <div className="flex items-center justify-between mb-2">
+                      <FormLabel>Tasks Completed</FormLabel>
+                      
+                      {templates && templates.length > 0 && (
+                        <div className="flex items-center">
+                          <span className="text-sm mr-2">Apply Template:</span>
+                          <Select
+                            onValueChange={(value) => applyTemplate(parseInt(value))}
+                            value={selectedTemplate?.toString() || ""}
+                          >
+                            <SelectTrigger className="w-[180px]">
+                              <SelectValue placeholder="Select template" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {templates.map((template) => (
+                                <SelectItem key={template.id} value={template.id.toString()}>
+                                  {template.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 mt-2 border rounded-md p-3 bg-muted/20">
+                      {/* Standard tasks section */}
+                      <div className="col-span-full mb-3">
+                        <h4 className="text-sm font-medium mb-2 flex items-center">
+                          <span className="inline-flex justify-center items-center w-5 h-5 rounded-full bg-primary/10 text-primary mr-2 text-xs">
+                            S
+                          </span>
+                          Standard Tasks
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                          {STANDARD_TASKS.map((task) => (
+                            <FormField
+                              key={`standard-${task}`}
+                              control={form.control}
+                              name="tasksCompleted"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={task}
+                                    className="flex flex-row items-start space-x-3 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(task)}
+                                        onCheckedChange={(checked) => {
+                                          const currentTasks = field.value || [];
+                                          const updatedTasks = checked
+                                            ? [...currentTasks, task]
+                                            : currentTasks.filter((value) => value !== task);
+                                          field.onChange(updatedTasks);
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm font-normal">
+                                      {task}
+                                    </FormLabel>
+                                  </FormItem>
+                                );
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      {/* Template tasks section - Only show if a template is selected and has items */}
+                      {selectedTemplate && templates && (
+                        <div className="col-span-full">
+                          <h4 className="text-sm font-medium mb-2 flex items-center">
+                            <span className="inline-flex justify-center items-center w-5 h-5 rounded-full bg-primary/10 text-primary mr-2 text-xs">
+                              <FileText className="h-3 w-3" />
+                            </span>
+                            Template Tasks
+                          </h4>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                            {templates
+                              .find(t => t.id === selectedTemplate)?.checklistItems
+                              ?.filter(item => item && !STANDARD_TASKS.includes(item))
+                              .map((task, idx) => (
+                                <FormField
+                                  key={`template-${idx}-${task}`}
+                                  control={form.control}
+                                  name="tasksCompleted"
+                                  render={({ field }) => {
+                                    return (
+                                      <FormItem
+                                        className="flex flex-row items-start space-x-3 space-y-0"
+                                      >
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value?.includes(task)}
+                                            onCheckedChange={(checked) => {
+                                              const currentTasks = field.value || [];
+                                              const updatedTasks = checked
+                                                ? [...currentTasks, task]
+                                                : currentTasks.filter((value) => value !== task);
+                                              field.onChange(updatedTasks);
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="text-sm font-normal">
+                                          {task}
+                                        </FormLabel>
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                              ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </FormItem>
 
