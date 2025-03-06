@@ -48,6 +48,8 @@ export const clients = pgTable("clients", {
   chemicalSystem: text("chemical_system"), // chlorine, salt, mineral
   specialNotes: text("special_notes"), // Any special instructions or notes
   serviceDay: text("service_day"), // Preferred service day
+  serviceLevel: text("service_level"), // Basic, Premium, etc.
+  customServiceInstructions: text("custom_service_instructions").array(), // Array of specific instructions for this client
 });
 
 export const insertClientSchema = createInsertSchema(clients)
@@ -199,6 +201,24 @@ export const insertPoolImageSchema = createInsertSchema(poolImages).omit({
   uploadDate: true,
 });
 
+// Service templates schema for global service checklists
+export const serviceTemplates = pgTable("service_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // pool_service, hot_tub_service, etc.
+  description: text("description"),
+  isDefault: boolean("is_default").default(false),
+  checklistItems: text("checklist_items").array(), // Array of standard checklist items
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertServiceTemplateSchema = createInsertSchema(serviceTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
@@ -315,6 +335,9 @@ export const updateClientSchema = z.object({
   chemicalSystem: z.string().nullable().optional(),
   specialNotes: z.string().nullable().optional(),
   serviceDay: z.string().nullable().optional(),
+  // Service-related fields
+  serviceLevel: z.string().nullable().optional(),
+  customServiceInstructions: z.array(z.string()).optional(),
 });
 
 // Type definitions
@@ -348,3 +371,6 @@ export type InsertPoolEquipment = z.infer<typeof insertPoolEquipmentSchema>;
 
 export type PoolImage = typeof poolImages.$inferSelect;
 export type InsertPoolImage = z.infer<typeof insertPoolImageSchema>;
+
+export type ServiceTemplate = typeof serviceTemplates.$inferSelect;
+export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
