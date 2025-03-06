@@ -32,7 +32,8 @@ import {
 } from "lucide-react";
 import { MaintenanceWithDetails } from "@/lib/types";
 import { getStatusClasses } from "@/lib/types";
-import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
+// Service report is now handled through dedicated page
+// import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -50,8 +51,7 @@ export function MaintenanceCalendar({
   selectedMaintenance = null
 }: MaintenanceCalendarProps) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
-  const [serviceReportOpen, setServiceReportOpen] = useState(false);
-  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
+  // No longer need dialog state variables for service report form
   
   // Get days in month
   const monthStart = startOfMonth(month);

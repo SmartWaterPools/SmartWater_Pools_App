@@ -37,7 +37,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
 import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
-import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
+// Service report is now handled through a dedicated page
+// import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
