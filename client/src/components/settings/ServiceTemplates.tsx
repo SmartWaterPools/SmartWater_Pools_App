@@ -398,12 +398,10 @@ export function ServiceTemplates() {
         <Card>
           <CardContent className="p-8 flex flex-col items-center justify-center text-center">
             <div className="text-gray-500 mb-4">No service templates created yet</div>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Your First Template
-              </Button>
-            </DialogTrigger>
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Your First Template
+            </Button>
           </CardContent>
         </Card>
       ) : (
