@@ -347,12 +347,7 @@ export function MaintenanceCalendar({
         </div>
       </div>
 
-      {/* Service Report Form */}
-      <ServiceReportForm 
-        open={serviceReportOpen} 
-        onOpenChange={setServiceReportOpen}
-        maintenance={selectedServiceMaintenance}
-      />
+      {/* Service Report Form - Now handled by a dedicated page */}
     </div>
   );
 }

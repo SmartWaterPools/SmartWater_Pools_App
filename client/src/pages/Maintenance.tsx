@@ -66,8 +66,6 @@ export default function Maintenance() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [serviceReportOpen, setServiceReportOpen] = useState(false);
-  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
 
   // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
@@ -130,10 +128,9 @@ export default function Maintenance() {
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
-  // Open service report form
+  // Navigate to service report page
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    setSelectedServiceMaintenance(maintenance);
-    setServiceReportOpen(true);
+    window.location.href = `/maintenance/service-report/${maintenance.id}`;
   };
 
   // Month navigation handlers
@@ -457,12 +454,7 @@ export default function Maintenance() {
         initialDate={date}
       />
 
-      {/* Service Report Form */}
-      <ServiceReportForm 
-        open={serviceReportOpen} 
-        onOpenChange={setServiceReportOpen}
-        maintenance={selectedServiceMaintenance}
-      />
+      {/* Service Report Form - Now handled by a dedicated page */}
     </div>
   );
 }
