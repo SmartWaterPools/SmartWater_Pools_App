@@ -404,8 +404,8 @@ export function Sidebar({ user }: SidebarProps) {
   
   // Mobile bottom navigation bar (matching the UI in screenshots)
   const MobileBottomNav = () => (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50">
-      <div className="flex items-center justify-between px-3 py-2">
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 overflow-x-auto">
+      <div className="flex items-center justify-between gap-4 px-3 py-2 min-w-max">
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/")}
           className="flex flex-col items-center px-3 py-1"
