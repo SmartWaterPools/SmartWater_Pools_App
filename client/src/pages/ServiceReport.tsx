@@ -51,7 +51,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { EnhancedBreadcrumbs } from "@/components/layout/EnhancedBreadcrumbs";
 
 // Form validation schema
 const serviceReportSchema = z.object({
@@ -125,10 +124,15 @@ export default function ServiceReport() {
         setShowWaterReadings(maintenance.notes.includes("Water Readings:"));
         
         // Extract tasks if available
-        const tasksMatch = maintenance.notes.match(/Tasks Completed: (.*?)(?:\n|$)/);
+        const tasksMatch = maintenance.notes.match(/Tasks Completed: (.*?)(?:\\n|$)/);
         const tasks = tasksMatch ? 
           tasksMatch[1].split(", ").filter(task => STANDARD_TASKS.includes(task)) 
           : [];
+
+        const status = (maintenance.status === "completed" || 
+                        maintenance.status === "in_progress" || 
+                        maintenance.status === "cancelled") 
+                        ? maintenance.status : "in_progress";
         
         form.reset({
           completionDate: new Date(),
@@ -141,10 +145,15 @@ export default function ServiceReport() {
           notes: maintenance.notes.includes("Notes: ") 
             ? maintenance.notes.split("Notes: ")[1].trim() 
             : "",
-          status: maintenance.status
+          status: status as "in_progress" | "completed" | "cancelled"
         });
       } else {
         // No existing service report, just use the maintenance data
+        const status = (maintenance.status === "completed" || 
+                       maintenance.status === "in_progress" || 
+                       maintenance.status === "cancelled") 
+                       ? maintenance.status : "in_progress";
+        
         form.reset({
           completionDate: new Date(),
           waterReadings: {
@@ -154,7 +163,7 @@ export default function ServiceReport() {
           },
           tasksCompleted: [],
           notes: maintenance.notes || "",
-          status: maintenance.status
+          status: status as "in_progress" | "completed" | "cancelled"
         });
       }
     }
@@ -273,8 +282,6 @@ export default function ServiceReport() {
 
   return (
     <div className="container py-6">
-      <EnhancedBreadcrumbs />
-      
       <div className="mb-6">
         <Button 
           variant="outline" 

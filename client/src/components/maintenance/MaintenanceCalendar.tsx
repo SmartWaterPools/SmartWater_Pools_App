@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth } from "date-fns";
+import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,6 +50,7 @@ export function MaintenanceCalendar({
   isUpdatingStatus = false,
   selectedMaintenance = null
 }: MaintenanceCalendarProps) {
+  const [, navigate] = useLocation();
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
   const [serviceReportOpen, setServiceReportOpen] = useState(false);
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
