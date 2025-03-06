@@ -60,7 +60,6 @@ export default function Maintenance() {
   const queryClient = useQueryClient();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
-  const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
