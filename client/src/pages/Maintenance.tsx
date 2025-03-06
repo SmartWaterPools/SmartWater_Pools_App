@@ -155,17 +155,17 @@ export default function Maintenance() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground font-heading">Maintenance</h1>
         <div className="flex flex-col sm:flex-row gap-2 mt-3 md:mt-0">
-          <div className="relative">
+          <div className="relative w-full sm:w-auto">
             <Input 
               type="text" 
               placeholder="Search clients..." 
-              className="pl-10 pr-4"
+              className="pl-10 pr-4 w-full"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="flex gap-2">
@@ -301,7 +301,7 @@ export default function Maintenance() {
                   {Array(5).fill(0).map((_, i) => (
                     <div key={i} className="space-y-2">
                       <Skeleton className="h-6 w-32" />
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         <Skeleton className="h-28 w-full rounded-lg" />
                         <Skeleton className="h-28 w-full rounded-lg" />
                         <Skeleton className="h-28 w-full rounded-lg" />
@@ -321,7 +321,7 @@ export default function Maintenance() {
                             <Badge variant="outline" className="bg-primary/10 text-primary">Today</Badge>
                           )}
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                           {maintenances.map(maintenance => {
                             const statusClasses = getStatusClasses(maintenance.status);
                             const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
