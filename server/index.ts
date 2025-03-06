@@ -57,29 +57,37 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Try port 5000 first, then 3000 as fallback
-  let port = 5000;
+  // Use environment variable PORT for Cloud Run compatibility or default to 8080
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
   
   // Simple server setup with proper error handling
   const startServer = (port: number) => {
-    server.listen({
+    return server.listen({
       port,
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
       log(`serving on port ${port}`);
     }).on('error', (error: any) => {
-      if (error.code === 'EADDRINUSE' && port === 5000) {
-        // Try alternate port
-        log(`Port ${port} is in use, trying port 3000 instead`);
-        port = 3000;
-        startServer(port);
-      } else {
-        log(`Error starting server: ${error.message}`);
-        process.exit(1); // Exit with error code so workflow can restart properly
-      }
+      log(`Error starting server: ${error.message}`);
+      process.exit(1); // Exit with error code so workflow can restart properly
     });
   };
 
-  startServer(port);
+  const serverInstance = startServer(port);
+  
+  // Handle graceful shutdown for Cloud Run
+  process.on('SIGTERM', () => {
+    log('SIGTERM received, shutting down gracefully');
+    serverInstance.close(() => {
+      log('Server closed');
+      process.exit(0);
+    });
+    
+    // Force close after 10s if still not closed
+    setTimeout(() => {
+      log('Forcing server shutdown after timeout');
+      process.exit(1);
+    }, 10000);
+  });
 })();
