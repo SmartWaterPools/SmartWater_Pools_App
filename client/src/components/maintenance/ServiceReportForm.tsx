@@ -265,7 +265,7 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
             {/* Tasks Completed Field */}
             <FormItem>
               <FormLabel>Tasks Completed</FormLabel>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 mt-2">
                 {STANDARD_TASKS.map((task) => (
                   <FormField
                     key={task}

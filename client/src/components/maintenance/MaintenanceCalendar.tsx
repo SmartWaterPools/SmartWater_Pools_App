@@ -217,7 +217,7 @@ export function MaintenanceCalendar({
                 return (
                   <Card 
                     key={maintenance.id} 
-                    className={maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''}
+                    className={`${maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''} overflow-hidden`}
                   >
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg flex justify-between items-center">
