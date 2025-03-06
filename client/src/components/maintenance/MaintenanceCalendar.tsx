@@ -31,6 +31,7 @@ import {
   ClipboardList
 } from "lucide-react";
 import { MaintenanceWithDetails } from "@/lib/types";
+import { useTabs } from "@/components/layout/EnhancedTabManager";
 import { getStatusClasses } from "@/lib/types";
 // Service report is now handled through dedicated page
 // import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
@@ -127,10 +128,15 @@ export function MaintenanceCalendar({
     return "";
   };
 
-  // Handle opening service report form
+  // Handle opening service report form using the tab system
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    // Navigate to the service report page instead of opening a dialog
-    window.location.href = `/maintenance/service-report/${maintenance.id}`;
+    // Use the tab manager to open a new tab
+    const { addTab } = useTabs();
+    const path = `/maintenance/service-report/${maintenance.id}`;
+    const title = `Service Report: ${maintenance.client?.user?.name || 'Client'}`;
+    
+    // Add a new tab for the service report
+    addTab(path, title);
   };
   
   return (
