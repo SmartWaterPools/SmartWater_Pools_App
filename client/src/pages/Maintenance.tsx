@@ -36,6 +36,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
+import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
 import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
   MaintenanceWithDetails, 
@@ -60,6 +61,7 @@ export default function Maintenance() {
   const queryClient = useQueryClient();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
+  const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
@@ -225,10 +227,7 @@ export default function Maintenance() {
             </DropdownMenu>
             <Button 
               className="bg-primary hover:bg-primary/90 text-white font-medium"
-              onClick={() => {
-                // Navigate to the dedicated maintenance add page
-                window.location.href = '/maintenance/add' + (date ? `?date=${date.toISOString()}` : '');
-              }}
+              onClick={() => setOpen(true)}
             >
               <PlusCircle className="h-4 w-4 mr-1" />
               Schedule Maintenance
@@ -451,7 +450,12 @@ export default function Maintenance() {
         </TabsContent>
       </Tabs>
 
-      {/* Maintenance form dialog is replaced by MaintenanceAdd page */}
+      {/* Maintenance form dialog */}
+      <MaintenanceForm 
+        open={open} 
+        onOpenChange={setOpen} 
+        initialDate={date}
+      />
 
       {/* Service Report Form */}
       <ServiceReportForm 
