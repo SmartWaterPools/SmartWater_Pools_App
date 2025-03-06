@@ -328,7 +328,7 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
-          {/* More - matched to mobile navigation */}
+          {/* Settings - updated from More */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/settings")}
             className={cn(
@@ -341,17 +341,23 @@ export function Sidebar({ user }: SidebarProps) {
             <div className={cn(
               "flex items-center justify-center",
               isCollapsed ? "p-1 rounded-md" : "mr-3",
-              "text-gray-500"
+              isOnSettings ? "text-primary" : "text-gray-500"
             )}>
-              <AlignRight className="h-5 w-5" />
+              <Settings className="h-5 w-5" />
             </div>
             {!isCollapsed ? (
-              <span className="text-sm font-medium text-gray-700">
-                More
+              <span className={cn(
+                "text-sm font-medium",
+                isOnSettings ? "text-primary" : "text-gray-700"
+              )}>
+                Settings
               </span>
             ) : (
-              <span className="text-xs mt-0.5 text-gray-500">
-                More
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnSettings ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Settings
               </span>
             )}
           </div>
@@ -454,10 +460,10 @@ export function Sidebar({ user }: SidebarProps) {
           onClick={(e) => handleSidebarNavigation(e, "/settings")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <div className="p-1 rounded-md text-gray-500">
-            <AlignRight className="h-5 w-5" />
+          <div className={cn("p-1 rounded-md", isOnSettings ? "text-primary" : "text-gray-500")}>
+            <Settings className="h-5 w-5" />
           </div>
-          <span className="text-xs mt-0.5 text-gray-500">More</span>
+          <span className={cn("text-xs mt-0.5", isOnSettings ? "text-primary font-medium" : "text-gray-500")}>Settings</span>
         </div>
       </div>
     </div>

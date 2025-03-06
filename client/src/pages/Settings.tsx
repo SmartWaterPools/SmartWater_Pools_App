@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ServiceTemplates } from "@/components/settings/ServiceTemplates";
-import { Settings as SettingsIcon, Template, Users, Shield, Bell, LayoutGrid } from "lucide-react";
+import { Settings as SettingsIcon, FileText, Users, Shield, Bell, LayoutGrid } from "lucide-react";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("service-templates");
@@ -26,7 +26,7 @@ export default function Settings() {
       >
         <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-2">
           <TabsTrigger value="service-templates" className="flex gap-2 items-center">
-            <Template className="h-4 w-4" />
+            <FileText className="h-4 w-4" />
             <span className="hidden md:inline">Service Templates</span>
             <span className="md:hidden">Templates</span>
           </TabsTrigger>

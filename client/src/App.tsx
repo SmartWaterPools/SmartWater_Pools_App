@@ -203,6 +203,7 @@ function App() {
               <Route path="/technicians" component={Technicians} />
               <Route path="/client-portal" component={ClientPortal} />
               <Route path="/service-report/:id" component={ServiceReport} />
+              <Route path="/settings" component={Settings} />
               <Route component={NotFound} />
             </Switch>
           </main>
