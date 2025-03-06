@@ -86,16 +86,18 @@ export function ServiceTemplates() {
     mutationFn: async (values: ServiceTemplateFormValues) => {
       if (editingTemplate) {
         // Update existing template
-        return await apiRequest(`/api/service-templates/${editingTemplate.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(values),
-        });
+        return await apiRequest(
+          `/api/service-templates/${editingTemplate.id}`, 
+          "PATCH", 
+          values
+        );
       } else {
         // Create new template
-        return await apiRequest("/api/service-templates", {
-          method: "POST",
-          body: JSON.stringify(values),
-        });
+        return await apiRequest(
+          "/api/service-templates", 
+          "POST", 
+          values
+        );
       }
     },
     onSuccess: () => {
@@ -114,9 +116,7 @@ export function ServiceTemplates() {
   // Delete template mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest(`/api/service-templates/${id}`, {
-        method: "DELETE",
-      });
+      return await apiRequest(`/api/service-templates/${id}`, "DELETE");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-templates"] });
@@ -155,7 +155,8 @@ export function ServiceTemplates() {
   // Edit template
   const handleEdit = (template: ServiceTemplate) => {
     // Parse the checklist items from string array to our expected format
-    const formattedItems = template.checklistItems.map((item, index) => ({
+    const checklistItems = template.checklistItems || [];
+    const formattedItems = checklistItems.map((item, index) => ({
       id: `item-${index}`,
       text: item,
       required: true,
@@ -166,7 +167,7 @@ export function ServiceTemplates() {
       name: template.name,
       type: template.type,
       description: template.description || "",
-      isDefault: template.isDefault,
+      isDefault: template.isDefault === null ? false : template.isDefault,
       checklistItems: formattedItems,
     });
     setOpen(true);
@@ -429,12 +430,12 @@ export function ServiceTemplates() {
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm">Checklist Items:</h4>
                   <ul className="list-disc pl-5 space-y-1">
-                    {template.checklistItems.slice(0, 3).map((item, i) => (
+                    {(template.checklistItems || []).slice(0, 3).map((item, i) => (
                       <li key={i} className="text-sm text-gray-700">{item}</li>
                     ))}
-                    {template.checklistItems.length > 3 && (
+                    {(template.checklistItems || []).length > 3 && (
                       <li className="text-sm text-gray-500 italic">
-                        +{template.checklistItems.length - 3} more items
+                        +{(template.checklistItems || []).length - 3} more items
                       </li>
                     )}
                   </ul>

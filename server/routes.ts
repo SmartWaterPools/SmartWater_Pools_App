@@ -1023,7 +1023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/service-templates", async (req: Request, res: Response) => {
     try {
-      const result = validateSchema(insertServiceTemplateSchema, req.body);
+      const result = validateRequest(insertServiceTemplateSchema, req.body);
       if (!result.success) {
         return res.status(400).json({ message: result.error });
       }
