@@ -185,7 +185,8 @@ export default function ServiceReport() {
         title: "Service report submitted",
         description: "The service report has been submitted successfully.",
       });
-      // Use window.location instead of navigate
+      
+      // Use simple navigation for now
       window.location.href = "/maintenance";
     },
     onError: (error) => {
@@ -248,6 +249,7 @@ export default function ServiceReport() {
 
   // Handle user cancelling the form
   const handleCancel = () => {
+    // Use regular navigation for now
     window.location.href = "/maintenance";
   };
 

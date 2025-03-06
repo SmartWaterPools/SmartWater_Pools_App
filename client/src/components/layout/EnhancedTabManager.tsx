@@ -62,6 +62,8 @@ const getIconForPath = (path: string): React.ReactNode => {
     return <Building className="h-4 w-4" />;
   } else if (path === '/maintenance') {
     return <CalendarCheck className="h-4 w-4" />;
+  } else if (path.startsWith('/maintenance/service-report/')) {
+    return <FileText className="h-4 w-4" />;
   } else if (path === '/repairs') {
     return <Wrench className="h-4 w-4" />;
   } else if (path === '/clients') {
@@ -84,6 +86,7 @@ const getTitleForPath = (path: string): string => {
   if (path === '/') return 'Dashboard';
   if (path === '/projects') return 'Build';
   if (path === '/maintenance') return 'Schedule';
+  if (path.startsWith('/maintenance/service-report/')) return 'Service Report';
   if (path === '/repairs') return 'Service';
   if (path === '/clients') return 'Clients';
   if (path === '/technicians') return 'Technicians';
@@ -248,6 +251,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // Extract client ID for client-related pages to update tab titles
   const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
   const clientEditMatch = location.match(/^\/clients\/(\d+)\/edit$/);
+  const maintenanceReportMatch = location.match(/^\/maintenance\/service-report\/(\d+)$/);
   const clientId = clientDetailsMatch ? parseInt(clientDetailsMatch[1]) : 
                    clientEditMatch ? parseInt(clientEditMatch[1]) : null;
   
