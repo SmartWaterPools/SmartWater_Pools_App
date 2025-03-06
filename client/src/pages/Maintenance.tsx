@@ -12,7 +12,9 @@ import {
   Check,
   XCircle,
   Loader2,
-  Clock
+  Clock,
+  ClipboardList,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +37,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
 import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
+import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
@@ -63,6 +66,8 @@ export default function Maintenance() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [serviceReportOpen, setServiceReportOpen] = useState(false);
+  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
 
   // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
@@ -123,6 +128,12 @@ export default function Maintenance() {
     setSelectedMaintenance(maintenance);
     setIsUpdatingStatus(true);
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
+  };
+
+  // Open service report form
+  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
+    setSelectedServiceMaintenance(maintenance);
+    setServiceReportOpen(true);
   };
 
   // Month navigation handlers
@@ -313,10 +324,14 @@ export default function Maintenance() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {maintenances.map(maintenance => {
                             const statusClasses = getStatusClasses(maintenance.status);
+                            const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
+                            
                             return (
                               <div 
                                 key={maintenance.id} 
-                                className="bg-white border border-gray-100 rounded-lg p-4 hover:shadow-sm transition"
+                                className={`bg-white border rounded-lg p-4 hover:shadow-sm transition ${
+                                  maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : 'border-gray-100'
+                                }`}
                               >
                                 <div className="flex justify-between items-start mb-2">
                                   <div>
@@ -331,10 +346,36 @@ export default function Maintenance() {
                                     {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
                                   </span>
                                 </div>
-                                <div className="flex items-center text-sm text-gray-600 mb-2">
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  {maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}
-                                </div>
+                                
+                                {hasServiceReport ? (
+                                  <div className="mb-2">
+                                    <div className="flex items-center text-xs text-blue-600 mb-1">
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      <span>Service report submitted</span>
+                                    </div>
+                                    <div className="text-xs text-gray-600 mt-1 border-l-2 border-blue-200 pl-2">
+                                      {maintenance.notes && maintenance.notes.split('\n').slice(0, 2).map((line, i) => (
+                                        <p key={i}>{line.length > 50 ? line.substring(0, 50) + '...' : line}</p>
+                                      ))}
+                                      {maintenance.notes && maintenance.notes.split('\n').length > 2 && (
+                                        <Button 
+                                          variant="link" 
+                                          size="sm" 
+                                          className="text-xs h-auto p-0 mt-1"
+                                          onClick={() => handleServiceReportOpen(maintenance)}
+                                        >
+                                          View full report
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center text-sm text-gray-600 mb-2">
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    <span>{maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
+                                  </div>
+                                )}
+                                
                                 <div className="flex items-center justify-between mt-2">
                                   <div className="flex items-center text-sm text-gray-600">
                                     <User className="h-4 w-4 mr-1" />
@@ -356,6 +397,16 @@ export default function Maintenance() {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        onClick={() => handleServiceReportOpen(maintenance)}
+                                      >
+                                        <ClipboardList className="h-4 w-4 mr-2" />
+                                        {hasServiceReport ? "View/Edit Service Report" : "Submit Service Report"}
+                                      </DropdownMenuItem>
+                                      
+                                      <DropdownMenuSeparator />
+                                      
                                       <DropdownMenuItem 
                                         className="cursor-pointer"
                                         disabled={maintenance.status === "in_progress"}
@@ -404,6 +455,13 @@ export default function Maintenance() {
         open={open} 
         onOpenChange={setOpen} 
         initialDate={date}
+      />
+
+      {/* Service Report Form */}
+      <ServiceReportForm 
+        open={serviceReportOpen} 
+        onOpenChange={setServiceReportOpen}
+        maintenance={selectedServiceMaintenance}
       />
     </div>
   );

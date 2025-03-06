@@ -15,6 +15,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import { 
   ChevronLeft, 
@@ -25,10 +26,13 @@ import {
   MoreHorizontal,
   Check,
   XCircle,
-  Loader2 
+  Loader2,
+  FileText,
+  ClipboardList
 } from "lucide-react";
 import { MaintenanceWithDetails } from "@/lib/types";
 import { getStatusClasses } from "@/lib/types";
+import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -46,6 +50,8 @@ export function MaintenanceCalendar({
   selectedMaintenance = null
 }: MaintenanceCalendarProps) {
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
+  const [serviceReportOpen, setServiceReportOpen] = useState(false);
+  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
   
   // Get days in month
   const monthStart = startOfMonth(month);
@@ -88,7 +94,7 @@ export function MaintenanceCalendar({
   }, {} as Record<string, { total: number, statusCounts: Record<string, number> }>);
   
   // Format the maintenance type for display
-  const formatMaintenanceType = (type: string) => {
+  const formatMaintenanceType = (type: string): string => {
     return type
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -119,6 +125,12 @@ export function MaintenanceCalendar({
     }
     
     return "";
+  };
+
+  // Handle opening service report form
+  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
+    setSelectedServiceMaintenance(maintenance);
+    setServiceReportOpen(true);
   };
   
   return (
@@ -200,9 +212,13 @@ export function MaintenanceCalendar({
               {selectedDayMaintenances.map((maintenance) => {
                 const statusClasses = getStatusClasses(maintenance.status);
                 const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
+                const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
                 
                 return (
-                  <Card key={maintenance.id} className={maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''}>
+                  <Card 
+                    key={maintenance.id} 
+                    className={maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''}
+                  >
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg flex justify-between items-center">
                         <span className="capitalize">{formatMaintenanceType(maintenance.type)}</span>
@@ -212,19 +228,45 @@ export function MaintenanceCalendar({
                           {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
                         </Badge>
                       </CardTitle>
-                      <CardDescription>{maintenance.notes || "No details available"}</CardDescription>
+                      <CardDescription>
+                        {hasServiceReport ? (
+                          <div className="flex items-center text-xs text-blue-600">
+                            <FileText className="h-3 w-3 mr-1" />
+                            <span>Service report submitted</span>
+                          </div>
+                        ) : (maintenance.notes || "No details available")}
+                      </CardDescription>
                     </CardHeader>
                     <CardContent className="pb-2">
                       <div className="flex flex-wrap gap-4">
                         <div className="flex items-center text-sm">
                           <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
+                          <span>{maintenance.notes && !hasServiceReport ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
                         </div>
                         <div className="flex items-center text-sm">
                           <User className="h-4 w-4 mr-2 text-muted-foreground" />
                           <span>{maintenance.client.user.name}</span>
                         </div>
                       </div>
+                      
+                      {/* If this is a completed service with a report, show a summary */}
+                      {hasServiceReport && maintenance.notes && (
+                        <div className="mt-3 text-sm p-2 bg-blue-50 rounded border border-blue-100">
+                          <p className="font-medium text-blue-700 mb-1">Service Report Summary</p>
+                          <div className="space-y-1 text-xs">
+                            {maintenance.notes.split('\n').slice(0, 3).map((line, i) => (
+                              <p key={i} className="text-gray-600">
+                                {line.length > 60 ? line.substring(0, 60) + '...' : line}
+                              </p>
+                            ))}
+                            {maintenance.notes.split('\n').length > 3 && (
+                              <p className="text-blue-600 cursor-pointer" onClick={() => handleServiceReportOpen(maintenance)}>
+                                View full report...
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </CardContent>
                     <CardFooter className="border-t pt-3 flex justify-between">
                       <div className="text-sm text-muted-foreground">
@@ -251,13 +293,23 @@ export function MaintenanceCalendar({
                                 </>
                               ) : (
                                 <>
-                                  Update Status
+                                  Actions
                                   <MoreHorizontal className="h-3 w-3 ml-1" />
                                 </>
                               )}
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => handleServiceReportOpen(maintenance)}
+                            >
+                              <ClipboardList className="h-4 w-4 mr-2" />
+                              {hasServiceReport ? "View/Edit Service Report" : "Submit Service Report"}
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuSeparator />
+                            
                             <DropdownMenuItem 
                               className="cursor-pointer"
                               disabled={maintenance.status === "in_progress"}
@@ -294,6 +346,13 @@ export function MaintenanceCalendar({
           )}
         </div>
       </div>
+
+      {/* Service Report Form */}
+      <ServiceReportForm 
+        open={serviceReportOpen} 
+        onOpenChange={setServiceReportOpen}
+        maintenance={selectedServiceMaintenance}
+      />
     </div>
   );
 }
