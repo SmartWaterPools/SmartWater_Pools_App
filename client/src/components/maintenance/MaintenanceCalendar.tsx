@@ -262,7 +262,7 @@ export function MaintenanceCalendar({
                               </p>
                             ))}
                             {maintenance.notes.split('\n').length > 3 && (
-                              <p className="text-blue-600 cursor-pointer" onClick={() => handleServiceReportOpen(maintenance)}>
+                              <p className="text-blue-600 cursor-pointer" onClick={() => navigate(`/service-report/${maintenance.id}`)}>
                                 View full report...
                               </p>
                             )}
@@ -304,10 +304,17 @@ export function MaintenanceCalendar({
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem 
                               className="cursor-pointer"
-                              onClick={() => handleServiceReportOpen(maintenance)}
+                              onClick={() => navigate(`/service-report/${maintenance.id}`)}
                             >
                               <ClipboardList className="h-4 w-4 mr-2" />
                               {hasServiceReport ? "View/Edit Service Report" : "Submit Service Report"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => handleServiceReportOpen(maintenance)}
+                            >
+                              <ClipboardList className="h-4 w-4 mr-2" />
+                              {hasServiceReport ? "Quick Edit (Dialog)" : "Quick Submit (Dialog)"}
                             </DropdownMenuItem>
                             
                             <DropdownMenuSeparator />

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { 
   CalendarIcon, 
   PlusCircle, 
@@ -59,6 +60,7 @@ const formatMaintenanceType = (type: string) => {
 export default function Maintenance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
   const [open, setOpen] = useState(false);
@@ -130,10 +132,14 @@ export default function Maintenance() {
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
-  // Open service report form
-  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    setSelectedServiceMaintenance(maintenance);
-    setServiceReportOpen(true);
+  // Open service report form - now supports both dialog and page navigation
+  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
+    if (usePage) {
+      navigate(`/service-report/${maintenance.id}`);
+    } else {
+      setSelectedServiceMaintenance(maintenance);
+      setServiceReportOpen(true);
+    }
   };
 
   // Month navigation handlers
@@ -362,7 +368,7 @@ export default function Maintenance() {
                                           variant="link" 
                                           size="sm" 
                                           className="text-xs h-auto p-0 mt-1"
-                                          onClick={() => handleServiceReportOpen(maintenance)}
+                                          onClick={() => handleServiceReportOpen(maintenance, true)}
                                         >
                                           View full report
                                         </Button>
