@@ -9,7 +9,8 @@ import {
   Invoice, InsertInvoice,
   PoolEquipment, InsertPoolEquipment,
   PoolImage, InsertPoolImage,
-  users, clients, technicians, projects, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages
+  ServiceTemplate, InsertServiceTemplate,
+  users, clients, technicians, projects, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates
 } from "@shared/schema";
 import { and, eq, desc, gte, lte } from "drizzle-orm";
 import { db } from "./db";
@@ -83,6 +84,14 @@ export interface IStorage {
   getPoolImage(id: number): Promise<PoolImage | undefined>;
   createPoolImage(image: InsertPoolImage): Promise<PoolImage>;
   getPoolImagesByClientId(clientId: number): Promise<PoolImage[]>;
+  
+  // Service Template operations
+  getServiceTemplate(id: number): Promise<ServiceTemplate | undefined>;
+  createServiceTemplate(template: InsertServiceTemplate): Promise<ServiceTemplate>;
+  updateServiceTemplate(id: number, template: Partial<ServiceTemplate>): Promise<ServiceTemplate | undefined>;
+  deleteServiceTemplate(id: number): Promise<boolean>;
+  getAllServiceTemplates(): Promise<ServiceTemplate[]>;
+  getDefaultServiceTemplate(type: string): Promise<ServiceTemplate | undefined>;
 }
 
 // In-memory storage implementation
@@ -108,6 +117,8 @@ export class MemStorage implements IStorage {
   private invoiceId: number;
   private poolEquipmentId: number;
   private poolImageId: number;
+  private serviceTemplates: Map<number, ServiceTemplate>;
+  private serviceTemplateId: number;
   
   constructor() {
     this.users = new Map();
@@ -120,6 +131,7 @@ export class MemStorage implements IStorage {
     this.invoices = new Map();
     this.poolEquipment = new Map();
     this.poolImages = new Map();
+    this.serviceTemplates = new Map();
     
     this.userId = 1;
     this.clientId = 1;
@@ -131,6 +143,7 @@ export class MemStorage implements IStorage {
     this.invoiceId = 1;
     this.poolEquipmentId = 1;
     this.poolImageId = 1;
+    this.serviceTemplateId = 1;
     
     // Add sample data
     this.initSampleData();
@@ -562,6 +575,53 @@ export class MemStorage implements IStorage {
   async getPoolImagesByClientId(clientId: number): Promise<PoolImage[]> {
     return Array.from(this.poolImages.values()).filter(
       (image) => image.clientId === clientId,
+    );
+  }
+  
+  // Service Template operations
+  async getServiceTemplate(id: number): Promise<ServiceTemplate | undefined> {
+    return this.serviceTemplates.get(id);
+  }
+  
+  async createServiceTemplate(insertTemplate: InsertServiceTemplate): Promise<ServiceTemplate> {
+    const id = this.serviceTemplateId++;
+    const template: ServiceTemplate = {
+      ...insertTemplate,
+      id,
+      name: insertTemplate.name,
+      description: insertTemplate.description ?? null,
+      serviceType: insertTemplate.serviceType ?? "regular",
+      isDefault: insertTemplate.isDefault ?? false,
+      checklistItems: insertTemplate.checklistItems ?? []
+    };
+    this.serviceTemplates.set(id, template);
+    return template;
+  }
+  
+  async updateServiceTemplate(id: number, data: Partial<ServiceTemplate>): Promise<ServiceTemplate | undefined> {
+    const template = await this.getServiceTemplate(id);
+    if (!template) return undefined;
+    
+    const updatedTemplate = { ...template, ...data };
+    this.serviceTemplates.set(id, updatedTemplate);
+    return updatedTemplate;
+  }
+  
+  async deleteServiceTemplate(id: number): Promise<boolean> {
+    const exists = this.serviceTemplates.has(id);
+    if (exists) {
+      this.serviceTemplates.delete(id);
+    }
+    return exists;
+  }
+  
+  async getAllServiceTemplates(): Promise<ServiceTemplate[]> {
+    return Array.from(this.serviceTemplates.values());
+  }
+  
+  async getDefaultServiceTemplate(type: string): Promise<ServiceTemplate | undefined> {
+    return Array.from(this.serviceTemplates.values()).find(
+      (template) => template.serviceType === type && template.isDefault
     );
   }
   
