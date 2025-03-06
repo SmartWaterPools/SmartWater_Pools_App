@@ -16,6 +16,7 @@ import {
   ClipboardList,
   FileText
 } from "lucide-react";
+import { useTabs } from "@/components/layout/EnhancedTabManager";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -129,19 +130,12 @@ export default function Maintenance() {
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
-  // Import the useTabs hook
-  const { useTabs } = require("@/components/layout/EnhancedTabManager");
 
-  // Navigate to service report page using the tab system
+
+  // Navigate to service report page
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    try {
-      // Try to use the tab manager
-      const { addTab } = useTabs();
-      addTab(`/maintenance/service-report/${maintenance.id}`, `Service Report: ${maintenance.client.user.name}`);
-    } catch (e) {
-      // Fallback to direct navigation if tab manager is not available
-      window.location.href = `/maintenance/service-report/${maintenance.id}`;
-    }
+    // For now, use direct navigation until we implement the tab system properly
+    window.location.href = `/maintenance/service-report/${maintenance.id}`;
   };
 
   // Month navigation handlers
