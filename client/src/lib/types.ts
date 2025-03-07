@@ -17,9 +17,25 @@ export interface TechnicianWithUser extends Technician {
   user: User;
 }
 
-export interface ProjectWithDetails extends Project {
+// This interface combines properties from Project with additional UI-specific properties
+export interface ProjectWithDetails {
+  id: number;
+  name: string;
+  description: string | null;
+  clientId: number;
   client: ClientWithUser;
+  status: string;
+  budget: number | null;
   assignments: Array<ProjectAssignmentWithTechnician>;
+  notes: string | null;
+  // Additional properties used in the UI
+  completion: number;
+  deadline: string | Date;
+  startDate: string | Date;
+  estimatedCompletionDate: string | Date;
+  currentPhase: string | null;
+  projectType: string;
+  permitDetails: string | null;
 }
 
 export interface ProjectAssignmentWithTechnician extends ProjectAssignment {

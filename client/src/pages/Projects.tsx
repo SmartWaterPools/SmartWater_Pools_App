@@ -7,7 +7,9 @@ import {
   ChevronDown, 
   Calendar, 
   Users,
-  MoreHorizontal 
+  MoreHorizontal,
+  ClipboardList,
+  Layers 
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,16 +27,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProjectForm } from "@/components/projects/ProjectForm";
+import { ProjectPhases } from "@/components/projects/ProjectPhases";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ProjectWithDetails, formatDate } from "@/lib/types";
+import { ProjectWithDetails, formatDate, formatCurrency } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogHeader } from "@/components/ui/dialog";
 
 export default function Projects() {
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState<ProjectWithDetails | null>(null);
 
   const { data: projects, isLoading } = useQuery<ProjectWithDetails[]>({
     queryKey: ["/api/projects"],
@@ -183,13 +187,13 @@ export default function Projects() {
                   <div className="p-4">
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
                       <span>Progress</span>
-                      <span>{project.completion}%</span>
+                      <span>{project.completion || 0}%</span>
                     </div>
-                    <Progress value={project.completion} className="h-2 mb-4" />
+                    <Progress value={project.completion || 0} className="h-2 mb-4" />
                     <div className="flex flex-wrap gap-y-2 gap-x-4 mb-4">
                       <div className="flex items-center text-sm">
                         <Calendar className="h-4 w-4 text-gray-400 mr-1" />
-                        <span className="text-gray-600">Due: {formatDate(project.deadline)}</span>
+                        <span className="text-gray-600">Due: {formatDate(project.deadline || new Date())}</span>
                       </div>
                       <div className="flex items-center text-sm">
                         <Users className="h-4 w-4 text-gray-400 mr-1" />
@@ -213,7 +217,13 @@ export default function Projects() {
                           </div>
                         )}
                       </div>
-                      <Button variant="outline" size="sm" className="gap-1">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="gap-1"
+                        onClick={() => setSelectedProject(project)}
+                      >
+                        <Layers className="h-4 w-4 mr-1" />
                         Details
                       </Button>
                     </div>
@@ -300,13 +310,13 @@ export default function Projects() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="w-24">
                             <div className="flex justify-between text-xs text-gray-600 mb-1">
-                              <span>{project.completion}%</span>
+                              <span>{project.completion || 0}%</span>
                             </div>
-                            <Progress value={project.completion} className="h-2" />
+                            <Progress value={project.completion || 0} className="h-2" />
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(project.deadline)}
+                          {formatDate(project.deadline || new Date())}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex -space-x-2">
@@ -328,7 +338,12 @@ export default function Projects() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
-                            <Button variant="outline" size="sm">
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => setSelectedProject(project)}
+                            >
+                              <Layers className="h-4 w-4 mr-1" />
                               Details
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
@@ -345,6 +360,120 @@ export default function Projects() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Project Details Dialog */}
+      <Dialog 
+        open={!!selectedProject} 
+        onOpenChange={(open) => !open && setSelectedProject(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          {selectedProject && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <DialogTitle className="text-xl font-bold">{selectedProject.name}</DialogTitle>
+                  <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getStatusClass(selectedProject.status)}`}>
+                    {selectedProject.status.replace('_', ' ').charAt(0).toUpperCase() + selectedProject.status.replace('_', ' ').slice(1)}
+                  </span>
+                </div>
+              </DialogHeader>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Left column - Project details */}
+                <div className="space-y-4 col-span-2">
+                  <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                    <h3 className="font-semibold text-sm text-gray-500 uppercase">Project Information</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-500">Client</div>
+                        <div className="font-medium">{selectedProject.client.user.name}</div>
+                        {selectedProject.client.companyName && (
+                          <div className="text-sm text-gray-500">{selectedProject.client.companyName}</div>
+                        )}
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Type</div>
+                        <div className="font-medium capitalize">{selectedProject.projectType || "Construction"}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Start Date</div>
+                        <div className="font-medium">{formatDate(selectedProject.startDate)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Estimated Completion</div>
+                        <div className="font-medium">{formatDate(selectedProject.estimatedCompletionDate)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Budget</div>
+                        <div className="font-medium">{formatCurrency(selectedProject.budget || 0)}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-500">Current Phase</div>
+                        <div className="font-medium">{selectedProject.currentPhase || "Not Set"}</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {selectedProject.description && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-sm text-gray-500 uppercase mb-2">Description</h3>
+                      <p className="text-gray-700">{selectedProject.description}</p>
+                    </div>
+                  )}
+                  
+                  {/* Project Phases Component */}
+                  <ProjectPhases 
+                    projectId={selectedProject.id}
+                    currentPhase={selectedProject.currentPhase}
+                  />
+                </div>
+                
+                {/* Right column - Project team */}
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-sm text-gray-500 uppercase mb-3">Project Team</h3>
+                    {selectedProject.assignments && selectedProject.assignments.length > 0 ? (
+                      <div className="space-y-3">
+                        {selectedProject.assignments.map((assignment) => (
+                          <div key={assignment.id} className="flex items-center space-x-3">
+                            <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs">
+                              {assignment.technician.user.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="font-medium">{assignment.technician.user.name}</div>
+                              <div className="text-xs text-gray-500">{assignment.role || "Technician"}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-gray-500 text-sm">No team members assigned</div>
+                    )}
+                  </div>
+                  
+                  {selectedProject.permitDetails && (
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-sm text-gray-500 uppercase mb-2">Permit Details</h3>
+                      <p className="text-gray-700 text-sm">{selectedProject.permitDetails}</p>
+                    </div>
+                  )}
+                  
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-sm text-gray-500 uppercase mb-3">Progress Overview</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Overall Completion</span>
+                        <span>{selectedProject.completion || 0}%</span>
+                      </div>
+                      <Progress value={selectedProject.completion || 0} className="h-2" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

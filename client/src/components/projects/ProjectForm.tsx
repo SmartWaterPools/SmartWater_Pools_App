@@ -58,6 +58,10 @@ const projectFormSchema = insertProjectSchema.extend({
   status: z.enum(["planning", "in_progress", "review", "completed"], {
     required_error: "Status is required",
   }),
+  projectType: z.enum(["construction", "renovation", "repair", "maintenance"], {
+    required_error: "Project type is required",
+  }),
+  permitDetails: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectFormSchema>;
@@ -69,11 +73,71 @@ interface ProjectFormProps {
 export function ProjectForm({ onClose }: ProjectFormProps) {
   const { toast } = useToast();
   const [selectedClient, setSelectedClient] = useState<number | null>(null);
+  const [showPhases, setShowPhases] = useState(false);
 
   // Retrieve the list of clients for the dropdown
   const { data: clients = [], isLoading: clientsLoading } = useQuery<any[]>({
     queryKey: ["/api/clients"],
   });
+  
+  // Custom wrapper function that extracts params from an object
+  // This is needed because the apiRequest function signature doesn't match how it's called in the project
+  const makeRequest = async <T,>(params: {url: string, method: string, data?: any}): Promise<T> => {
+    const { url, method, data } = params;
+    // We're actually calling the existing apiRequest function passing positional arguments
+    return await apiRequest<T>(url, method, data);
+  };
+  
+  // Function to create initial project phases for construction projects
+  const createInitialProjectPhases = async (projectId: number) => {
+    try {
+      // Define standard construction project phases
+      const constructionPhases = [
+        { name: "Design & Planning", order: 1, status: "planning", percentComplete: 0 },
+        { name: "Permits & Approvals", order: 2, status: "pending", percentComplete: 0 },
+        { name: "Excavation & Site Prep", order: 3, status: "pending", percentComplete: 0 },
+        { name: "Foundation", order: 4, status: "pending", percentComplete: 0 },
+        { name: "Pool Shell Construction", order: 5, status: "pending", percentComplete: 0 },
+        { name: "Plumbing & Electrical", order: 6, status: "pending", percentComplete: 0 },
+        { name: "Decking & Finishes", order: 7, status: "pending", percentComplete: 0 },
+        { name: "Equipment Installation", order: 8, status: "pending", percentComplete: 0 },
+        { name: "Final Inspection", order: 9, status: "pending", percentComplete: 0 },
+      ];
+      
+      // Create each phase in sequence
+      for (const phase of constructionPhases) {
+        await makeRequest<any>({
+          url: "/api/project-phases",
+          method: "POST",
+          data: {
+            ...phase,
+            projectId
+          },
+        });
+      }
+      
+      // Update the project with the first phase as current phase
+      await makeRequest<any>({
+        url: `/api/projects/${projectId}`,
+        method: "PATCH",
+        data: {
+          currentPhase: "Design & Planning"
+        },
+      });
+      
+      toast({
+        title: "Project Phases Created",
+        description: "Initial project phases have been created",
+      });
+    } catch (error) {
+      console.error("Failed to create project phases:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create project phases",
+        variant: "destructive",
+      });
+    }
+  };
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectFormSchema),
@@ -82,6 +146,8 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       description: "",
       budget: 0,
       status: "planning",
+      projectType: "construction",
+      permitDetails: "",
     },
   });
 
@@ -94,17 +160,25 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
         startDate: values.startDate.toISOString().split('T')[0],
       };
       
-      return apiRequest({
+      const result = await makeRequest<any>({
         url: "/api/projects",
         method: "POST",
         data: dataToSubmit,
       });
+      
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Success",
         description: "Project created successfully",
       });
+      
+      // Create initial project phases for construction projects
+      if (form.getValues("projectType") === "construction" || form.getValues("projectType") === "renovation") {
+        createInitialProjectPhases(data.id);
+      }
+      
       form.reset();
       onClose();
     },
@@ -116,7 +190,7 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       });
       console.error("Project creation failed:", error);
     },
-  } as any);
+  });
 
   function onSubmit(values: ProjectFormValues) {
     mutation.mutate(values);
@@ -298,29 +372,77 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
           />
         </div>
         
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select
+                  disabled={mutation.isPending}
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="planning">Planning</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="review">Review</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="projectType"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Project Type</FormLabel>
+                <Select
+                  disabled={mutation.isPending}
+                  onValueChange={field.onChange}
+                  value={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select project type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="construction">New Construction</SelectItem>
+                    <SelectItem value="renovation">Renovation</SelectItem>
+                    <SelectItem value="repair">Major Repair</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
         <FormField
           control={form.control}
-          name="status"
+          name="permitDetails"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Status</FormLabel>
-              <Select
-                disabled={mutation.isPending}
-                onValueChange={field.onChange}
-                value={field.value}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select project status" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="planning">Planning</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="review">Review</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
+              <FormLabel>Permit Details (Optional)</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="Enter permit details or requirements"
+                  disabled={mutation.isPending}
+                  {...field}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

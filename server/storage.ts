@@ -3,6 +3,7 @@ import {
   Client, InsertClient, 
   Technician, InsertTechnician,
   Project, InsertProject,
+  ProjectPhase, InsertProjectPhase,
   ProjectAssignment, InsertProjectAssignment,
   Maintenance, InsertMaintenance,
   Repair, InsertRepair,
@@ -10,7 +11,7 @@ import {
   PoolEquipment, InsertPoolEquipment,
   PoolImage, InsertPoolImage,
   ServiceTemplate, InsertServiceTemplate,
-  users, clients, technicians, projects, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates
+  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates
 } from "@shared/schema";
 import { and, eq, desc, gte, lte } from "drizzle-orm";
 import { db } from "./db";
@@ -44,6 +45,13 @@ export interface IStorage {
   updateProject(id: number, project: Partial<Project>): Promise<Project | undefined>;
   getAllProjects(): Promise<Project[]>;
   getProjectsByClientId(clientId: number): Promise<Project[]>;
+  getProjectsByType(projectType: string): Promise<Project[]>;
+  
+  // Project Phases operations
+  getProjectPhase(id: number): Promise<ProjectPhase | undefined>;
+  createProjectPhase(phase: InsertProjectPhase): Promise<ProjectPhase>;
+  updateProjectPhase(id: number, phase: Partial<ProjectPhase>): Promise<ProjectPhase | undefined>;
+  getProjectPhasesByProjectId(projectId: number): Promise<ProjectPhase[]>;
   
   // Project assignment operations
   createProjectAssignment(assignment: InsertProjectAssignment): Promise<ProjectAssignment>;
@@ -100,6 +108,7 @@ export class MemStorage implements IStorage {
   private clients: Map<number, Client>;
   private technicians: Map<number, Technician>;
   private projects: Map<number, Project>;
+  private projectPhases: Map<number, ProjectPhase>;
   private projectAssignments: Map<number, ProjectAssignment>;
   private maintenances: Map<number, Maintenance>;
   private repairs: Map<number, Repair>;
@@ -111,6 +120,7 @@ export class MemStorage implements IStorage {
   private clientId: number;
   private technicianId: number;
   private projectId: number;
+  private projectPhaseId: number;
   private projectAssignmentId: number;
   private maintenanceId: number;
   private repairId: number;
@@ -125,6 +135,7 @@ export class MemStorage implements IStorage {
     this.clients = new Map();
     this.technicians = new Map();
     this.projects = new Map();
+    this.projectPhases = new Map();
     this.projectAssignments = new Map();
     this.maintenances = new Map();
     this.repairs = new Map();
@@ -137,6 +148,7 @@ export class MemStorage implements IStorage {
     this.clientId = 1;
     this.technicianId = 1;
     this.projectId = 1;
+    this.projectPhaseId = 1;
     this.projectAssignmentId = 1;
     this.maintenanceId = 1;
     this.repairId = 1;
@@ -168,7 +180,8 @@ export class MemStorage implements IStorage {
       id,
       role: insertUser.role ?? "client",
       phone: insertUser.phone ?? null,
-      address: insertUser.address ?? null
+      address: insertUser.address ?? null,
+      active: insertUser.active !== undefined ? insertUser.active : true
     };
     this.users.set(id, user);
     return user;
@@ -311,12 +324,16 @@ export class MemStorage implements IStorage {
     const project: Project = { 
       ...insertProject, 
       id,
+      projectType: insertProject.projectType ?? "construction",
       status: insertProject.status ?? "planning",
       description: insertProject.description ?? null,
       notes: insertProject.notes ?? null,
       estimatedCompletionDate: insertProject.estimatedCompletionDate ?? null,
       actualCompletionDate: insertProject.actualCompletionDate ?? null,
-      budget: insertProject.budget ?? null
+      budget: insertProject.budget ?? null,
+      currentPhase: insertProject.currentPhase ?? null,
+      percentComplete: insertProject.percentComplete ?? 0,
+      permitDetails: insertProject.permitDetails ?? null
     };
     this.projects.set(id, project);
     return project;
@@ -338,6 +355,48 @@ export class MemStorage implements IStorage {
   async getProjectsByClientId(clientId: number): Promise<Project[]> {
     return Array.from(this.projects.values()).filter(
       (project) => project.clientId === clientId,
+    );
+  }
+  
+  async getProjectsByType(projectType: string): Promise<Project[]> {
+    return Array.from(this.projects.values()).filter(
+      (project) => project.projectType === projectType,
+    );
+  }
+  
+  // Project Phases operations
+  async getProjectPhase(id: number): Promise<ProjectPhase | undefined> {
+    return this.projectPhases.get(id);
+  }
+  
+  async createProjectPhase(insertPhase: InsertProjectPhase): Promise<ProjectPhase> {
+    const id = this.projectPhaseId++;
+    const phase: ProjectPhase = { 
+      ...insertPhase, 
+      id,
+      status: insertPhase.status ?? "pending",
+      description: insertPhase.description ?? null,
+      notes: insertPhase.notes ?? null,
+      startDate: insertPhase.startDate ?? null,
+      endDate: insertPhase.endDate ?? null,
+      percentComplete: insertPhase.percentComplete ?? null
+    };
+    this.projectPhases.set(id, phase);
+    return phase;
+  }
+  
+  async updateProjectPhase(id: number, data: Partial<ProjectPhase>): Promise<ProjectPhase | undefined> {
+    const phase = await this.getProjectPhase(id);
+    if (!phase) return undefined;
+    
+    const updatedPhase = { ...phase, ...data };
+    this.projectPhases.set(id, updatedPhase);
+    return updatedPhase;
+  }
+  
+  async getProjectPhasesByProjectId(projectId: number): Promise<ProjectPhase[]> {
+    return Array.from(this.projectPhases.values()).filter(
+      (phase) => phase.projectId === projectId,
     );
   }
   
@@ -1113,6 +1172,43 @@ export class DatabaseStorage implements IStorage {
 
   async getProjectsByClientId(clientId: number): Promise<Project[]> {
     return await db.select().from(projects).where(eq(projects.clientId, clientId));
+  }
+  
+  async getProjectsByType(projectType: string): Promise<Project[]> {
+    return await db.select().from(projects).where(eq(projects.projectType, projectType));
+  }
+  
+  async getProjectPhase(id: number): Promise<ProjectPhase | undefined> {
+    const [phase] = await db.select().from(projectPhases).where(eq(projectPhases.id, id));
+    return phase || undefined;
+  }
+  
+  async createProjectPhase(phase: InsertProjectPhase): Promise<ProjectPhase> {
+    const [result] = await db.insert(projectPhases).values({
+      ...phase,
+      status: phase.status ?? "pending",
+      description: phase.description ?? null,
+      notes: phase.notes ?? null,
+      startDate: phase.startDate ?? null,
+      endDate: phase.endDate ?? null,
+      percentComplete: phase.percentComplete ?? null
+    }).returning();
+    return result;
+  }
+  
+  async updateProjectPhase(id: number, data: Partial<ProjectPhase>): Promise<ProjectPhase | undefined> {
+    const [result] = await db.update(projectPhases)
+      .set(data)
+      .where(eq(projectPhases.id, id))
+      .returning();
+    return result || undefined;
+  }
+  
+  async getProjectPhasesByProjectId(projectId: number): Promise<ProjectPhase[]> {
+    return await db.select()
+      .from(projectPhases)
+      .where(eq(projectPhases.projectId, projectId))
+      .orderBy(projectPhases.order);
   }
 
   // Project assignment operations

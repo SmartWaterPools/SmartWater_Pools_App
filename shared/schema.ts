@@ -82,21 +82,47 @@ export const insertTechnicianSchema = createInsertSchema(technicians).omit({
   id: true,
 });
 
+// Project Types
+export const PROJECT_TYPES = ['construction', 'renovation', 'repair', 'maintenance'] as const;
+export type ProjectType = typeof PROJECT_TYPES[number] | null;
+
 // Project schema
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description"),
   clientId: integer("client_id").references(() => clients.id).notNull(),
+  projectType: text("project_type").notNull().default("construction"),
   startDate: date("start_date").notNull(),
   estimatedCompletionDate: date("estimated_completion_date"),
   actualCompletionDate: date("actual_completion_date"),
-  status: text("status").notNull().default("pending"),
+  status: text("status").notNull().default("planning"),
   budget: integer("budget"),
+  currentPhase: text("current_phase"), // foundation, framing, electrical, plumbing, finishing, etc.
+  percentComplete: integer("percent_complete").default(0),
+  permitDetails: text("permit_details"), // Permit information and dates
   notes: text("notes"),
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
+  id: true,
+});
+
+// Project Phases
+export const projectPhases = pgTable("project_phases", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").references(() => projects.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed
+  order: integer("order").notNull(), // Sequence order
+  percentComplete: integer("percent_complete").default(0),
+  notes: text("notes"),
+});
+
+export const insertProjectPhaseSchema = createInsertSchema(projectPhases).omit({
   id: true,
 });
 
@@ -255,6 +281,14 @@ export const projectsRelations = relations(projects, ({ one, many }) => ({
     references: [clients.id],
   }),
   assignments: many(projectAssignments),
+  phases: many(projectPhases),
+}));
+
+export const projectPhasesRelations = relations(projectPhases, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectPhases.projectId],
+    references: [projects.id],
+  }),
 }));
 
 export const projectAssignmentsRelations = relations(projectAssignments, ({ one }) => ({
@@ -372,6 +406,9 @@ export type InsertPoolEquipment = z.infer<typeof insertPoolEquipmentSchema>;
 
 export type PoolImage = typeof poolImages.$inferSelect;
 export type InsertPoolImage = z.infer<typeof insertPoolImageSchema>;
+
+export type ProjectPhase = typeof projectPhases.$inferSelect;
+export type InsertProjectPhase = z.infer<typeof insertProjectPhaseSchema>;
 
 export type ServiceTemplate = typeof serviceTemplates.$inferSelect;
 export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;

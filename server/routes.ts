@@ -13,6 +13,7 @@ import {
   insertPoolEquipmentSchema,
   insertPoolImageSchema,
   insertServiceTemplateSchema,
+  insertProjectPhaseSchema,
   validateContractType,
   CONTRACT_TYPES
 } from "@shared/schema";
@@ -486,6 +487,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedProject);
     } catch (error) {
       res.status(500).json({ message: "Failed to update project" });
+    }
+  });
+
+  // Project Phases routes
+  app.post("/api/project-phases", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertProjectPhaseSchema, req.body);
+
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+
+      const phase = await storage.createProjectPhase(validation.data);
+      res.status(201).json(phase);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create project phase" });
+    }
+  });
+
+  app.get("/api/project-phases/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const phase = await storage.getProjectPhase(id);
+
+      if (!phase) {
+        return res.status(404).json({ message: "Project phase not found" });
+      }
+
+      res.json(phase);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch project phase" });
+    }
+  });
+
+  app.get("/api/projects/:id/phases", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const project = await storage.getProject(projectId);
+
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const phases = await storage.getProjectPhasesByProjectId(projectId);
+      res.json(phases);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch project phases" });
+    }
+  });
+
+  app.patch("/api/project-phases/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const phase = await storage.getProjectPhase(id);
+
+      if (!phase) {
+        return res.status(404).json({ message: "Project phase not found" });
+      }
+
+      const updatedPhase = await storage.updateProjectPhase(id, req.body);
+      res.json(updatedPhase);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update project phase" });
     }
   });
 
