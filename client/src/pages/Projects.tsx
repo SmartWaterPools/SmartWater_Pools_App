@@ -45,8 +45,9 @@ export default function Projects() {
   });
 
   const filteredProjects = projects?.filter(project => {
+    if (!project) return false;
     if (statusFilter !== "all" && project.status !== statusFilter) return false;
-    if (searchTerm && !project.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm && project.name && !project.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
   });
 
@@ -182,7 +183,7 @@ export default function Projects() {
                         {project.status.replace('_', ' ').charAt(0).toUpperCase() + project.status.replace('_', ' ').slice(1)}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-500 mt-1">Client: {project.client.user.name}</p>
+                    <p className="text-sm text-gray-500 mt-1">Client: {project.client?.user?.name || 'Unknown'}</p>
                   </div>
                   <div className="p-4">
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -206,9 +207,9 @@ export default function Projects() {
                           <div 
                             key={assignment.id}
                             className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs border-2 border-white"
-                            title={assignment.technician.user.name}
+                            title={assignment.technician?.user?.name || 'Unknown'}
                           >
-                            {assignment.technician.user.name.charAt(0)}
+                            {assignment.technician?.user?.name ? assignment.technician.user.name.charAt(0) : '?'}
                           </div>
                         ))}
                         {project.assignments && project.assignments.length > 3 && (
@@ -299,8 +300,8 @@ export default function Projects() {
                           <div className="text-sm font-medium text-foreground">{project.name}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{project.client.user.name}</div>
-                          <div className="text-xs text-gray-500">{project.client.companyName || 'Residential'}</div>
+                          <div className="text-sm text-gray-900">{project.client?.user?.name || 'Unknown Client'}</div>
+                          <div className="text-xs text-gray-500">{project.client?.companyName || 'Residential'}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClass(project.status)}`}>
@@ -324,9 +325,9 @@ export default function Projects() {
                               <div 
                                 key={assignment.id}
                                 className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs border-2 border-white"
-                                title={assignment.technician.user.name}
+                                title={assignment.technician?.user?.name || 'Unknown'}
                               >
-                                {assignment.technician.user.name.charAt(0)}
+                                {assignment.technician?.user?.name ? assignment.technician.user.name.charAt(0) : '?'}
                               </div>
                             ))}
                             {project.assignments && project.assignments.length > 3 && (
@@ -386,8 +387,8 @@ export default function Projects() {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="text-sm text-gray-500">Client</div>
-                        <div className="font-medium">{selectedProject.client.user.name}</div>
-                        {selectedProject.client.companyName && (
+                        <div className="font-medium">{selectedProject.client?.user?.name || 'Unknown Client'}</div>
+                        {selectedProject.client?.companyName && (
                           <div className="text-sm text-gray-500">{selectedProject.client.companyName}</div>
                         )}
                       </div>
@@ -437,10 +438,10 @@ export default function Projects() {
                         {selectedProject.assignments.map((assignment) => (
                           <div key={assignment.id} className="flex items-center space-x-3">
                             <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xs">
-                              {assignment.technician.user.name.charAt(0)}
+                              {assignment.technician?.user?.name ? assignment.technician.user.name.charAt(0) : '?'}
                             </div>
                             <div>
-                              <div className="font-medium">{assignment.technician.user.name}</div>
+                              <div className="font-medium">{assignment.technician?.user?.name || 'Unknown Technician'}</div>
                               <div className="text-xs text-gray-500">{assignment.role || "Technician"}</div>
                             </div>
                           </div>

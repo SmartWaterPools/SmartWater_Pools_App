@@ -57,8 +57,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use environment variable PORT for Cloud Run compatibility or default to 8080
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
+  // Use environment variable PORT for Cloud Run compatibility or default to 5000
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
   
   // Simple server setup with proper error handling
   const startServer = (port: number) => {

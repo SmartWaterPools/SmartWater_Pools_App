@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Server Connection</title>
+</head>
+<body>
+  <h1>Test Server Connection</h1>
+  <div id="result">Testing connection to server...</div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const resultDiv = document.getElementById('result');
+      try {
+        const response = await fetch('/api/dashboard/summary');
+        if (response.ok) {
+          const data = await response.json();
+          resultDiv.innerHTML = `
+            <p>Connection successful!</p>
+            <p>Response data: ${JSON.stringify(data, null, 2)}</p>
+          `;
+        } else {
+          resultDiv.innerHTML = `Connection failed with status: ${response.status}`;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `Error connecting to server: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

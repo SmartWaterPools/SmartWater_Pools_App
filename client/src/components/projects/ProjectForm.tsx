@@ -221,7 +221,7 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
                 <SelectContent>
                   {clients?.map((client: any) => (
                     <SelectItem key={client.id} value={client.id.toString()}>
-                      {client.user.name}
+                      {client.user?.name || 'Unknown Client'}
                       {client.companyName && ` (${client.companyName})`}
                     </SelectItem>
                   ))}

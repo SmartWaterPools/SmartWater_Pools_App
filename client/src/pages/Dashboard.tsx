@@ -31,7 +31,7 @@ export default function Dashboard() {
     queryKey: ["/api/dashboard/summary"],
   });
   
-  const summary = dashboardData as DashboardSummary;
+  const summary = dashboardData as DashboardSummary | undefined;
   
   return (
     <div>
@@ -236,12 +236,12 @@ export default function Dashboard() {
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-8 w-8">
                             <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600">
-                              {repair.client.user.name.charAt(0)}
+                              {repair.client?.user?.name ? repair.client.user.name.charAt(0) : '?'}
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-foreground">{repair.client.user.name}</div>
-                            <div className="text-xs text-gray-500">{repair.client.user.address}</div>
+                            <div className="text-sm font-medium text-foreground">{repair.client?.user?.name || 'Unknown Client'}</div>
+                            <div className="text-xs text-gray-500">{repair.client?.user?.address || 'No address'}</div>
                           </div>
                         </div>
                       </td>
@@ -251,19 +251,19 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${priorityClasses.bg} ${priorityClasses.text}`}>
-                          {repair.priority.charAt(0).toUpperCase() + repair.priority.slice(1)}
+                          {repair.priority ? repair.priority.charAt(0).toUpperCase() + repair.priority.slice(1) : 'Medium'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClasses.bg} ${statusClasses.text}`}>
-                          {repair.status.charAt(0).toUpperCase() + repair.status.slice(1)}
+                          {repair.status ? repair.status.charAt(0).toUpperCase() + repair.status.slice(1) : 'Pending'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {repair.technician ? repair.technician.user.name : 'Unassigned'}
+                        {repair.technician?.user?.name || 'Unassigned'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(repair.reportedDate)}
+                        {repair.reportedDate ? formatDate(repair.reportedDate) : 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
