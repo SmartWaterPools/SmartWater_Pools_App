@@ -422,10 +422,10 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                     <div className="p-4">
                       <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
                         <div className="space-y-1">
-                          <div className="flex items-center">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h4 className="font-medium">{phase.name}</h4>
                             {currentPhase === phase.name && (
-                              <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                              <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
                                 Current
                               </span>
                             )}
@@ -434,12 +434,13 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                             {getStatusIndicator(phase.status)}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
                           {currentPhase !== phase.name && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => setAsCurrentPhase(phase.name)}
+                              className="w-full xs:w-auto"
                             >
                               Set as Current
                             </Button>
@@ -448,6 +449,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                             size="sm"
                             variant="outline"
                             onClick={() => setEditingPhase(phase)}
+                            className="w-full xs:w-auto"
                           >
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
@@ -485,25 +487,25 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                       )}
 
                       {/* Show construction-specific details */}
-                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                      <div className="mt-3 grid grid-cols-1 xs:grid-cols-2 xl:grid-cols-4 gap-2 sm:gap-4">
                         {phase.estimatedDuration && (
                           <div className="text-sm border rounded p-2 bg-muted/20">
                             <div className="text-muted-foreground text-xs font-medium">Est. Duration:</div>
-                            <div>{phase.estimatedDuration} days</div>
+                            <div className="truncate">{phase.estimatedDuration} days</div>
                           </div>
                         )}
                         
                         {phase.cost && (
                           <div className="text-sm border rounded p-2 bg-muted/20">
                             <div className="text-muted-foreground text-xs font-medium">Budget:</div>
-                            <div>${phase.cost.toLocaleString()}</div>
+                            <div className="truncate">${phase.cost.toLocaleString()}</div>
                           </div>
                         )}
                         
                         {phase.permitRequired && (
                           <div className="text-sm border rounded p-2 bg-muted/20">
                             <div className="text-muted-foreground text-xs font-medium">Permits:</div>
-                            <div className="flex items-center">
+                            <div className="flex items-center truncate">
                               <span className="text-amber-500">
                                 <AlertTriangle className="h-3 w-3 mr-1 inline" />
                                 Required
@@ -515,7 +517,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                         {phase.inspectionRequired && (
                           <div className="text-sm border rounded p-2 bg-muted/20">
                             <div className="text-muted-foreground text-xs font-medium">Inspection:</div>
-                            <div className="flex items-center">
+                            <div className="flex items-center text-xs sm:text-sm truncate">
                               {phase.inspectionPassed ? (
                                 <span className="text-green-500">
                                   <Check className="h-3 w-3 mr-1 inline" />
@@ -524,7 +526,8 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                               ) : phase.inspectionDate ? (
                                 <span className="text-amber-500">
                                   <Clock className="h-3 w-3 mr-1 inline" />
-                                  Scheduled: {format(new Date(phase.inspectionDate), "MMM d, yyyy")}
+                                  <span className="hidden sm:inline">Scheduled: </span>
+                                  {format(new Date(phase.inspectionDate), "MMM d, yyyy")}
                                 </span>
                               ) : (
                                 <span className="text-muted-foreground">

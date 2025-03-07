@@ -211,9 +211,9 @@ export function ProjectTimeline({ phases, currentPhase }: ProjectTimelineProps) 
   // Render the Gantt chart
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-0">
         <h3 className="text-lg font-semibold">Project Timeline</h3>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <select
             className="text-sm px-2 py-1 rounded border bg-background"
             value={viewMode}
@@ -224,52 +224,54 @@ export function ProjectTimeline({ phases, currentPhase }: ProjectTimelineProps) 
             <option value={ViewMode.Month}>Month</option>
             <option value={ViewMode.Year}>Year</option>
           </select>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-xs sm:text-sm text-muted-foreground">
             {getTimelineRange()}
           </div>
         </div>
       </div>
       
-      <div className="border rounded-lg overflow-auto">
-        <Gantt
-          tasks={tasks}
-          viewMode={viewMode}
-          onDateChange={(task) => console.log("Date change:", task)}
-          onProgressChange={(task) => console.log("Progress change:", task)}
-          onDoubleClick={(task) => console.log("Double click:", task)}
-          onClick={(task) => console.log("Click:", task)}
-          listCellWidth="155px"
-          columnWidth={viewMode === ViewMode.Year ? 350 : viewMode === ViewMode.Month ? 300 : 60}
-          locale="en-US"
-          fontSize="12px"
-        />
+      <div className="border rounded-lg overflow-auto -mx-4 sm:mx-0">
+        <div className="min-w-[800px]">
+          <Gantt
+            tasks={tasks}
+            viewMode={viewMode}
+            onDateChange={(task) => console.log("Date change:", task)}
+            onProgressChange={(task) => console.log("Progress change:", task)}
+            onDoubleClick={(task) => console.log("Double click:", task)}
+            onClick={(task) => console.log("Click:", task)}
+            listCellWidth="155px"
+            columnWidth={viewMode === ViewMode.Year ? 350 : viewMode === ViewMode.Month ? 300 : 60}
+            locale="en-US"
+            fontSize="12px"
+          />
+        </div>
       </div>
       
       <div className="mt-4">
         <h4 className="text-sm font-medium mb-2">Timeline Legend</h4>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap gap-x-3 gap-y-2">
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-blue-500"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-blue-500"></div>
             <span className="text-xs">Planning</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-amber-500"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-amber-500"></div>
             <span className="text-xs">Pending</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-green-500"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-green-500"></div>
             <span className="text-xs">In Progress</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-green-600"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-green-600"></div>
             <span className="text-xs">Completed</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-red-500"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-red-500"></div>
             <span className="text-xs">Delayed</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-4 h-4 rounded bg-purple-500"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded bg-purple-500"></div>
             <span className="text-xs">Current Phase</span>
           </div>
         </div>

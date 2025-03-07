@@ -90,16 +90,16 @@ export default function ProjectDetails() {
   
   return (
     <div className="container py-6">
-      <div className="flex items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center mb-6 gap-4">
         <Link href="/projects">
-          <Button variant="outline" size="icon" className="mr-4">
+          <Button variant="outline" size="icon" className="w-10 h-10">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{projectData.name}</h1>
-          <div className="flex items-center mt-1 text-muted-foreground">
-            <span className="flex items-center mr-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">{projectData.name}</h1>
+          <div className="flex flex-wrap items-center gap-2 mt-1 text-muted-foreground">
+            <span className="flex items-center">
               <Calendar className="h-4 w-4 mr-1" />
               {formatDate(projectData.startDate)}
             </span>
@@ -108,24 +108,27 @@ export default function ProjectDetails() {
             </Badge>
           </div>
         </div>
-        <Button className="ml-auto">
+        <Button className="sm:ml-auto w-full sm:w-auto">
           <Edit className="h-4 w-4 mr-2" />
           Edit Project
         </Button>
       </div>
       
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-6">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="phases">Project Phases</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="communications">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Communications
-          </TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+          <TabsList className="mb-6 w-max min-w-full sm:w-auto">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="phases">Project Phases</TabsTrigger>
+            <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="communications" className="flex items-center">
+              <MessageSquare className="h-4 w-4 mr-2" />
+              <span className="hidden xs:inline">Communications</span>
+              <span className="xs:hidden">Comms</span>
+            </TabsTrigger>
+            <TabsTrigger value="team">Team</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+        </div>
         
         <TabsContent value="overview">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -259,16 +262,16 @@ export default function ProjectDetails() {
               {projectData.assignments && projectData.assignments.length > 0 ? (
                 <div className="space-y-4">
                   {projectData.assignments.map((assignment) => (
-                    <div key={assignment.id} className="flex items-center p-4 border rounded-lg">
-                      <div className="mr-4 bg-muted rounded-full p-2">
+                    <div key={assignment.id} className="flex flex-col xs:flex-row xs:items-center gap-3 p-4 border rounded-lg">
+                      <div className="mr-0 xs:mr-4 bg-muted rounded-full p-2 w-fit">
                         <Users className="h-6 w-6" />
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <h3 className="font-medium">{assignment.technician.user.name}</h3>
                         <p className="text-sm text-muted-foreground">{assignment.role || "Team Member"}</p>
                       </div>
-                      <div className="ml-auto">
-                        <Button variant="outline" size="sm">Contact</Button>
+                      <div className="mt-2 xs:mt-0 xs:ml-auto w-full xs:w-auto">
+                        <Button variant="outline" size="sm" className="w-full xs:w-auto">Contact</Button>
                       </div>
                     </div>
                   ))}
@@ -300,10 +303,10 @@ export default function ProjectDetails() {
               
               {/* Email Tab Content */}
               <TabsContent value="email" className="space-y-4">
-                <div className="flex justify-between mb-4">
-                  <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row justify-between gap-3 mb-4">
+                  <div className="flex flex-col xs:flex-row gap-2">
                     <Select defaultValue="all">
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full xs:w-[180px]">
                         <SelectValue placeholder="Filter by" />
                       </SelectTrigger>
                       <SelectContent>
@@ -313,9 +316,9 @@ export default function ProjectDetails() {
                         <SelectItem value="drafts">Drafts</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Search emails..." className="w-64" />
+                    <Input placeholder="Search emails..." className="w-full xs:w-auto" />
                   </div>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <Mail className="h-4 w-4 mr-2" />
                     Compose Email
                   </Button>
@@ -345,10 +348,10 @@ export default function ProjectDetails() {
               
               {/* SMS Tab Content */}
               <TabsContent value="sms" className="space-y-4">
-                <div className="flex justify-between mb-4">
-                  <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row justify-between gap-3 mb-4">
+                  <div className="flex flex-col xs:flex-row gap-2">
                     <Select defaultValue="all">
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full xs:w-[180px]">
                         <SelectValue placeholder="Filter by" />
                       </SelectTrigger>
                       <SelectContent>
@@ -357,9 +360,9 @@ export default function ProjectDetails() {
                         <SelectItem value="received">Received</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Search messages..." className="w-64" />
+                    <Input placeholder="Search messages..." className="w-full xs:w-auto" />
                   </div>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <MessageSquare className="h-4 w-4 mr-2" />
                     New Message
                   </Button>
@@ -389,10 +392,10 @@ export default function ProjectDetails() {
               
               {/* Call Log Tab Content */}
               <TabsContent value="calls" className="space-y-4">
-                <div className="flex justify-between mb-4">
-                  <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row justify-between gap-3 mb-4">
+                  <div className="flex flex-col xs:flex-row gap-2">
                     <Select defaultValue="all">
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger className="w-full xs:w-[180px]">
                         <SelectValue placeholder="Filter by" />
                       </SelectTrigger>
                       <SelectContent>
@@ -402,9 +405,9 @@ export default function ProjectDetails() {
                         <SelectItem value="missed">Missed</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input placeholder="Search call logs..." className="w-64" />
+                    <Input placeholder="Search call logs..." className="w-full xs:w-auto" />
                   </div>
-                  <Button>
+                  <Button className="w-full sm:w-auto">
                     <Phone className="h-4 w-4 mr-2" />
                     Log New Call
                   </Button>
