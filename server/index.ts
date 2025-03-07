@@ -67,7 +67,7 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
-      log(`serving on port ${port}`);
+      log(`serving on port ${port} - Access at http://localhost:${port}`);
     }).on('error', (error: any) => {
       log(`Error starting server: ${error.message}`);
       process.exit(1); // Exit with error code so workflow can restart properly
