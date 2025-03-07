@@ -383,7 +383,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
         </div>
       ) : (
         <div className="space-y-4">
-          {phases
+          {[...phases] // Create a copy of the array to safely sort
             .sort((a, b) => a.order - b.order)
             .map((phase) => (
               <div
