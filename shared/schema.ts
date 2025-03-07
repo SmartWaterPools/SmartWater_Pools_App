@@ -13,6 +13,7 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("client"), // admin, manager, technician, client
   phone: text("phone"),
   address: text("address"),
+  active: boolean("active").notNull().default(true),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

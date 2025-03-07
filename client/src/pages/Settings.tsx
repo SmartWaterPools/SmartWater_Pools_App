@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ServiceTemplates } from "@/components/settings/ServiceTemplates";
-import { Settings as SettingsIcon, FileText, Users, Shield, Bell, LayoutGrid } from "lucide-react";
+import { UserManagement } from "@/components/settings/UserManagement";
+import { NotificationSettings } from "@/components/settings/NotificationSettings";
+import { PermissionSettings } from "@/components/settings/PermissionSettings";
+import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
+import { FileText, Users, Shield, Bell, LayoutGrid } from "lucide-react";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("service-templates");
@@ -30,19 +33,19 @@ export default function Settings() {
               <FileText className="h-4 w-4" />
               <span className="whitespace-nowrap">Service Templates</span>
             </TabsTrigger>
-            <TabsTrigger value="user-management" className="flex gap-2 items-center px-4 py-2" disabled>
+            <TabsTrigger value="user-management" className="flex gap-2 items-center px-4 py-2">
               <Users className="h-4 w-4" />
               <span className="whitespace-nowrap">User Management</span>
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex gap-2 items-center px-4 py-2" disabled>
+            <TabsTrigger value="notifications" className="flex gap-2 items-center px-4 py-2">
               <Bell className="h-4 w-4" />
               <span className="whitespace-nowrap">Notifications</span>
             </TabsTrigger>
-            <TabsTrigger value="permissions" className="flex gap-2 items-center px-4 py-2" disabled>
+            <TabsTrigger value="permissions" className="flex gap-2 items-center px-4 py-2">
               <Shield className="h-4 w-4" />
               <span className="whitespace-nowrap">Permissions</span>
             </TabsTrigger>
-            <TabsTrigger value="appearance" className="flex gap-2 items-center px-4 py-2" disabled>
+            <TabsTrigger value="appearance" className="flex gap-2 items-center px-4 py-2">
               <LayoutGrid className="h-4 w-4" />
               <span className="whitespace-nowrap">Appearance</span>
             </TabsTrigger>
@@ -54,79 +57,19 @@ export default function Settings() {
         </TabsContent>
         
         <TabsContent value="user-management" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                Manage system users, roles, and permissions.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <div className="text-center">
-                  <SettingsIcon className="mx-auto h-12 w-12 opacity-30 mb-4" />
-                  <p>User management settings coming soon</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <UserManagement />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>
-                Configure system-wide notification preferences.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <div className="text-center">
-                  <SettingsIcon className="mx-auto h-12 w-12 opacity-30 mb-4" />
-                  <p>Notification settings coming soon</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <NotificationSettings />
         </TabsContent>
 
         <TabsContent value="permissions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Role Permissions</CardTitle>
-              <CardDescription>
-                Configure role-based permissions and access controls.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <div className="text-center">
-                  <SettingsIcon className="mx-auto h-12 w-12 opacity-30 mb-4" />
-                  <p>Permission settings coming soon</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PermissionSettings />
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Appearance Settings</CardTitle>
-              <CardDescription>
-                Customize the application's appearance and branding.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-center h-64 text-muted-foreground">
-                <div className="text-center">
-                  <SettingsIcon className="mx-auto h-12 w-12 opacity-30 mb-4" />
-                  <p>Appearance settings coming soon</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <AppearanceSettings />
         </TabsContent>
       </Tabs>
     </div>
