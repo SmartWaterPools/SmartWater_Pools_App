@@ -1,0 +1,80 @@
+Resource Management
+🔄 Basic technician assignment to projects
+🔄 Team member visualization on project cards
+⬜ Resource calendar by phase or contractor
+Documentation
+🔄 Basic notes and description fields
+⬜ Comprehensive file uploads for documentation
+Timeline Management
+🔄 Basic start/end date tracking
+⬜ Visual timeline/Gantt chart representation
+⬜ Features To Be Implemented:
+From "Plan-it" in Pentair
+⬜ Customizable job templates for different build types
+⬜ Ability to share plans with subcontractors
+⬜ Improved visual project planning tools
+From "Schedule-it" in Pentair
+⬜ Automatic schedule updates to customer, team members and contractors
+⬜ Send service requests to subcontractors
+⬜ Gantt charts for visual timeline management
+⬜ Resource scheduling and optimization
+⬜ Conflict detection in scheduling
+From "Build-it" in Pentair
+⬜ "Big Board" digital whiteboard for tracking jobs
+⬜ Resource calendar by phase or contractor
+⬜ Automated progress updates to customers
+⬜ Photo/file upload system for documentation
+⬜ Phase-specific file categorization (plumbing, gas, electrical)
+From "Monitor-it" in Pentair
+⬜ Remote job monitoring capabilities
+⬜ Photo upload for phase documentation
+⬜ Time-lapse capabilities
+⬜ Mobile-friendly progress monitoring
+From "Bill-it" in Pentair
+⬜ Customizable draw schedules
+⬜ Automatic notifications when draws are due
+⬜ Change order system (web + mobile)
+⬜ Invoicing for each draw/milestone
+⬜ Payment tracking
+Communication Features
+⬜ Automated customer notifications about project progress
+⬜ Team communication tools
+⬜ Contractor/subcontractor communication
+⬜ Messaging system integrated with project phases
+Mobile Enhancements
+⬜ Dedicated mobile experience for field use
+⬜ Photo capture and upload from mobile
+⬜ Mobile change order creation
+⬜ On-site inspection recording
+Reporting and Analytics
+⬜ Project timeline adherence reporting
+⬜ Budget vs. actual cost reporting
+⬜ Resource utilization analysis
+⬜ Project profitability tracking
+Priority Recommendations for Next Development Phases:
+Enhanced Documentation System
+
+Add file/photo upload capabilities
+Implement phase-specific documentation categories
+Create project documentation gallery view
+Timeline Visualization
+
+Implement Gantt chart for project phases
+Add visual indicators for schedule conflicts
+Create timeline view of project progress
+Resource Management
+
+Enhance resource allocation by phase
+Add contractor/subcontractor management
+Implement resource calendar view
+Communication Improvements
+
+Add automated notifications for phase completion
+Implement customer progress updates
+Add messaging capabilities between team members
+Billing and Financial Features
+
+Implement draw schedule system
+Add change order functionality
+Create phase-based invoicing
+This checklist provides a comprehensive overview of our progress so far and outlines the key features we still need to implement to match the functionality of the Pentair Pool Builder application.

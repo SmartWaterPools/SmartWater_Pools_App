@@ -210,12 +210,13 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="blueprint">Blueprint</SelectItem>
+                    <SelectItem value="plan">Plan</SelectItem>
+                    <SelectItem value="render">Render</SelectItem>
                     <SelectItem value="permit">Permit</SelectItem>
                     <SelectItem value="contract">Contract</SelectItem>
                     <SelectItem value="invoice">Invoice</SelectItem>
                     <SelectItem value="photo">Photo</SelectItem>
                     <SelectItem value="report">Report</SelectItem>
-                    <SelectItem value="render">Render</SelectItem>
                     <SelectItem value="other">Other</SelectItem>
                   </SelectContent>
                 </Select>

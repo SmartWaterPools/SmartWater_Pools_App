@@ -13,7 +13,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Droplet,
-  AlignRight
+  AlignRight,
+  MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -36,6 +37,7 @@ export function Sidebar({ user }: SidebarProps) {
   const [isOnRepairs] = useRoute("/repairs");
   const [isOnClients] = useRoute("/clients");
   const [isOnTechnicians] = useRoute("/technicians");
+  const [isOnCommunications] = useRoute("/communications");
   const [isOnSettings] = useRoute("/settings");
   
   const toggleSidebar = () => {
@@ -70,6 +72,8 @@ export function Sidebar({ user }: SidebarProps) {
         return 'Clients';
       case '/technicians':
         return 'Technicians';
+      case '/communications':
+        return 'Communications';
       case '/settings':
         return 'Settings';
       default:
@@ -91,6 +95,8 @@ export function Sidebar({ user }: SidebarProps) {
         return <Users className="h-4 w-4" />;
       case '/technicians':
         return <UserRound className="h-4 w-4" />;
+      case '/communications':
+        return <MessageSquare className="h-4 w-4" />;
       case '/settings':
         return <Settings className="h-4 w-4" />;
       default:
@@ -328,6 +334,40 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
+          {/* Communications */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/communications")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnCommunications ? "text-primary" : "text-gray-500"
+            )}>
+              <MessageSquare className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnCommunications ? "text-primary" : "text-gray-700"
+              )}>
+                Communications
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnCommunications ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Comms
+              </span>
+            )}
+          </div>
+          
           {/* Settings - updated from More */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/settings")}
@@ -454,6 +494,16 @@ export function Sidebar({ user }: SidebarProps) {
             <Wrench className="h-5 w-5" />
           </div>
           <span className={cn("text-xs mt-0.5", isOnRepairs ? "text-primary font-medium" : "text-gray-500")}>Repair</span>
+        </div>
+        
+        <div 
+          onClick={(e) => handleSidebarNavigation(e, "/communications")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnCommunications ? "text-primary" : "text-gray-500")}>
+            <MessageSquare className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnCommunications ? "text-primary font-medium" : "text-gray-500")}>Comms</span>
         </div>
         
         <div 

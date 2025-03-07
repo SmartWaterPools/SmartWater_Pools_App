@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle } from "lucide-react";
+import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle, BarChart2 } from "lucide-react";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,13 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { ProjectTimeline } from "./ProjectTimeline";
 import {
   Select,
   SelectContent,
@@ -382,156 +389,179 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
           No phases have been defined for this project yet.
         </div>
       ) : (
-        <div className="space-y-4">
-          {Array.isArray(phases) && phases
-            .slice() // Create a copy of the array to safely sort
-            .sort((a, b) => a.order - b.order)
-            .map((phase) => (
-              <div
-                key={phase.id}
-                className={`border rounded-lg overflow-hidden ${
-                  currentPhase === phase.name
-                    ? "border-primary bg-primary/5"
-                    : "border-border"
-                }`}
-              >
-                <div className="p-4">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-                    <div className="space-y-1">
-                      <div className="flex items-center">
-                        <h4 className="font-medium">{phase.name}</h4>
-                        {currentPhase === phase.name && (
-                          <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {getStatusIndicator(phase.status)}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {currentPhase !== phase.name && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setAsCurrentPhase(phase.name)}
-                        >
-                          Set as Current
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setEditingPhase(phase)}
-                      >
-                        <Edit className="w-4 h-4 mr-1" />
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Progress</span>
-                      <span>{phase.percentComplete}%</span>
-                    </div>
-                    <Progress
-                      value={phase.percentComplete}
-                      className={`h-2 ${getProgressColor(phase.percentComplete)}`}
-                    />
-                  </div>
-
-                  {(phase.startDate || phase.endDate) && (
-                    <div className="mt-3 text-sm text-muted-foreground">
-                      {phase.startDate && (
-                        <span>
-                          Start: {format(new Date(phase.startDate), "MMM d, yyyy")}
-                        </span>
-                      )}
-                      {phase.startDate && phase.endDate && (
-                        <span className="mx-2">•</span>
-                      )}
-                      {phase.endDate && (
-                        <span>
-                          End: {format(new Date(phase.endDate), "MMM d, yyyy")}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Show construction-specific details */}
-                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                    {phase.estimatedDuration && (
-                      <div className="text-sm border rounded p-2 bg-muted/20">
-                        <div className="text-muted-foreground text-xs font-medium">Est. Duration:</div>
-                        <div>{phase.estimatedDuration} days</div>
-                      </div>
-                    )}
-                    
-                    {phase.cost && (
-                      <div className="text-sm border rounded p-2 bg-muted/20">
-                        <div className="text-muted-foreground text-xs font-medium">Budget:</div>
-                        <div>${phase.cost.toLocaleString()}</div>
-                      </div>
-                    )}
-                    
-                    {phase.permitRequired && (
-                      <div className="text-sm border rounded p-2 bg-muted/20">
-                        <div className="text-muted-foreground text-xs font-medium">Permits:</div>
-                        <div className="flex items-center">
-                          <span className="text-amber-500">
-                            <AlertTriangle className="h-3 w-3 mr-1 inline" />
-                            Required
-                          </span>
+        <Tabs defaultValue="list" className="w-full">
+          <TabsList className="w-full grid grid-cols-2 mb-4">
+            <TabsTrigger value="list">
+              <div className="flex items-center">
+                <Clock className="w-4 h-4 mr-2" />
+                Phase List
+              </div>
+            </TabsTrigger>
+            <TabsTrigger value="timeline">
+              <div className="flex items-center">
+                <BarChart2 className="w-4 h-4 mr-2" />
+                Timeline View
+              </div>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="list" className="mt-0">
+            <div className="space-y-4">
+              {Array.isArray(phases) && phases
+                .slice() // Create a copy of the array to safely sort
+                .sort((a, b) => a.order - b.order)
+                .map((phase) => (
+                  <div
+                    key={phase.id}
+                    className={`border rounded-lg overflow-hidden ${
+                      currentPhase === phase.name
+                        ? "border-primary bg-primary/5"
+                        : "border-border"
+                    }`}
+                  >
+                    <div className="p-4">
+                      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center">
+                            <h4 className="font-medium">{phase.name}</h4>
+                            {currentPhase === phase.name && (
+                              <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {getStatusIndicator(phase.status)}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {currentPhase !== phase.name && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setAsCurrentPhase(phase.name)}
+                            >
+                              Set as Current
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setEditingPhase(phase)}
+                          >
+                            <Edit className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
                         </div>
                       </div>
-                    )}
-                    
-                    {phase.inspectionRequired && (
-                      <div className="text-sm border rounded p-2 bg-muted/20">
-                        <div className="text-muted-foreground text-xs font-medium">Inspection:</div>
-                        <div className="flex items-center">
-                          {phase.inspectionPassed ? (
-                            <span className="text-green-500">
-                              <Check className="h-3 w-3 mr-1 inline" />
-                              Passed
+
+                      <div className="mt-4">
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Progress</span>
+                          <span>{phase.percentComplete}%</span>
+                        </div>
+                        <Progress
+                          value={phase.percentComplete}
+                          className={`h-2 ${getProgressColor(phase.percentComplete)}`}
+                        />
+                      </div>
+
+                      {(phase.startDate || phase.endDate) && (
+                        <div className="mt-3 text-sm text-muted-foreground">
+                          {phase.startDate && (
+                            <span>
+                              Start: {format(new Date(phase.startDate), "MMM d, yyyy")}
                             </span>
-                          ) : phase.inspectionDate ? (
-                            <span className="text-amber-500">
-                              <Clock className="h-3 w-3 mr-1 inline" />
-                              Scheduled: {format(new Date(phase.inspectionDate), "MMM d, yyyy")}
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              <AlertCircle className="h-3 w-3 mr-1 inline" />
-                              Required
+                          )}
+                          {phase.startDate && phase.endDate && (
+                            <span className="mx-2">•</span>
+                          )}
+                          {phase.endDate && (
+                            <span>
+                              End: {format(new Date(phase.endDate), "MMM d, yyyy")}
                             </span>
                           )}
                         </div>
+                      )}
+
+                      {/* Show construction-specific details */}
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                        {phase.estimatedDuration && (
+                          <div className="text-sm border rounded p-2 bg-muted/20">
+                            <div className="text-muted-foreground text-xs font-medium">Est. Duration:</div>
+                            <div>{phase.estimatedDuration} days</div>
+                          </div>
+                        )}
+                        
+                        {phase.cost && (
+                          <div className="text-sm border rounded p-2 bg-muted/20">
+                            <div className="text-muted-foreground text-xs font-medium">Budget:</div>
+                            <div>${phase.cost.toLocaleString()}</div>
+                          </div>
+                        )}
+                        
+                        {phase.permitRequired && (
+                          <div className="text-sm border rounded p-2 bg-muted/20">
+                            <div className="text-muted-foreground text-xs font-medium">Permits:</div>
+                            <div className="flex items-center">
+                              <span className="text-amber-500">
+                                <AlertTriangle className="h-3 w-3 mr-1 inline" />
+                                Required
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {phase.inspectionRequired && (
+                          <div className="text-sm border rounded p-2 bg-muted/20">
+                            <div className="text-muted-foreground text-xs font-medium">Inspection:</div>
+                            <div className="flex items-center">
+                              {phase.inspectionPassed ? (
+                                <span className="text-green-500">
+                                  <Check className="h-3 w-3 mr-1 inline" />
+                                  Passed
+                                </span>
+                              ) : phase.inspectionDate ? (
+                                <span className="text-amber-500">
+                                  <Clock className="h-3 w-3 mr-1 inline" />
+                                  Scheduled: {format(new Date(phase.inspectionDate), "MMM d, yyyy")}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  <AlertCircle className="h-3 w-3 mr-1 inline" />
+                                  Required
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    )}
+                      
+                      {/* Description if available */}
+                      {phase.description && (
+                        <div className="mt-3 text-sm">
+                          <div className="text-muted-foreground">Description:</div>
+                          <div className="mt-1">{phase.description}</div>
+                        </div>
+                      )}
+                      
+                      {/* Notes if available */}
+                      {phase.notes && (
+                        <div className="mt-3 text-sm">
+                          <div className="text-muted-foreground">Notes:</div>
+                          <div className="mt-1">{phase.notes}</div>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  
-                  {/* Description if available */}
-                  {phase.description && (
-                    <div className="mt-3 text-sm">
-                      <div className="text-muted-foreground">Description:</div>
-                      <div className="mt-1">{phase.description}</div>
-                    </div>
-                  )}
-                  
-                  {/* Notes if available */}
-                  {phase.notes && (
-                    <div className="mt-3 text-sm">
-                      <div className="text-muted-foreground">Notes:</div>
-                      <div className="mt-1">{phase.notes}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-        </div>
+                ))}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="timeline" className="mt-0">
+            <ProjectTimeline phases={phases} currentPhase={currentPhase} />
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Edit Phase Dialog */}
@@ -604,6 +634,52 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           disabled={updatePhaseMutation.isPending}
                           {...field}
                           onChange={(e) => field.onChange(Number(e.target.value))}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          disabled={updatePhaseMutation.isPending}
+                          value={field.value ? field.value.toISOString().split('T')[0] : ""}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            field.onChange(date);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          disabled={updatePhaseMutation.isPending}
+                          value={field.value ? field.value.toISOString().split('T')[0] : ""}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            field.onChange(date);
+                          }}
                         />
                       </FormControl>
                       <FormMessage />
@@ -727,39 +803,41 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
               </div>
 
               {editForm.watch("inspectionRequired") && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={editForm.control}
                     name="inspectionDate"
                     render={({ field }) => (
-                      <FormItem className="flex flex-col">
+                      <FormItem>
                         <FormLabel>Inspection Date</FormLabel>
-                        <input
-                          type="date"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={updatePhaseMutation.isPending}
-                          value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value ? new Date(value) : undefined);
-                          }}
-                        />
+                        <FormControl>
+                          <Input
+                            type="date"
+                            disabled={updatePhaseMutation.isPending}
+                            value={field.value ? field.value.toISOString().split('T')[0] : ""}
+                            onChange={(e) => {
+                              const date = e.target.value ? new Date(e.target.value) : undefined;
+                              field.onChange(date);
+                            }}
+                          />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
                   <FormField
                     control={editForm.control}
                     name="inspectionPassed"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 mt-6">
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                         <FormControl>
                           <input
                             type="checkbox"
                             className="h-4 w-4 mt-1"
-                            checked={field.value === true}
+                            checked={field.value || false}
                             disabled={updatePhaseMutation.isPending}
-                            onChange={(e) => field.onChange(e.target.checked ? true : undefined)}
+                            onChange={field.onChange}
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
@@ -768,25 +846,6 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                       </FormItem>
                     )}
                   />
-                  <div className="md:col-span-2">
-                    <FormField
-                      control={editForm.control}
-                      name="inspectionNotes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Inspection Notes</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Enter any inspection notes"
-                              disabled={updatePhaseMutation.isPending}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
                 </div>
               )}
 
@@ -801,6 +860,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                         placeholder="Enter phase description"
                         disabled={updatePhaseMutation.isPending}
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -816,15 +876,37 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Enter any notes for this phase"
+                        placeholder="Enter additional notes"
                         disabled={updatePhaseMutation.isPending}
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {editForm.watch("inspectionRequired") && (
+                <FormField
+                  control={editForm.control}
+                  name="inspectionNotes"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Inspection Notes</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Enter inspection notes"
+                          disabled={updatePhaseMutation.isPending}
+                          {...field}
+                          value={field.value || ""}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
 
               <DialogFooter>
                 <Button
@@ -848,7 +930,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
       <Dialog open={showAddPhaseDialog} onOpenChange={setShowAddPhaseDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Project Phase</DialogTitle>
+            <DialogTitle>Add New Project Phase</DialogTitle>
           </DialogHeader>
           <Form {...addForm}>
             <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
@@ -925,6 +1007,52 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={addForm.control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          disabled={addPhaseMutation.isPending}
+                          value={field.value ? field.value.toISOString().split('T')[0] : ""}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            field.onChange(date);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Date</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="date"
+                          disabled={addPhaseMutation.isPending}
+                          value={field.value ? field.value.toISOString().split('T')[0] : ""}
+                          onChange={(e) => {
+                            const date = e.target.value ? new Date(e.target.value) : undefined;
+                            field.onChange(date);
+                          }}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={addForm.control}
                   name="estimatedDuration"
                   render={({ field }) => (
                     <FormItem>
@@ -946,10 +1074,10 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                 />
                 <FormField
                   control={addForm.control}
-                  name="actualDuration"
+                  name="cost"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Actual Duration (days)</FormLabel>
+                      <FormLabel>Budget</FormLabel>
                       <FormControl>
                         <Input
                           type="number"
@@ -970,50 +1098,25 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={addForm.control}
-                  name="cost"
+                  name="permitRequired"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cost</FormLabel>
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                       <FormControl>
-                        <Input
-                          type="number"
-                          min="0"
-                          placeholder="0"
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 mt-1"
+                          checked={field.value}
                           disabled={addPhaseMutation.isPending}
-                          {...field}
-                          value={field.value === undefined ? "" : field.value}
-                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                          onChange={field.onChange}
                         />
                       </FormControl>
-                      <FormMessage />
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Permit Required</FormLabel>
+                      </div>
                     </FormItem>
                   )}
                 />
-                <div className="flex flex-col space-y-4">
-                  <FormField
-                    control={addForm.control}
-                    name="permitRequired"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                        <FormControl>
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 mt-1"
-                            checked={field.value}
-                            disabled={addPhaseMutation.isPending}
-                            onChange={field.onChange}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Permit Required</FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 gap-4">
                 <FormField
                   control={addForm.control}
                   name="inspectionRequired"
@@ -1036,70 +1139,6 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                 />
               </div>
 
-              {addForm.watch("inspectionRequired") && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
-                  <FormField
-                    control={addForm.control}
-                    name="inspectionDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Inspection Date</FormLabel>
-                        <input
-                          type="date"
-                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={addPhaseMutation.isPending}
-                          value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value ? new Date(value) : undefined);
-                          }}
-                        />
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={addForm.control}
-                    name="inspectionPassed"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 mt-6">
-                        <FormControl>
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 mt-1"
-                            checked={field.value === true}
-                            disabled={addPhaseMutation.isPending}
-                            onChange={(e) => field.onChange(e.target.checked ? true : undefined)}
-                          />
-                        </FormControl>
-                        <div className="space-y-1 leading-none">
-                          <FormLabel>Inspection Passed</FormLabel>
-                        </div>
-                      </FormItem>
-                    )}
-                  />
-                  <div className="md:col-span-2">
-                    <FormField
-                      control={addForm.control}
-                      name="inspectionNotes"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Inspection Notes</FormLabel>
-                          <FormControl>
-                            <Textarea
-                              placeholder="Enter any inspection notes"
-                              disabled={addPhaseMutation.isPending}
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </div>
-              )}
-
               <FormField
                 control={addForm.control}
                 name="description"
@@ -1111,6 +1150,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                         placeholder="Enter phase description"
                         disabled={addPhaseMutation.isPending}
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1126,9 +1166,10 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                     <FormLabel>Notes</FormLabel>
                     <FormControl>
                       <Textarea
-                        placeholder="Enter any notes for this phase"
+                        placeholder="Enter additional notes"
                         disabled={addPhaseMutation.isPending}
                         {...field}
+                        value={field.value || ""}
                       />
                     </FormControl>
                     <FormMessage />
@@ -1146,7 +1187,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                   Cancel
                 </Button>
                 <Button type="submit" disabled={addPhaseMutation.isPending}>
-                  {addPhaseMutation.isPending ? "Adding..." : "Add Phase"}
+                  {addPhaseMutation.isPending ? "Creating..." : "Create Phase"}
                 </Button>
               </DialogFooter>
             </form>

@@ -3,7 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter 
+} from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +19,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/types";
-import { FileText, Download, Trash2, Edit, FilePlus, Filter } from "lucide-react";
+import { 
+  FileText, 
+  Download, 
+  Trash2, 
+  Edit, 
+  FilePlus, 
+  Filter, 
+  Image, 
+  FileImage, 
+  Film, 
+  Maximize, 
+  X 
+} from "lucide-react";
 import { documentSchema, type DocumentData } from "./documentSchema";
 import { z } from "zod";
 
@@ -24,7 +43,9 @@ interface DocumentListProps {
 
 export function DocumentList({ projectId, phaseId, documentType }: DocumentListProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<DocumentData | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [docTypeFilter, setDocTypeFilter] = useState<string | null>(documentType || null);
   
   const queryClient = useQueryClient();
@@ -49,6 +70,17 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   
   const { data: documents = [], isLoading } = useQuery<DocumentData[]>({
     queryKey: [queryEndpoint],
+    queryFn: async () => {
+      try {
+        console.log("Fetching documents from:", queryEndpoint);
+        const data = await apiRequest<DocumentData[]>(queryEndpoint);
+        console.log("Documents fetched successfully:", data);
+        return data || [];
+      } catch (error) {
+        console.error("Error fetching documents:", error);
+        return [];
+      }
+    },
     enabled: !!projectId
   });
   
@@ -128,6 +160,48 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
     }
   }
   
+  // Function to handle document preview
+  function handlePreview(doc: DocumentData) {
+    setSelectedDocument(doc);
+    setPreviewUrl(doc.fileUrl);
+    setIsPreviewDialogOpen(true);
+  }
+  
+  // Function to check if file is image
+  function isImageFile(url: string): boolean {
+    // For data URLs, check if they start with data:image
+    if (url.startsWith('data:image/')) {
+      return true;
+    }
+    
+    // For regular URLs, check the extension
+    const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp'];
+    return extensions.some(ext => url.toLowerCase().endsWith(ext));
+  }
+  
+  // Function to check if file is PDF
+  function isPdfFile(url: string): boolean {
+    return url.toLowerCase().endsWith('.pdf') || 
+           url.startsWith('data:application/pdf');
+  }
+  
+  // Function to get icon based on file type
+  function getFileIcon(doc: DocumentData) {
+    const url = doc.fileUrl.toLowerCase();
+    
+    if (isImageFile(url)) {
+      return <FileImage className="h-6 w-6 text-primary" />;
+    } else if (isPdfFile(url)) {
+      return <FileText className="h-6 w-6 text-primary" />;
+    } else if (doc.documentType === 'render') {
+      return <Image className="h-6 w-6 text-primary" />;
+    } else if (doc.documentType === 'blueprint' || doc.documentType === 'plan') {
+      return <FileText className="h-6 w-6 text-primary" />;
+    }
+    
+    return <FileText className="h-6 w-6" />;
+  }
+  
   // Get unique document types
   const uniqueDocTypes = documents.length > 0
     ? Array.from(new Set(documents.map((doc) => doc.documentType)))
@@ -198,9 +272,28 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
           <div className="space-y-4">
             {filteredDocuments.map((doc) => (
               <div key={doc.id} className="flex items-start p-4 border rounded-lg hover:bg-accent/5">
-                <div className="mr-4 p-2 bg-muted rounded">
-                  <FileText className="h-6 w-6" />
+                {/* Document icon - clickable for preview if image or PDF */}
+                <div 
+                  className={`mr-4 p-2 bg-muted rounded ${(isImageFile(doc.fileUrl) || isPdfFile(doc.fileUrl)) ? 'cursor-pointer' : ''}`}
+                  onClick={() => (isImageFile(doc.fileUrl) || isPdfFile(doc.fileUrl)) && handlePreview(doc)}
+                >
+                  {getFileIcon(doc)}
                 </div>
+                
+                {/* Display thumbnail for images */}
+                {isImageFile(doc.fileUrl) && (
+                  <div 
+                    className="mr-3 cursor-pointer" 
+                    onClick={() => handlePreview(doc)}
+                  >
+                    <img 
+                      src={doc.fileUrl} 
+                      alt={doc.title} 
+                      className="h-16 w-16 object-cover rounded border"
+                    />
+                  </div>
+                )}
+                
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium truncate">{doc.title}</h3>
                   <p className="text-sm text-muted-foreground">{doc.description}</p>
@@ -215,6 +308,16 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                   </div>
                 </div>
                 <div className="flex space-x-1 ml-2">
+                  {/* Preview button for images and PDFs */}
+                  {(isImageFile(doc.fileUrl) || isPdfFile(doc.fileUrl)) && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon"
+                      onClick={() => handlePreview(doc)}
+                    >
+                      <Maximize className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" asChild>
                     <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
                       <Download className="h-4 w-4" />
@@ -311,12 +414,13 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                       </FormControl>
                       <SelectContent>
                         <SelectItem value="blueprint">Blueprint</SelectItem>
+                        <SelectItem value="plan">Plan</SelectItem>
+                        <SelectItem value="render">Render</SelectItem>
                         <SelectItem value="permit">Permit</SelectItem>
                         <SelectItem value="contract">Contract</SelectItem>
                         <SelectItem value="invoice">Invoice</SelectItem>
                         <SelectItem value="photo">Photo</SelectItem>
                         <SelectItem value="report">Report</SelectItem>
-                        <SelectItem value="render">Render</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
@@ -353,6 +457,76 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          {selectedDocument && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedDocument.title}</DialogTitle>
+                <DialogDescription>
+                  {selectedDocument.description}
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="mt-4 flex justify-center">
+                {isImageFile(previewUrl || '') && (
+                  <div className="max-h-[70vh] overflow-auto">
+                    <img 
+                      src={previewUrl || ''} 
+                      alt={selectedDocument.title} 
+                      className="max-w-full h-auto object-contain rounded border"
+                    />
+                  </div>
+                )}
+                
+                {isPdfFile(previewUrl || '') && (
+                  <div className="w-full h-[70vh] border rounded">
+                    <iframe 
+                      src={previewUrl || ''} 
+                      title={selectedDocument.title}
+                      className="w-full h-full"
+                    />
+                  </div>
+                )}
+              </div>
+              
+              <DialogFooter className="flex justify-between items-center mt-4">
+                <div className="text-sm text-muted-foreground">
+                  <span className="bg-accent/30 px-2 py-0.5 rounded mr-2">
+                    {selectedDocument.documentType}
+                  </span>
+                  <span>Uploaded: {formatDate(selectedDocument.uploadDate)}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsPreviewDialogOpen(false)}
+                  >
+                    Close
+                  </Button>
+                  <Button 
+                    size="sm"
+                    asChild
+                  >
+                    <a 
+                      href={previewUrl || ''} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      download={selectedDocument.title}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </a>
+                  </Button>
+                </div>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </Card>

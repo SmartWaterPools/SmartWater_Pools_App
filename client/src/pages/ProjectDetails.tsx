@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProjectPhases } from "@/components/projects/ProjectPhases";
 import { DocumentGallery } from "@/components/documents";
 import { getStatusClasses, ProjectWithDetails } from "@/lib/types";
-import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft } from "lucide-react";
+import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/types";
 import { Link } from "wouter";
 
@@ -117,6 +119,10 @@ export default function ProjectDetails() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="phases">Project Phases</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="communications">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Communications
+          </TabsTrigger>
           <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -272,6 +278,161 @@ export default function ProjectDetails() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        
+        <TabsContent value="communications">
+          <div className="mb-6">
+            <Tabs defaultValue="email" className="w-full">
+              <TabsList className="grid grid-cols-3 w-full max-w-md mb-4">
+                <TabsTrigger value="email" className="flex items-center">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Email
+                </TabsTrigger>
+                <TabsTrigger value="sms" className="flex items-center">
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  SMS
+                </TabsTrigger>
+                <TabsTrigger value="calls" className="flex items-center">
+                  <Phone className="h-4 w-4 mr-2" />
+                  Call Log
+                </TabsTrigger>
+              </TabsList>
+              
+              {/* Email Tab Content */}
+              <TabsContent value="email" className="space-y-4">
+                <div className="flex justify-between mb-4">
+                  <div className="flex gap-2">
+                    <Select defaultValue="all">
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Emails</SelectItem>
+                        <SelectItem value="sent">Sent</SelectItem>
+                        <SelectItem value="received">Received</SelectItem>
+                        <SelectItem value="drafts">Drafts</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input placeholder="Search emails..." className="w-64" />
+                  </div>
+                  <Button>
+                    <Mail className="h-4 w-4 mr-2" />
+                    Compose Email
+                  </Button>
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Project Emails</CardTitle>
+                    <CardDescription>
+                      Email communication related to {projectData.name}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground">No project emails to display yet. This feature will be implemented soon.</p>
+                      <div className="bg-muted rounded-md p-6 text-center">
+                        <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium">Project Email Integration Coming Soon</h3>
+                        <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
+                          Send and track emails to clients, team members, and suppliers directly from the project. All correspondence will be saved and organized here.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              {/* SMS Tab Content */}
+              <TabsContent value="sms" className="space-y-4">
+                <div className="flex justify-between mb-4">
+                  <div className="flex gap-2">
+                    <Select defaultValue="all">
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Messages</SelectItem>
+                        <SelectItem value="sent">Sent</SelectItem>
+                        <SelectItem value="received">Received</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input placeholder="Search messages..." className="w-64" />
+                  </div>
+                  <Button>
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    New Message
+                  </Button>
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Project SMS</CardTitle>
+                    <CardDescription>
+                      Text message communication related to {projectData.name}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground">No project messages to display yet. This feature will be implemented soon.</p>
+                      <div className="bg-muted rounded-md p-6 text-center">
+                        <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium">Project SMS Integration Coming Soon</h3>
+                        <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
+                          Send automated updates and notifications to clients about project milestones, schedule changes, and important updates.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              
+              {/* Call Log Tab Content */}
+              <TabsContent value="calls" className="space-y-4">
+                <div className="flex justify-between mb-4">
+                  <div className="flex gap-2">
+                    <Select defaultValue="all">
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Filter by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Calls</SelectItem>
+                        <SelectItem value="incoming">Incoming</SelectItem>
+                        <SelectItem value="outgoing">Outgoing</SelectItem>
+                        <SelectItem value="missed">Missed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input placeholder="Search call logs..." className="w-64" />
+                  </div>
+                  <Button>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Log New Call
+                  </Button>
+                </div>
+                
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Call History</CardTitle>
+                    <CardDescription>
+                      Phone conversation logs related to {projectData.name}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-muted-foreground">No call logs to display yet. This feature will be implemented soon.</p>
+                      <div className="bg-muted rounded-md p-6 text-center">
+                        <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-medium">Call Tracking Coming Soon</h3>
+                        <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
+                          Log project-related calls, track conversation details, and set follow-up reminders all in one place.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
         </TabsContent>
         
         <TabsContent value="settings">
