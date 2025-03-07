@@ -377,13 +377,14 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
         </Button>
       </div>
 
-      {phases.length === 0 ? (
+      {!phases || phases.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           No phases have been defined for this project yet.
         </div>
       ) : (
         <div className="space-y-4">
-          {[...phases] // Create a copy of the array to safely sort
+          {Array.isArray(phases) && phases
+            .slice() // Create a copy of the array to safely sort
             .sort((a, b) => a.order - b.order)
             .map((phase) => (
               <div

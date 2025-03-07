@@ -71,10 +71,11 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   const updateMutation = useMutation({
     mutationFn: async (values: z.infer<typeof documentSchema>) => {
       if (!selectedDocument) return null;
-      return apiRequest(`/api/documents/${selectedDocument.id}`, {
-        method: "PATCH",
-        body: values
-      });
+      return apiRequest(
+        `/api/documents/${selectedDocument.id}`,
+        "PATCH",
+        values
+      );
     },
     onSuccess: () => {
       toast({
@@ -96,7 +97,10 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   // Mutation for deleting document
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      return apiRequest(`/api/documents/${documentId}`, "DELETE");
+      return apiRequest(
+        `/api/documents/${documentId}`,
+        "DELETE"
+      );
     },
     onSuccess: () => {
       toast({

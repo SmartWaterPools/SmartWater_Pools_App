@@ -234,7 +234,16 @@ export default function Projects() {
                         variant="outline" 
                         size="sm" 
                         className="gap-1"
-                        onClick={() => window.location.href = `/projects/${project.id}`}
+                        onClick={() => {
+                          // Use the tab system for navigation
+                          const tabContext = (window as any).__TAB_CONTEXT__;
+                          if (tabContext && tabContext.addTab) {
+                            tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
+                          } else {
+                            // Fallback to direct navigation
+                            window.location.href = `/projects/${project.id}`;
+                          }
+                        }}
                       >
                         <Layers className="h-4 w-4 mr-1" />
                         Details
@@ -354,7 +363,16 @@ export default function Projects() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => window.location.href = `/projects/${project.id}`}
+                              onClick={() => {
+                                // Use the tab system for navigation
+                                const tabContext = (window as any).__TAB_CONTEXT__;
+                                if (tabContext && tabContext.addTab) {
+                                  tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
+                                } else {
+                                  // Fallback to direct navigation
+                                  window.location.href = `/projects/${project.id}`;
+                                }
+                              }}
                             >
                               <Layers className="h-4 w-4 mr-1" />
                               Details

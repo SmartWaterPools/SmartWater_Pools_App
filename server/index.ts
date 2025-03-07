@@ -57,8 +57,11 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use environment variable PORT for Cloud Run compatibility or default to 5000
-  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : 5000;
+  // Use environment variable PORT for Cloud Run compatibility 
+  // Default to 8080 for production (deployment) and 5000 for development
+  const isProduction = process.env.NODE_ENV === 'production';
+  const defaultPort = isProduction ? 8080 : 5000;
+  const port = process.env.PORT ? parseInt(process.env.PORT, 10) : defaultPort;
   
   // Simple server setup with proper error handling
   const startServer = (port: number) => {
@@ -67,7 +70,8 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
-      log(`serving on port ${port} - Access at http://localhost:${port}`);
+      log(`serving on port ${port} - Environment: ${isProduction ? 'production' : 'development'}`);
+      log(`Access at http://localhost:${port}`);
     }).on('error', (error: any) => {
       log(`Error starting server: ${error.message}`);
       process.exit(1); // Exit with error code so workflow can restart properly

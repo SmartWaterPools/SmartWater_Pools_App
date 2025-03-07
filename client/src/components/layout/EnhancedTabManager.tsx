@@ -276,19 +276,28 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     }
   }, [clientData, clientId]);
   
+  // Make the context available globally to allow direct access from components
+  // that don't have direct access to the context
+  const contextValue = { 
+    tabs, 
+    activeTabId, 
+    setActiveTabId,
+    addTab, 
+    closeTab, 
+    duplicateTab,
+    getTabById,
+    getTabByPath,
+    navigateToTab,
+    recentTabs
+  };
+  
+  // Expose the context to the window object
+  if (typeof window !== 'undefined') {
+    (window as any).__TAB_CONTEXT__ = contextValue;
+  }
+  
   return (
-    <TabContext.Provider value={{ 
-      tabs, 
-      activeTabId, 
-      setActiveTabId,
-      addTab, 
-      closeTab, 
-      duplicateTab,
-      getTabById,
-      getTabByPath,
-      navigateToTab,
-      recentTabs
-    }}>
+    <TabContext.Provider value={contextValue}>
       {children}
     </TabContext.Provider>
   );

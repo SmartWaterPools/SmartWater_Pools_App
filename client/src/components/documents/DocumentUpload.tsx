@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Upload, X, Check, Loader2 } from "lucide-react";
 
@@ -20,20 +20,36 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // For a complete implementation, we would have a dedicated endpoint for file uploads
-  // Here we're simulating a file upload - in a real implementation, we'd post to S3 or similar
+  // Create Document First with data from the form
+  const queryClient = useQueryClient();
+  const [documentName, setDocumentName] = useState(file?.name || "");
+  const [documentType, setDocumentType] = useState("blueprint");
+  const [documentDescription, setDocumentDescription] = useState("");
+  
   const uploadFileMutation = useMutation({
     mutationFn: async (file: File) => {
       setUploading(true);
       
-      // Simulate file upload delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // In a real implementation we would upload to S3/GCS first
+      // For now, we'll create a document record with a simulated URL
+      const fileUrl = `https://example.com/uploads/${Date.now()}_${file.name}`;
       
-      // Generate a mock file URL - in real implementation this would be a response from server
-      // This is a placeholder for demonstration - real implementation would post to server
-      const mockFileUrl = `https://example.com/uploads/${Date.now()}_${file.name}`;
+      // Create document in the database
+      const requestBody = {
+        title: documentName || file.name,
+        description: documentDescription,
+        documentType: documentType,
+        fileUrl: fileUrl,
+        phaseId: phaseId || null
+      };
       
-      return { fileUrl: mockFileUrl };
+      const response = await apiRequest(
+        `/api/projects/${projectId}/documents`,
+        "POST",
+        requestBody
+      );
+      
+      return { fileUrl, response };
     },
     onSuccess: (data) => {
       toast({
@@ -50,10 +66,21 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
       setFile(null);
       setPreviewUrl(null);
       setUploading(false);
+      setDocumentName("");
+      setDocumentDescription("");
       
       // Reset the file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
+      }
+      
+      // Invalidate queries to refresh the document list
+      const projectDocumentsKey = `/api/projects/${projectId}/documents`;
+      const phaseDocumentsKey = phaseId ? `/api/phases/${phaseId}/documents` : null;
+      
+      queryClient.invalidateQueries({ queryKey: [projectDocumentsKey] });
+      if (phaseDocumentsKey) {
+        queryClient.invalidateQueries({ queryKey: [phaseDocumentsKey] });
       }
     },
     onError: () => {
@@ -110,7 +137,44 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
       <CardContent className="pt-4">
         <div className="space-y-4">
           <div>
-            <Label htmlFor="file-upload">Upload Document</Label>
+            <Label htmlFor="document-name">Document Name</Label>
+            <Input
+              id="document-name"
+              value={documentName}
+              onChange={(e) => setDocumentName(e.target.value)}
+              className="mt-1 mb-3"
+              placeholder="Enter document name"
+              disabled={uploading}
+            />
+            
+            <Label htmlFor="document-type">Document Type</Label>
+            <select
+              id="document-type"
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value)}
+              className="mt-1 mb-3 w-full border border-input bg-background px-3 py-2 text-sm ring-offset-background rounded-md"
+              disabled={uploading}
+            >
+              <option value="blueprint">Blueprint</option>
+              <option value="permit">Permit</option>
+              <option value="contract">Contract</option>
+              <option value="invoice">Invoice</option>
+              <option value="photo">Photo</option>
+              <option value="report">Report</option>
+              <option value="other">Other</option>
+            </select>
+            
+            <Label htmlFor="document-description">Description (Optional)</Label>
+            <Input
+              id="document-description"
+              value={documentDescription}
+              onChange={(e) => setDocumentDescription(e.target.value)}
+              className="mt-1 mb-3"
+              placeholder="Enter a description"
+              disabled={uploading}
+            />
+            
+            <Label htmlFor="file-upload">Select File</Label>
             <Input
               id="file-upload"
               type="file"
