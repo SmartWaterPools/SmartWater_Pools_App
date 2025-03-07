@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Clock, Edit, Plus, X } from "lucide-react";
+import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -56,11 +56,38 @@ const makeRequest = async <T,>(params: {url: string, method: string, data?: any}
 // Validation schema for project phase form
 const phaseFormSchema = z.object({
   name: z.string().min(1, "Phase name is required"),
+  description: z.string().optional(),
   status: z.enum(["planning", "pending", "in_progress", "completed", "delayed"]),
   percentComplete: z.number().min(0).max(100),
   startDate: z.date().optional(),
   endDate: z.date().optional(),
   notes: z.string().optional(),
+  estimatedDuration: z.number().int().nonnegative().optional(),
+  actualDuration: z.number().int().nonnegative().optional(),
+  cost: z.number().nonnegative().optional(),
+  permitRequired: z.boolean().default(false),
+  inspectionRequired: z.boolean().default(false),
+  inspectionDate: z.date().optional(),
+  inspectionPassed: z.boolean().optional(),
+  inspectionNotes: z.string().optional(),
+}).refine(data => {
+  // If there's an end date, ensure it's after the start date
+  if (data.startDate && data.endDate) {
+    return data.endDate >= data.startDate;
+  }
+  return true;
+}, {
+  message: "End date must be on or after start date",
+  path: ["endDate"]
+}).refine(data => {
+  // If inspection is required, make sure inspection date is set when inspection passed is true
+  if (data.inspectionRequired && data.inspectionPassed && !data.inspectionDate) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Inspection date is required when inspection is passed",
+  path: ["inspectionDate"]
 });
 
 type PhaseFormValues = z.infer<typeof phaseFormSchema>;
@@ -69,12 +96,21 @@ interface ProjectPhase {
   id: number;
   projectId: number;
   name: string;
+  description?: string | null;
   status: string;
   order: number;
   percentComplete: number;
   startDate?: string | null;
   endDate?: string | null;
   notes?: string | null;
+  estimatedDuration?: number | null;
+  actualDuration?: number | null;
+  cost?: number | null;
+  permitRequired?: boolean;
+  inspectionRequired?: boolean;
+  inspectionDate?: string | null;
+  inspectionPassed?: boolean | null;
+  inspectionNotes?: string | null;
 }
 
 interface ProjectPhaseProps {
@@ -115,9 +151,18 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
     resolver: zodResolver(phaseFormSchema),
     defaultValues: {
       name: "",
+      description: "",
       status: "pending",
       percentComplete: 0,
       notes: "",
+      estimatedDuration: undefined,
+      actualDuration: undefined,
+      cost: undefined,
+      permitRequired: false,
+      inspectionRequired: false,
+      inspectionDate: undefined,
+      inspectionPassed: undefined,
+      inspectionNotes: "",
     },
   });
 
@@ -126,11 +171,20 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
     if (editingPhase) {
       editForm.reset({
         name: editingPhase.name,
+        description: editingPhase.description || "",
         status: editingPhase.status as any,
         percentComplete: editingPhase.percentComplete,
         startDate: editingPhase.startDate ? new Date(editingPhase.startDate) : undefined,
         endDate: editingPhase.endDate ? new Date(editingPhase.endDate) : undefined,
         notes: editingPhase.notes || "",
+        estimatedDuration: editingPhase.estimatedDuration || undefined,
+        actualDuration: editingPhase.actualDuration || undefined,
+        cost: editingPhase.cost || undefined,
+        permitRequired: editingPhase.permitRequired || false,
+        inspectionRequired: editingPhase.inspectionRequired || false,
+        inspectionDate: editingPhase.inspectionDate ? new Date(editingPhase.inspectionDate) : undefined,
+        inspectionPassed: editingPhase.inspectionPassed || undefined,
+        inspectionNotes: editingPhase.inspectionNotes || "",
       });
     }
   }, [editingPhase, editForm]);
@@ -145,6 +199,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
         ...data,
         startDate: data.startDate ? data.startDate.toISOString().split('T')[0] : null,
         endDate: data.endDate ? data.endDate.toISOString().split('T')[0] : null,
+        inspectionDate: data.inspectionDate ? data.inspectionDate.toISOString().split('T')[0] : null,
       };
       
       return await makeRequest<ProjectPhase>({
@@ -181,6 +236,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
         order: phases.length + 1, // Set order to be after existing phases
         startDate: values.startDate ? values.startDate.toISOString().split('T')[0] : null,
         endDate: values.endDate ? values.endDate.toISOString().split('T')[0] : null,
+        inspectionDate: values.inspectionDate ? values.inspectionDate.toISOString().split('T')[0] : null,
       };
       
       return await makeRequest<ProjectPhase>({
@@ -403,6 +459,68 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                     </div>
                   )}
 
+                  {/* Show construction-specific details */}
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                    {phase.estimatedDuration && (
+                      <div className="text-sm border rounded p-2 bg-muted/20">
+                        <div className="text-muted-foreground text-xs font-medium">Est. Duration:</div>
+                        <div>{phase.estimatedDuration} days</div>
+                      </div>
+                    )}
+                    
+                    {phase.cost && (
+                      <div className="text-sm border rounded p-2 bg-muted/20">
+                        <div className="text-muted-foreground text-xs font-medium">Budget:</div>
+                        <div>${phase.cost.toLocaleString()}</div>
+                      </div>
+                    )}
+                    
+                    {phase.permitRequired && (
+                      <div className="text-sm border rounded p-2 bg-muted/20">
+                        <div className="text-muted-foreground text-xs font-medium">Permits:</div>
+                        <div className="flex items-center">
+                          <span className="text-amber-500">
+                            <AlertTriangle className="h-3 w-3 mr-1 inline" />
+                            Required
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {phase.inspectionRequired && (
+                      <div className="text-sm border rounded p-2 bg-muted/20">
+                        <div className="text-muted-foreground text-xs font-medium">Inspection:</div>
+                        <div className="flex items-center">
+                          {phase.inspectionPassed ? (
+                            <span className="text-green-500">
+                              <Check className="h-3 w-3 mr-1 inline" />
+                              Passed
+                            </span>
+                          ) : phase.inspectionDate ? (
+                            <span className="text-amber-500">
+                              <Clock className="h-3 w-3 mr-1 inline" />
+                              Scheduled: {format(new Date(phase.inspectionDate), "MMM d, yyyy")}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              <AlertCircle className="h-3 w-3 mr-1 inline" />
+                              Required
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Description if available */}
+                  {phase.description && (
+                    <div className="mt-3 text-sm">
+                      <div className="text-muted-foreground">Description:</div>
+                      <div className="mt-1">{phase.description}</div>
+                    </div>
+                  )}
+                  
+                  {/* Notes if available */}
                   {phase.notes && (
                     <div className="mt-3 text-sm">
                       <div className="text-muted-foreground">Notes:</div>
@@ -492,6 +610,202 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                   )}
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="estimatedDuration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estimated Duration (days)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          disabled={updatePhaseMutation.isPending}
+                          {...field}
+                          value={field.value === undefined ? "" : field.value}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="actualDuration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Actual Duration (days)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          disabled={updatePhaseMutation.isPending}
+                          {...field}
+                          value={field.value === undefined ? "" : field.value}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="cost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cost</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          disabled={updatePhaseMutation.isPending}
+                          {...field}
+                          value={field.value === undefined ? "" : field.value}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex flex-col space-y-4">
+                  <FormField
+                    control={editForm.control}
+                    name="permitRequired"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 mt-1"
+                            checked={field.value}
+                            disabled={updatePhaseMutation.isPending}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Permit Required</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="inspectionRequired"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 mt-1"
+                          checked={field.value}
+                          disabled={updatePhaseMutation.isPending}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Inspection Required</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {editForm.watch("inspectionRequired") && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
+                  <FormField
+                    control={editForm.control}
+                    name="inspectionDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Inspection Date</FormLabel>
+                        <input
+                          type="date"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={updatePhaseMutation.isPending}
+                          value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value ? new Date(value) : undefined);
+                          }}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={editForm.control}
+                    name="inspectionPassed"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 mt-6">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 mt-1"
+                            checked={field.value === true}
+                            disabled={updatePhaseMutation.isPending}
+                            onChange={(e) => field.onChange(e.target.checked ? true : undefined)}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Inspection Passed</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <div className="md:col-span-2">
+                    <FormField
+                      control={editForm.control}
+                      name="inspectionNotes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Inspection Notes</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter any inspection notes"
+                              disabled={updatePhaseMutation.isPending}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter phase description"
+                        disabled={updatePhaseMutation.isPending}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={editForm.control}
@@ -606,6 +920,202 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                   )}
                 />
               </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={addForm.control}
+                  name="estimatedDuration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Estimated Duration (days)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          disabled={addPhaseMutation.isPending}
+                          {...field}
+                          value={field.value === undefined ? "" : field.value}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addForm.control}
+                  name="actualDuration"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Actual Duration (days)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          disabled={addPhaseMutation.isPending}
+                          {...field}
+                          value={field.value === undefined ? "" : field.value}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={addForm.control}
+                  name="cost"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cost</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          disabled={addPhaseMutation.isPending}
+                          {...field}
+                          value={field.value === undefined ? "" : field.value}
+                          onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="flex flex-col space-y-4">
+                  <FormField
+                    control={addForm.control}
+                    name="permitRequired"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 mt-1"
+                            checked={field.value}
+                            disabled={addPhaseMutation.isPending}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Permit Required</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <FormField
+                  control={addForm.control}
+                  name="inspectionRequired"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 mt-1"
+                          checked={field.value}
+                          disabled={addPhaseMutation.isPending}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <div className="space-y-1 leading-none">
+                        <FormLabel>Inspection Required</FormLabel>
+                      </div>
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {addForm.watch("inspectionRequired") && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border p-4 rounded-md">
+                  <FormField
+                    control={addForm.control}
+                    name="inspectionDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Inspection Date</FormLabel>
+                        <input
+                          type="date"
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={addPhaseMutation.isPending}
+                          value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            field.onChange(value ? new Date(value) : undefined);
+                          }}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={addForm.control}
+                    name="inspectionPassed"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 mt-6">
+                        <FormControl>
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 mt-1"
+                            checked={field.value === true}
+                            disabled={addPhaseMutation.isPending}
+                            onChange={(e) => field.onChange(e.target.checked ? true : undefined)}
+                          />
+                        </FormControl>
+                        <div className="space-y-1 leading-none">
+                          <FormLabel>Inspection Passed</FormLabel>
+                        </div>
+                      </FormItem>
+                    )}
+                  />
+                  <div className="md:col-span-2">
+                    <FormField
+                      control={addForm.control}
+                      name="inspectionNotes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Inspection Notes</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder="Enter any inspection notes"
+                              disabled={addPhaseMutation.isPending}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <FormField
+                control={addForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Enter phase description"
+                        disabled={addPhaseMutation.isPending}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={addForm.control}
