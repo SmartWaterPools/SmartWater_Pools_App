@@ -1605,16 +1605,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProjectDocument(document: InsertProjectDocumentation): Promise<ProjectDocumentation> {
-    const [result] = await db.insert(projectDocumentation)
-      .values({
-        ...document,
-        description: document.description ?? null,
-        tags: document.tags ?? [],
-        isPublic: document.isPublic ?? false,
-        uploadDate: document.uploadDate ?? new Date().toISOString()
-      })
-      .returning();
-    return result;
+    try {
+      // Create a clean object without the uploadDate field - we'll let the DB handle it with defaultNow()
+      const { uploadDate, ...cleanDocument } = document;
+      
+      const [result] = await db.insert(projectDocumentation)
+        .values({
+          ...cleanDocument,
+          description: document.description ?? null,
+          tags: document.tags ?? [],
+          isPublic: document.isPublic ?? false
+        })
+        .returning();
+      return result;
+    } catch (error) {
+      console.error("Error in createProjectDocument:", error);
+      throw error;
+    }
   }
 
   async updateProjectDocument(id: number, data: Partial<ProjectDocumentation>): Promise<ProjectDocumentation | undefined> {

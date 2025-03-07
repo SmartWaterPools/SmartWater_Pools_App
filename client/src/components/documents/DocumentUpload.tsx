@@ -40,7 +40,11 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
         description: documentDescription,
         documentType: documentType,
         fileUrl: fileUrl,
-        phaseId: phaseId || null
+        phaseId: phaseId || null,
+        uploadedBy: 1, // Using default admin user ID as a temporary solution
+        // Let the server handle the upload date with defaultNow()
+        tags: [],
+        isPublic: false
       };
       
       const response = await apiRequest(
