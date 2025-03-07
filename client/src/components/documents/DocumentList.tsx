@@ -17,18 +17,21 @@ import { FileText, Download, Trash2, Edit, FilePlus, Filter } from "lucide-react
 
 // Document schema for form validation
 export const documentSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
   documentType: z.string().min(1, "Document type is required"),
-  documentUrl: z.string().min(1, "Document URL is required")
+  fileUrl: z.string().min(1, "File URL is required")
 });
 
 export type DocumentData = z.infer<typeof documentSchema> & {
   id: number;
   projectId: number;
   uploadDate: string;
+  uploadedBy: number;
   phaseId?: number | null;
   phaseName?: string;
+  tags?: string[];
+  isPublic?: boolean;
 };
 
 interface DocumentListProps {
@@ -48,10 +51,10 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   const form = useForm<z.infer<typeof documentSchema>>({
     resolver: zodResolver(documentSchema),
     defaultValues: {
-      name: "",
+      title: "",
       description: "",
       documentType: "",
-      documentUrl: ""
+      fileUrl: ""
     }
   });
   
@@ -129,10 +132,10 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   function handleEdit(doc: DocumentData) {
     setSelectedDocument(doc);
     form.reset({
-      name: doc.name,
+      title: doc.title,
       description: doc.description || "",
       documentType: doc.documentType,
-      documentUrl: doc.documentUrl
+      fileUrl: doc.fileUrl
     });
     setIsEditDialogOpen(true);
   }
@@ -183,12 +186,12 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
         
         {uniqueDocTypes.length > 0 && !documentType && (
           <div className="flex items-center">
-            <Select value={docTypeFilter || ""} onValueChange={(value) => handleDocTypeFilter(value || null)}>
+            <Select value={docTypeFilter || "all"} onValueChange={(value) => handleDocTypeFilter(value === "all" ? null : value)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All types</SelectItem>
+                <SelectItem value="all">All types</SelectItem>
                 {uniqueDocTypes.map((type) => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
@@ -217,7 +220,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                   <FileText className="h-6 w-6" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium truncate">{doc.name}</h3>
+                  <h3 className="font-medium truncate">{doc.title}</h3>
                   <p className="text-sm text-muted-foreground">{doc.description}</p>
                   <div className="flex items-center mt-1 text-xs">
                     <span className="mr-4">{formatDate(doc.uploadDate)}</span>
@@ -231,7 +234,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                 </div>
                 <div className="flex space-x-1 ml-2">
                   <Button variant="ghost" size="icon" asChild>
-                    <a href={doc.documentUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
                       <Download className="h-4 w-4" />
                     </a>
                   </Button>
@@ -283,10 +286,10 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="name"
+                name="title"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Document Name</FormLabel>
+                    <FormLabel>Document Title</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -317,7 +320,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                     <FormLabel>Document Type</FormLabel>
                     <Select
                       onValueChange={field.onChange}
-                      defaultValue={field.value}
+                      defaultValue={field.value || "blueprint"}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -334,6 +337,20 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="fileUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>File URL</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
