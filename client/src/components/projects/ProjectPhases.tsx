@@ -559,7 +559,15 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
           </TabsContent>
           
           <TabsContent value="timeline" className="mt-0">
-            <ProjectTimeline phases={phases} currentPhase={currentPhase} />
+            {Array.isArray(phases) && phases.length > 0 ? (
+              <ProjectTimeline phases={phases} currentPhase={currentPhase} />
+            ) : (
+              <div className="p-8 text-center border rounded-lg bg-muted/10">
+                <p className="text-muted-foreground">
+                  No phases have been defined yet. Please add phases to view the timeline.
+                </p>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       )}
