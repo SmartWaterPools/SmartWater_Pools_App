@@ -1,21 +1,15 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-import { migrate } from 'drizzle-orm/postgres-js/migrator';
-import postgres from 'postgres';
-import { sql } from 'drizzle-orm';
+// Using a CommonJS approach for simplicity
+const { Pool } = require("pg");
+const { drizzle } = require("drizzle-orm/pg-server");
+const { sql } = require("drizzle-orm");
 
 async function main() {
-  // Create a Postgres client
-  const connectionString = process.env.DATABASE_URL;
-  if (!connectionString) {
-    throw new Error('DATABASE_URL environment variable is not set');
-  }
-
-  console.log('Connecting to database...');
-  const client = postgres(connectionString);
-  const db = drizzle(client);
-
   try {
     console.log("Starting schema update for Pentair Builder features...");
+    
+    // Initialize DB connection
+    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    const db = drizzle(pool);
     
     // Add new columns to projects table
     await db.execute(sql`
@@ -43,7 +37,6 @@ async function main() {
     // Update project_assignments table
     await db.execute(sql`
       ALTER TABLE IF EXISTS project_assignments
-      ADD COLUMN IF NOT EXISTS notes TEXT,
       ADD COLUMN IF NOT EXISTS phase_id INTEGER REFERENCES project_phases(id),
       ADD COLUMN IF NOT EXISTS is_lead BOOLEAN DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS start_date DATE,
@@ -92,14 +85,17 @@ async function main() {
     console.error("Error updating schema:", error);
     process.exit(1);
   } finally {
-    // Close the client
-    await client.end();
-    console.log("Database connection closed");
+    // Close the pool
+    try {
+      if (pool) {
+        await pool.end();
+        console.log("Database connection closed");
+      }
+    } catch (err) {
+      console.error("Error closing pool:", err);
+    }
     process.exit(0);
   }
 }
 
-main().catch((error) => {
-  console.error('Error in migration script:', error);
-  process.exit(1);
-});
+main();

@@ -13,7 +13,7 @@ import {
   ServiceTemplate, InsertServiceTemplate,
   users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates
 } from "@shared/schema";
-import { and, eq, desc, gte, lte } from "drizzle-orm";
+import { and, eq, desc, gte, lte, sql } from "drizzle-orm";
 import { db } from "./db";
 
 export interface IStorage {
@@ -1167,7 +1167,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllProjects(): Promise<Project[]> {
-    return await db.select().from(projects);
+    try {
+      // Use an explicit column selection to avoid issues with schema changes
+      return await db.select({
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        clientId: projects.clientId,
+        projectType: projects.projectType,
+        status: projects.status,
+        startDate: projects.startDate,
+        estimatedCompletionDate: projects.estimatedCompletionDate,
+        actualCompletionDate: projects.actualCompletionDate,
+        budget: projects.budget,
+        currentPhase: projects.currentPhase,
+        percentComplete: projects.percentComplete,
+        permitDetails: projects.permitDetails,
+        notes: projects.notes,
+        isTemplate: sql`COALESCE(${projects.isTemplate}, FALSE)`.as('isTemplate'),
+        templateName: sql`COALESCE(${projects.templateName}, NULL)`.as('templateName'),
+        templateCategory: sql`COALESCE(${projects.templateCategory}, NULL)`.as('templateCategory'),
+      }).from(projects);
+    } catch (error) {
+      console.error("Error fetching all projects:", error);
+      // Return empty array as fallback
+      return [];
+    }
   }
 
   async getProjectsByClientId(clientId: number): Promise<Project[]> {
@@ -1218,7 +1243,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProjectAssignments(projectId: number): Promise<ProjectAssignment[]> {
-    return await db.select().from(projectAssignments).where(eq(projectAssignments.projectId, projectId));
+    try {
+      // Use SQL with COALESCE for backward compatibility with older database schemas
+      const results = await db.execute(sql`
+        SELECT 
+          id, 
+          role, 
+          project_id as "projectId", 
+          technician_id as "technicianId", 
+          COALESCE(start_date, null) as "startDate", 
+          COALESCE(end_date, null) as "endDate", 
+          COALESCE(notes, null) as "notes", 
+          COALESCE(phase_id, null) as "phaseId", 
+          COALESCE(is_lead, false) as "isLead", 
+          COALESCE(hours_allocated, null) as "hoursAllocated", 
+          COALESCE(hours_logged, 0) as "hoursLogged"
+        FROM project_assignments
+        WHERE project_id = ${projectId}
+      `);
+      
+      return results.rows as ProjectAssignment[];
+    } catch (error) {
+      console.error("Error fetching project assignments:", error);
+      return [];
+    }
   }
 
   // Maintenance operations

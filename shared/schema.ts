@@ -87,6 +87,10 @@ export const PROJECT_TYPES = ['construction', 'renovation', 'repair', 'maintenan
 export type ProjectType = typeof PROJECT_TYPES[number] | null;
 
 // Project schema
+// Define project types based on Pentair Pool Builder categories
+export const PROJECT_TYPE_OPTIONS = ['construction', 'renovation', 'repair', 'maintenance'] as const;
+export type ProjectTypeOption = typeof PROJECT_TYPE_OPTIONS[number];
+
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -102,6 +106,9 @@ export const projects = pgTable("projects", {
   percentComplete: integer("percent_complete").default(0),
   permitDetails: text("permit_details"), // Permit information and dates
   notes: text("notes"),
+  isTemplate: boolean("is_template").default(false), // Mark as a reusable template
+  templateName: text("template_name"), // Name for the template if isTemplate is true
+  templateCategory: text("template_category"), // For organizing templates
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
@@ -116,27 +123,72 @@ export const projectPhases = pgTable("project_phases", {
   description: text("description"),
   startDate: date("start_date"),
   endDate: date("end_date"),
-  status: text("status").notNull().default("pending"), // pending, in_progress, completed
+  status: text("status").notNull().default("pending"), // pending, in_progress, completed, delayed
   order: integer("order").notNull(), // Sequence order
   percentComplete: integer("percent_complete").default(0),
   notes: text("notes"),
+  estimatedDuration: integer("estimated_duration"), // Estimated duration in days
+  actualDuration: integer("actual_duration"), // Actual duration in days
+  cost: integer("cost"), // Cost associated with this phase
+  permitRequired: boolean("permit_required").default(false), // Does this phase require permits
+  inspectionRequired: boolean("inspection_required").default(false), // Does this phase require inspection
+  inspectionDate: date("inspection_date"), // Date of inspection if required
+  inspectionPassed: boolean("inspection_passed"), // Did the inspection pass
+  inspectionNotes: text("inspection_notes"), // Notes from the inspection
 });
 
 export const insertProjectPhaseSchema = createInsertSchema(projectPhases).omit({
   id: true,
 });
 
-// Project assignment
+// Phase resources - equipment, materials needed for a phase
+export const phaseResources = pgTable("phase_resources", {
+  id: serial("id").primaryKey(),
+  phaseId: integer("phase_id").references(() => projectPhases.id).notNull(),
+  resourceType: text("resource_type").notNull(), // equipment, material, labor
+  resourceName: text("resource_name").notNull(),
+  quantity: integer("quantity").notNull(),
+  unit: text("unit"), // e.g., hours, kg, pieces
+  estimatedCost: integer("estimated_cost"),
+  actualCost: integer("actual_cost"),
+  notes: text("notes"),
+});
+
+export const insertPhaseResourceSchema = createInsertSchema(phaseResources);
+
+// Project assignment - now with phase-specific assignments
 export const projectAssignments = pgTable("project_assignments", {
   id: serial("id").primaryKey(),
   projectId: integer("project_id").references(() => projects.id).notNull(),
+  phaseId: integer("phase_id").references(() => projectPhases.id), // Optional - if assigned to a specific phase
   technicianId: integer("technician_id").references(() => technicians.id).notNull(),
-  role: text("role").notNull(),
+  role: text("role").notNull(), // Project Manager, Construction Lead, Electrician, Plumber, etc.
+  isLead: boolean("is_lead").default(false), // Is this person the lead for the project/phase
+  startDate: date("start_date"), // When they are assigned to start
+  endDate: date("end_date"), // When their assignment ends
+  hoursAllocated: integer("hours_allocated"), // Hours allocated to this resource
+  hoursLogged: integer("hours_logged").default(0), // Hours actually logged
+  notes: text("notes"),
 });
 
-export const insertProjectAssignmentSchema = createInsertSchema(projectAssignments).omit({
-  id: true,
+export const insertProjectAssignmentSchema = createInsertSchema(projectAssignments);
+
+// Project documentation - photos, videos, documents
+export const projectDocumentation = pgTable("project_documentation", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").references(() => projects.id).notNull(),
+  phaseId: integer("phase_id").references(() => projectPhases.id), // Optional - if related to a specific phase
+  documentType: text("document_type").notNull(), // photo, video, document, contract, permit
+  title: text("title").notNull(),
+  description: text("description"),
+  fileUrl: text("file_url").notNull(),
+  uploadedBy: integer("uploaded_by").references(() => users.id).notNull(),
+  uploadDate: timestamp("upload_date").notNull().defaultNow(),
+  tags: text("tags").array(), // For categorizing
+  isPublic: boolean("is_public").default(false), // Whether this can be shared with client
 });
+
+export const insertProjectDocumentationSchema = createInsertSchema(projectDocumentation);
 
 // Maintenance schema
 export const maintenances = pgTable("maintenances", {
@@ -375,6 +427,46 @@ export const updateClientSchema = z.object({
   customServiceInstructions: z.array(z.string()).optional(),
 });
 
+// Project documentation relations
+export const projectDocumentationRelations = relations(projectDocumentation, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectDocumentation.projectId],
+    references: [projects.id],
+  }),
+  phase: one(projectPhases, {
+    fields: [projectDocumentation.phaseId],
+    references: [projectPhases.id],
+  }),
+  uploader: one(users, {
+    fields: [projectDocumentation.uploadedBy],
+    references: [users.id],
+  }),
+}));
+
+// Phase resources relations
+export const phaseResourcesRelations = relations(phaseResources, ({ one }) => ({
+  phase: one(projectPhases, {
+    fields: [phaseResources.phaseId],
+    references: [projectPhases.id],
+  }),
+}));
+
+// Update project assignments relations to include phase
+export const projectAssignmentsRelationsExtended = relations(projectAssignments, ({ one }) => ({
+  project: one(projects, {
+    fields: [projectAssignments.projectId],
+    references: [projects.id],
+  }),
+  technician: one(technicians, {
+    fields: [projectAssignments.technicianId],
+    references: [technicians.id],
+  }),
+  phase: one(projectPhases, {
+    fields: [projectAssignments.phaseId],
+    references: [projectPhases.id],
+  }),
+}));
+
 // Type definitions
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -409,6 +501,12 @@ export type InsertPoolImage = z.infer<typeof insertPoolImageSchema>;
 
 export type ProjectPhase = typeof projectPhases.$inferSelect;
 export type InsertProjectPhase = z.infer<typeof insertProjectPhaseSchema>;
+
+export type PhaseResource = typeof phaseResources.$inferSelect;
+export type InsertPhaseResource = z.infer<typeof insertPhaseResourceSchema>;
+
+export type ProjectDocumentation = typeof projectDocumentation.$inferSelect;
+export type InsertProjectDocumentation = z.infer<typeof insertProjectDocumentationSchema>;
 
 export type ServiceTemplate = typeof serviceTemplates.$inferSelect;
 export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
