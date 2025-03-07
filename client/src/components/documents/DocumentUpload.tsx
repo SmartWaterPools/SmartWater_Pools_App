@@ -1,12 +1,17 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Upload, X, Check, Loader2 } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
+import { documentSchema, type DocumentData } from "./documentSchema";
+import { FileUploader } from "./FileUploader";
+import { suggestDocumentType, readFileAsDataURL } from "@/lib/fileUtils";
 
 interface DocumentUploadProps {
   projectId: number;
@@ -17,12 +22,12 @@ interface DocumentUploadProps {
 export function DocumentUpload({ projectId, phaseId, onUploadComplete }: DocumentUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fileDataUrl, setFileDataUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Create Document First with data from the form
   const queryClient = useQueryClient();
-  const [documentName, setDocumentName] = useState(file?.name || "");
+  const [documentName, setDocumentName] = useState("");
   const [documentType, setDocumentType] = useState("blueprint");
   const [documentDescription, setDocumentDescription] = useState("");
   
@@ -30,9 +35,15 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
     mutationFn: async (file: File) => {
       setUploading(true);
       
-      // In a real implementation we would upload to S3/GCS first
-      // For now, we'll create a document record with a simulated URL
-      const fileUrl = `https://example.com/uploads/${Date.now()}_${file.name}`;
+      let fileUrl;
+      if (fileDataUrl) {
+        // In a production app, we'd upload to a storage service
+        // For now, use the data URL as the file URL (works for images)
+        fileUrl = fileDataUrl;
+      } else {
+        // For non-image files we can't preview, create a link with filename
+        fileUrl = `/documents/${Date.now()}_${file.name}`;
+      }
       
       // Create document in the database
       const requestBody = {
@@ -44,7 +55,7 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
         uploadedBy: 1, // Using default admin user ID as a temporary solution
         // Let the server handle the upload date with defaultNow()
         tags: [],
-        isPublic: false
+        isPublic: true // Set to true for visibility
       };
       
       const response = await apiRequest(
@@ -67,16 +78,7 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
       }
       
       // Clear the file and preview
-      setFile(null);
-      setPreviewUrl(null);
-      setUploading(false);
-      setDocumentName("");
-      setDocumentDescription("");
-      
-      // Reset the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
+      handleClearFile();
       
       // Invalidate queries to refresh the document list
       const projectDocumentsKey = `/api/projects/${projectId}/documents`;
@@ -97,22 +99,55 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
     }
   });
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
-    
+  const handleFileSelected = async (selectedFile: File, preview: string | null, metadata: any) => {
     setFile(selectedFile);
     
-    // Create a preview URL for image files
-    if (selectedFile.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewUrl(reader.result as string);
-      };
-      reader.readAsDataURL(selectedFile);
+    // Set preview URL
+    if (preview) {
+      setPreviewUrl(preview);
+      setFileDataUrl(preview);
     } else {
       setPreviewUrl(null);
+      
+      // For non-image files, we still try to get the data URL for storage
+      try {
+        const dataUrl = await readFileAsDataURL(selectedFile);
+        setFileDataUrl(dataUrl);
+      } catch (err) {
+        console.error('Error creating data URL:', err);
+        setFileDataUrl(null);
+      }
     }
+    
+    // Auto-populate document name (without extension for cleaner display)
+    const nameWithoutExtension = selectedFile.name.replace(/\.[^/.]+$/, "");
+    setDocumentName(nameWithoutExtension);
+    
+    // Extract and format metadata for description
+    const lastModifiedDate = new Date(selectedFile.lastModified);
+    const fileSizeMB = (selectedFile.size / (1024 * 1024)).toFixed(2);
+    
+    const metadataText = [
+      `Filename: ${selectedFile.name}`,
+      `Type: ${selectedFile.type || "Unknown"}`,
+      `Size: ${fileSizeMB} MB`,
+      `Last modified: ${lastModifiedDate.toLocaleString()}`
+    ].join("\n");
+    
+    setDocumentDescription(metadataText);
+    
+    // Auto-detect document type based on file metadata
+    const suggestedType = suggestDocumentType(selectedFile);
+    setDocumentType(suggestedType);
+  };
+
+  const handleClearFile = () => {
+    setFile(null);
+    setPreviewUrl(null);
+    setFileDataUrl(null);
+    setUploading(false);
+    setDocumentName("");
+    setDocumentDescription("");
   };
 
   const handleUpload = () => {
@@ -125,128 +160,107 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
       return;
     }
     
-    uploadFileMutation.mutate(file);
-  };
-
-  const handleClear = () => {
-    setFile(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    if (!documentName) {
+      toast({
+        title: "Document name required",
+        description: "Please provide a name for this document.",
+        variant: "destructive"
+      });
+      return;
     }
+    
+    uploadFileMutation.mutate(file);
   };
 
   return (
     <Card className="w-full">
-      <CardContent className="pt-4">
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="document-name">Document Name</Label>
-            <Input
-              id="document-name"
-              value={documentName}
-              onChange={(e) => setDocumentName(e.target.value)}
-              className="mt-1 mb-3"
-              placeholder="Enter document name"
-              disabled={uploading}
-            />
-            
-            <Label htmlFor="document-type">Document Type</Label>
-            <select
-              id="document-type"
-              value={documentType}
-              onChange={(e) => setDocumentType(e.target.value)}
-              className="mt-1 mb-3 w-full border border-input bg-background px-3 py-2 text-sm ring-offset-background rounded-md"
-              disabled={uploading}
-            >
-              <option value="blueprint">Blueprint</option>
-              <option value="permit">Permit</option>
-              <option value="contract">Contract</option>
-              <option value="invoice">Invoice</option>
-              <option value="photo">Photo</option>
-              <option value="report">Report</option>
-              <option value="other">Other</option>
-            </select>
-            
-            <Label htmlFor="document-description">Description (Optional)</Label>
-            <Input
-              id="document-description"
-              value={documentDescription}
-              onChange={(e) => setDocumentDescription(e.target.value)}
-              className="mt-1 mb-3"
-              placeholder="Enter a description"
-              disabled={uploading}
-            />
-            
-            <Label htmlFor="file-upload">Select File</Label>
-            <Input
-              id="file-upload"
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              className="mt-1"
-              disabled={uploading}
-            />
-          </div>
+      <CardContent className="pt-6">
+        <div className="space-y-6">
+          <FileUploader 
+            onFileSelected={handleFileSelected}
+            onFileClear={handleClearFile}
+            file={file}
+            isUploading={uploading}
+            maxSizeMB={20}
+          />
           
-          {file && !previewUrl && (
-            <div className="flex items-center p-2 border rounded">
-              <div className="flex-1 truncate">{file.name}</div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleClear}
-                disabled={uploading}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+          {file && (
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="document-name">Document Name</Label>
+                <Input
+                  id="document-name"
+                  value={documentName}
+                  onChange={(e) => setDocumentName(e.target.value)}
+                  className="mt-1"
+                  placeholder="Enter document name"
+                  disabled={uploading}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="document-type">Document Type</Label>
+                <Select
+                  value={documentType}
+                  onValueChange={(value) => setDocumentType(value)}
+                  disabled={uploading}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select document type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="blueprint">Blueprint</SelectItem>
+                    <SelectItem value="permit">Permit</SelectItem>
+                    <SelectItem value="contract">Contract</SelectItem>
+                    <SelectItem value="invoice">Invoice</SelectItem>
+                    <SelectItem value="photo">Photo</SelectItem>
+                    <SelectItem value="report">Report</SelectItem>
+                    <SelectItem value="render">Render</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label htmlFor="document-description">Description</Label>
+                <Textarea
+                  id="document-description"
+                  value={documentDescription}
+                  onChange={(e) => setDocumentDescription(e.target.value)}
+                  className="mt-1"
+                  placeholder="Enter a description"
+                  disabled={uploading}
+                  rows={4}
+                />
+              </div>
+              
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={handleClearFile}
+                  disabled={uploading}
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={handleUpload}
+                  disabled={!file || uploading}
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
-          
-          {previewUrl && (
-            <div className="relative">
-              <img
-                src={previewUrl}
-                alt="Preview"
-                className="max-h-40 mx-auto border rounded"
-              />
-              <Button
-                variant="destructive"
-                size="icon"
-                className="absolute top-1 right-1"
-                onClick={handleClear}
-                disabled={uploading}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
-          
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={handleClear}
-              disabled={!file || uploading}
-            >
-              Clear
-            </Button>
-            <Button
-              onClick={handleUpload}
-              disabled={!file || uploading}
-            >
-              {uploading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload
-                </>
-              )}
-            </Button>
-          </div>
         </div>
       </CardContent>
     </Card>

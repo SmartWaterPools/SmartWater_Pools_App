@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,25 +13,8 @@ import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/types";
 import { FileText, Download, Trash2, Edit, FilePlus, Filter } from "lucide-react";
-
-// Document schema for form validation
-export const documentSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().optional(),
-  documentType: z.string().min(1, "Document type is required"),
-  fileUrl: z.string().min(1, "File URL is required")
-});
-
-export type DocumentData = z.infer<typeof documentSchema> & {
-  id: number;
-  projectId: number;
-  uploadDate: string;
-  uploadedBy: number;
-  phaseId?: number | null;
-  phaseName?: string;
-  tags?: string[];
-  isPublic?: boolean;
-};
+import { documentSchema, type DocumentData } from "./documentSchema";
+import { z } from "zod";
 
 interface DocumentListProps {
   projectId: number;
@@ -148,7 +130,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   
   // Get unique document types
   const uniqueDocTypes = documents.length > 0
-    ? [...new Set(documents.map((doc) => doc.documentType))]
+    ? Array.from(new Set(documents.map((doc) => doc.documentType)))
     : [];
   
   // Filter documents if a type filter is applied
@@ -305,7 +287,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                   <FormItem>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea {...field} />
+                      <Textarea {...field} value={field.value || ''} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -334,6 +316,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                         <SelectItem value="invoice">Invoice</SelectItem>
                         <SelectItem value="photo">Photo</SelectItem>
                         <SelectItem value="report">Report</SelectItem>
+                        <SelectItem value="render">Render</SelectItem>
                         <SelectItem value="other">Other</SelectItem>
                       </SelectContent>
                     </Select>
