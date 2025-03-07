@@ -560,7 +560,19 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
           
           <TabsContent value="timeline" className="mt-0">
             {Array.isArray(phases) && phases.length > 0 ? (
-              <ProjectTimeline phases={phases} currentPhase={currentPhase} />
+              // Create a safe copy of phases with guaranteed array methods
+              (() => {
+                // Ensure we have a proper array with all required methods
+                const safePhases = [...phases].map(phase => ({
+                  ...phase, 
+                  // Default values for essential properties
+                  order: phase.order || 0,
+                  percentComplete: phase.percentComplete || 0,
+                  status: phase.status || "pending"
+                }));
+                console.log("Safe phases for timeline:", safePhases);
+                return <ProjectTimeline phases={safePhases} currentPhase={currentPhase} />;
+              })()
             ) : (
               <div className="p-8 text-center border rounded-lg bg-muted/10">
                 <p className="text-muted-foreground">

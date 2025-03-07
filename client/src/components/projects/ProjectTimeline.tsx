@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Gantt, ViewMode, Task as GanttTask } from "gantt-task-react";
 import "gantt-task-react/dist/index.css";
 import { format } from "date-fns";
@@ -34,132 +34,145 @@ interface ProjectTimelineProps {
 
 export function ProjectTimeline({ phases, currentPhase }: ProjectTimelineProps) {
   const [viewMode, setViewMode] = useState<ViewMode>(ViewMode.Month);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
-  // Ensure phases is an array and not empty
-  if (!phases || !Array.isArray(phases) || phases.length === 0) {
-    return (
-      <div className="p-8 text-center border rounded-lg bg-muted/10">
-        <p className="text-muted-foreground">
-          Not enough timeline data to display. Please add start and end dates to your project phases.
-        </p>
-      </div>
-    );
-  }
-
-  // Convert project phases to gantt tasks
-  const tasks: Task[] = [];
-  
-  try {
-    // Create a shallow copy of the phases array to avoid mutating the original
-    const phasesCopy = [...phases];
+  // Process phases safely in useEffect
+  useEffect(() => {
+    // Reset state
+    setErrorMessage(null);
     
-    // Sort by order
-    phasesCopy.sort((a, b) => a.order - b.order);
+    // Add defensive check in console to debug the issue
+    console.log("ProjectTimeline processing phases:", phases);
     
-    // Map each phase to a Gantt task
-    for (let i = 0; i < phasesCopy.length; i++) {
-      const phase = phasesCopy[i];
-      
-      // Handle start date
-      let start: Date;
-      if (phase.startDate) {
-        start = new Date(phase.startDate);
-      } else {
-        // Default start date is today
-        start = new Date();
-      }
-      
-      // Handle end date
-      let end: Date;
-      if (phase.endDate) {
-        end = new Date(phase.endDate);
-      } else if (phase.estimatedDuration && phase.startDate) {
-        // Calculate end date based on estimated duration
-        end = new Date(start);
-        end.setDate(start.getDate() + phase.estimatedDuration);
-      } else {
-        // Default to 1 day duration
-        end = new Date(start);
-        end.setDate(start.getDate() + 1);
-      }
-      
-      // Determine color based on status
-      let backgroundColor = "#6b7280";
-      let progressColor = "#4b5563";
-      let backgroundSelectedColor = "#6b7280";
-      let progressSelectedColor = "#4b5563";
-      
-      // Set colors based on status
-      switch (phase.status) {
-        case "planning":
-          backgroundColor = "#3b82f6";
-          progressColor = "#2563eb";
-          backgroundSelectedColor = "#3b82f6";
-          progressSelectedColor = "#2563eb";
-          break;
-        case "pending":
-          backgroundColor = "#f59e0b";
-          progressColor = "#d97706";
-          backgroundSelectedColor = "#f59e0b";
-          progressSelectedColor = "#d97706";
-          break;
-        case "in_progress":
-          backgroundColor = "#10b981";
-          progressColor = "#059669";
-          backgroundSelectedColor = "#10b981";
-          progressSelectedColor = "#059669";
-          break;
-        case "completed":
-          backgroundColor = "#22c55e";
-          progressColor = "#16a34a";
-          backgroundSelectedColor = "#22c55e";
-          progressSelectedColor = "#16a34a";
-          break;
-        case "delayed":
-          backgroundColor = "#ef4444";
-          progressColor = "#dc2626";
-          backgroundSelectedColor = "#ef4444";
-          progressSelectedColor = "#dc2626";
-          break;
-      }
-      
-      // Highlight current phase
-      if (currentPhase === phase.name) {
-        backgroundSelectedColor = "#8b5cf6";
-        progressSelectedColor = "#7c3aed";
-      }
-      
-      // Create the task object
-      const task: Task = {
-        id: `${phase.id}`,
-        name: phase.name,
-        start,
-        end,
-        progress: phase.percentComplete / 100,
-        type: "task" as any,
-        isDisabled: false,
-        styles: {
-          backgroundColor,
-          progressColor,
-          backgroundSelectedColor,
-          progressSelectedColor
-        },
-        dependencies: i > 0 ? [`${phasesCopy[i - 1].id}`] : [],
-        project: "",
-        hideChildren: false
-      };
-      
-      tasks.push(task);
+    // Ensure phases is an array and not empty
+    if (!phases || !Array.isArray(phases) || phases.length === 0) {
+      return;
     }
-  } catch (error) {
-    console.error("Error preparing timeline data:", error);
-    return (
-      <div className="p-8 text-center border rounded-lg bg-muted/10 text-red-500">
-        <p>Error generating timeline visualization. Please try again or contact support.</p>
-        <p className="text-xs mt-2 text-muted-foreground">{String(error)}</p>
-      </div>
-    );
-  }
+    
+    try {
+      const newTasks: Task[] = [];
+      
+      // Create a safe copy of phases with guaranteed array methods
+      const safePhases = [...phases].map(phase => ({
+        ...phase, 
+        // Ensure essential properties have default values
+        id: phase.id || 0,
+        name: phase.name || `Phase ${phase.id || 0}`,
+        order: phase.order || 0,
+        percentComplete: phase.percentComplete || 0,
+        status: phase.status || "pending"
+      }));
+      
+      console.log("Created safePhases:", safePhases);
+      
+      // Sort by order
+      safePhases.sort((a, b) => a.order - b.order);
+      
+      // Map each phase to a Gantt task
+      for (let i = 0; i < safePhases.length; i++) {
+        const phase = safePhases[i];
+        
+        // Handle start date
+        let start: Date;
+        if (phase.startDate) {
+          start = new Date(phase.startDate);
+        } else {
+          // Default start date is today
+          start = new Date();
+        }
+        
+        // Handle end date
+        let end: Date;
+        if (phase.endDate) {
+          end = new Date(phase.endDate);
+        } else if (phase.estimatedDuration && phase.startDate) {
+          // Calculate end date based on estimated duration
+          end = new Date(start);
+          end.setDate(start.getDate() + (phase.estimatedDuration || 1));
+        } else {
+          // Default to 1 day duration
+          end = new Date(start);
+          end.setDate(start.getDate() + 1);
+        }
+        
+        // Determine color based on status
+        let backgroundColor = "#6b7280";
+        let progressColor = "#4b5563";
+        let backgroundSelectedColor = "#6b7280";
+        let progressSelectedColor = "#4b5563";
+        
+        // Set colors based on status
+        switch (phase.status) {
+          case "planning":
+            backgroundColor = "#3b82f6";
+            progressColor = "#2563eb";
+            backgroundSelectedColor = "#3b82f6";
+            progressSelectedColor = "#2563eb";
+            break;
+          case "pending":
+            backgroundColor = "#f59e0b";
+            progressColor = "#d97706";
+            backgroundSelectedColor = "#f59e0b";
+            progressSelectedColor = "#d97706";
+            break;
+          case "in_progress":
+            backgroundColor = "#10b981";
+            progressColor = "#059669";
+            backgroundSelectedColor = "#10b981";
+            progressSelectedColor = "#059669";
+            break;
+          case "completed":
+            backgroundColor = "#22c55e";
+            progressColor = "#16a34a";
+            backgroundSelectedColor = "#22c55e";
+            progressSelectedColor = "#16a34a";
+            break;
+          case "delayed":
+            backgroundColor = "#ef4444";
+            progressColor = "#dc2626";
+            backgroundSelectedColor = "#ef4444";
+            progressSelectedColor = "#dc2626";
+            break;
+        }
+        
+        // Highlight current phase
+        if (currentPhase === phase.name) {
+          backgroundSelectedColor = "#8b5cf6";
+          progressSelectedColor = "#7c3aed";
+        }
+        
+        // Create the task object
+        const task: Task = {
+          id: `${phase.id}`,
+          name: phase.name,
+          start,
+          end,
+          progress: phase.percentComplete / 100,
+          type: "task" as any,
+          isDisabled: false,
+          styles: {
+            backgroundColor,
+            progressColor,
+            backgroundSelectedColor,
+            progressSelectedColor
+          },
+          dependencies: i > 0 ? [`${safePhases[i - 1].id}`] : [],
+          project: "",
+          hideChildren: false
+        };
+        
+        newTasks.push(task);
+      }
+      
+      // Update state with new tasks
+      setTasks(newTasks);
+      
+    } catch (error) {
+      console.error("Error preparing timeline data:", error);
+      setErrorMessage(String(error));
+    }
+  }, [phases, currentPhase]);
   
   // Calculate timeline range for header display
   const getTimelineRange = () => {
@@ -174,6 +187,28 @@ export function ProjectTimeline({ phases, currentPhase }: ProjectTimelineProps) 
     return `${format(minDate, "MMM d, yyyy")} - ${format(maxDate, "MMM d, yyyy")}`;
   };
 
+  // If there's an error, show the error message
+  if (errorMessage) {
+    return (
+      <div className="p-8 text-center border rounded-lg bg-muted/10 text-red-500">
+        <p>Error generating timeline visualization. Please try again or contact support.</p>
+        <p className="text-xs mt-2 text-muted-foreground">{errorMessage}</p>
+      </div>
+    );
+  }
+  
+  // If there are no phases or tasks, show a placeholder
+  if (tasks.length === 0) {
+    return (
+      <div className="p-8 text-center border rounded-lg bg-muted/10">
+        <p className="text-muted-foreground">
+          Not enough timeline data to display. Please add start and end dates to your project phases.
+        </p>
+      </div>
+    );
+  }
+
+  // Render the Gantt chart
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
