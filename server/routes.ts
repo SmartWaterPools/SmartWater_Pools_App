@@ -14,6 +14,7 @@ import {
   insertPoolImageSchema,
   insertServiceTemplateSchema,
   insertProjectPhaseSchema,
+  insertProjectDocumentationSchema,
   validateContractType,
   CONTRACT_TYPES
 } from "@shared/schema";
@@ -1213,6 +1214,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Dashboard summary error:", error);
       res.status(500).json({ message: "Failed to fetch dashboard summary", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
+  // Project Documentation routes
+  app.get("/api/projects/:projectId/documents", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      if (isNaN(projectId)) {
+        return res.status(400).json({ message: "Invalid project ID" });
+      }
+
+      const documents = await storage.getProjectDocumentsByProjectId(projectId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching project documents:", error);
+      res.status(500).json({ message: "Failed to fetch project documents" });
+    }
+  });
+
+  app.get("/api/projects/:projectId/documents/type/:documentType", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      if (isNaN(projectId)) {
+        return res.status(400).json({ message: "Invalid project ID" });
+      }
+
+      const { documentType } = req.params;
+      const documents = await storage.getProjectDocumentsByType(projectId, documentType);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching project documents by type:", error);
+      res.status(500).json({ message: "Failed to fetch project documents" });
+    }
+  });
+
+  app.get("/api/phases/:phaseId/documents", async (req: Request, res: Response) => {
+    try {
+      const phaseId = parseInt(req.params.phaseId);
+      if (isNaN(phaseId)) {
+        return res.status(400).json({ message: "Invalid phase ID" });
+      }
+
+      const documents = await storage.getProjectDocumentsByPhaseId(phaseId);
+      res.json(documents);
+    } catch (error) {
+      console.error("Error fetching phase documents:", error);
+      res.status(500).json({ message: "Failed to fetch phase documents" });
+    }
+  });
+
+  app.get("/api/documents/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      const document = await storage.getProjectDocument(id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error("Error fetching document:", error);
+      res.status(500).json({ message: "Failed to fetch document" });
+    }
+  });
+
+  app.post("/api/projects/:projectId/documents", async (req: Request, res: Response) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      if (isNaN(projectId)) {
+        return res.status(400).json({ message: "Invalid project ID" });
+      }
+
+      // Validate project exists
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Validate document data
+      const documentData = { ...req.body, projectId };
+      const validation = validateRequest(insertProjectDocumentationSchema, documentData);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+
+      // Create document
+      const document = await storage.createProjectDocument(validation.data);
+      res.status(201).json(document);
+    } catch (error) {
+      console.error("Error creating project document:", error);
+      res.status(500).json({ message: "Failed to create project document" });
+    }
+  });
+
+  app.patch("/api/documents/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      // Check document exists
+      const document = await storage.getProjectDocument(id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Update document
+      const updatedDocument = await storage.updateProjectDocument(id, req.body);
+      res.json(updatedDocument);
+    } catch (error) {
+      console.error("Error updating document:", error);
+      res.status(500).json({ message: "Failed to update document" });
+    }
+  });
+
+  app.delete("/api/documents/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid document ID" });
+      }
+
+      // Check document exists
+      const document = await storage.getProjectDocument(id);
+      if (!document) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Delete document
+      const success = await storage.deleteProjectDocument(id);
+      if (success) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete document" });
+      }
+    } catch (error) {
+      console.error("Error deleting document:", error);
+      res.status(500).json({ message: "Failed to delete document" });
     }
   });
 

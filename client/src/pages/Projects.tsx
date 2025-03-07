@@ -234,7 +234,7 @@ export default function Projects() {
                         variant="outline" 
                         size="sm" 
                         className="gap-1"
-                        onClick={() => setSelectedProject(project)}
+                        onClick={() => window.location.href = `/projects/${project.id}`}
                       >
                         <Layers className="h-4 w-4 mr-1" />
                         Details
@@ -354,7 +354,7 @@ export default function Projects() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              onClick={() => setSelectedProject(project)}
+                              onClick={() => window.location.href = `/projects/${project.id}`}
                             >
                               <Layers className="h-4 w-4 mr-1" />
                               Details

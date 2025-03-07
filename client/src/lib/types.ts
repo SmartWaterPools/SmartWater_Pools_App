@@ -11,6 +11,8 @@ export type { PoolEquipment, PoolImage };
 // Enhanced types with relationships
 export interface ClientWithUser extends Client {
   user: User;
+  phone?: string;
+  address?: string;
 }
 
 export interface TechnicianWithUser extends Technician {

@@ -11,7 +11,8 @@ import {
   PoolEquipment, InsertPoolEquipment,
   PoolImage, InsertPoolImage,
   ServiceTemplate, InsertServiceTemplate,
-  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates
+  ProjectDocumentation, InsertProjectDocumentation,
+  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation
 } from "@shared/schema";
 import { and, eq, desc, gte, lte, sql } from "drizzle-orm";
 import { db } from "./db";
@@ -100,6 +101,15 @@ export interface IStorage {
   deleteServiceTemplate(id: number): Promise<boolean>;
   getAllServiceTemplates(): Promise<ServiceTemplate[]>;
   getDefaultServiceTemplate(type: string): Promise<ServiceTemplate | undefined>;
+  
+  // Project Documentation operations
+  getProjectDocument(id: number): Promise<ProjectDocumentation | undefined>;
+  createProjectDocument(document: InsertProjectDocumentation): Promise<ProjectDocumentation>;
+  updateProjectDocument(id: number, document: Partial<ProjectDocumentation>): Promise<ProjectDocumentation | undefined>;
+  deleteProjectDocument(id: number): Promise<boolean>;
+  getProjectDocumentsByProjectId(projectId: number): Promise<ProjectDocumentation[]>;
+  getProjectDocumentsByPhaseId(phaseId: number): Promise<ProjectDocumentation[]>;
+  getProjectDocumentsByType(projectId: number, documentType: string): Promise<ProjectDocumentation[]>;
 }
 
 // In-memory storage implementation
@@ -129,6 +139,8 @@ export class MemStorage implements IStorage {
   private poolImageId: number;
   private serviceTemplates: Map<number, ServiceTemplate>;
   private serviceTemplateId: number;
+  private projectDocuments: Map<number, ProjectDocumentation>;
+  private projectDocumentId: number;
   
   constructor() {
     this.users = new Map();
@@ -143,6 +155,7 @@ export class MemStorage implements IStorage {
     this.poolEquipment = new Map();
     this.poolImages = new Map();
     this.serviceTemplates = new Map();
+    this.projectDocuments = new Map();
     
     this.userId = 1;
     this.clientId = 1;
@@ -156,6 +169,7 @@ export class MemStorage implements IStorage {
     this.poolEquipmentId = 1;
     this.poolImageId = 1;
     this.serviceTemplateId = 1;
+    this.projectDocumentId = 1;
     
     // Add sample data
     this.initSampleData();
@@ -686,6 +700,56 @@ export class MemStorage implements IStorage {
     return Array.from(this.serviceTemplates.values()).find(
       (template) => template.type === type && template.isDefault
     );
+  }
+
+  // Project Documentation operations
+  async getProjectDocument(id: number): Promise<ProjectDocumentation | undefined> {
+    return this.projectDocuments.get(id);
+  }
+
+  async createProjectDocument(document: InsertProjectDocumentation): Promise<ProjectDocumentation> {
+    const id = this.projectDocumentId++;
+    const projectDocument: ProjectDocumentation = {
+      ...document,
+      id,
+      description: document.description ?? null,
+      tags: document.tags ?? [],
+      isPublic: document.isPublic ?? false,
+      uploadDate: document.uploadDate ?? new Date().toISOString()
+    };
+    this.projectDocuments.set(id, projectDocument);
+    return projectDocument;
+  }
+
+  async updateProjectDocument(id: number, data: Partial<ProjectDocumentation>): Promise<ProjectDocumentation | undefined> {
+    const document = await this.getProjectDocument(id);
+    if (!document) return undefined;
+    
+    const updatedDocument = { ...document, ...data };
+    this.projectDocuments.set(id, updatedDocument);
+    return updatedDocument;
+  }
+
+  async deleteProjectDocument(id: number): Promise<boolean> {
+    return this.projectDocuments.delete(id);
+  }
+
+  async getProjectDocumentsByProjectId(projectId: number): Promise<ProjectDocumentation[]> {
+    return Array.from(this.projectDocuments.values())
+      .filter(doc => doc.projectId === projectId)
+      .sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+  }
+
+  async getProjectDocumentsByPhaseId(phaseId: number): Promise<ProjectDocumentation[]> {
+    return Array.from(this.projectDocuments.values())
+      .filter(doc => doc.phaseId === phaseId)
+      .sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+  }
+
+  async getProjectDocumentsByType(projectId: number, documentType: string): Promise<ProjectDocumentation[]> {
+    return Array.from(this.projectDocuments.values())
+      .filter(doc => doc.projectId === projectId && doc.documentType === documentType)
+      .sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
   }
   
   // Initialize sample data for testing
@@ -1530,6 +1594,65 @@ export class DatabaseStorage implements IStorage {
       ));
       
     return template || undefined;
+  }
+  
+  // Project Documentation operations
+  async getProjectDocument(id: number): Promise<ProjectDocumentation | undefined> {
+    const [document] = await db.select()
+      .from(projectDocumentation)
+      .where(eq(projectDocumentation.id, id));
+    return document;
+  }
+
+  async createProjectDocument(document: InsertProjectDocumentation): Promise<ProjectDocumentation> {
+    const [result] = await db.insert(projectDocumentation)
+      .values({
+        ...document,
+        description: document.description ?? null,
+        tags: document.tags ?? [],
+        isPublic: document.isPublic ?? false,
+        uploadDate: document.uploadDate ?? new Date().toISOString()
+      })
+      .returning();
+    return result;
+  }
+
+  async updateProjectDocument(id: number, data: Partial<ProjectDocumentation>): Promise<ProjectDocumentation | undefined> {
+    const [result] = await db.update(projectDocumentation)
+      .set(data)
+      .where(eq(projectDocumentation.id, id))
+      .returning();
+    return result;
+  }
+
+  async deleteProjectDocument(id: number): Promise<boolean> {
+    const result = await db.delete(projectDocumentation)
+      .where(eq(projectDocumentation.id, id));
+    return !!result.count;
+  }
+
+  async getProjectDocumentsByProjectId(projectId: number): Promise<ProjectDocumentation[]> {
+    return await db.select()
+      .from(projectDocumentation)
+      .where(eq(projectDocumentation.projectId, projectId))
+      .orderBy(desc(projectDocumentation.uploadDate));
+  }
+
+  async getProjectDocumentsByPhaseId(phaseId: number): Promise<ProjectDocumentation[]> {
+    return await db.select()
+      .from(projectDocumentation)
+      .where(eq(projectDocumentation.phaseId, phaseId))
+      .orderBy(desc(projectDocumentation.uploadDate));
+  }
+
+  async getProjectDocumentsByType(projectId: number, documentType: string): Promise<ProjectDocumentation[]> {
+    return await db.select()
+      .from(projectDocumentation)
+      .where(and(
+        eq(projectDocumentation.projectId, projectId),
+        eq(projectDocumentation.documentType, documentType)
+      ))
+      .orderBy(desc(projectDocumentation.uploadDate));
   }
 }
 
