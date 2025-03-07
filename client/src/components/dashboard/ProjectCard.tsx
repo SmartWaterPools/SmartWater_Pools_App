@@ -21,8 +21,8 @@ export function ProjectCard({ project }: ProjectCardProps) {
     ? `${format(startDate, "MMM d")} - ${format(endDate, "MMM d, yyyy")}`
     : `${format(startDate, "MMM d, yyyy")}`;
   
-  // For now, we'll use a fixed progress value since 'completion' is not in the schema
-  const progress = 0;
+  // Use the completion property from the project
+  const progress = project.completion || 0;
   
   return (
     <Card className="overflow-hidden">

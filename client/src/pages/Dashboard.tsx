@@ -27,11 +27,38 @@ import {
 } from "@/lib/types";
 
 export default function Dashboard() {
-  const { data: dashboardData, isLoading } = useQuery({
+  // Use explicit 'any' type to avoid TypeScript errors with dynamic data
+  const { data: apiData, isLoading } = useQuery<any>({
     queryKey: ["/api/dashboard/summary"],
   });
   
-  const summary = dashboardData as DashboardSummary | undefined;
+  // Create a more safely typed summary with defaults for missing values
+  const summary: DashboardSummary = {
+    metrics: {
+      activeProjects: apiData?.metrics?.activeProjects || 0,
+      maintenanceThisWeek: apiData?.metrics?.maintenanceThisWeek || 0,
+      pendingRepairs: apiData?.metrics?.pendingRepairs || 0,
+      totalClients: apiData?.metrics?.totalClients || 0
+    },
+    recentProjects: Array.isArray(apiData?.recentProjects) 
+      ? apiData.recentProjects.map((project: any) => ({
+          ...project,
+          // Default values for potentially missing fields
+          completion: project.percentComplete || 0,
+          deadline: project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate) : new Date(),
+          startDate: project.startDate ? new Date(project.startDate) : new Date(),
+          estimatedCompletionDate: project.estimatedCompletionDate || project.startDate,
+          projectType: project.projectType || "construction",
+          assignments: project.assignments || [],
+        }))
+      : [],
+    upcomingMaintenances: Array.isArray(apiData?.upcomingMaintenances) 
+      ? apiData.upcomingMaintenances 
+      : [],
+    recentRepairs: Array.isArray(apiData?.recentRepairs) 
+      ? apiData.recentRepairs 
+      : []
+  };
   
   return (
     <div>

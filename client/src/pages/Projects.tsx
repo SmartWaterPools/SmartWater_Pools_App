@@ -40,9 +40,21 @@ export default function Projects() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<ProjectWithDetails | null>(null);
 
-  const { data: projects, isLoading } = useQuery<ProjectWithDetails[]>({
+  const { data: rawProjects, isLoading } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
+
+  // Process projects to ensure they have all required fields
+  const projects: ProjectWithDetails[] | undefined = rawProjects?.map(project => ({
+    ...project,
+    // Default values for potentially missing fields
+    completion: project.percentComplete || 0,
+    deadline: project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate) : new Date(),
+    startDate: project.startDate ? new Date(project.startDate) : new Date(),
+    estimatedCompletionDate: project.estimatedCompletionDate || project.startDate,
+    projectType: project.projectType || "construction",
+    assignments: project.assignments || [],
+  }));
 
   const filteredProjects = projects?.filter(project => {
     if (!project) return false;
