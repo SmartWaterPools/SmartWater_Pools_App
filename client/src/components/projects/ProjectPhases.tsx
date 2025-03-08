@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle, BarChart2 } from "lucide-react";
+import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle, BarChart2, FileText } from "lucide-react";
+import { getTemplateByKey, getTemplateOptions, PhaseTemplate } from "@/lib/phaseTemplates";
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
@@ -130,6 +131,8 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
   const queryClient = useQueryClient();
   const [editingPhase, setEditingPhase] = useState<ProjectPhase | null>(null);
   const [showAddPhaseDialog, setShowAddPhaseDialog] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
 
   // Fetch project phases
   const { data: phases = [], isLoading } = useQuery<ProjectPhase[]>({
@@ -282,6 +285,65 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
   function onAddSubmit(values: PhaseFormValues) {
     addPhaseMutation.mutate(values);
   }
+  
+  // Mutation for applying a template (creating multiple phases from a template)
+  const applyTemplateMutation = useMutation({
+    mutationFn: async (templateKey: string) => {
+      const template = getTemplateByKey(templateKey);
+      
+      if (!template) {
+        throw new Error("Template not found");
+      }
+      
+      // Create a promise for each phase in the template
+      const promises = template.phases.map(async (phaseTemplate, index) => {
+        const phaseData = {
+          name: phaseTemplate.name,
+          description: phaseTemplate.description,
+          status: "pending" as const,
+          percentComplete: 0,
+          projectId,
+          order: index + 1 + phases.length, // Add to the end of existing phases
+          permitRequired: phaseTemplate.permitRequired || false,
+          inspectionRequired: phaseTemplate.inspectionRequired || false,
+          estimatedDuration: phaseTemplate.estimatedDuration,
+        };
+        
+        return await makeRequest<ProjectPhase>({
+          url: "/api/project-phases",
+          method: "POST",
+          data: phaseData
+        });
+      });
+      
+      // Wait for all phases to be created
+      return await Promise.all(promises);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Template phases added successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "phases"] });
+      setShowTemplateDialog(false);
+      setSelectedTemplate("");
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to apply template",
+        variant: "destructive",
+      });
+      console.error("Template application failed:", error);
+    },
+  });
+  
+  // Handle template selection and application
+  function applyTemplate() {
+    if (selectedTemplate) {
+      applyTemplateMutation.mutate(selectedTemplate);
+    }
+  }
 
   // Update project to set current phase
   const updateCurrentPhaseMutation = useMutation({
@@ -378,10 +440,16 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Project Phases</h3>
-        <Button onClick={() => setShowAddPhaseDialog(true)} size="sm">
-          <Plus className="w-4 h-4 mr-1" />
-          Add Phase
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setShowTemplateDialog(true)} size="sm" variant="outline">
+            <FileText className="w-4 h-4 mr-1" />
+            Use Template
+          </Button>
+          <Button onClick={() => setShowAddPhaseDialog(true)} size="sm">
+            <Plus className="w-4 h-4 mr-1" />
+            Add Phase
+          </Button>
+        </div>
       </div>
 
       {!phases || phases.length === 0 ? (
@@ -1215,6 +1283,90 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
               </DialogFooter>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Template Selection Dialog */}
+      <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Project Phase Template</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Choose a template to add standardized phases to your project
+            </p>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Template</label>
+              <Select
+                value={selectedTemplate}
+                onValueChange={setSelectedTemplate}
+                disabled={applyTemplateMutation.isPending}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a template" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getTemplateOptions().map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedTemplate && (
+              <div className="bg-muted/20 rounded-lg p-4 mt-4">
+                <h4 className="font-medium mb-2">Template Preview</h4>
+                <div className="text-sm text-muted-foreground mb-3">
+                  {getTemplateByKey(selectedTemplate)?.description}
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                  {getTemplateByKey(selectedTemplate)?.phases.map((phase, index) => (
+                    <div key={index} className="border rounded p-2 bg-background">
+                      <div className="font-medium">{phase.name}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{phase.description}</div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {phase.estimatedDuration && (
+                          <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                            {phase.estimatedDuration} days
+                          </span>
+                        )}
+                        {phase.permitRequired && (
+                          <span className="text-xs bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded flex items-center">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Permit
+                          </span>
+                        )}
+                        {phase.inspectionRequired && (
+                          <span className="text-xs bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded flex items-center">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Inspection
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowTemplateDialog(false)}
+              disabled={applyTemplateMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={applyTemplate} 
+              disabled={!selectedTemplate || applyTemplateMutation.isPending}
+            >
+              {applyTemplateMutation.isPending ? "Adding Phases..." : "Apply Template"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
