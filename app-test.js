@@ -1,46 +1,45 @@
-// A simple test server using ES modules
+// Standalone test server for Cloud Run deployment verification
+// This script runs a minimal server that follows Cloud Run requirements
+// Execute with: PORT=8080 node app-test.js
+
 import express from 'express';
-import { createServer } from 'http';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import http from 'http';
 
-// Setup __dirname equivalent in ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Create express app and HTTP server
+// Create Express app
 const app = express();
-const server = createServer(app);
+const port = process.env.PORT || 8080;
 
-// Basic middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Simple API endpoint
-app.get('/api/status', (req, res) => {
-  res.json({
-    status: 'ok',
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
+// Basic health check endpoint
+app.get('/', (req, res) => {
+  res.status(200).send({
+    status: 'healthy',
     environment: process.env.NODE_ENV || 'development',
-    port: process.env.PORT || '8080'
+    port: port,
+    message: 'Cloud Run test server running successfully'
   });
 });
 
-// Serve static files from the current directory
-app.use(express.static(__dirname));
+// Create HTTP server
+const server = http.createServer(app);
 
-// Catch-all route to serve the test HTML
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'test.html'));
+// Handle graceful shutdown (required for Cloud Run)
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+  
+  // Force close after 10s if still not closed
+  setTimeout(() => {
+    console.log('Forcing server shutdown after timeout');
+    process.exit(1);
+  }, 10000);
 });
 
-// Determine port based on environment
-const PORT = process.env.PORT || 8080; // Default to 8080 for Cloud Run compatibility
-
-// Start server
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Test server running on port ${PORT}`);
-  console.log(`Local access: http://localhost:${PORT}`);
-  console.log(`Network access: http://0.0.0.0:${PORT}`);
+// Start the server
+server.listen(port, '0.0.0.0', () => {
+  console.log(`Test server running at http://0.0.0.0:${port}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`PORT environment variable: ${process.env.PORT || 'not set, using default 8080'}`);
 });

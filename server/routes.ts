@@ -41,6 +41,17 @@ const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boo
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Health check endpoint for Cloud Run deployment verification
+  app.get("/api/health", (_req: Request, res: Response) => {
+    res.status(200).json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      service: "SmartWater Pools Management System",
+      database: process.env.DATABASE_URL ? "configured" : "not configured"
+    });
+  });
+
   // User routes
   app.get("/api/users", async (_req: Request, res: Response) => {
     try {
