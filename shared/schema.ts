@@ -137,9 +137,27 @@ export const projectPhases = pgTable("project_phases", {
   inspectionNotes: text("inspection_notes"), // Notes from the inspection
 });
 
-export const insertProjectPhaseSchema = createInsertSchema(projectPhases).omit({
-  id: true,
-});
+// Create a modified insert schema for project phases that properly handles optional numeric fields
+export const insertProjectPhaseSchema = createInsertSchema(projectPhases)
+  .omit({
+    id: true,
+  })
+  .transform((data) => {
+    // Convert null values to undefined for optional number fields to avoid validation errors
+    const result = { ...data };
+    
+    // Explicitly handle optional numeric fields
+    if (result.estimatedDuration === null) result.estimatedDuration = undefined;
+    if (result.actualDuration === null) result.actualDuration = undefined;
+    if (result.cost === null) result.cost = undefined;
+    
+    // Handle optional date fields
+    if (result.startDate === null) result.startDate = undefined;
+    if (result.endDate === null) result.endDate = undefined;
+    if (result.inspectionDate === null) result.inspectionDate = undefined;
+    
+    return result;
+  });
 
 // Phase resources - equipment, materials needed for a phase
 export const phaseResources = pgTable("phase_resources", {

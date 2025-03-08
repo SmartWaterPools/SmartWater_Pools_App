@@ -297,17 +297,21 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
       
       // Create a promise for each phase in the template
       const promises = template.phases.map(async (phaseTemplate, index) => {
+        // Only include required fields + fields present in the template
+        // Let the schema transform handle null values properly for validation
         const phaseData = {
           name: phaseTemplate.name,
-          description: phaseTemplate.description,
+          description: phaseTemplate.description || "",
           status: "pending" as const,
           percentComplete: 0,
           projectId,
           order: index + 1 + phases.length, // Add to the end of existing phases
           permitRequired: phaseTemplate.permitRequired || false,
           inspectionRequired: phaseTemplate.inspectionRequired || false,
-          estimatedDuration: phaseTemplate.estimatedDuration,
+          estimatedDuration: phaseTemplate.estimatedDuration || 0, // Default to 0 if not provided
         };
+        
+        console.log(`Creating phase from template: ${phaseTemplate.name}`, phaseData);
         
         return await makeRequest<ProjectPhase>({
           url: "/api/project-phases",
