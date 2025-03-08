@@ -1,11 +1,16 @@
-// A simple test server using CommonJS
-const express = require('express');
-const http = require('http');
-const path = require('path');
+// A simple test server using ES modules
+import express from 'express';
+import { createServer } from 'http';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Setup __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Create express app and HTTP server
 const app = express();
-const server = http.createServer(app);
+const server = createServer(app);
 
 // Basic middleware
 app.use(express.json());
@@ -17,7 +22,8 @@ app.get('/api/status', (req, res) => {
     status: 'ok',
     message: 'Server is running',
     timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development'
+    environment: process.env.NODE_ENV || 'development',
+    port: process.env.PORT || '8080'
   });
 });
 

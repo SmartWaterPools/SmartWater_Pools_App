@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartWater Pools - Port Redirect</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f7ff;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      width: 90%;
+    }
+    h1 {
+      color: #0284c7;
+      margin-bottom: 1rem;
+    }
+    .button-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 2rem;
+    }
+    .button {
+      padding: 0.75rem 1.5rem;
+      background-color: #0284c7;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      font-weight: bold;
+      display: block;
+    }
+    .button:hover {
+      background-color: #0369a1;
+    }
+    .button.secondary {
+      background-color: #64748b;
+    }
+    .button.secondary:hover {
+      background-color: #475569;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>SmartWater Pools Management System</h1>
+    <p>This page helps you access the application on different ports.</p>
+    <p>Please select the appropriate version to access:</p>
+    
+    <div class="button-group">
+      <a href="http://0.0.0.0:5000" class="button">Development Version (Port 5000)</a>
+      <a href="http://0.0.0.0:8080" class="button">Production Version (Port 8080)</a>
+      <a id="checkStatusButton" href="#" class="button secondary">Check Server Status</a>
+    </div>
+    
+    <div id="statusContainer" style="margin-top: 2rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 4px; display: none;">
+      <h3>Server Status</h3>
+      <div id="statusContent">Checking...</div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('checkStatusButton').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const statusContainer = document.getElementById('statusContainer');
+      const statusContent = document.getElementById('statusContent');
+      
+      statusContainer.style.display = 'block';
+      statusContent.innerHTML = 'Checking server status...';
+      
+      try {
+        // Try Port 5000
+        try {
+          const response5000 = await fetch('http://0.0.0.0:5000/api/status', { timeout: 2000 });
+          const data5000 = await response5000.json();
+          statusContent.innerHTML += `<p>✅ Port 5000: ${data5000.status || 'OK'}</p>`;
+        } catch (error) {
+          statusContent.innerHTML += `<p>❌ Port 5000: Not available</p>`;
+        }
+        
+        // Try Port 8080
+        try {
+          const response8080 = await fetch('http://0.0.0.0:8080/api/status', { timeout: 2000 });
+          const data8080 = await response8080.json();
+          statusContent.innerHTML += `<p>✅ Port 8080: ${data8080.status || 'OK'}</p>`;
+        } catch (error) {
+          statusContent.innerHTML += `<p>❌ Port 8080: Not available</p>`;
+        }
+      } catch (error) {
+        statusContent.innerHTML = `Error checking status: ${error.message}`;
+      }
+    });
+  </script>
+</body>
+</html>

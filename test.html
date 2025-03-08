@@ -1,29 +1,124 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Test Server Connection</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartWater Pools - Test Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f0f7ff;
+    }
+    .container {
+      text-align: center;
+      padding: 2rem;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      max-width: 600px;
+      width: 90%;
+    }
+    h1 {
+      color: #0284c7;
+      margin-bottom: 1rem;
+    }
+    .status {
+      padding: 1rem;
+      margin: 1rem 0;
+      border-radius: 4px;
+      background-color: #f0f9ff;
+      border: 1px solid #bae6fd;
+    }
+    .buttons {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+      margin-top: 1.5rem;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      background-color: #0284c7;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background-color: #0369a1;
+    }
+    .link-button {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background-color: #0284c7;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      text-decoration: none;
+      margin-top: 1rem;
+    }
+    .link-button:hover {
+      background-color: #0369a1;
+    }
+  </style>
 </head>
 <body>
-  <h1>Test Server Connection</h1>
-  <div id="result">Testing connection to server...</div>
+  <div class="container">
+    <h1>SmartWater Pools Management System</h1>
+    <p>This test page confirms that the server is running and accessible.</p>
+    <div class="status" id="status-container">
+      Checking server status...
+    </div>
+    <p>The main application is running on port 5000. You can access it using the button below:</p>
+    <a href="http://0.0.0.0:5000" class="link-button">Go to Main Application</a>
+    <div class="buttons">
+      <button id="check-status">Check Server Status</button>
+      <button id="refresh-page">Refresh Page</button>
+    </div>
+  </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      const resultDiv = document.getElementById('result');
+    // Function to check the server status
+    async function checkServerStatus() {
       try {
-        const response = await fetch('/api/dashboard/summary');
-        if (response.ok) {
-          const data = await response.json();
-          resultDiv.innerHTML = `
-            <p>Connection successful!</p>
-            <p>Response data: ${JSON.stringify(data, null, 2)}</p>
-          `;
-        } else {
-          resultDiv.innerHTML = `Connection failed with status: ${response.status}`;
+        const statusContainer = document.getElementById('status-container');
+        statusContainer.innerHTML = 'Checking server status...';
+        
+        const response = await fetch('/api/status');
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
         }
+        
+        const data = await response.json();
+        statusContainer.innerHTML = `
+          <strong>Server Status:</strong> ${data.status}<br>
+          <strong>Message:</strong> ${data.message}<br>
+          <strong>Timestamp:</strong> ${data.timestamp}<br>
+          <strong>Environment:</strong> ${data.environment}
+        `;
       } catch (error) {
-        resultDiv.innerHTML = `Error connecting to server: ${error.message}`;
+        const statusContainer = document.getElementById('status-container');
+        statusContainer.innerHTML = `
+          <strong>Error:</strong> Could not connect to server.<br>
+          ${error.message}
+        `;
       }
+    }
+
+    // Check status on page load
+    document.addEventListener('DOMContentLoaded', checkServerStatus);
+
+    // Setup button event listeners
+    document.getElementById('check-status').addEventListener('click', checkServerStatus);
+    document.getElementById('refresh-page').addEventListener('click', () => {
+      window.location.reload();
     });
   </script>
 </body>

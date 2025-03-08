@@ -57,22 +57,32 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use environment variable PORT for Cloud Run compatibility 
-  // Default to 8080 for production (deployment) and 5000 for development
+  // Enhanced Cloud Run compatibility
+  // Use environment variable PORT if available (required for Cloud Run)
+  // Otherwise use 8080 for production and 5000 for development
   const isProduction = process.env.NODE_ENV === 'production';
   const defaultPort = isProduction ? 8080 : 5000;
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : defaultPort;
   
-  // Simple server setup with proper error handling
+  // Enhanced server setup with proper error handling for Cloud Run compatibility
   const startServer = (port: number) => {
     return server.listen({
       port,
-      host: "0.0.0.0",
-      reusePort: true,
+      host: "0.0.0.0", // Bind to all network interfaces for both local and production
     }, () => {
-      log(`serving on port ${port} - Environment: ${isProduction ? 'production' : 'development'}`);
-      log(`Access at http://localhost:${port}`);
+      log(`Server running on port ${port} - Environment: ${isProduction ? 'production' : 'development'}`);
+      log(`Local access URL: http://localhost:${port}`);
+      log(`Network access URL: http://0.0.0.0:${port}`);
+      log(`Cloud Run will use PORT env var: ${process.env.PORT || 'not set, will use default'}`);
     }).on('error', (error: any) => {
+      // If port is already in use and we're in development, try alternative port
+      if (error.code === 'EADDRINUSE' && !isProduction) {
+        log(`Port ${port} is already in use, trying alternative port...`);
+        // For development, try the other common port if main port is unavailable
+        const alternativePort = port === 5000 ? 8080 : 5000;
+        return startServer(alternativePort);
+      }
+      
       log(`Error starting server: ${error.message}`);
       process.exit(1); // Exit with error code so workflow can restart properly
     });
