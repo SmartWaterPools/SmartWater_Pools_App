@@ -744,7 +744,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
 
       {/* Edit Phase Dialog */}
       <Dialog open={!!editingPhase} onOpenChange={(open) => !open && setEditingPhase(null)}>
-        <DialogContent>
+        <DialogContent className="w-[95%] max-w-[500px] p-4 md:p-6 overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Edit Project Phase</DialogTitle>
           </DialogHeader>
@@ -1110,7 +1110,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
 
       {/* Add Phase Dialog */}
       <Dialog open={showAddPhaseDialog} onOpenChange={setShowAddPhaseDialog}>
-        <DialogContent>
+        <DialogContent className="w-[95%] max-w-[500px] p-4 md:p-6 overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Add New Project Phase</DialogTitle>
           </DialogHeader>
@@ -1382,7 +1382,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
 
       {/* Template Selection Dialog */}
       <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
-        <DialogContent>
+        <DialogContent className="w-[95%] max-w-[500px] p-4 md:p-6 overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Select Project Phase Template</DialogTitle>
             <p className="text-sm text-muted-foreground mt-2">

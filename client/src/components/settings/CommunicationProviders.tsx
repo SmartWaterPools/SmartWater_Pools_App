@@ -467,7 +467,7 @@ export function CommunicationProviders() {
                                     <Trash className="h-4 w-4" />
                                   </Button>
                                 </AlertDialogTrigger>
-                                <AlertDialogContent>
+                                <AlertDialogContent className="w-[95%] max-w-[500px] p-4 md:p-6">
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>
                                       Delete {provider.name}?
@@ -476,8 +476,8 @@ export function CommunicationProviders() {
                                       This will permanently remove this provider. This action cannot be undone.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+                                    <AlertDialogCancel className="mt-0">Cancel</AlertDialogCancel>
                                     <AlertDialogAction
                                       onClick={() => handleDeleteProvider(provider.id)}
                                       className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -515,7 +515,7 @@ export function CommunicationProviders() {
 
       {/* Create provider modal */}
       <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95%] max-w-[500px] p-4 md:p-6 overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Add New Provider</DialogTitle>
             <DialogDescription>
@@ -915,7 +915,7 @@ export function CommunicationProviders() {
 
       {/* Edit provider modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95%] max-w-[500px] p-4 md:p-6 overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Edit Provider</DialogTitle>
             <DialogDescription>
