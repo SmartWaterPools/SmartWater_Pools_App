@@ -45,7 +45,7 @@ const MAINTENANCE_TYPES = [
   "winterization",
   "opening",
   "green_pool_treatment",
-] as const;
+];
 
 // Form validation schema
 const maintenanceFormSchema = z.object({
@@ -58,7 +58,7 @@ const maintenanceFormSchema = z.object({
   scheduleDate: z.date({
     required_error: "Please select a date",
   }),
-  type: z.enum(MAINTENANCE_TYPES, {
+  type: z.string({
     required_error: "Please select a maintenance type",
   }),
   notes: z.string().optional(),
@@ -93,6 +93,7 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
       scheduleDate: initialDate || new Date(),
       notes: "",
     },
+    mode: "onChange", // Add this to validate on change
   });
 
   // Create maintenance mutation
@@ -122,8 +123,25 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
 
   // Form submission handler
   function onSubmit(data: MaintenanceFormValues) {
+    // Ensure date is valid before submitting
+    if (!data.scheduleDate) {
+      form.setError("scheduleDate", {
+        type: "manual",
+        message: "Please select a date",
+      });
+      return;
+    }
+    
+    // Convert date to ISO string for backend processing
+    const formattedData = {
+      ...data,
+      scheduleDate: new Date(data.scheduleDate)
+    };
+    
+    console.log("Submitting maintenance with date:", formattedData.scheduleDate);
+    
     setIsSubmitting(true);
-    createMaintenanceMutation.mutate(data, {
+    createMaintenanceMutation.mutate(formattedData, {
       onSettled: () => {
         setIsSubmitting(false);
       }
@@ -131,7 +149,7 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
   }
 
   // Format maintenance type for display
-  const formatMaintenanceType = (type: string) => {
+  const formatMaintenanceType = (type: string): string => {
     return type
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -228,8 +246,14 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
                       <Calendar
                         mode="single"
                         selected={field.value}
-                        onSelect={field.onChange}
+                        onSelect={(date) => {
+                          if (date) {
+                            field.onChange(date);
+                            form.trigger("scheduleDate"); // Force validation
+                          }
+                        }}
                         initialFocus
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                       />
                     </PopoverContent>
                   </Popover>
@@ -254,7 +278,7 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {MAINTENANCE_TYPES.map((type) => (
+                      {MAINTENANCE_TYPES.map((type: string) => (
                         <SelectItem key={type} value={type}>
                           {formatMaintenanceType(type)}
                         </SelectItem>
