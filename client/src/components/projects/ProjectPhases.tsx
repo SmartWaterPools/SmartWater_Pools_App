@@ -809,6 +809,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           type="number"
                           min="0"
                           max="100"
+                          className="w-full"
                           disabled={updatePhaseMutation.isPending}
                           {...field}
                           onChange={(e) => field.onChange(Number(e.target.value))}
@@ -878,6 +879,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           type="number"
                           min="0"
                           placeholder="0"
+                          className="w-full"
                           disabled={updatePhaseMutation.isPending}
                           {...field}
                           value={field.value === undefined ? "" : field.value}
@@ -899,6 +901,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           type="number"
                           min="0"
                           placeholder="0"
+                          className="w-full"
                           disabled={updatePhaseMutation.isPending}
                           {...field}
                           value={field.value === undefined ? "" : field.value}
@@ -923,6 +926,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           type="number"
                           min="0"
                           placeholder="0"
+                          className="w-full"
                           disabled={updatePhaseMutation.isPending}
                           {...field}
                           value={field.value === undefined ? "" : field.value}
@@ -1171,6 +1175,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           type="number"
                           min="0"
                           max="100"
+                          className="w-full"
                           disabled={addPhaseMutation.isPending}
                           {...field}
                           onChange={(e) => field.onChange(Number(e.target.value))}
@@ -1240,6 +1245,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           type="number"
                           min="0"
                           placeholder="0"
+                          className="w-full"
                           disabled={addPhaseMutation.isPending}
                           {...field}
                           value={field.value === undefined ? "" : field.value}
@@ -1261,6 +1267,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           type="number"
                           min="0"
                           placeholder="0"
+                          className="w-full"
                           disabled={addPhaseMutation.isPending}
                           {...field}
                           value={field.value === undefined ? "" : field.value}

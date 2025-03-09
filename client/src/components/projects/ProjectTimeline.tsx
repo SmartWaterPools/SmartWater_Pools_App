@@ -69,6 +69,10 @@ export function ProjectTimeline({ phases, currentPhase }: ProjectTimelineProps) 
       // Sort by order
       safePhases.sort((a, b) => a.order - b.order);
       
+      // If no phase has a start date, we need to set relative dates
+      const hasDefinedDates = safePhases.some(phase => phase.startDate);
+      const projectStartDate = new Date(); // Default to today
+      
       // Map each phase to a Gantt task
       for (let i = 0; i < safePhases.length; i++) {
         const phase = safePhases[i];
@@ -76,17 +80,29 @@ export function ProjectTimeline({ phases, currentPhase }: ProjectTimelineProps) 
         // Handle start date
         let start: Date;
         if (phase.startDate) {
+          // Use the defined start date if available
           start = new Date(phase.startDate);
+        } else if (!hasDefinedDates && i > 0 && newTasks.length > 0) {
+          // If this is a template with no dates, calculate based on previous phase + duration
+          // Make sure we have previous tasks before referencing them
+          const prevTask = newTasks[i - 1];
+          if (prevTask && prevTask.end) {
+            start = new Date(prevTask.end);
+          } else {
+            // Fallback to today + i days to create a sequential timeline
+            start = new Date(projectStartDate);
+            start.setDate(start.getDate() + i);
+          }
         } else {
-          // Default start date is today
-          start = new Date();
+          // First phase with no date starts today
+          start = new Date(projectStartDate);
         }
         
         // Handle end date
         let end: Date;
         if (phase.endDate) {
           end = new Date(phase.endDate);
-        } else if (phase.estimatedDuration && phase.startDate) {
+        } else if (phase.estimatedDuration) {
           // Calculate end date based on estimated duration
           end = new Date(start);
           end.setDate(start.getDate() + (phase.estimatedDuration || 1));
@@ -174,17 +190,32 @@ export function ProjectTimeline({ phases, currentPhase }: ProjectTimelineProps) 
     }
   }, [phases, currentPhase]);
   
-  // Calculate timeline range for header display
+  // Calculate timeline range for header display with error handling
   const getTimelineRange = () => {
     if (tasks.length === 0) return "No timeline data";
     
-    const startDates = tasks.map(t => t.start);
-    const endDates = tasks.map(t => t.end);
-    
-    const minDate = new Date(Math.min(...startDates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...endDates.map(d => d.getTime())));
-    
-    return `${format(minDate, "MMM d, yyyy")} - ${format(maxDate, "MMM d, yyyy")}`;
+    try {
+      const startDates = tasks.map(t => t.start);
+      const endDates = tasks.map(t => t.end);
+      
+      // Ensure we have valid dates before processing
+      if (startDates.some(d => !d) || endDates.some(d => !d)) {
+        return "Date range unavailable";
+      }
+      
+      const minDate = new Date(Math.min(...startDates.map(d => d.getTime())));
+      const maxDate = new Date(Math.max(...endDates.map(d => d.getTime())));
+      
+      // Additional validation to ensure dates are valid
+      if (isNaN(minDate.getTime()) || isNaN(maxDate.getTime())) {
+        return "Invalid date range";
+      }
+      
+      return `${format(minDate, "MMM d, yyyy")} - ${format(maxDate, "MMM d, yyyy")}`;
+    } catch (error) {
+      console.error("Error calculating timeline range:", error);
+      return "Unable to calculate date range";
+    }
   };
 
   // If there's an error, show the error message
