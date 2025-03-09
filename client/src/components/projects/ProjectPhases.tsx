@@ -204,13 +204,51 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
     mutationFn: async (values: PhaseFormValues & { id: number }) => {
       const { id, ...data } = values;
       
-      // Format dates for API
-      const formattedData = {
-        ...data,
-        startDate: data.startDate ? data.startDate.toISOString().split('T')[0] : null,
-        endDate: data.endDate ? data.endDate.toISOString().split('T')[0] : null,
-        inspectionDate: data.inspectionDate ? data.inspectionDate.toISOString().split('T')[0] : null,
+      // Start with required data
+      const baseData = {
+        name: data.name,
+        status: data.status,
+        percentComplete: data.percentComplete
       };
+      
+      // Build data object carefully
+      const formattedData: Record<string, any> = { ...baseData };
+      
+      // Add optional string fields if they have content
+      if (data.description) formattedData.description = data.description;
+      if (data.notes) formattedData.notes = data.notes;
+      if (data.inspectionNotes) formattedData.inspectionNotes = data.inspectionNotes;
+      
+      // Add optional date fields with proper formatting or omit them
+      if (data.startDate) {
+        formattedData.startDate = data.startDate.toISOString().split('T')[0];
+      }
+      if (data.endDate) {
+        formattedData.endDate = data.endDate.toISOString().split('T')[0];
+      }
+      if (data.inspectionDate) {
+        formattedData.inspectionDate = data.inspectionDate.toISOString().split('T')[0];
+      }
+      
+      // Add optional numeric fields only if they have values
+      if (typeof data.estimatedDuration === 'number') {
+        formattedData.estimatedDuration = data.estimatedDuration;
+      }
+      if (typeof data.actualDuration === 'number') {
+        formattedData.actualDuration = data.actualDuration;
+      }
+      if (typeof data.cost === 'number') {
+        formattedData.cost = data.cost;
+      }
+      
+      // Add boolean fields explicitly
+      formattedData.permitRequired = data.permitRequired === true;
+      formattedData.inspectionRequired = data.inspectionRequired === true;
+      if (data.inspectionPassed !== undefined) {
+        formattedData.inspectionPassed = data.inspectionPassed;
+      }
+      
+      console.log(`Updating phase ${id} with data:`, JSON.stringify(formattedData));
       
       return await makeRequest<ProjectPhase>({
         url: `/api/project-phases/${id}`,
@@ -239,15 +277,53 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
   // Mutation for adding a new phase
   const addPhaseMutation = useMutation({
     mutationFn: async (values: PhaseFormValues) => {
-      // Format dates for API
-      const formattedData = {
-        ...values,
+      // Start with base data that definitely needs to be included
+      const baseData = {
+        name: values.name,
+        status: values.status,
         projectId,
-        order: phases.length + 1, // Set order to be after existing phases
-        startDate: values.startDate ? values.startDate.toISOString().split('T')[0] : null,
-        endDate: values.endDate ? values.endDate.toISOString().split('T')[0] : null,
-        inspectionDate: values.inspectionDate ? values.inspectionDate.toISOString().split('T')[0] : null,
+        order: phases.length + 1, // Set order to be after existing phases - critical field
+        percentComplete: values.percentComplete
       };
+      
+      // Build data object carefully to avoid sending null/undefined for optional values
+      const formattedData: Record<string, any> = { ...baseData };
+      
+      // Add optional string fields if they have content
+      if (values.description) formattedData.description = values.description;
+      if (values.notes) formattedData.notes = values.notes;
+      if (values.inspectionNotes) formattedData.inspectionNotes = values.inspectionNotes;
+      
+      // Add optional date fields with proper formatting or omit them
+      if (values.startDate) {
+        formattedData.startDate = values.startDate.toISOString().split('T')[0];
+      }
+      if (values.endDate) {
+        formattedData.endDate = values.endDate.toISOString().split('T')[0];
+      }
+      if (values.inspectionDate) {
+        formattedData.inspectionDate = values.inspectionDate.toISOString().split('T')[0];
+      }
+      
+      // Add optional numeric fields only if they have values
+      if (typeof values.estimatedDuration === 'number') {
+        formattedData.estimatedDuration = values.estimatedDuration;
+      }
+      if (typeof values.actualDuration === 'number') {
+        formattedData.actualDuration = values.actualDuration;
+      }
+      if (typeof values.cost === 'number') {
+        formattedData.cost = values.cost;
+      }
+      
+      // Add boolean fields explicitly to avoid null/undefined
+      formattedData.permitRequired = values.permitRequired === true;
+      formattedData.inspectionRequired = values.inspectionRequired === true;
+      if (values.inspectionPassed !== undefined) {
+        formattedData.inspectionPassed = values.inspectionPassed;
+      }
+      
+      console.log("Adding new phase with data:", JSON.stringify(formattedData));
       
       return await makeRequest<ProjectPhase>({
         url: "/api/project-phases",
@@ -295,23 +371,30 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
         throw new Error("Template not found");
       }
       
+      const currentPhasesCount = Array.isArray(phases) ? phases.length : 0;
+      
       // Create a promise for each phase in the template
       const promises = template.phases.map(async (phaseTemplate, index) => {
-        // Only include required fields + fields present in the template
-        // Let the schema transform handle null values properly for validation
+        // Ensure proper handling of properties, especially numeric fields
+        // Include only what's needed and be explicit about types
         const phaseData = {
           name: phaseTemplate.name,
           description: phaseTemplate.description || "",
           status: "pending" as const,
           percentComplete: 0,
           projectId,
-          order: index + 1 + phases.length, // Add to the end of existing phases
-          permitRequired: phaseTemplate.permitRequired || false,
-          inspectionRequired: phaseTemplate.inspectionRequired || false,
-          estimatedDuration: phaseTemplate.estimatedDuration || 0, // Default to 0 if not provided
+          // Critical: order must be a number, not null or undefined
+          order: index + 1 + currentPhasesCount, 
+          permitRequired: phaseTemplate.permitRequired === true,
+          inspectionRequired: phaseTemplate.inspectionRequired === true
         };
         
-        console.log(`Creating phase from template: ${phaseTemplate.name}`, phaseData);
+        // Only add estimatedDuration if it's a positive number
+        if (typeof phaseTemplate.estimatedDuration === 'number' && phaseTemplate.estimatedDuration > 0) {
+          Object.assign(phaseData, { estimatedDuration: phaseTemplate.estimatedDuration });
+        }
+        
+        console.log(`Creating phase from template: ${phaseTemplate.name}`, JSON.stringify(phaseData));
         
         return await makeRequest<ProjectPhase>({
           url: "/api/project-phases",

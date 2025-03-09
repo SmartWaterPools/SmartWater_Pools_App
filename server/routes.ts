@@ -24,13 +24,33 @@ import { fromZodError } from "zod-validation-error";
 // Helper function to handle validation and respond with appropriate error
 const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boolean; data?: any; error?: string } => {
   try {
-    const validatedData = schema.parse(data);
+    console.log("[VALIDATION] Input data:", JSON.stringify(data));
+    
+    // Pre-process data to handle null values that should be undefined
+    // This improves compatibility with zod validation
+    const processedData = Object.entries(data).reduce((result, [key, value]) => {
+      // For numeric fields, convert null to undefined to avoid validation errors
+      if (value === null && 
+          ['estimatedDuration', 'actualDuration', 'cost', 'percentComplete'].includes(key)) {
+        console.log(`[VALIDATION] Converting null to undefined for field: ${key}`);
+        return result;
+      }
+      result[key] = value;
+      return result;
+    }, {} as Record<string, any>);
+    
+    console.log("[VALIDATION] Processed data:", JSON.stringify(processedData));
+    
+    const validatedData = schema.parse(processedData);
+    console.log("[VALIDATION] Validated data:", JSON.stringify(validatedData));
     return { success: true, data: validatedData };
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.log("[VALIDATION] Zod error:", error.errors);
       const validationError = fromZodError(error);
       return { success: false, error: validationError.message };
     }
+    console.error("[VALIDATION] Unexpected error:", error);
     return { success: false, error: "Invalid request data" };
   }
 };
@@ -505,15 +525,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Project Phases routes
   app.post("/api/project-phases", async (req: Request, res: Response) => {
     try {
+      console.log("[PROJECT PHASE API] - Request body:", JSON.stringify(req.body));
+      
       const validation = validateRequest(insertProjectPhaseSchema, req.body);
 
       if (!validation.success) {
+        console.log("[PROJECT PHASE API] - Validation failed:", validation.error);
         return res.status(400).json({ message: validation.error });
       }
+      
+      console.log("[PROJECT PHASE API] - Validation passed, data:", JSON.stringify(validation.data));
 
       const phase = await storage.createProjectPhase(validation.data);
+      console.log("[PROJECT PHASE API] - Phase created:", JSON.stringify(phase));
       res.status(201).json(phase);
     } catch (error) {
+      console.error("[PROJECT PHASE API] - Error creating phase:", error);
       res.status(500).json({ message: "Failed to create project phase" });
     }
   });
