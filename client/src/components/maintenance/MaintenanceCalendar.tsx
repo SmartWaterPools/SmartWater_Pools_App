@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth, parseISO } from "date-fns";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -52,12 +52,14 @@ export function MaintenanceCalendar({
 }: MaintenanceCalendarProps) {
   const [, navigate] = useLocation();
   // Initialize state variables
-  const today = new Date();
-  const todayStr = format(today, "yyyy-MM-dd");
-  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date(todayStr + "T00:00:00"));
+  // Use a consistent approach to generate today's date without timezone issues
+  const today = new Date(); 
+  const todayStr = format(today, "yyyy-MM-dd"); // Format as YYYY-MM-DD string
+  // Use parseISO to create a date at midnight for consistent date handling
+  const [selectedDay, setSelectedDay] = useState<Date | null>(parseISO(todayStr));
   const [serviceReportOpen, setServiceReportOpen] = useState(false);
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
-  const [debugMode, setDebugMode] = useState<boolean>(true); // Set to true for debugging
+  const [debugMode, setDebugMode] = useState<boolean>(false); // Set to false for production, true for debugging
   
   // This will run on first render to help diagnose data issues
   useEffect(() => {
@@ -70,11 +72,12 @@ export function MaintenanceCalendar({
       // Test date parsing for each maintenance record
       maintenances.forEach((m, index) => {
         try {
-          const parsedDate = new Date(m.scheduleDate);
+          // Use parseISO for safer date parsing without timezone issues
+          const parsedDate = parseISO(m.scheduleDate);
           console.log(`Maintenance #${m.id} date parse test:`, 
             `Original: "${m.scheduleDate}"`, 
-            `Parsed: ${parsedDate.toISOString()}`,
-            `Formatted: ${format(parsedDate, "yyyy-MM-dd")}`
+            `Parsed ISO: ${parsedDate.toISOString()}`,
+            `Formatted back: ${format(parsedDate, "yyyy-MM-dd")}`
           );
         } catch (e) {
           console.error(`Failed to parse date for maintenance #${m.id}:`, m.scheduleDate, e);
@@ -87,9 +90,11 @@ export function MaintenanceCalendar({
   useEffect(() => {
     // When month changes, if selected day is not in that month, reset to the 1st of new month
     if (selectedDay && !isSameMonth(selectedDay, month)) {
-      const firstOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
+      // Format and parse for consistent timezone handling
+      const firstOfMonthStr = format(new Date(month.getFullYear(), month.getMonth(), 1), "yyyy-MM-dd");
+      const firstOfMonth = parseISO(firstOfMonthStr);
       setSelectedDay(firstOfMonth);
-      if (debugMode) console.log("Month changed, resetting selected day to:", format(firstOfMonth, "yyyy-MM-dd"));
+      if (debugMode) console.log("Month changed, resetting selected day to:", firstOfMonthStr);
     }
   }, [month, selectedDay, debugMode]);
   
@@ -122,7 +127,8 @@ export function MaintenanceCalendar({
     : [];
   
   // Calculate which days have maintenance scheduled
-  const maintenanceDays = maintenances.map((m) => new Date(m.scheduleDate));
+  // Using parseISO to avoid timezone issues when converting strings to dates
+  const maintenanceDays = maintenances.map((m) => parseISO(m.scheduleDate));
   
   // Count maintenances by day for badge display
   const maintenanceCountByDay = maintenances.reduce((acc, m) => {
@@ -225,7 +231,7 @@ export function MaintenanceCalendar({
           {/* Calendar body */}
           <div className="p-2 sm:p-4">
             <div className="grid grid-cols-7 gap-1 text-center min-w-[490px]">
-              {Array.from({ length: new Date(monthStart).getDay() }).map((_, i) => (
+              {Array.from({ length: monthStart.getDay() }).map((_, i) => (
                 <div key={`empty-start-${i}`} className="h-10 w-10 rounded-full mx-auto" />
               ))}
               
