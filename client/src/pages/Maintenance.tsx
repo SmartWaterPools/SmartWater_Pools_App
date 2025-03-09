@@ -75,16 +75,45 @@ export default function Maintenance() {
   // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
     queryKey: ["/api/maintenances"],
+    select: (data) => {
+      console.log("Raw maintenance data from API:", data);
+      return data;
+    }
   });
 
   // Filter maintenances based on search and status
   const filteredMaintenances = maintenances?.filter(maintenance => {
+    console.log("Filtering maintenance record:", maintenance.id, maintenance);
+    
     // If date filter is applied, only show maintenances for that date
     if (date) {
       // Parse the date explicitly to ensure proper comparison
       try {
-        const scheduleDate = new Date(maintenance.scheduleDate);
-        if (!isSameDay(scheduleDate, date)) return false;
+        console.log(`Comparing maintenance date "${maintenance.scheduleDate}" with filter date "${format(date, 'yyyy-MM-dd')}"`);
+        
+        // For scheduleDate strings, we need to make sure we're comparing consistently
+        let maintenanceDateForComparison;
+        
+        if (typeof maintenance.scheduleDate === 'string' && maintenance.scheduleDate.length <= 10) {
+          // It's just a date string, convert both to YYYY-MM-DD for comparison
+          const formattedFilterDate = format(date, 'yyyy-MM-dd');
+          console.log(`String comparison: "${maintenance.scheduleDate}" vs "${formattedFilterDate}"`);
+          
+          // Direct string comparison for dates in YYYY-MM-DD format
+          if (maintenance.scheduleDate !== formattedFilterDate) {
+            console.log(`Date filter excluded maintenance #${maintenance.id} - date strings don't match`);
+            return false;
+          }
+        } else {
+          // Parse the schedule date and use date-fns for comparison
+          const scheduleDate = new Date(maintenance.scheduleDate);
+          console.log(`Date object comparison: ${scheduleDate.toISOString()} vs ${date.toISOString()}`);
+          
+          if (!isSameDay(scheduleDate, date)) {
+            console.log(`Date filter excluded maintenance #${maintenance.id} - not same day`);
+            return false;
+          }
+        }
       } catch (e) {
         console.error("Error parsing date:", maintenance.scheduleDate, e);
         return false;
@@ -92,11 +121,18 @@ export default function Maintenance() {
     }
     
     // Apply status filter if not set to "all"
-    if (statusFilter !== "all" && maintenance.status !== statusFilter) return false;
+    if (statusFilter !== "all" && maintenance.status !== statusFilter) {
+      console.log(`Status filter excluded maintenance #${maintenance.id} - status ${maintenance.status} != ${statusFilter}`);
+      return false;
+    }
     
     // Apply search filter to client name
-    if (searchTerm && !maintenance.client.user.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (searchTerm && !maintenance.client.user.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+      console.log(`Search filter excluded maintenance #${maintenance.id} - name doesn't match "${searchTerm}"`);
+      return false;
+    }
     
+    console.log(`Maintenance #${maintenance.id} passed all filters`);
     return true;
   });
 

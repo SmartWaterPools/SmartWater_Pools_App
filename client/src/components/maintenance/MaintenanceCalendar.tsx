@@ -59,6 +59,30 @@ export function MaintenanceCalendar({
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [debugMode, setDebugMode] = useState<boolean>(true); // Set to true for debugging
   
+  // This will run on first render to help diagnose data issues
+  useEffect(() => {
+    if (debugMode) {
+      console.log("MaintenanceCalendar component mounted");
+      console.log("Today's date:", todayStr);
+      console.log("Total maintenance records received:", maintenances.length);
+      console.log("First 3 maintenance records:", maintenances.slice(0, 3));
+      
+      // Test date parsing for each maintenance record
+      maintenances.forEach((m, index) => {
+        try {
+          const parsedDate = new Date(m.scheduleDate);
+          console.log(`Maintenance #${m.id} date parse test:`, 
+            `Original: "${m.scheduleDate}"`, 
+            `Parsed: ${parsedDate.toISOString()}`,
+            `Formatted: ${format(parsedDate, "yyyy-MM-dd")}`
+          );
+        } catch (e) {
+          console.error(`Failed to parse date for maintenance #${m.id}:`, m.scheduleDate, e);
+        }
+      });
+    }
+  }, [maintenances, debugMode, todayStr]);
+  
   // Ensure selectedDay remains in sync with month changes
   useEffect(() => {
     // When month changes, if selected day is not in that month, reset to the 1st of new month
@@ -80,13 +104,20 @@ export function MaintenanceCalendar({
   // Filter maintenances for selected day
   const selectedDayMaintenances = selectedDay
     ? maintenances.filter((m) => {
-        if (debugMode) console.log("Checking maintenance date:", m.scheduleDate, "against selected day:", selectedDay);
-        const maintenanceDate = new Date(m.scheduleDate);
-        // Format both dates to yyyy-MM-dd for comparison to avoid timezone issues
-        const maintenanceDateStr = format(maintenanceDate, "yyyy-MM-dd");
+        if (debugMode) console.log("Checking maintenance for selected day display:", m.id, m.scheduleDate);
+        
+        // Format the selected day to yyyy-MM-dd for direct string comparison
         const selectedDayStr = format(selectedDay, "yyyy-MM-dd");
-        if (debugMode) console.log("Comparing:", maintenanceDateStr, "with", selectedDayStr);
-        return maintenanceDateStr === selectedDayStr;
+        
+        // Compare directly with the string date from the API
+        const isMatch = m.scheduleDate === selectedDayStr;
+        
+        if (debugMode) {
+          console.log(`Comparing maintenance #${m.id} date: "${m.scheduleDate}" with selected day: "${selectedDayStr}"`);
+          console.log(`Result: ${isMatch ? "MATCH" : "NO MATCH"}`);
+        }
+        
+        return isMatch;
       })
     : [];
   
@@ -97,40 +128,37 @@ export function MaintenanceCalendar({
   const maintenanceCountByDay = maintenances.reduce((acc, m) => {
     try {
       if (debugMode) console.log("Processing maintenance for count display:", m.id, m.scheduleDate);
-      const dateStr = m.scheduleDate;
-      
-      // When scheduleDate is just a date string like "2025-03-09" without time
-      let dayStr;
-      
-      if (dateStr.length <= 10) {
-        // It's just a date string, use it directly
-        dayStr = dateStr;
-        if (debugMode) console.log("Using date string directly:", dayStr);
-      } else {
-        // It's a date+time string, parse and format
-        const date = new Date(dateStr);
-        
-        // Check if date is valid
-        if (isNaN(date.getTime())) {
-          console.error("Invalid date:", dateStr);
-          return acc;
-        }
-        
-        dayStr = format(date, "yyyy-MM-dd");
-        if (debugMode) console.log("Formatted date:", dayStr);
+      // Validate the maintenance data has a scheduleDate
+      if (!m.scheduleDate) {
+        console.error("Maintenance record has no scheduleDate:", m);
+        return acc;
       }
       
+      // Directly use the scheduleDate string as the key for our calendar
+      // The API returns dates in 'YYYY-MM-DD' format which is what we need
+      const dayStr = m.scheduleDate;
+      
+      // For debugging
+      if (debugMode) console.log(`Using date "${dayStr}" for maintenance #${m.id}`);
+      
+      // Initialize the counter for this day if it doesn't exist
       if (!acc[dayStr]) {
         acc[dayStr] = { total: 0, statusCounts: {} };
       }
       
+      // Increment total count
       acc[dayStr].total += 1;
       
+      // Initialize and increment status counter
       if (!acc[dayStr].statusCounts[m.status]) {
         acc[dayStr].statusCounts[m.status] = 0;
       }
-      
       acc[dayStr].statusCounts[m.status] += 1;
+      
+      // Special debug for March 9
+      if (dayStr === "2025-03-09" && debugMode) {
+        console.log(`Added maintenance #${m.id} to March 9, total now: ${acc[dayStr].total}`);
+      }
     } catch (e) {
       console.error("Error processing maintenance date:", m.scheduleDate, e);
     }
@@ -204,7 +232,16 @@ export function MaintenanceCalendar({
               {days.map((day) => {
                 // Check if this day has maintenance
                 const dateStr = format(day, "yyyy-MM-dd");
-                if (debugMode) console.log("Calendar day:", dateStr, "Maintenance days:", Object.keys(maintenanceCountByDay));
+                // Better debug logging to help diagnose the issue
+                if (debugMode) {
+                  console.log("Calendar day:", dateStr);
+                  console.log("- All maintenance dates:", maintenances.map(m => m.scheduleDate));
+                  console.log("- maintenanceCountByDay keys:", Object.keys(maintenanceCountByDay));
+                  console.log("- Has maintenance for this day:", !!maintenanceCountByDay[dateStr]);
+                  if (maintenanceCountByDay[dateStr]) {
+                    console.log("- Count for this day:", maintenanceCountByDay[dateStr].total);
+                  }
+                }
                 const dayMaintenances = maintenanceCountByDay[dateStr];
                 const hasMaintenances = !!dayMaintenances;
                 // Format dates for comparison to avoid timezone issues
