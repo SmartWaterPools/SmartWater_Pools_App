@@ -357,7 +357,7 @@ export default function ClientPortal() {
                       <h4 className="font-medium">Filter System</h4>
                       <Badge variant="outline">Working</Badge>
                     </div>
-                    <p className="text-sm text-gray-500 mt-2">Pentair Sand Filter</p>
+                    <p className="text-sm text-gray-500 mt-2">SmartWater Sand Filter</p>
                     <p className="text-sm text-gray-500">Installed: Jan 2022</p>
                     <p className="text-sm text-gray-500">Last Backwash: 2 weeks ago</p>
                   </div>
@@ -367,7 +367,7 @@ export default function ClientPortal() {
                       <h4 className="font-medium">Heater</h4>
                       <Badge variant="secondary">Maintenance Needed</Badge>
                     </div>
-                    <p className="text-sm text-gray-500 mt-2">Pentair MasterTemp 400</p>
+                    <p className="text-sm text-gray-500 mt-2">SmartWater MasterTemp 400</p>
                     <p className="text-sm text-gray-500">Installed: Jan 2022</p>
                     <p className="text-sm text-gray-500 text-amber-600">Issue: Ignition failure</p>
                   </div>

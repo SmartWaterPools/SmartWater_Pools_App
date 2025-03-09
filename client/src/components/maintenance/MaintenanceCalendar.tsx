@@ -51,9 +51,13 @@ export function MaintenanceCalendar({
   selectedMaintenance = null
 }: MaintenanceCalendarProps) {
   const [, navigate] = useLocation();
-  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date());
+  // Initialize selectedDay to today's date
+  const today = new Date();
+  const todayStr = format(today, "yyyy-MM-dd");
+  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date(todayStr));
   const [serviceReportOpen, setServiceReportOpen] = useState(false);
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
+  const [debugMode, setDebugMode] = useState<boolean>(true); // Set to true for debugging
   
   // Get days in month
   const monthStart = startOfMonth(month);
@@ -66,8 +70,13 @@ export function MaintenanceCalendar({
   // Filter maintenances for selected day
   const selectedDayMaintenances = selectedDay
     ? maintenances.filter((m) => {
+        if (debugMode) console.log("Checking maintenance date:", m.scheduleDate, "against selected day:", selectedDay);
         const maintenanceDate = new Date(m.scheduleDate);
-        return isSameDay(maintenanceDate, selectedDay);
+        // Format both dates to yyyy-MM-dd for comparison to avoid timezone issues
+        const maintenanceDateStr = format(maintenanceDate, "yyyy-MM-dd");
+        const selectedDayStr = format(selectedDay, "yyyy-MM-dd");
+        if (debugMode) console.log("Comparing:", maintenanceDateStr, "with", selectedDayStr);
+        return maintenanceDateStr === selectedDayStr;
       })
     : [];
   
@@ -77,16 +86,29 @@ export function MaintenanceCalendar({
   // Count maintenances by day for badge display
   const maintenanceCountByDay = maintenances.reduce((acc, m) => {
     try {
+      if (debugMode) console.log("Processing maintenance for count display:", m.id, m.scheduleDate);
       const dateStr = m.scheduleDate;
-      const date = new Date(dateStr);
       
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        console.error("Invalid date:", dateStr);
-        return acc;
+      // When scheduleDate is just a date string like "2025-03-09" without time
+      let dayStr;
+      
+      if (dateStr.length <= 10) {
+        // It's just a date string, use it directly
+        dayStr = dateStr;
+        if (debugMode) console.log("Using date string directly:", dayStr);
+      } else {
+        // It's a date+time string, parse and format
+        const date = new Date(dateStr);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          console.error("Invalid date:", dateStr);
+          return acc;
+        }
+        
+        dayStr = format(date, "yyyy-MM-dd");
+        if (debugMode) console.log("Formatted date:", dayStr);
       }
-      
-      const dayStr = format(date, "yyyy-MM-dd");
       
       if (!acc[dayStr]) {
         acc[dayStr] = { total: 0, statusCounts: {} };
@@ -172,9 +194,11 @@ export function MaintenanceCalendar({
               {days.map((day) => {
                 // Check if this day has maintenance
                 const dateStr = format(day, "yyyy-MM-dd");
+                if (debugMode) console.log("Calendar day:", dateStr, "Maintenance days:", Object.keys(maintenanceCountByDay));
                 const dayMaintenances = maintenanceCountByDay[dateStr];
                 const hasMaintenances = !!dayMaintenances;
-                const isSelected = selectedDay ? isSameDay(day, selectedDay) : false;
+                // Format dates for comparison to avoid timezone issues
+                const isSelected = selectedDay ? format(day, "yyyy-MM-dd") === format(selectedDay, "yyyy-MM-dd") : false;
                 const isCurrentMonth = isSameMonth(day, month);
                 const dayClass = getDayClass(day);
                 

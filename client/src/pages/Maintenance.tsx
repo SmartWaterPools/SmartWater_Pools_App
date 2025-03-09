@@ -145,7 +145,7 @@ export default function Maintenance() {
   // Open service report form - now supports both dialog and page navigation
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false, useNewPage = false) => {
     if (useNewPage) {
-      // Use the new Pool Brains style report page
+      // Use the new SmartWater style report page
       navigate(`/service-report-page/${maintenance.id}`);
     } else if (usePage) {
       // Use the existing service report page
@@ -438,7 +438,7 @@ export default function Maintenance() {
                                         onClick={() => handleServiceReportOpen(maintenance, false, true)}
                                       >
                                         <FileBarChart2 className="h-4 w-4 mr-2" />
-                                        Pool Brains Style Report
+                                        SmartWater Style Report
                                       </DropdownMenuItem>
                                       
                                       <DropdownMenuSeparator />

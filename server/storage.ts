@@ -1557,7 +1557,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMaintenance(insertMaintenance: InsertMaintenance): Promise<Maintenance> {
-    // Ensure all required fields have proper default values for Pool Brains style reporting
+    // Ensure all required fields have proper default values for SmartWater style reporting
     const maintenanceWithDefaults = {
       ...insertMaintenance,
       status: insertMaintenance.status ?? "scheduled",

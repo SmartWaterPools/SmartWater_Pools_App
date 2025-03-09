@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
 import { Pool } from "@neondatabase/serverless";
 
-// This script adds the new columns needed for Pool Brains style reports to the maintenances table
+// This script adds the new columns needed for SmartWater style reports to the maintenances table
 async function main() {
   console.log("Starting maintenance table schema update...");
   

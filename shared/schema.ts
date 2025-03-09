@@ -87,7 +87,7 @@ export const PROJECT_TYPES = ['construction', 'renovation', 'repair', 'maintenan
 export type ProjectType = typeof PROJECT_TYPES[number] | null;
 
 // Project schema
-// Define project types based on Pentair Pool Builder categories
+// Define project types based on SmartWater Pool Builder categories
 export const PROJECT_TYPE_OPTIONS = ['construction', 'renovation', 'repair', 'maintenance'] as const;
 export type ProjectTypeOption = typeof PROJECT_TYPE_OPTIONS[number];
 

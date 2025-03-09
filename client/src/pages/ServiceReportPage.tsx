@@ -155,7 +155,7 @@ export default function ServiceReportPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Pool Brains Service Report</h1>
+            <h1 className="text-2xl font-bold">SmartWater Service Report</h1>
             <p className="text-gray-500">{formattedDate} • {maintenance.client.user.name}</p>
           </div>
         </div>
