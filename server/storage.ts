@@ -12,7 +12,8 @@ import {
   PoolImage, InsertPoolImage,
   ServiceTemplate, InsertServiceTemplate,
   ProjectDocumentation, InsertProjectDocumentation,
-  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation
+  CommunicationProvider, InsertCommunicationProvider, CommunicationProviderType,
+  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, communicationProviders
 } from "@shared/schema";
 import { and, eq, desc, gte, lte, sql } from "drizzle-orm";
 import { db } from "./db";
@@ -110,6 +111,15 @@ export interface IStorage {
   getProjectDocumentsByProjectId(projectId: number): Promise<ProjectDocumentation[]>;
   getProjectDocumentsByPhaseId(phaseId: number): Promise<ProjectDocumentation[]>;
   getProjectDocumentsByType(projectId: number, documentType: string): Promise<ProjectDocumentation[]>;
+  
+  // Communication Provider operations
+  getCommunicationProvider(id: number): Promise<CommunicationProvider | undefined>;
+  getCommunicationProviderByType(type: CommunicationProviderType): Promise<CommunicationProvider | undefined>;
+  createCommunicationProvider(provider: InsertCommunicationProvider): Promise<CommunicationProvider>;
+  updateCommunicationProvider(id: number, provider: Partial<CommunicationProvider>): Promise<CommunicationProvider | undefined>;
+  deleteCommunicationProvider(id: number): Promise<boolean>;
+  getAllCommunicationProviders(): Promise<CommunicationProvider[]>;
+  getDefaultCommunicationProvider(type: CommunicationProviderType): Promise<CommunicationProvider | undefined>;
 }
 
 // In-memory storage implementation
@@ -125,6 +135,7 @@ export class MemStorage implements IStorage {
   private invoices: Map<number, Invoice>;
   private poolEquipment: Map<number, PoolEquipment>;
   private poolImages: Map<number, PoolImage>;
+  private communicationProviders: Map<number, CommunicationProvider>;
   
   private userId: number;
   private clientId: number;
@@ -141,6 +152,7 @@ export class MemStorage implements IStorage {
   private serviceTemplateId: number;
   private projectDocuments: Map<number, ProjectDocumentation>;
   private projectDocumentId: number;
+  private communicationProviderId: number;
   
   constructor() {
     this.users = new Map();
@@ -156,6 +168,7 @@ export class MemStorage implements IStorage {
     this.poolImages = new Map();
     this.serviceTemplates = new Map();
     this.projectDocuments = new Map();
+    this.communicationProviders = new Map();
     
     this.userId = 1;
     this.clientId = 1;
@@ -170,6 +183,7 @@ export class MemStorage implements IStorage {
     this.poolImageId = 1;
     this.serviceTemplateId = 1;
     this.projectDocumentId = 1;
+    this.communicationProviderId = 1;
     
     // Add sample data
     this.initSampleData();
@@ -750,6 +764,96 @@ export class MemStorage implements IStorage {
     return Array.from(this.projectDocuments.values())
       .filter(doc => doc.projectId === projectId && doc.documentType === documentType)
       .sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime());
+  }
+  
+  // Communication Provider operations
+  async getCommunicationProvider(id: number): Promise<CommunicationProvider | undefined> {
+    return this.communicationProviders.get(id);
+  }
+
+  async getCommunicationProviderByType(type: CommunicationProviderType): Promise<CommunicationProvider | undefined> {
+    return Array.from(this.communicationProviders.values()).find(
+      (provider) => provider.type === type
+    );
+  }
+
+  async createCommunicationProvider(insertProvider: InsertCommunicationProvider): Promise<CommunicationProvider> {
+    const id = this.communicationProviderId++;
+    
+    const provider: CommunicationProvider = {
+      ...insertProvider,
+      id,
+      isDefault: insertProvider.isDefault ?? false,
+      isActive: insertProvider.isActive ?? true,
+      clientId: insertProvider.clientId ?? null,
+      clientSecret: insertProvider.clientSecret ?? null,
+      apiKey: insertProvider.apiKey ?? null,
+      accountSid: insertProvider.accountSid ?? null,
+      authToken: insertProvider.authToken ?? null,
+      refreshToken: insertProvider.refreshToken ?? null,
+      accessToken: insertProvider.accessToken ?? null,
+      tokenExpiresAt: insertProvider.tokenExpiresAt ?? null,
+      email: insertProvider.email ?? null,
+      phoneNumber: insertProvider.phoneNumber ?? null,
+      settings: insertProvider.settings ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastUsed: null
+    };
+    
+    // If this provider is marked as default, make sure no other provider of the same type is default
+    if (provider.isDefault) {
+      const providers = Array.from(this.communicationProviders.values());
+      
+      providers
+        .filter(p => p.type === provider.type && p.id !== provider.id)
+        .forEach(p => {
+          p.isDefault = false;
+          this.communicationProviders.set(p.id, p);
+        });
+    }
+    
+    this.communicationProviders.set(id, provider);
+    return provider;
+  }
+
+  async updateCommunicationProvider(id: number, data: Partial<CommunicationProvider>): Promise<CommunicationProvider | undefined> {
+    const provider = await this.getCommunicationProvider(id);
+    if (!provider) return undefined;
+    
+    const updatedProvider = { ...provider, ...data, updatedAt: new Date() };
+    
+    // If this provider is being set as default, make sure no other provider of the same type is default
+    if (data.isDefault) {
+      const providers = Array.from(this.communicationProviders.values());
+      
+      providers
+        .filter(p => p.type === provider.type && p.id !== provider.id)
+        .forEach(p => {
+          p.isDefault = false;
+          this.communicationProviders.set(p.id, p);
+        });
+    }
+    
+    this.communicationProviders.set(id, updatedProvider);
+    return updatedProvider;
+  }
+
+  async deleteCommunicationProvider(id: number): Promise<boolean> {
+    const provider = await this.getCommunicationProvider(id);
+    if (!provider) return false;
+    
+    return this.communicationProviders.delete(id);
+  }
+
+  async getAllCommunicationProviders(): Promise<CommunicationProvider[]> {
+    return Array.from(this.communicationProviders.values());
+  }
+
+  async getDefaultCommunicationProvider(type: CommunicationProviderType): Promise<CommunicationProvider | undefined> {
+    return Array.from(this.communicationProviders.values()).find(
+      (provider) => provider.type === type && provider.isDefault
+    );
   }
   
   // Initialize sample data for testing
@@ -1660,6 +1764,89 @@ export class DatabaseStorage implements IStorage {
         eq(projectDocumentation.documentType, documentType)
       ))
       .orderBy(desc(projectDocumentation.uploadDate));
+  }
+
+  // Communication Provider operations
+  async getCommunicationProvider(id: number): Promise<CommunicationProvider | undefined> {
+    const [provider] = await db.select().from(communicationProviders).where(eq(communicationProviders.id, id));
+    return provider || undefined;
+  }
+
+  async getCommunicationProviderByType(type: CommunicationProviderType): Promise<CommunicationProvider | undefined> {
+    const [provider] = await db.select().from(communicationProviders)
+      .where(eq(communicationProviders.type, type))
+      .orderBy(desc(communicationProviders.isDefault));
+    return provider || undefined;
+  }
+
+  async createCommunicationProvider(insertProvider: InsertCommunicationProvider): Promise<CommunicationProvider> {
+    // If this provider is marked as default, make sure no other provider of the same type is default
+    if (insertProvider.isDefault) {
+      await db.update(communicationProviders)
+        .set({ isDefault: false })
+        .where(and(
+          eq(communicationProviders.type, insertProvider.type),
+          eq(communicationProviders.isDefault, true)
+        ));
+    }
+    
+    const [provider] = await db.insert(communicationProviders)
+      .values({
+        ...insertProvider,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      .returning();
+      
+    return provider;
+  }
+
+  async updateCommunicationProvider(id: number, data: Partial<CommunicationProvider>): Promise<CommunicationProvider | undefined> {
+    // If this provider is being set as default, make sure no other provider of the same type is default
+    if (data.isDefault) {
+      const [provider] = await db.select().from(communicationProviders).where(eq(communicationProviders.id, id));
+      
+      if (provider) {
+        await db.update(communicationProviders)
+          .set({ isDefault: false })
+          .where(and(
+            eq(communicationProviders.type, provider.type),
+            eq(communicationProviders.isDefault, true),
+            sql`${communicationProviders.id} != ${id}`
+          ));
+      }
+    }
+    
+    const [updatedProvider] = await db.update(communicationProviders)
+      .set({
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(communicationProviders.id, id))
+      .returning();
+      
+    return updatedProvider || undefined;
+  }
+
+  async deleteCommunicationProvider(id: number): Promise<boolean> {
+    const result = await db.delete(communicationProviders)
+      .where(eq(communicationProviders.id, id));
+      
+    return result.rowCount > 0;
+  }
+
+  async getAllCommunicationProviders(): Promise<CommunicationProvider[]> {
+    return await db.select().from(communicationProviders);
+  }
+
+  async getDefaultCommunicationProvider(type: CommunicationProviderType): Promise<CommunicationProvider | undefined> {
+    const [provider] = await db.select().from(communicationProviders)
+      .where(and(
+        eq(communicationProviders.type, type),
+        eq(communicationProviders.isDefault, true)
+      ));
+      
+    return provider || undefined;
   }
 }
 

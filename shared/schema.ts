@@ -316,6 +316,40 @@ export const insertServiceTemplateSchema = createInsertSchema(serviceTemplates).
   updatedAt: true,
 });
 
+// Communication providers types
+export const COMMUNICATION_PROVIDER_TYPES = ['gmail', 'outlook', 'ringcentral', 'twilio'] as const;
+export type CommunicationProviderType = typeof COMMUNICATION_PROVIDER_TYPES[number];
+
+// Communication providers schema
+export const communicationProviders = pgTable("communication_providers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // gmail, outlook, ringcentral, twilio
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  clientId: text("client_id"),
+  clientSecret: text("client_secret"),
+  apiKey: text("api_key"),
+  accountSid: text("account_sid"), // For Twilio
+  authToken: text("auth_token"), // For Twilio
+  refreshToken: text("refresh_token"),
+  accessToken: text("access_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  email: text("email"), // Primary email for the account
+  phoneNumber: text("phone_number"), // Primary phone number for SMS/calls
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  lastUsed: timestamp("last_used"),
+  settings: text("settings"), // JSON string with provider-specific settings
+});
+
+export const insertCommunicationProviderSchema = createInsertSchema(communicationProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastUsed: true,
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   clients: many(clients),
@@ -528,3 +562,6 @@ export type InsertProjectDocumentation = z.infer<typeof insertProjectDocumentati
 
 export type ServiceTemplate = typeof serviceTemplates.$inferSelect;
 export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
+
+export type CommunicationProvider = typeof communicationProviders.$inferSelect;
+export type InsertCommunicationProvider = z.infer<typeof insertCommunicationProviderSchema>;

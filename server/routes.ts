@@ -15,8 +15,11 @@ import {
   insertServiceTemplateSchema,
   insertProjectPhaseSchema,
   insertProjectDocumentationSchema,
+  insertCommunicationProviderSchema,
   validateContractType,
-  CONTRACT_TYPES
+  CONTRACT_TYPES,
+  COMMUNICATION_PROVIDER_TYPES,
+  CommunicationProviderType
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -1182,6 +1185,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting service template:", error);
       res.status(500).json({ message: "Failed to delete service template" });
+    }
+  });
+
+  // Communication Provider endpoints
+  app.get("/api/communication-providers", async (_req: Request, res: Response) => {
+    try {
+      const providers = await storage.getAllCommunicationProviders();
+      res.status(200).json(providers);
+    } catch (error) {
+      console.error("Error fetching communication providers:", error);
+      res.status(500).json({ message: "Failed to fetch communication providers" });
+    }
+  });
+
+  app.get("/api/communication-providers/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid provider ID" });
+      }
+      
+      const provider = await storage.getCommunicationProvider(id);
+      if (!provider) {
+        return res.status(404).json({ message: "Communication provider not found" });
+      }
+      
+      res.status(200).json(provider);
+    } catch (error) {
+      console.error("Error fetching communication provider:", error);
+      res.status(500).json({ message: "Failed to fetch communication provider" });
+    }
+  });
+
+  app.get("/api/communication-providers/type/:type", async (req: Request, res: Response) => {
+    try {
+      const type = req.params.type as CommunicationProviderType;
+      if (!type || !COMMUNICATION_PROVIDER_TYPES.includes(type as any)) {
+        return res.status(400).json({ 
+          message: "Invalid provider type", 
+          validTypes: COMMUNICATION_PROVIDER_TYPES 
+        });
+      }
+      
+      const provider = await storage.getCommunicationProviderByType(type);
+      if (!provider) {
+        return res.status(404).json({ message: `No ${type} provider found` });
+      }
+      
+      res.status(200).json(provider);
+    } catch (error) {
+      console.error("Error fetching communication provider by type:", error);
+      res.status(500).json({ message: "Failed to fetch communication provider" });
+    }
+  });
+
+  app.get("/api/communication-providers/default/:type", async (req: Request, res: Response) => {
+    try {
+      const type = req.params.type as CommunicationProviderType;
+      if (!type || !COMMUNICATION_PROVIDER_TYPES.includes(type as any)) {
+        return res.status(400).json({ 
+          message: "Invalid provider type", 
+          validTypes: COMMUNICATION_PROVIDER_TYPES 
+        });
+      }
+      
+      const provider = await storage.getDefaultCommunicationProvider(type);
+      if (!provider) {
+        return res.status(404).json({ message: `No default ${type} provider found` });
+      }
+      
+      res.status(200).json(provider);
+    } catch (error) {
+      console.error("Error fetching default communication provider:", error);
+      res.status(500).json({ message: "Failed to fetch default communication provider" });
+    }
+  });
+
+  app.post("/api/communication-providers", async (req: Request, res: Response) => {
+    try {
+      // Validate request body using our schema
+      const validation = validateRequest(insertCommunicationProviderSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newProvider = await storage.createCommunicationProvider(validation.data);
+      res.status(201).json(newProvider);
+    } catch (error) {
+      console.error("Error creating communication provider:", error);
+      res.status(500).json({ message: "Failed to create communication provider" });
+    }
+  });
+
+  app.patch("/api/communication-providers/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid provider ID" });
+      }
+      
+      // First get the existing provider
+      const provider = await storage.getCommunicationProvider(id);
+      if (!provider) {
+        return res.status(404).json({ message: "Communication provider not found" });
+      }
+      
+      // No need to validate the full schema for a partial update
+      // But we should ensure type is valid if included
+      if (req.body.type && !COMMUNICATION_PROVIDER_TYPES.includes(req.body.type)) {
+        return res.status(400).json({ 
+          message: "Invalid provider type", 
+          validTypes: COMMUNICATION_PROVIDER_TYPES 
+        });
+      }
+      
+      const updatedProvider = await storage.updateCommunicationProvider(id, req.body);
+      
+      res.status(200).json(updatedProvider);
+    } catch (error) {
+      console.error("Error updating communication provider:", error);
+      res.status(500).json({ message: "Failed to update communication provider" });
+    }
+  });
+
+  app.delete("/api/communication-providers/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid provider ID" });
+      }
+      
+      const success = await storage.deleteCommunicationProvider(id);
+      if (!success) {
+        return res.status(404).json({ message: "Communication provider not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting communication provider:", error);
+      res.status(500).json({ message: "Failed to delete communication provider" });
     }
   });
 

@@ -5,7 +5,8 @@ import { UserManagement } from "@/components/settings/UserManagement";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { PermissionSettings } from "@/components/settings/PermissionSettings";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
-import { FileText, Users, Shield, Bell, LayoutGrid } from "lucide-react";
+import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
+import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail } from "lucide-react";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("service-templates");
@@ -33,6 +34,10 @@ export default function Settings() {
               <FileText className="h-4 w-4" />
               <span className="whitespace-nowrap">Service Templates</span>
             </TabsTrigger>
+            <TabsTrigger value="communication-providers" className="flex gap-2 items-center px-4 py-2">
+              <Mail className="h-4 w-4" />
+              <span className="whitespace-nowrap">Communication</span>
+            </TabsTrigger>
             <TabsTrigger value="user-management" className="flex gap-2 items-center px-4 py-2">
               <Users className="h-4 w-4" />
               <span className="whitespace-nowrap">User Management</span>
@@ -54,6 +59,10 @@ export default function Settings() {
         
         <TabsContent value="service-templates" className="space-y-4">
           <ServiceTemplates />
+        </TabsContent>
+        
+        <TabsContent value="communication-providers" className="space-y-4">
+          <CommunicationProviders />
         </TabsContent>
         
         <TabsContent value="user-management" className="space-y-4">
