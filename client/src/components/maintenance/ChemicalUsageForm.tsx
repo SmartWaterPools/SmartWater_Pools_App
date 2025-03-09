@@ -268,7 +268,6 @@ export function ChemicalUsageForm({ maintenanceId, onSuccess }: ChemicalUsageFor
                         type="number" 
                         readOnly 
                         {...field}
-                        value={calculateTotalCost()}
                       />
                     </FormControl>
                     <FormDescription>

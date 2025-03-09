@@ -301,6 +301,31 @@ export default function Maintenance() {
         <TabsContent value="calendar">
           <Card>
             <CardContent className="p-6">
+              {/* SmartWater Style Report Promo */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <div>
+                    <h3 className="text-base font-medium text-blue-700">SmartWater Style Reporting</h3>
+                    <p className="text-sm text-blue-600">Try our new advanced reporting tool with chemical tracking, water readings, and technician metrics</p>
+                  </div>
+                  <Button
+                    variant="default"
+                    className="mt-2 sm:mt-0"
+                    onClick={() => {
+                      // Find the first available maintenance record
+                      const maintenance = filteredMaintenances && filteredMaintenances[0];
+                      if (maintenance) {
+                        handleServiceReportOpen(maintenance, false, true);
+                      }
+                    }}
+                    disabled={!filteredMaintenances || filteredMaintenances.length === 0}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Try SmartWater Style Report
+                  </Button>
+                </div>
+              </div>
+              
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                 <div className="flex items-center gap-2">
                   <Button 

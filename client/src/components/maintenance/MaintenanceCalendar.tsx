@@ -207,13 +207,43 @@ export function MaintenanceCalendar({
   };
 
   // Handle opening service report form
-  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails) => {
-    setSelectedServiceMaintenance(maintenance);
-    setServiceReportOpen(true);
+  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false, useNewPage = false) => {
+    if (useNewPage) {
+      // Navigate to the SmartWater style report page
+      navigate(`/service-report-page/${maintenance.id}`);
+    } else if (usePage) {
+      // Navigate to standard service report page
+      navigate(`/service-report/${maintenance.id}`);
+    } else {
+      // Use the dialog form
+      setSelectedServiceMaintenance(maintenance);
+      setServiceReportOpen(true);
+    }
   };
   
   return (
     <div className="space-y-4">
+      {/* Header with Submit buttons */}
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+        <h2 className="text-xl font-semibold">Calendar View</h2>
+        {selectedDay && selectedDayMaintenances.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                if (selectedDayMaintenances.length > 0) {
+                  handleServiceReportOpen(selectedDayMaintenances[0], false, true);
+                }
+              }}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              SmartWater Style Report
+            </Button>
+          </div>
+        )}
+      </div>
+      
       <div className="flex flex-col space-y-6">
         {/* Calendar grid */}
         <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
@@ -403,6 +433,14 @@ export function MaintenanceCalendar({
                             >
                               <ClipboardList className="h-4 w-4 mr-2" />
                               {hasServiceReport ? "Quick Edit (Dialog)" : "Quick Submit (Dialog)"}
+                            </DropdownMenuItem>
+                            
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => handleServiceReportOpen(maintenance, false, true)}
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              SmartWater Style Report
                             </DropdownMenuItem>
                             
                             <DropdownMenuSeparator />
