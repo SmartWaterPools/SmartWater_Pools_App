@@ -80,7 +80,16 @@ export default function Maintenance() {
   // Filter maintenances based on search and status
   const filteredMaintenances = maintenances?.filter(maintenance => {
     // If date filter is applied, only show maintenances for that date
-    if (date && !isSameDay(new Date(maintenance.scheduleDate), date)) return false;
+    if (date) {
+      // Parse the date explicitly to ensure proper comparison
+      try {
+        const scheduleDate = new Date(maintenance.scheduleDate);
+        if (!isSameDay(scheduleDate, date)) return false;
+      } catch (e) {
+        console.error("Error parsing date:", maintenance.scheduleDate, e);
+        return false;
+      }
+    }
     
     // Apply status filter if not set to "all"
     if (statusFilter !== "all" && maintenance.status !== statusFilter) return false;

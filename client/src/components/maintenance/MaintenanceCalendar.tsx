@@ -76,21 +76,32 @@ export function MaintenanceCalendar({
   
   // Count maintenances by day for badge display
   const maintenanceCountByDay = maintenances.reduce((acc, m) => {
-    const dateStr = m.scheduleDate;
-    const date = new Date(dateStr);
-    const dayStr = format(date, "yyyy-MM-dd");
-    
-    if (!acc[dayStr]) {
-      acc[dayStr] = { total: 0, statusCounts: {} };
+    try {
+      const dateStr = m.scheduleDate;
+      const date = new Date(dateStr);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.error("Invalid date:", dateStr);
+        return acc;
+      }
+      
+      const dayStr = format(date, "yyyy-MM-dd");
+      
+      if (!acc[dayStr]) {
+        acc[dayStr] = { total: 0, statusCounts: {} };
+      }
+      
+      acc[dayStr].total += 1;
+      
+      if (!acc[dayStr].statusCounts[m.status]) {
+        acc[dayStr].statusCounts[m.status] = 0;
+      }
+      
+      acc[dayStr].statusCounts[m.status] += 1;
+    } catch (e) {
+      console.error("Error processing maintenance date:", m.scheduleDate, e);
     }
-    
-    acc[dayStr].total += 1;
-    
-    if (!acc[dayStr].statusCounts[m.status]) {
-      acc[dayStr].statusCounts[m.status] = 0;
-    }
-    
-    acc[dayStr].statusCounts[m.status] += 1;
     
     return acc;
   }, {} as Record<string, { total: number, statusCounts: Record<string, number> }>);

@@ -34,18 +34,7 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ClientWithUser, TechnicianWithUser } from "@/lib/types";
 import { apiRequest } from "@/lib/queryClient";
-
-// Define maintenance types
-const MAINTENANCE_TYPES = [
-  "regular_service",
-  "chemical_check",
-  "filter_cleaning",
-  "equipment_inspection",
-  "water_testing",
-  "winterization",
-  "opening",
-  "green_pool_treatment",
-];
+import { MAINTENANCE_TYPES } from "@/lib/constants";
 
 // Form validation schema
 const maintenanceFormSchema = z.object({
