@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth } from "date-fns";
 import { useLocation } from "wouter";
 import { Badge } from "@/components/ui/badge";
@@ -51,13 +51,23 @@ export function MaintenanceCalendar({
   selectedMaintenance = null
 }: MaintenanceCalendarProps) {
   const [, navigate] = useLocation();
-  // Initialize selectedDay to today's date
+  // Initialize state variables
   const today = new Date();
   const todayStr = format(today, "yyyy-MM-dd");
-  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date(todayStr));
+  const [selectedDay, setSelectedDay] = useState<Date | null>(new Date(todayStr + "T00:00:00"));
   const [serviceReportOpen, setServiceReportOpen] = useState(false);
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [debugMode, setDebugMode] = useState<boolean>(true); // Set to true for debugging
+  
+  // Ensure selectedDay remains in sync with month changes
+  useEffect(() => {
+    // When month changes, if selected day is not in that month, reset to the 1st of new month
+    if (selectedDay && !isSameMonth(selectedDay, month)) {
+      const firstOfMonth = new Date(month.getFullYear(), month.getMonth(), 1);
+      setSelectedDay(firstOfMonth);
+      if (debugMode) console.log("Month changed, resetting selected day to:", format(firstOfMonth, "yyyy-MM-dd"));
+    }
+  }, [month, selectedDay, debugMode]);
   
   // Get days in month
   const monthStart = startOfMonth(month);
