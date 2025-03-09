@@ -15,7 +15,8 @@ import {
   Loader2,
   Clock,
   ClipboardList,
-  FileText
+  FileText,
+  FileBarChart2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,10 +134,15 @@ export default function Maintenance() {
   };
 
   // Open service report form - now supports both dialog and page navigation
-  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
-    if (usePage) {
+  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false, useNewPage = false) => {
+    if (useNewPage) {
+      // Use the new Pool Brains style report page
+      navigate(`/service-report-page/${maintenance.id}`);
+    } else if (usePage) {
+      // Use the existing service report page
       navigate(`/service-report/${maintenance.id}`);
     } else {
+      // Use the dialog form
       setSelectedServiceMaintenance(maintenance);
       setServiceReportOpen(true);
     }
@@ -416,6 +422,14 @@ export default function Maintenance() {
                                       >
                                         <ClipboardList className="h-4 w-4 mr-2" />
                                         {hasServiceReport ? "Quick Edit (Dialog)" : "Quick Submit (Dialog)"}
+                                      </DropdownMenuItem>
+                                      
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        onClick={() => handleServiceReportOpen(maintenance, false, true)}
+                                      >
+                                        <FileBarChart2 className="h-4 w-4 mr-2" />
+                                        Pool Brains Style Report
                                       </DropdownMenuItem>
                                       
                                       <DropdownMenuSeparator />

@@ -13,7 +13,11 @@ import {
   ServiceTemplate, InsertServiceTemplate,
   ProjectDocumentation, InsertProjectDocumentation,
   CommunicationProvider, InsertCommunicationProvider, CommunicationProviderType,
-  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, communicationProviders
+  ChemicalUsage, InsertChemicalUsage, ChemicalType,
+  WaterReading, InsertWaterReading,
+  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
+  repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
+  communicationProviders, chemicalUsage, waterReadings
 } from "@shared/schema";
 import { and, eq, desc, gte, lte, sql } from "drizzle-orm";
 import { db } from "./db";
@@ -67,6 +71,18 @@ export interface IStorage {
   getMaintenancesByClientId(clientId: number): Promise<Maintenance[]>;
   getMaintenancesByTechnicianId(technicianId: number): Promise<Maintenance[]>;
   getUpcomingMaintenances(days: number): Promise<Maintenance[]>;
+  
+  // Chemical Usage operations
+  getChemicalUsage(id: number): Promise<ChemicalUsage | undefined>;
+  createChemicalUsage(usage: InsertChemicalUsage): Promise<ChemicalUsage>;
+  getChemicalUsageByMaintenanceId(maintenanceId: number): Promise<ChemicalUsage[]>;
+  getChemicalUsageByType(type: ChemicalType): Promise<ChemicalUsage[]>;
+  
+  // Water Readings operations
+  getWaterReading(id: number): Promise<WaterReading | undefined>;
+  createWaterReading(reading: InsertWaterReading): Promise<WaterReading>;
+  getWaterReadingsByMaintenanceId(maintenanceId: number): Promise<WaterReading[]>;
+  getLatestWaterReadingByClientId(clientId: number): Promise<WaterReading | undefined>;
   
   // Repair operations
   getRepair(id: number): Promise<Repair | undefined>;
@@ -136,6 +152,8 @@ export class MemStorage implements IStorage {
   private poolEquipment: Map<number, PoolEquipment>;
   private poolImages: Map<number, PoolImage>;
   private communicationProviders: Map<number, CommunicationProvider>;
+  private chemicalUsage: Map<number, ChemicalUsage>;
+  private waterReadings: Map<number, WaterReading>;
   
   private userId: number;
   private clientId: number;
@@ -153,6 +171,8 @@ export class MemStorage implements IStorage {
   private projectDocuments: Map<number, ProjectDocumentation>;
   private projectDocumentId: number;
   private communicationProviderId: number;
+  private chemicalUsageId: number;
+  private waterReadingId: number;
   
   constructor() {
     this.users = new Map();
@@ -169,6 +189,8 @@ export class MemStorage implements IStorage {
     this.serviceTemplates = new Map();
     this.projectDocuments = new Map();
     this.communicationProviders = new Map();
+    this.chemicalUsage = new Map();
+    this.waterReadings = new Map();
     
     this.userId = 1;
     this.clientId = 1;
@@ -184,6 +206,8 @@ export class MemStorage implements IStorage {
     this.serviceTemplateId = 1;
     this.projectDocumentId = 1;
     this.communicationProviderId = 1;
+    this.chemicalUsageId = 1;
+    this.waterReadingId = 1;
     
     // Add sample data
     this.initSampleData();
@@ -455,7 +479,16 @@ export class MemStorage implements IStorage {
       id,
       status: insertMaintenance.status ?? "scheduled",
       notes: insertMaintenance.notes ?? null,
-      completionDate: insertMaintenance.completionDate ?? null
+      completionDate: insertMaintenance.completionDate ?? null,
+      startTime: null,
+      endTime: null,
+      customerFeedback: null,
+      customerNotes: null,
+      invoiceAmount: null,
+      laborCost: null,
+      totalChemicalCost: null,
+      profitAmount: null,
+      profitPercentage: null
     };
     this.maintenances.set(id, maintenance);
     return maintenance;
@@ -497,6 +530,86 @@ export class MemStorage implements IStorage {
     }).sort((a, b) => {
       return new Date(a.scheduleDate).getTime() - new Date(b.scheduleDate).getTime();
     });
+  }
+  
+  // Chemical Usage operations
+  async getChemicalUsage(id: number): Promise<ChemicalUsage | undefined> {
+    return this.chemicalUsage.get(id);
+  }
+  
+  async createChemicalUsage(insertUsage: InsertChemicalUsage): Promise<ChemicalUsage> {
+    const id = this.chemicalUsageId++;
+    const usage: ChemicalUsage = {
+      ...insertUsage,
+      id,
+      notes: insertUsage.notes ?? null,
+      reason: insertUsage.reason ?? null,
+      createdAt: new Date()
+    };
+    this.chemicalUsage.set(id, usage);
+    return usage;
+  }
+  
+  async getChemicalUsageByMaintenanceId(maintenanceId: number): Promise<ChemicalUsage[]> {
+    return Array.from(this.chemicalUsage.values()).filter(
+      (usage) => usage.maintenanceId === maintenanceId
+    );
+  }
+  
+  async getChemicalUsageByType(type: ChemicalType): Promise<ChemicalUsage[]> {
+    return Array.from(this.chemicalUsage.values()).filter(
+      (usage) => usage.chemicalType === type
+    );
+  }
+  
+  // Water Readings operations
+  async getWaterReading(id: number): Promise<WaterReading | undefined> {
+    return this.waterReadings.get(id);
+  }
+  
+  async createWaterReading(insertReading: InsertWaterReading): Promise<WaterReading> {
+    const id = this.waterReadingId++;
+    const reading: WaterReading = {
+      ...insertReading,
+      id,
+      phLevel: insertReading.phLevel ?? null,
+      chlorineLevel: insertReading.chlorineLevel ?? null,
+      alkalinity: insertReading.alkalinity ?? null,
+      cyanuricAcid: insertReading.cyanuricAcid ?? null,
+      calciumHardness: insertReading.calciumHardness ?? null,
+      totalDissolvedSolids: insertReading.totalDissolvedSolids ?? null,
+      saltLevel: insertReading.saltLevel ?? null,
+      phosphates: insertReading.phosphates ?? null,
+      createdAt: new Date()
+    };
+    this.waterReadings.set(id, reading);
+    return reading;
+  }
+  
+  async getWaterReadingsByMaintenanceId(maintenanceId: number): Promise<WaterReading[]> {
+    return Array.from(this.waterReadings.values()).filter(
+      (reading) => reading.maintenanceId === maintenanceId
+    );
+  }
+  
+  async getLatestWaterReadingByClientId(clientId: number): Promise<WaterReading | undefined> {
+    // Find all maintenance records for the client
+    const clientMaintenances = Array.from(this.maintenances.values()).filter(
+      (maintenance) => maintenance.clientId === clientId
+    );
+    
+    // Get all maintenance IDs
+    const maintenanceIds = clientMaintenances.map(maintenance => maintenance.id);
+    
+    // Find all water readings for these maintenances
+    const clientWaterReadings = Array.from(this.waterReadings.values()).filter(
+      (reading) => maintenanceIds.includes(reading.maintenanceId)
+    );
+    
+    // Sort by creation date (newest first) and return the first one
+    return clientWaterReadings.sort((a, b) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    })[0];
   }
   
   // Repair operations
@@ -1444,7 +1557,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMaintenance(insertMaintenance: InsertMaintenance): Promise<Maintenance> {
-    const [maintenance] = await db.insert(maintenances).values(insertMaintenance).returning();
+    // Ensure all required fields have proper default values for Pool Brains style reporting
+    const maintenanceWithDefaults = {
+      ...insertMaintenance,
+      status: insertMaintenance.status ?? "scheduled",
+      notes: insertMaintenance.notes ?? null,
+      completionDate: insertMaintenance.completionDate ?? null,
+      startTime: insertMaintenance.startTime ?? null,
+      endTime: insertMaintenance.endTime ?? null,
+      customerFeedback: insertMaintenance.customerFeedback ?? null,
+      customerNotes: insertMaintenance.customerNotes ?? null,
+      invoiceAmount: insertMaintenance.invoiceAmount ?? null,
+      laborCost: insertMaintenance.laborCost ?? null,
+      totalChemicalCost: insertMaintenance.totalChemicalCost ?? null,
+      profitAmount: insertMaintenance.profitAmount ?? null,
+      profitPercentage: insertMaintenance.profitPercentage ?? null
+    };
+    
+    const [maintenance] = await db.insert(maintenances).values(maintenanceWithDefaults).returning();
     return maintenance;
   }
 
@@ -1487,6 +1617,96 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(maintenances.scheduleDate);
+  }
+  
+  // Chemical Usage operations
+  async getChemicalUsage(id: number): Promise<ChemicalUsage | undefined> {
+    const [usage] = await db.select().from(chemicalUsage).where(eq(chemicalUsage.id, id));
+    return usage || undefined;
+  }
+  
+  async createChemicalUsage(insertUsage: InsertChemicalUsage): Promise<ChemicalUsage> {
+    // Ensure all chemical usage fields have proper default values
+    const usageWithDefaults = {
+      ...insertUsage,
+      notes: insertUsage.notes ?? null,
+      reason: insertUsage.reason ?? null
+    };
+    
+    const [usage] = await db.insert(chemicalUsage).values(usageWithDefaults).returning();
+    return usage;
+  }
+  
+  async getChemicalUsageByMaintenanceId(maintenanceId: number): Promise<ChemicalUsage[]> {
+    return await db
+      .select()
+      .from(chemicalUsage)
+      .where(eq(chemicalUsage.maintenanceId, maintenanceId))
+      .orderBy(chemicalUsage.createdAt);
+  }
+  
+  async getChemicalUsageByType(type: ChemicalType): Promise<ChemicalUsage[]> {
+    return await db
+      .select()
+      .from(chemicalUsage)
+      .where(eq(chemicalUsage.chemicalType, type))
+      .orderBy(chemicalUsage.createdAt);
+  }
+  
+  // Water Readings operations
+  async getWaterReading(id: number): Promise<WaterReading | undefined> {
+    const [reading] = await db.select().from(waterReadings).where(eq(waterReadings.id, id));
+    return reading || undefined;
+  }
+  
+  async createWaterReading(insertReading: InsertWaterReading): Promise<WaterReading> {
+    // Ensure all water reading fields have proper default values
+    const readingWithDefaults = {
+      ...insertReading,
+      phLevel: insertReading.phLevel ?? null,
+      chlorineLevel: insertReading.chlorineLevel ?? null,
+      alkalinity: insertReading.alkalinity ?? null,
+      cyanuricAcid: insertReading.cyanuricAcid ?? null,
+      calciumHardness: insertReading.calciumHardness ?? null,
+      totalDissolvedSolids: insertReading.totalDissolvedSolids ?? null,
+      saltLevel: insertReading.saltLevel ?? null,
+      phosphates: insertReading.phosphates ?? null
+    };
+    
+    const [reading] = await db.insert(waterReadings).values(readingWithDefaults).returning();
+    return reading;
+  }
+  
+  async getWaterReadingsByMaintenanceId(maintenanceId: number): Promise<WaterReading[]> {
+    return await db
+      .select()
+      .from(waterReadings)
+      .where(eq(waterReadings.maintenanceId, maintenanceId))
+      .orderBy(waterReadings.createdAt);
+  }
+  
+  async getLatestWaterReadingByClientId(clientId: number): Promise<WaterReading | undefined> {
+    // Get all maintenance IDs for the client
+    const clientMaintenances = await db
+      .select()
+      .from(maintenances)
+      .where(eq(maintenances.clientId, clientId));
+    
+    if (clientMaintenances.length === 0) {
+      return undefined;
+    }
+    
+    const maintenanceIds = clientMaintenances.map(m => m.id);
+    
+    // Find the latest water reading for any of these maintenances
+    const [latestReading] = await db
+      .select()
+      .from(waterReadings)
+      .where(sql`${waterReadings.maintenanceId} IN (${maintenanceIds.join(',')})`)
+      .orderBy(desc(waterReadings.createdAt))
+      .limit(1);
+    
+    return latestReading || undefined;
   }
 
   // Repair operations

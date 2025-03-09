@@ -30,12 +30,15 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, Beaker, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MaintenanceWithDetails } from "@/lib/types";
 import { apiRequest } from "@/lib/queryClient";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChemicalUsageForm } from "./ChemicalUsageForm";
+import { ChemicalUsageHistory } from "./ChemicalUsageHistory";
 
 // Form validation schema
 const serviceReportSchema = z.object({
@@ -46,12 +49,17 @@ const serviceReportSchema = z.object({
     phLevel: z.coerce.number().min(0).max(14).optional(),
     chlorineLevel: z.coerce.number().min(0).max(10).optional(),
     alkalinity: z.coerce.number().min(0).max(300).optional(),
+    cyanuricAcid: z.coerce.number().min(0).max(150).optional(),
+    calciumHardness: z.coerce.number().min(0).max(1000).optional(),
+    totalDissolvedSolids: z.coerce.number().min(0).max(5000).optional(),
   }).optional(),
   tasksCompleted: z.array(z.string()).optional(),
   notes: z.string().optional(),
   status: z.enum(["in_progress", "completed", "cancelled"], {
     required_error: "Please select a status",
   }),
+  laborTimeMinutes: z.coerce.number().min(0).max(480).optional(), // Max 8 hours (480 minutes)
+  serviceRate: z.coerce.number().min(0).optional(), // $ per hour service rate
 });
 
 type ServiceReportValues = z.infer<typeof serviceReportSchema>;

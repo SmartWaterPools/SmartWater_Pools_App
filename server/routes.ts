@@ -16,10 +16,14 @@ import {
   insertProjectPhaseSchema,
   insertProjectDocumentationSchema,
   insertCommunicationProviderSchema,
+  insertChemicalUsageSchema,
+  insertWaterReadingsSchema,
   validateContractType,
   CONTRACT_TYPES,
+  CHEMICAL_TYPES,
   COMMUNICATION_PROVIDER_TYPES,
-  CommunicationProviderType
+  CommunicationProviderType,
+  ChemicalType
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -1185,6 +1189,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting service template:", error);
       res.status(500).json({ message: "Failed to delete service template" });
+    }
+  });
+
+  // Chemical Usage endpoints
+  app.post("/api/chemical-usage", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertChemicalUsageSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const chemicalUsage = await storage.createChemicalUsage(validation.data);
+      res.status(201).json(chemicalUsage);
+    } catch (error) {
+      console.error("Error creating chemical usage record:", error);
+      res.status(500).json({ message: "Failed to create chemical usage record" });
+    }
+  });
+  
+  app.get("/api/chemical-usage/maintenance/:maintenanceId", async (req: Request, res: Response) => {
+    try {
+      const maintenanceId = parseInt(req.params.maintenanceId);
+      
+      if (isNaN(maintenanceId)) {
+        return res.status(400).json({ message: "Invalid maintenance ID" });
+      }
+      
+      const chemicalUsages = await storage.getChemicalUsageByMaintenanceId(maintenanceId);
+      res.json(chemicalUsages);
+    } catch (error) {
+      console.error("Error fetching chemical usage records:", error);
+      res.status(500).json({ message: "Failed to fetch chemical usage records" });
+    }
+  });
+  
+  app.get("/api/chemical-usage/type/:type", async (req: Request, res: Response) => {
+    try {
+      const type = req.params.type;
+      
+      if (!CHEMICAL_TYPES.includes(type as ChemicalType)) {
+        return res.status(400).json({ 
+          message: "Invalid chemical type",
+          validTypes: CHEMICAL_TYPES
+        });
+      }
+      
+      const chemicalUsages = await storage.getChemicalUsageByType(type as ChemicalType);
+      res.json(chemicalUsages);
+    } catch (error) {
+      console.error("Error fetching chemical usage by type:", error);
+      res.status(500).json({ message: "Failed to fetch chemical usage records" });
+    }
+  });
+  
+  // Water Readings endpoints
+  app.post("/api/water-readings", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertWaterReadingsSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const waterReading = await storage.createWaterReading(validation.data);
+      res.status(201).json(waterReading);
+    } catch (error) {
+      console.error("Error creating water reading:", error);
+      res.status(500).json({ message: "Failed to create water reading" });
+    }
+  });
+  
+  app.get("/api/water-readings/maintenance/:maintenanceId", async (req: Request, res: Response) => {
+    try {
+      const maintenanceId = parseInt(req.params.maintenanceId);
+      
+      if (isNaN(maintenanceId)) {
+        return res.status(400).json({ message: "Invalid maintenance ID" });
+      }
+      
+      const waterReadings = await storage.getWaterReadingsByMaintenanceId(maintenanceId);
+      res.json(waterReadings);
+    } catch (error) {
+      console.error("Error fetching water readings:", error);
+      res.status(500).json({ message: "Failed to fetch water readings" });
+    }
+  });
+  
+  app.get("/api/water-readings/latest/client/:clientId", async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.clientId);
+      
+      if (isNaN(clientId)) {
+        return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
+      const waterReading = await storage.getLatestWaterReadingByClientId(clientId);
+      
+      if (!waterReading) {
+        return res.status(404).json({ message: "No water readings found for client" });
+      }
+      
+      res.json(waterReading);
+    } catch (error) {
+      console.error("Error fetching latest water reading:", error);
+      res.status(500).json({ message: "Failed to fetch latest water reading" });
     }
   });
 

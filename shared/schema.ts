@@ -215,13 +215,39 @@ export const maintenances = pgTable("maintenances", {
   scheduleDate: date("schedule_date").notNull(),
   technicianId: integer("technician_id").references(() => technicians.id).notNull(),
   completionDate: date("completion_date"),
+  startTime: timestamp("start_time"), // When technician started the service
+  endTime: timestamp("end_time"), // When technician finished the service
   type: text("type").notNull(),
   status: text("status").notNull().default("scheduled"), // scheduled, in_progress, completed, cancelled
   notes: text("notes"),
+  customerFeedback: integer("customer_feedback"), // Rating 1-5
+  customerNotes: text("customer_notes"), // Customer feedback notes
+  invoiceAmount: integer("invoice_amount"), // Amount invoiced for this service
+  laborCost: integer("labor_cost"), // Cost of labor for this service
+  totalChemicalCost: integer("total_chemical_cost"), // Total cost of chemicals used
+  profitAmount: integer("profit_amount"), // Calculated profit
+  profitPercentage: integer("profit_percentage"), // Profit as a percentage
+  routeName: text("route_name"), // Name of the route (e.g., "Monday North")
+  routeOrder: integer("route_order"), // Order in the route sequence
+  serviceTimeMinutes: integer("service_time_minutes"), // Actual service time
+  mileage: integer("mileage"), // Distance traveled for this service
+  fuelCost: integer("fuel_cost"), // Fuel cost in cents
+  isOnTime: boolean("is_on_time"), // Whether service was on time
+  issues: text("issues"), // Issues encountered during service
+  serviceEfficiency: integer("service_efficiency"), // Service efficiency score (0-100)
 });
 
 export const insertMaintenanceSchema = createInsertSchema(maintenances).omit({
   id: true,
+  startTime: true,
+  endTime: true,
+  customerFeedback: true,
+  customerNotes: true,
+  invoiceAmount: true,
+  laborCost: true,
+  totalChemicalCost: true,
+  profitAmount: true,
+  profitPercentage: true,
 });
 
 // Repair request schema
@@ -296,6 +322,49 @@ export const poolImages = pgTable("pool_images", {
 export const insertPoolImageSchema = createInsertSchema(poolImages).omit({
   id: true,
   uploadDate: true,
+});
+
+// Define chemical types
+export const CHEMICAL_TYPES = ['liquid_chlorine', 'tablets', 'muriatic_acid', 'soda_ash', 'sodium_bicarbonate', 'calcium_chloride', 'stabilizer', 'algaecide', 'salt', 'phosphate_remover', 'other'] as const;
+export type ChemicalType = typeof CHEMICAL_TYPES[number];
+
+// Chemical usage schema for tracking each chemical addition
+export const chemicalUsage = pgTable("chemical_usage", {
+  id: serial("id").primaryKey(),
+  maintenanceId: integer("maintenance_id").references(() => maintenances.id).notNull(),
+  chemicalType: text("chemical_type").notNull(), // Type of chemical used
+  amount: integer("amount").notNull(), // Amount used (in base units)
+  unit: text("unit").notNull(), // Unit of measurement (oz, lbs, gallons, etc.)
+  unitCost: integer("unit_cost").notNull(), // Cost per unit in cents
+  totalCost: integer("total_cost").notNull(), // Total cost in cents
+  reason: text("reason"), // Reason for chemical addition
+  notes: text("notes"), // Additional notes
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertChemicalUsageSchema = createInsertSchema(chemicalUsage).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Water readings schema for detailed pool chemistry tracking
+export const waterReadings = pgTable("water_readings", {
+  id: serial("id").primaryKey(),
+  maintenanceId: integer("maintenance_id").references(() => maintenances.id).notNull(),
+  phLevel: integer("ph_level"), // pH level * 10 (e.g., 7.4 stored as 74)
+  chlorineLevel: integer("chlorine_level"), // Chlorine level in ppm * 10
+  alkalinity: integer("alkalinity"), // Alkalinity in ppm
+  cyanuricAcid: integer("cyanuric_acid"), // Stabilizer level in ppm
+  calciumHardness: integer("calcium_hardness"), // Calcium hardness in ppm
+  totalDissolvedSolids: integer("total_dissolved_solids"), // TDS in ppm
+  saltLevel: integer("salt_level"), // Salt level in ppm (for salt systems)
+  phosphates: integer("phosphates"), // Phosphate level in ppb
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertWaterReadingsSchema = createInsertSchema(waterReadings).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Service templates schema for global service checklists
@@ -406,7 +475,7 @@ export const projectAssignmentsRelations = relations(projectAssignments, ({ one 
   }),
 }));
 
-export const maintenancesRelations = relations(maintenances, ({ one }) => ({
+export const maintenancesRelations = relations(maintenances, ({ one, many }) => ({
   client: one(clients, {
     fields: [maintenances.clientId],
     references: [clients.id],
@@ -415,6 +484,8 @@ export const maintenancesRelations = relations(maintenances, ({ one }) => ({
     fields: [maintenances.technicianId],
     references: [technicians.id],
   }),
+  chemicalUsages: many(chemicalUsage),
+  waterReadings: many(waterReadings),
 }));
 
 export const repairsRelations = relations(repairs, ({ one }) => ({
@@ -479,7 +550,22 @@ export const updateClientSchema = z.object({
   customServiceInstructions: z.array(z.string()).optional(),
 });
 
-// Project documentation relations
+// Chemical usage relations
+export const chemicalUsageRelations = relations(chemicalUsage, ({ one }) => ({
+  maintenance: one(maintenances, {
+    fields: [chemicalUsage.maintenanceId],
+    references: [maintenances.id],
+  }),
+}));
+
+// Water readings relations
+export const waterReadingsRelations = relations(waterReadings, ({ one }) => ({
+  maintenance: one(maintenances, {
+    fields: [waterReadings.maintenanceId],
+    references: [maintenances.id],
+  }),
+}));
+
 export const projectDocumentationRelations = relations(projectDocumentation, ({ one }) => ({
   project: one(projects, {
     fields: [projectDocumentation.projectId],
@@ -559,6 +645,12 @@ export type InsertPhaseResource = z.infer<typeof insertPhaseResourceSchema>;
 
 export type ProjectDocumentation = typeof projectDocumentation.$inferSelect;
 export type InsertProjectDocumentation = z.infer<typeof insertProjectDocumentationSchema>;
+
+export type ChemicalUsage = typeof chemicalUsage.$inferSelect;
+export type InsertChemicalUsage = z.infer<typeof insertChemicalUsageSchema>;
+
+export type WaterReading = typeof waterReadings.$inferSelect;
+export type InsertWaterReading = z.infer<typeof insertWaterReadingsSchema>;
 
 export type ServiceTemplate = typeof serviceTemplates.$inferSelect;
 export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
