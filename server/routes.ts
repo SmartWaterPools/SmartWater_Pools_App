@@ -1453,11 +1453,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Route operations
-  app.get("/api/routes", async (_req: Request, res: Response) => {
+  /**
+   * Pool Service Routes Operations
+   * 
+   * IMPORTANT: These endpoints manage "service routes" which represent the scheduled
+   * paths that technicians follow to service multiple pool clients.
+   * 
+   * This is distinct from API routing/HTTP routes which define the server endpoints.
+   */
+  app.get("/api/service-routes", async (_req: Request, res: Response) => {
     try {
       const routes = await storage.getAllRoutes();
-      res.json(routes);
+      
+      // Fetch assignments for each route
+      const routesWithAssignments = await Promise.all(
+        routes.map(async (route) => {
+          const assignments = await storage.getRouteAssignmentsByRouteId(route.id);
+          
+          // For each assignment, fetch the maintenance details
+          const assignmentsWithMaintenance = await Promise.all(
+            assignments.map(async (assignment) => {
+              const maintenance = await storage.getMaintenance(assignment.maintenanceId);
+              
+              if (maintenance) {
+                // Get client details
+                const client = await storage.getClientWithUser(maintenance.clientId);
+                
+                // Get technician details if assigned
+                let technician = null;
+                if (maintenance.technicianId) {
+                  technician = await storage.getTechnicianWithUser(maintenance.technicianId);
+                }
+                
+                return {
+                  ...assignment,
+                  maintenance: {
+                    ...maintenance,
+                    client,
+                    technician
+                  }
+                };
+              }
+              
+              return assignment;
+            })
+          );
+          
+          return {
+            ...route,
+            assignments: assignmentsWithMaintenance
+          };
+        })
+      );
+      
+      res.json(routesWithAssignments);
     } catch (error) {
       console.error("Error fetching routes:", error);
       res.status(500).json({ message: "Failed to fetch routes" });

@@ -49,6 +49,7 @@ export const VALIDATION_MESSAGES = {
 
 // API endpoints
 export const API_ENDPOINTS = {
+  // Core resources
   USERS: "/api/users",
   CLIENTS: "/api/clients",
   TECHNICIANS: "/api/technicians",
@@ -56,5 +57,17 @@ export const API_ENDPOINTS = {
   MAINTENANCES: "/api/maintenances",
   REPAIRS: "/api/repairs",
   INVOICES: "/api/invoices",
-  DASHBOARD: "/api/dashboard/summary"
+  DASHBOARD: "/api/dashboard/summary",
+  
+  // Pool Service Routes (NOT API routes - these manage technician pool service paths)
+  // These endpoints manage the physical routes that technicians follow to service pools
+  POOL_ROUTES: "/api/routes",
+  POOL_ROUTE_DETAILS: (id: number) => `/api/routes/${id}`,
+  POOL_ROUTE_BY_TECHNICIAN: (technicianId: number) => `/api/technicians/${technicianId}/routes`,
+  POOL_ROUTE_BY_DAY: (dayOfWeek: string) => `/api/routes/day/${dayOfWeek}`,
+  POOL_ROUTE_BY_TYPE: (type: string) => `/api/routes/type/${type}`,
+  POOL_ROUTE_ASSIGNMENTS: (routeId: number) => `/api/routes/${routeId}/assignments`,
+  POOL_ROUTE_ASSIGNMENT: (id: number) => `/api/route-assignments/${id}`,
+  MAINTENANCE_ROUTE_ASSIGNMENTS: (maintenanceId: number) => `/api/maintenances/${maintenanceId}/route-assignments`,
+  REORDER_POOL_ROUTE: (routeId: number) => `/api/routes/${routeId}/reorder`,
 };

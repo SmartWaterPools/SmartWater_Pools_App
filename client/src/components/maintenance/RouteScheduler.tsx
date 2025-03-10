@@ -1,3 +1,13 @@
+/**
+ * RouteScheduler Component
+ * 
+ * This component manages service routes for pool maintenance.
+ * NOTE: "Routes" in this context refers to the scheduled paths that technicians follow
+ * to service multiple pools, NOT to be confused with API routes/endpoints.
+ * 
+ * A service route represents a sequence of client properties that a technician
+ * visits on a particular day of the week.
+ */
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
@@ -43,6 +53,7 @@ import { useToast } from "@/hooks/use-toast";
 import { MaintenanceWithDetails } from "@/lib/types";
 import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
+import { API_ENDPOINTS } from "@/lib/constants";
 
 // Type definitions for our API data
 interface Route {
@@ -99,19 +110,19 @@ export function RouteScheduler() {
   // Get days of the week for the dropdown
   const daysOfWeek = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
-  // Fetch routes
+  // Fetch service routes (physical paths for technicians, not API endpoints)
   const { data: routes, isLoading: routesLoading } = useQuery<RouteWithAssignments[]>({
-    queryKey: ["/api/routes"],
+    queryKey: [API_ENDPOINTS.POOL_ROUTES],
   });
 
   // Fetch technicians
   const { data: technicians, isLoading: techniciansLoading } = useQuery<Technician[]>({
-    queryKey: ["/api/technicians"],
+    queryKey: [API_ENDPOINTS.TECHNICIANS],
   });
 
   // Fetch maintenances for potential assignment
   const { data: maintenances, isLoading: maintenancesLoading } = useQuery<MaintenanceWithDetails[]>({
-    queryKey: ["/api/maintenances"],
+    queryKey: [API_ENDPOINTS.MAINTENANCES],
   });
 
   // Filter routes by selected day and technician
@@ -139,16 +150,16 @@ export function RouteScheduler() {
     return ["scheduled", "in_progress"].includes(maintenance.status);
   });
 
-  // Create route mutation
+  // Create service route mutation
   const createRouteMutation = useMutation({
     mutationFn: async (newRoute: { name: string; type: string; dayOfWeek: string; technicianId: number; description: string }) => {
-      return await apiRequest("/api/routes", "POST", newRoute);
+      return await apiRequest(API_ENDPOINTS.POOL_ROUTES, "POST", newRoute);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.POOL_ROUTES] });
       toast({
         title: "Route created",
-        description: "The route has been created successfully.",
+        description: "The service route has been created successfully.",
       });
       setShowNewRouteForm(false);
       setNewRouteName("");
@@ -158,75 +169,75 @@ export function RouteScheduler() {
     onError: (error) => {
       toast({
         title: "Failed to create route",
-        description: "There was an error creating the route. Please try again.",
+        description: "There was an error creating the service route. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Delete route mutation
+  // Delete service route mutation
   const deleteRouteMutation = useMutation({
     mutationFn: async (routeId: number) => {
-      return await apiRequest(`/api/routes/${routeId}`, "DELETE");
+      return await apiRequest(API_ENDPOINTS.POOL_ROUTE_DETAILS(routeId), "DELETE");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.POOL_ROUTES] });
       toast({
-        title: "Route deleted",
-        description: "The route has been deleted successfully.",
+        title: "Service route deleted",
+        description: "The service route has been deleted successfully.",
       });
       setSelectedRoute(null);
     },
     onError: (error) => {
       toast({
-        title: "Failed to delete route",
-        description: "There was an error deleting the route. Please try again.",
+        title: "Failed to delete service route",
+        description: "There was an error deleting the service route. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Add assignment mutation
+  // Add route assignment mutation
   const addAssignmentMutation = useMutation({
     mutationFn: async ({ routeId, maintenanceId, orderIndex }: { routeId: number; maintenanceId: number; orderIndex: number }) => {
-      return await apiRequest("/api/route-assignments", "POST", {
+      return await apiRequest(API_ENDPOINTS.POOL_ROUTE_ASSIGNMENTS, "POST", {
         routeId,
         maintenanceId,
         orderIndex,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.POOL_ROUTES] });
       toast({
         title: "Maintenance assigned",
-        description: "The maintenance has been assigned to the route successfully.",
+        description: "The maintenance has been assigned to the service route successfully.",
       });
     },
     onError: (error) => {
       toast({
         title: "Failed to assign maintenance",
-        description: "There was an error assigning the maintenance to the route. Please try again.",
+        description: "There was an error assigning the maintenance to the service route. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Remove assignment mutation
+  // Remove route assignment mutation
   const removeAssignmentMutation = useMutation({
     mutationFn: async (assignmentId: number) => {
-      return await apiRequest(`/api/route-assignments/${assignmentId}`, "DELETE");
+      return await apiRequest(API_ENDPOINTS.POOL_ROUTE_ASSIGNMENT(assignmentId), "DELETE");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.POOL_ROUTES] });
       toast({
         title: "Maintenance removed",
-        description: "The maintenance has been removed from the route successfully.",
+        description: "The maintenance has been removed from the service route successfully.",
       });
     },
     onError: (error) => {
       toast({
         title: "Failed to remove maintenance",
-        description: "There was an error removing the maintenance from the route. Please try again.",
+        description: "There was an error removing the maintenance from the service route. Please try again.",
         variant: "destructive",
       });
     },
@@ -235,12 +246,12 @@ export function RouteScheduler() {
   // Reorder assignments mutation
   const reorderAssignmentsMutation = useMutation({
     mutationFn: async ({ routeId, assignmentIds }: { routeId: number; assignmentIds: number[] }) => {
-      return await apiRequest(`/api/routes/${routeId}/reorder`, "POST", {
+      return await apiRequest(API_ENDPOINTS.REORDER_POOL_ROUTE(routeId), "POST", {
         assignmentIds,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.POOL_ROUTES] });
       toast({
         title: "Route reordered",
         description: "The route order has been updated successfully.",
@@ -580,7 +591,7 @@ export function RouteScheduler() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {route.assignments.length > 0 ? (
+                    {route.assignments && route.assignments.length > 0 ? (
                       <div>
                         <div className="flex justify-between items-center mb-2">
                           <span className="text-sm font-medium">

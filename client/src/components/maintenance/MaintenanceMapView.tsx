@@ -13,6 +13,7 @@ import {
 import { User, Calendar, MapPin } from 'lucide-react';
 import { MaintenanceWithDetails } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
+import { EnvTest } from './EnvTest';
 
 const containerStyle = {
   width: '100%',
@@ -134,9 +135,24 @@ export function MaintenanceMapView({
     { value: "sunday", label: "Sunday" },
   ];
 
-  // Check if the Google Maps API key is available
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-  const hasApiKey = !!apiKey;
+  // Check for Google Maps API key with a more robust approach
+  const googleMapsApiKey = typeof import.meta.env.VITE_GOOGLE_MAPS_API_KEY === 'string' &&
+    import.meta.env.VITE_GOOGLE_MAPS_API_KEY.length > 0
+    ? import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    : "";
+  
+  const hasApiKey = googleMapsApiKey.length > 0;
+  
+  // Log the API key status for debugging
+  console.log(`Google Maps API key: ${hasApiKey ? "✅ Available" : "❌ Missing or empty"}`);
+  
+  // Check if we have a valid key from secrets
+  useEffect(() => {
+    if (!hasApiKey) {
+      console.warn("Google Maps API key is missing. Please check your environment variables.");
+      console.info("You need to add VITE_GOOGLE_MAPS_API_KEY to your .env file.");
+    }
+  }, [hasApiKey]);
 
   return (
     <div className="space-y-4">
@@ -175,7 +191,10 @@ export function MaintenanceMapView({
         </div>
       </div>
       
-      <Card className="p-4">
+      {/* Environment Variables Debug Component */}
+      <EnvTest />
+      
+      <Card className="p-4 mt-4">
         {!hasApiKey ? (
           <div className="p-6 text-center">
             <MapPin className="h-12 w-12 mx-auto text-gray-300 mb-2" />
@@ -183,7 +202,7 @@ export function MaintenanceMapView({
             <p className="text-sm text-gray-500 mt-1">A valid Google Maps API key is needed to display the map.</p>
           </div>
         ) : (
-          <LoadScript googleMapsApiKey={apiKey} 
+          <LoadScript googleMapsApiKey={googleMapsApiKey} 
             loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}>
             <GoogleMap
               mapContainerStyle={containerStyle}
