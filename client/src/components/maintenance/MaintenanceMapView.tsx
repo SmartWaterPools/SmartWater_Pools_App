@@ -140,14 +140,21 @@ export function MaintenanceMapView({
   const [libraries] = useState(['places', 'geometry', 'drawing', 'visualization'] as any);
   const [infoPosition, setInfoPosition] = useState<google.maps.LatLngLiteral | null>(null);
   
-  // Access the Google Maps API key from the environment
-  // Try to get the key from different possible sources
-  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 
-                          (typeof process !== 'undefined' && process.env && process.env.GOOGLE_MAPS_API_KEY) || 
-                          '';
+  // Try to get the API key directly from the environment
+  const envApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   
-  // Log environment variables for debugging
-  console.log('Environment variables available:', Object.keys(import.meta.env));
+  // Also try to get it from the server as a backup
+  const { data: apiKeyData } = useQuery<{ apiKey: string }>({
+    queryKey: ["/api/google-maps-key"],
+    enabled: true
+  });
+  
+  // Use whichever API key is available
+  const googleMapsApiKey = envApiKey || apiKeyData?.apiKey || '';
+  
+  // For debugging only - don't log actual key values in production
+  console.log('API Key Sources - Environment:', envApiKey ? '✅ Available' : '❌ Missing');
+  console.log('API Key Sources - Server API:', apiKeyData?.apiKey ? '✅ Available' : '❌ Missing or still loading');
   
   const hasApiKey = typeof googleMapsApiKey === 'string' && googleMapsApiKey.length > 0;
   

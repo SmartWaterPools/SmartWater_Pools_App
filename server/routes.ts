@@ -3080,5 +3080,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint to provide Google Maps API key to the client
+  app.get("/api/google-maps-key", (_req: Request, res: Response) => {
+    try {
+      // Return the API key from environment variable
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      if (!apiKey) {
+        console.warn("Google Maps API key not found in environment variables");
+      } else {
+        console.log("Successfully retrieved Google Maps API key for client");
+      }
+      res.json({ apiKey });
+    } catch (error) {
+      console.error("Error providing Google Maps API key:", error);
+      res.status(500).json({ message: "Failed to provide Google Maps API key" });
+    }
+  });
+
   return httpServer;
 }
