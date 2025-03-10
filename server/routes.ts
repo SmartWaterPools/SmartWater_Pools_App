@@ -18,12 +18,15 @@ import {
   insertCommunicationProviderSchema,
   insertChemicalUsageSchema,
   insertWaterReadingsSchema,
+  insertRouteSchema,
+  insertRouteAssignmentSchema,
   validateContractType,
   CONTRACT_TYPES,
   CHEMICAL_TYPES,
   COMMUNICATION_PROVIDER_TYPES,
   CommunicationProviderType,
   ChemicalType,
+  ROUTE_TYPES,
   // Business Module schemas
   insertExpenseSchema,
   // insertPayrollEntrySchema removed
@@ -1447,6 +1450,290 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting communication provider:", error);
       res.status(500).json({ message: "Failed to delete communication provider" });
+    }
+  });
+
+  // Route operations
+  app.get("/api/routes", async (_req: Request, res: Response) => {
+    try {
+      const routes = await storage.getAllRoutes();
+      res.json(routes);
+    } catch (error) {
+      console.error("Error fetching routes:", error);
+      res.status(500).json({ message: "Failed to fetch routes" });
+    }
+  });
+
+  app.get("/api/routes/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid route ID" });
+      }
+      
+      const route = await storage.getRoute(id);
+      if (!route) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      res.json(route);
+    } catch (error) {
+      console.error("Error fetching route:", error);
+      res.status(500).json({ message: "Failed to fetch route" });
+    }
+  });
+
+  app.post("/api/routes", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertRouteSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const route = await storage.createRoute(validation.data);
+      res.status(201).json(route);
+    } catch (error) {
+      console.error("Error creating route:", error);
+      res.status(500).json({ message: "Failed to create route" });
+    }
+  });
+
+  app.patch("/api/routes/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid route ID" });
+      }
+      
+      const route = await storage.updateRoute(id, req.body);
+      if (!route) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      res.json(route);
+    } catch (error) {
+      console.error("Error updating route:", error);
+      res.status(500).json({ message: "Failed to update route" });
+    }
+  });
+
+  app.delete("/api/routes/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid route ID" });
+      }
+      
+      const success = await storage.deleteRoute(id);
+      if (!success) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting route:", error);
+      res.status(500).json({ message: "Failed to delete route" });
+    }
+  });
+
+  app.get("/api/technicians/:technicianId/routes", async (req: Request, res: Response) => {
+    try {
+      const technicianId = parseInt(req.params.technicianId);
+      if (isNaN(technicianId)) {
+        return res.status(400).json({ message: "Invalid technician ID" });
+      }
+      
+      // Verify technician exists
+      const technician = await storage.getTechnician(technicianId);
+      if (!technician) {
+        return res.status(404).json({ message: "Technician not found" });
+      }
+      
+      const routes = await storage.getRoutesByTechnicianId(technicianId);
+      res.json(routes);
+    } catch (error) {
+      console.error("Error fetching routes by technician:", error);
+      res.status(500).json({ message: "Failed to fetch routes by technician" });
+    }
+  });
+
+  app.get("/api/routes/day/:dayOfWeek", async (req: Request, res: Response) => {
+    try {
+      const { dayOfWeek } = req.params;
+      const validDays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+      
+      if (!validDays.includes(dayOfWeek.toLowerCase())) {
+        return res.status(400).json({ message: "Invalid day of week" });
+      }
+      
+      const routes = await storage.getRoutesByDayOfWeek(dayOfWeek.toLowerCase());
+      res.json(routes);
+    } catch (error) {
+      console.error("Error fetching routes by day of week:", error);
+      res.status(500).json({ message: "Failed to fetch routes by day of week" });
+    }
+  });
+
+  app.get("/api/routes/type/:type", async (req: Request, res: Response) => {
+    try {
+      const { type } = req.params;
+      const validTypes = ["residential", "commercial", "mixed"];
+      
+      if (!validTypes.includes(type.toLowerCase())) {
+        return res.status(400).json({ 
+          message: "Invalid route type", 
+          validTypes 
+        });
+      }
+      
+      const routes = await storage.getRoutesByType(type.toLowerCase());
+      res.json(routes);
+    } catch (error) {
+      console.error("Error fetching routes by type:", error);
+      res.status(500).json({ message: "Failed to fetch routes by type" });
+    }
+  });
+
+  // Route Assignment operations
+  app.get("/api/route-assignments/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid route assignment ID" });
+      }
+      
+      const assignment = await storage.getRouteAssignment(id);
+      if (!assignment) {
+        return res.status(404).json({ message: "Route assignment not found" });
+      }
+      
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error fetching route assignment:", error);
+      res.status(500).json({ message: "Failed to fetch route assignment" });
+    }
+  });
+
+  app.post("/api/route-assignments", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertRouteAssignmentSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const assignment = await storage.createRouteAssignment(validation.data);
+      res.status(201).json(assignment);
+    } catch (error) {
+      console.error("Error creating route assignment:", error);
+      res.status(500).json({ message: "Failed to create route assignment" });
+    }
+  });
+
+  app.patch("/api/route-assignments/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid route assignment ID" });
+      }
+      
+      const assignment = await storage.updateRouteAssignment(id, req.body);
+      if (!assignment) {
+        return res.status(404).json({ message: "Route assignment not found" });
+      }
+      
+      res.json(assignment);
+    } catch (error) {
+      console.error("Error updating route assignment:", error);
+      res.status(500).json({ message: "Failed to update route assignment" });
+    }
+  });
+
+  app.delete("/api/route-assignments/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid route assignment ID" });
+      }
+      
+      const success = await storage.deleteRouteAssignment(id);
+      if (!success) {
+        return res.status(404).json({ message: "Route assignment not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting route assignment:", error);
+      res.status(500).json({ message: "Failed to delete route assignment" });
+    }
+  });
+
+  app.get("/api/routes/:routeId/assignments", async (req: Request, res: Response) => {
+    try {
+      const routeId = parseInt(req.params.routeId);
+      if (isNaN(routeId)) {
+        return res.status(400).json({ message: "Invalid route ID" });
+      }
+      
+      // Verify route exists
+      const route = await storage.getRoute(routeId);
+      if (!route) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      const assignments = await storage.getRouteAssignmentsByRouteId(routeId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching route assignments by route ID:", error);
+      res.status(500).json({ message: "Failed to fetch route assignments by route ID" });
+    }
+  });
+
+  app.get("/api/maintenances/:maintenanceId/route-assignments", async (req: Request, res: Response) => {
+    try {
+      const maintenanceId = parseInt(req.params.maintenanceId);
+      if (isNaN(maintenanceId)) {
+        return res.status(400).json({ message: "Invalid maintenance ID" });
+      }
+      
+      // Verify maintenance exists
+      const maintenance = await storage.getMaintenance(maintenanceId);
+      if (!maintenance) {
+        return res.status(404).json({ message: "Maintenance not found" });
+      }
+      
+      const assignments = await storage.getRouteAssignmentsByMaintenanceId(maintenanceId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching route assignments by maintenance ID:", error);
+      res.status(500).json({ message: "Failed to fetch route assignments by maintenance ID" });
+    }
+  });
+
+  app.post("/api/routes/:routeId/reorder", async (req: Request, res: Response) => {
+    try {
+      const { assignmentIds } = req.body;
+      if (!Array.isArray(assignmentIds)) {
+        return res.status(400).json({ message: "Assignment IDs must be an array" });
+      }
+      
+      const routeId = parseInt(req.params.routeId);
+      if (isNaN(routeId)) {
+        return res.status(400).json({ message: "Invalid route ID" });
+      }
+      
+      // Verify route exists
+      const route = await storage.getRoute(routeId);
+      if (!route) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      const assignments = await storage.reorderRouteAssignments(routeId, assignmentIds);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error reordering route assignments:", error);
+      res.status(500).json({ message: "Failed to reorder route assignments" });
     }
   });
 

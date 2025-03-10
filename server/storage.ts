@@ -15,11 +15,13 @@ import {
   CommunicationProvider, InsertCommunicationProvider, CommunicationProviderType,
   ChemicalUsage, InsertChemicalUsage, ChemicalType,
   WaterReading, InsertWaterReading,
+  Route, InsertRoute,
+  RouteAssignment, InsertRouteAssignment,
   users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
-  communicationProviders, chemicalUsage, waterReadings
+  communicationProviders, chemicalUsage, waterReadings, routes, routeAssignments
 } from "@shared/schema";
-import { and, eq, desc, gte, lte, sql } from "drizzle-orm";
+import { and, eq, desc, gte, lte, sql, asc } from "drizzle-orm";
 import { db } from "./db";
 
 export interface IStorage {
@@ -71,6 +73,25 @@ export interface IStorage {
   getMaintenancesByClientId(clientId: number): Promise<Maintenance[]>;
   getMaintenancesByTechnicianId(technicianId: number): Promise<Maintenance[]>;
   getUpcomingMaintenances(days: number): Promise<Maintenance[]>;
+  
+  // Route operations
+  getRoute(id: number): Promise<Route | undefined>;
+  createRoute(route: InsertRoute): Promise<Route>;
+  updateRoute(id: number, route: Partial<Route>): Promise<Route | undefined>;
+  deleteRoute(id: number): Promise<boolean>;
+  getAllRoutes(): Promise<Route[]>;
+  getRoutesByTechnicianId(technicianId: number): Promise<Route[]>;
+  getRoutesByDayOfWeek(dayOfWeek: string): Promise<Route[]>;
+  getRoutesByType(type: string): Promise<Route[]>;
+  
+  // Route Assignment operations
+  getRouteAssignment(id: number): Promise<RouteAssignment | undefined>;
+  createRouteAssignment(assignment: InsertRouteAssignment): Promise<RouteAssignment>;
+  updateRouteAssignment(id: number, assignment: Partial<RouteAssignment>): Promise<RouteAssignment | undefined>;
+  deleteRouteAssignment(id: number): Promise<boolean>;
+  getRouteAssignmentsByRouteId(routeId: number): Promise<RouteAssignment[]>;
+  getRouteAssignmentsByMaintenanceId(maintenanceId: number): Promise<RouteAssignment[]>;
+  reorderRouteAssignments(routeId: number, assignmentIds: number[]): Promise<RouteAssignment[]>;
   
   // Chemical Usage operations
   getChemicalUsage(id: number): Promise<ChemicalUsage | undefined>;
@@ -213,6 +234,8 @@ export class MemStorage implements IStorage {
   private communicationProviders: Map<number, CommunicationProvider>;
   private chemicalUsage: Map<number, ChemicalUsage>;
   private waterReadings: Map<number, WaterReading>;
+  private routes: Map<number, Route>;
+  private routeAssignments: Map<number, RouteAssignment>;
   
   private userId: number;
   private clientId: number;
@@ -232,6 +255,8 @@ export class MemStorage implements IStorage {
   private communicationProviderId: number;
   private chemicalUsageId: number;
   private waterReadingId: number;
+  private routeId: number;
+  private routeAssignmentId: number;
   
   constructor() {
     this.users = new Map();
@@ -250,6 +275,8 @@ export class MemStorage implements IStorage {
     this.communicationProviders = new Map();
     this.chemicalUsage = new Map();
     this.waterReadings = new Map();
+    this.routes = new Map();
+    this.routeAssignments = new Map();
     
     this.userId = 1;
     this.clientId = 1;
@@ -267,6 +294,8 @@ export class MemStorage implements IStorage {
     this.communicationProviderId = 1;
     this.chemicalUsageId = 1;
     this.waterReadingId = 1;
+    this.routeId = 1;
+    this.routeAssignmentId = 1;
     
     // Add sample data
     this.initSampleData();
@@ -837,6 +866,138 @@ export class MemStorage implements IStorage {
     return Array.from(this.poolImages.values()).filter(
       (image) => image.clientId === clientId,
     );
+  }
+  
+  // Route operations
+  async getRoute(id: number): Promise<Route | undefined> {
+    return this.routes.get(id);
+  }
+  
+  async createRoute(insertRoute: InsertRoute): Promise<Route> {
+    const id = this.routeId++;
+    const route: Route = {
+      ...insertRoute,
+      id,
+      description: insertRoute.description ?? null,
+      startTime: insertRoute.startTime ?? null,
+      endTime: insertRoute.endTime ?? null,
+      technicianId: insertRoute.technicianId ?? null,
+      color: insertRoute.color ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.routes.set(id, route);
+    return route;
+  }
+  
+  async updateRoute(id: number, data: Partial<Route>): Promise<Route | undefined> {
+    const route = await this.getRoute(id);
+    if (!route) return undefined;
+    
+    const updatedRoute = { ...route, ...data, updatedAt: new Date() };
+    this.routes.set(id, updatedRoute);
+    return updatedRoute;
+  }
+  
+  async deleteRoute(id: number): Promise<boolean> {
+    const route = await this.getRoute(id);
+    if (!route) return false;
+    
+    // Remove all assignments for this route first
+    const assignments = await this.getRouteAssignmentsByRouteId(id);
+    for (const assignment of assignments) {
+      await this.deleteRouteAssignment(assignment.id);
+    }
+    
+    return this.routes.delete(id);
+  }
+  
+  async getAllRoutes(): Promise<Route[]> {
+    return Array.from(this.routes.values());
+  }
+  
+  async getRoutesByTechnicianId(technicianId: number): Promise<Route[]> {
+    return Array.from(this.routes.values()).filter(
+      (route) => route.technicianId === technicianId,
+    );
+  }
+  
+  async getRoutesByDayOfWeek(dayOfWeek: string): Promise<Route[]> {
+    return Array.from(this.routes.values()).filter(
+      (route) => route.dayOfWeek.toLowerCase() === dayOfWeek.toLowerCase(),
+    );
+  }
+  
+  async getRoutesByType(type: string): Promise<Route[]> {
+    return Array.from(this.routes.values()).filter(
+      (route) => route.type.toLowerCase() === type.toLowerCase(),
+    );
+  }
+  
+  // Route Assignment operations
+  async getRouteAssignment(id: number): Promise<RouteAssignment | undefined> {
+    return this.routeAssignments.get(id);
+  }
+  
+  async createRouteAssignment(insertAssignment: InsertRouteAssignment): Promise<RouteAssignment> {
+    const id = this.routeAssignmentId++;
+    const assignment: RouteAssignment = {
+      ...insertAssignment,
+      id,
+      estimatedDuration: insertAssignment.estimatedDuration ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.routeAssignments.set(id, assignment);
+    return assignment;
+  }
+  
+  async updateRouteAssignment(id: number, data: Partial<RouteAssignment>): Promise<RouteAssignment | undefined> {
+    const assignment = await this.getRouteAssignment(id);
+    if (!assignment) return undefined;
+    
+    const updatedAssignment = { ...assignment, ...data, updatedAt: new Date() };
+    this.routeAssignments.set(id, updatedAssignment);
+    return updatedAssignment;
+  }
+  
+  async deleteRouteAssignment(id: number): Promise<boolean> {
+    const assignment = await this.getRouteAssignment(id);
+    if (!assignment) return false;
+    
+    return this.routeAssignments.delete(id);
+  }
+  
+  async getRouteAssignmentsByRouteId(routeId: number): Promise<RouteAssignment[]> {
+    return Array.from(this.routeAssignments.values())
+      .filter(assignment => assignment.routeId === routeId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+  
+  async getRouteAssignmentsByMaintenanceId(maintenanceId: number): Promise<RouteAssignment[]> {
+    return Array.from(this.routeAssignments.values())
+      .filter(assignment => assignment.maintenanceId === maintenanceId);
+  }
+  
+  async reorderRouteAssignments(routeId: number, assignmentIds: number[]): Promise<RouteAssignment[]> {
+    // Validate all assignments exist and belong to this route
+    const assignments = await Promise.all(
+      assignmentIds.map(async (id) => {
+        const assignment = await this.getRouteAssignment(id);
+        if (!assignment) throw new Error(`Assignment with ID ${id} not found`);
+        if (assignment.routeId !== routeId) throw new Error(`Assignment with ID ${id} does not belong to route ${routeId}`);
+        return assignment;
+      })
+    );
+    
+    // Update the order index for each assignment
+    const updatedAssignments = await Promise.all(
+      assignments.map(async (assignment, index) => {
+        return this.updateRouteAssignment(assignment.id, { orderIndex: index });
+      })
+    );
+    
+    return updatedAssignments.filter((assignment): assignment is RouteAssignment => assignment !== undefined);
   }
   
   // Service Template operations
@@ -2043,6 +2204,184 @@ export class DatabaseStorage implements IStorage {
         eq(projectDocumentation.documentType, documentType)
       ))
       .orderBy(desc(projectDocumentation.uploadDate));
+  }
+
+  // Route operations
+  async getRoute(id: number): Promise<Route | undefined> {
+    const result = await db.query.routes.findFirst({
+      where: eq(routes.id, id),
+      with: { technician: true },
+    });
+
+    return result;
+  }
+
+  async createRoute(insertRoute: InsertRoute): Promise<Route> {
+    const [route] = await db
+      .insert(routes)
+      .values({
+        ...insertRoute,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    return route;
+  }
+
+  async updateRoute(id: number, data: Partial<Route>): Promise<Route | undefined> {
+    const route = await this.getRoute(id);
+    if (!route) return undefined;
+
+    const [updatedRoute] = await db
+      .update(routes)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(routes.id, id))
+      .returning();
+
+    return updatedRoute;
+  }
+
+  async deleteRoute(id: number): Promise<boolean> {
+    const route = await this.getRoute(id);
+    if (!route) return false;
+
+    // First delete all assignments associated with this route
+    const assignments = await this.getRouteAssignmentsByRouteId(id);
+    for (const assignment of assignments) {
+      await this.deleteRouteAssignment(assignment.id);
+    }
+
+    await db.delete(routes).where(eq(routes.id, id));
+    return true;
+  }
+
+  async getAllRoutes(): Promise<Route[]> {
+    const result = await db.query.routes.findMany({
+      with: { technician: true },
+      orderBy: [asc(routes.dayOfWeek), asc(routes.startTime)],
+    });
+
+    return result;
+  }
+
+  async getRoutesByTechnicianId(technicianId: number): Promise<Route[]> {
+    const result = await db.query.routes.findMany({
+      where: eq(routes.technicianId, technicianId),
+      with: { technician: true },
+      orderBy: [asc(routes.dayOfWeek), asc(routes.startTime)],
+    });
+
+    return result;
+  }
+
+  async getRoutesByDayOfWeek(dayOfWeek: string): Promise<Route[]> {
+    const result = await db.query.routes.findMany({
+      where: eq(routes.dayOfWeek, dayOfWeek),
+      with: { technician: true },
+      orderBy: asc(routes.startTime),
+    });
+
+    return result;
+  }
+
+  async getRoutesByType(type: string): Promise<Route[]> {
+    const result = await db.query.routes.findMany({
+      where: eq(routes.type, type),
+      with: { technician: true },
+      orderBy: [asc(routes.dayOfWeek), asc(routes.startTime)],
+    });
+
+    return result;
+  }
+
+  // Route Assignment operations
+  async getRouteAssignment(id: number): Promise<RouteAssignment | undefined> {
+    const result = await db.query.routeAssignments.findFirst({
+      where: eq(routeAssignments.id, id),
+      with: { route: true, maintenance: true },
+    });
+
+    return result;
+  }
+
+  async createRouteAssignment(insertAssignment: InsertRouteAssignment): Promise<RouteAssignment> {
+    const [assignment] = await db
+      .insert(routeAssignments)
+      .values({
+        ...insertAssignment,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+
+    return assignment;
+  }
+
+  async updateRouteAssignment(id: number, data: Partial<RouteAssignment>): Promise<RouteAssignment | undefined> {
+    const assignment = await this.getRouteAssignment(id);
+    if (!assignment) return undefined;
+
+    const [updatedAssignment] = await db
+      .update(routeAssignments)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(eq(routeAssignments.id, id))
+      .returning();
+
+    return updatedAssignment;
+  }
+
+  async deleteRouteAssignment(id: number): Promise<boolean> {
+    const assignment = await this.getRouteAssignment(id);
+    if (!assignment) return false;
+
+    await db.delete(routeAssignments).where(eq(routeAssignments.id, id));
+    return true;
+  }
+
+  async getRouteAssignmentsByRouteId(routeId: number): Promise<RouteAssignment[]> {
+    const result = await db.query.routeAssignments.findMany({
+      where: eq(routeAssignments.routeId, routeId),
+      with: { maintenance: true },
+      orderBy: asc(routeAssignments.orderIndex),
+    });
+
+    return result;
+  }
+
+  async getRouteAssignmentsByMaintenanceId(maintenanceId: number): Promise<RouteAssignment[]> {
+    const result = await db.query.routeAssignments.findMany({
+      where: eq(routeAssignments.maintenanceId, maintenanceId),
+      with: { route: true },
+      orderBy: asc(routeAssignments.orderIndex),
+    });
+
+    return result;
+  }
+
+  async reorderRouteAssignments(routeId: number, assignmentIds: number[]): Promise<RouteAssignment[]> {
+    const updatedAssignments: RouteAssignment[] = [];
+
+    // Update each assignment with its new order index
+    for (let index = 0; index < assignmentIds.length; index++) {
+      const id = assignmentIds[index];
+      const assignment = await this.getRouteAssignment(id);
+      
+      if (assignment && assignment.routeId === routeId) {
+        const updatedAssignment = await this.updateRouteAssignment(assignment.id, { orderIndex: index });
+        if (updatedAssignment) {
+          updatedAssignments.push(updatedAssignment);
+        }
+      }
+    }
+
+    return updatedAssignments;
   }
 
   // Communication Provider operations

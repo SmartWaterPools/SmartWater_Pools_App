@@ -932,3 +932,71 @@ export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
 
 export type InventoryItem = typeof inventoryItems.$inferSelect;
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+
+// Route Management Schema
+export const ROUTE_TYPES = ['residential', 'commercial', 'mixed'] as const;
+export type RouteType = typeof ROUTE_TYPES[number];
+
+export const routes = pgTable("routes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // residential, commercial, mixed
+  dayOfWeek: text("day_of_week").notNull(), // monday, tuesday, etc.
+  startTime: time("start_time"),
+  endTime: time("end_time"),
+  technicianId: integer("technician_id").references(() => technicians.id),
+  isActive: boolean("is_active").notNull().default(true),
+  color: text("color"), // For display in the UI
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertRouteSchema = createInsertSchema(routes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const routeAssignments = pgTable("route_assignments", {
+  id: serial("id").primaryKey(),
+  routeId: integer("route_id").references(() => routes.id).notNull(),
+  maintenanceId: integer("maintenance_id").references(() => maintenances.id).notNull(),
+  orderIndex: integer("order_index").notNull(), // Order in the route
+  estimatedDuration: integer("estimated_duration"), // In minutes
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertRouteAssignmentSchema = createInsertSchema(routeAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Relations
+export const routesRelations = relations(routes, ({ one, many }) => ({
+  technician: one(technicians, {
+    fields: [routes.technicianId],
+    references: [technicians.id],
+  }),
+  assignments: many(routeAssignments),
+}));
+
+export const routeAssignmentsRelations = relations(routeAssignments, ({ one }) => ({
+  route: one(routes, {
+    fields: [routeAssignments.routeId],
+    references: [routes.id],
+  }),
+  maintenance: one(maintenances, {
+    fields: [routeAssignments.maintenanceId],
+    references: [maintenances.id],
+  }),
+}));
+
+// Export types
+export type Route = typeof routes.$inferSelect;
+export type InsertRoute = z.infer<typeof insertRouteSchema>;
+
+export type RouteAssignment = typeof routeAssignments.$inferSelect;
+export type InsertRouteAssignment = z.infer<typeof insertRouteAssignmentSchema>;
