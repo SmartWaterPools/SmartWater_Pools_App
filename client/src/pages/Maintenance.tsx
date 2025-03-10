@@ -43,6 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
 import { MaintenanceListView } from "@/components/maintenance/MaintenanceListView";
 import { MaintenanceMapView } from "@/components/maintenance/MaintenanceMapView";
+import { RouteScheduler } from "@/components/maintenance/RouteScheduler";
 import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
 import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
@@ -314,18 +315,22 @@ export default function Maintenance() {
       </div>
 
       <Tabs defaultValue="calendar" className="mb-6">
-        <TabsList className="grid grid-cols-3 w-full md:w-auto">
+        <TabsList className="grid grid-cols-4 w-full md:w-auto">
           <TabsTrigger value="calendar" className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Calendar View</span>
+            <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
           <TabsTrigger value="list" className="flex items-center gap-2">
             <List className="h-4 w-4" />
-            <span className="hidden sm:inline">List View</span>
+            <span className="hidden sm:inline">List</span>
           </TabsTrigger>
           <TabsTrigger value="map" className="flex items-center gap-2">
             <Map className="h-4 w-4" />
-            <span className="hidden sm:inline">Map View</span>
+            <span className="hidden sm:inline">Map</span>
+          </TabsTrigger>
+          <TabsTrigger value="routes" className="flex items-center gap-2">
+            <ListFilter className="h-4 w-4" />
+            <span className="hidden sm:inline">Routes</span>
           </TabsTrigger>
         </TabsList>
 
@@ -408,6 +413,15 @@ export default function Maintenance() {
                 isUpdatingStatus={isUpdatingStatus}
                 selectedMaintenance={selectedMaintenance}
               />
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        {/* Routes Tab */}
+        <TabsContent value="routes">
+          <Card>
+            <CardContent className="p-6">
+              <RouteScheduler />
             </CardContent>
           </Card>
         </TabsContent>

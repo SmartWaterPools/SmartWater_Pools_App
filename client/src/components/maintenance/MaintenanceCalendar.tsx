@@ -349,13 +349,17 @@ export function MaintenanceCalendar({
                         </Badge>
                       </CardTitle>
                       <CardDescription>
-                        {hasServiceReport ? (
-                          <div className="flex items-center text-xs text-blue-600">
-                            <FileText className="h-3 w-3 mr-1" />
-                            <span>Service report submitted</span>
-                          </div>
-                        ) : (maintenance.notes || "No details available")}
+                        {hasServiceReport ? 
+                          "Service report submitted" : 
+                          (maintenance.notes || "No details available")
+                        }
                       </CardDescription>
+                      {hasServiceReport && (
+                        <div className="flex items-center text-xs text-blue-600 px-6 pb-2">
+                          <FileText className="h-3 w-3 mr-1" />
+                          <span>Service report details available</span>
+                        </div>
+                      )}
                     </CardHeader>
                     <CardContent className="pb-2">
                       <div className="flex flex-wrap gap-4">
