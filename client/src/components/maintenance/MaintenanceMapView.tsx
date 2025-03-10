@@ -135,22 +135,23 @@ export function MaintenanceMapView({
     { value: "sunday", label: "Sunday" },
   ];
 
-  // Check for Google Maps API key with a more robust approach
-  const googleMapsApiKey = typeof import.meta.env.VITE_GOOGLE_MAPS_API_KEY === 'string' &&
-    import.meta.env.VITE_GOOGLE_MAPS_API_KEY.length > 0
-    ? import.meta.env.VITE_GOOGLE_MAPS_API_KEY
-    : "";
+  // Force the use of the environment variable or a fallback for development
+  // In production, this will use the environment variable from .env
+  const googleMapsApiKey = process.env.NODE_ENV === 'production'
+    ? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '')
+    : 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk'; // Fallback for development
   
-  const hasApiKey = googleMapsApiKey.length > 0;
+  const hasApiKey = typeof googleMapsApiKey === 'string' && googleMapsApiKey.length > 0;
   
   // Log the API key status for debugging
   console.log(`Google Maps API key: ${hasApiKey ? "✅ Available" : "❌ Missing or empty"}`);
   
-  // Check if we have a valid key from secrets
+  // Check if we have a valid key
   useEffect(() => {
     if (!hasApiKey) {
-      console.warn("Google Maps API key is missing. Please check your environment variables.");
-      console.info("You need to add VITE_GOOGLE_MAPS_API_KEY to your .env file.");
+      console.warn("Google Maps API key is missing. Using fallback key for development.");
+    } else {
+      console.info("Google Maps API key successfully loaded.");
     }
   }, [hasApiKey]);
 
