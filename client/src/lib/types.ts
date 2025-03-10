@@ -9,12 +9,12 @@ import {
 export type { PoolEquipment, PoolImage };
 
 // Enhanced types with relationships
-export interface ClientWithUser extends Client {
+export interface ClientWithUser extends Omit<Client, 'latitude' | 'longitude'> {
   user: User;
   phone?: string;
   address?: string;
-  latitude?: number;
-  longitude?: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface TechnicianWithUser extends Technician {
@@ -49,6 +49,8 @@ export interface ProjectAssignmentWithTechnician extends ProjectAssignment {
 export interface MaintenanceWithDetails extends Maintenance {
   client: ClientWithUser;
   technician: TechnicianWithUser | null;
+  // Support for snake_case properties from API
+  schedule_date?: string;
 }
 
 export interface RepairWithDetails extends Repair {

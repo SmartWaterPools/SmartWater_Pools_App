@@ -73,14 +73,16 @@ export function MaintenanceCalendar({
       maintenances.forEach((m, index) => {
         try {
           // Use parseISO for safer date parsing without timezone issues
-          const parsedDate = parseISO(m.scheduleDate);
+          // Handle both camelCase and snake_case property names
+          const dateStr = m.scheduleDate || m.schedule_date || '';
+          const parsedDate = parseISO(dateStr);
           console.log(`Maintenance #${m.id} date parse test:`, 
-            `Original: "${m.scheduleDate}"`, 
+            `Original: "${dateStr}"`, 
             `Parsed ISO: ${parsedDate.toISOString()}`,
             `Formatted back: ${format(parsedDate, "yyyy-MM-dd")}`
           );
         } catch (e) {
-          console.error(`Failed to parse date for maintenance #${m.id}:`, m.scheduleDate, e);
+          console.error(`Failed to parse date for maintenance #${m.id}:`, m.scheduleDate || m.schedule_date || 'date not available', e);
         }
       });
     }
@@ -109,7 +111,10 @@ export function MaintenanceCalendar({
   // Filter maintenances for selected day
   const selectedDayMaintenances = selectedDay
     ? maintenances.filter((m) => {
-        if (debugMode) console.log("Checking maintenance for selected day display:", m.id, m.scheduleDate);
+        // Handle both camelCase and snake_case property names in API response
+        const dateValue = m.scheduleDate || m.schedule_date || '';
+        
+        if (debugMode) console.log("Checking maintenance for selected day display:", m.id, dateValue);
         
         // Format the selected day to yyyy-MM-dd for direct string comparison
         const selectedDayStr = format(selectedDay, "yyyy-MM-dd");
@@ -117,19 +122,18 @@ export function MaintenanceCalendar({
         // Normalize the maintenance schedule date to yyyy-MM-dd format for comparison
         let maintenanceDateStr;
         try {
-          if (typeof m.scheduleDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.scheduleDate)) {
+          if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
             // Already in YYYY-MM-DD format
-            maintenanceDateStr = m.scheduleDate;
+            maintenanceDateStr = dateValue;
           } else {
             // Need to parse and format to get consistent YYYY-MM-DD
-            const dateObj = typeof m.scheduleDate === 'string' 
-              ? parseISO(m.scheduleDate) 
-              : new Date(m.scheduleDate);
+            // Since we ensure dateValue is a string (with default ''), we can safely use parseISO
+            const dateObj = parseISO(dateValue);
             
             maintenanceDateStr = format(dateObj, 'yyyy-MM-dd');
           }
         } catch (e) {
-          console.error(`Failed to parse date "${m.scheduleDate}" for maintenance #${m.id}:`, e);
+          console.error(`Failed to parse date "${dateValue}" for maintenance #${m.id}:`, e);
           return false; // Skip this record if we can't parse the date
         }
         
@@ -138,7 +142,7 @@ export function MaintenanceCalendar({
         
         if (debugMode) {
           console.log(`Comparing maintenance #${m.id} normalized date:`);
-          console.log(`- Original: "${m.scheduleDate}"`);
+          console.log(`- Original: "${dateValue}"`);
           console.log(`- Normalized: "${maintenanceDateStr}"`);
           console.log(`- Selected day: "${selectedDayStr}"`);
           console.log(`- Result: ${isMatch ? "MATCH" : "NO MATCH"}`);
@@ -150,16 +154,22 @@ export function MaintenanceCalendar({
   
   // Calculate which days have maintenance scheduled
   // Using parseISO to avoid timezone issues when converting strings to dates
-  const maintenanceDays = maintenances.map((m) => parseISO(m.scheduleDate));
+  const maintenanceDays = maintenances.map((m) => {
+    const dateStr = m.scheduleDate || m.schedule_date || '';
+    return parseISO(dateStr);
+  });
   
   // Count maintenances by day for badge display
   const maintenanceCountByDay = maintenances.reduce((acc, m) => {
     try {
-      if (debugMode) console.log("Processing maintenance for count display:", m.id, m.scheduleDate);
+      // Handle both camelCase and snake_case property names in API response
+      const dateValue = m.scheduleDate || m.schedule_date || '';
       
-      // Validate the maintenance data has a scheduleDate
-      if (!m.scheduleDate) {
-        console.error("Maintenance record has no scheduleDate:", m);
+      if (debugMode) console.log("Processing maintenance for count display:", m.id, dateValue);
+      
+      // Validate the maintenance data has a date
+      if (!dateValue) {
+        console.error("Maintenance record has no date:", m);
         return acc;
       }
       
@@ -167,19 +177,18 @@ export function MaintenanceCalendar({
       let dayStr = '';
       
       // Check if it's already in the expected YYYY-MM-DD format
-      if (typeof m.scheduleDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.scheduleDate)) {
-        dayStr = m.scheduleDate;
+      if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        dayStr = dateValue;
       } else {
         // Need to parse and reformat to ensure consistent keys
         try {
           // Handle different date formats by parsing and reformatting
-          const dateObj = typeof m.scheduleDate === 'string' 
-            ? parseISO(m.scheduleDate) 
-            : new Date(m.scheduleDate);
+          // Since we ensure dateValue is a string (with default ''), we can safely use parseISO
+          const dateObj = parseISO(dateValue);
           
           dayStr = format(dateObj, 'yyyy-MM-dd');
         } catch (parseErr) {
-          console.error(`Failed to parse date "${m.scheduleDate}" for maintenance #${m.id}:`, parseErr);
+          console.error(`Failed to parse date "${dateValue}" for maintenance #${m.id}:`, parseErr);
           return acc; // Skip this record if we can't parse the date
         }
       }
@@ -187,7 +196,7 @@ export function MaintenanceCalendar({
       // Log debug info
       if (debugMode) {
         console.log(`Using normalized date "${dayStr}" for maintenance #${m.id}`);
-        console.log(`Original date was "${m.scheduleDate}"`);
+        console.log(`Original date was "${dateValue}"`);
       }
       
       // Initialize the counter for this day if it doesn't exist
@@ -209,7 +218,7 @@ export function MaintenanceCalendar({
         console.log(`Added maintenance #${m.id} to ${dayStr}, total now: ${acc[dayStr].total}`);
       }
     } catch (e) {
-      console.error("Error processing maintenance date:", m.scheduleDate, e);
+      console.error("Error processing maintenance date:", m.scheduleDate || m.schedule_date || "date not available", e);
     }
     
     return acc;
@@ -314,7 +323,7 @@ export function MaintenanceCalendar({
                 // Better debug logging to help diagnose the issue
                 if (debugMode) {
                   console.log("Calendar day:", dateStr);
-                  console.log("- All maintenance dates:", maintenances.map(m => m.scheduleDate));
+                  console.log("- All maintenance dates:", maintenances.map(m => m.scheduleDate || m.schedule_date || ''));
                   console.log("- maintenanceCountByDay keys:", Object.keys(maintenanceCountByDay));
                   console.log("- Has maintenance for this day:", !!maintenanceCountByDay[dateStr]);
                   if (maintenanceCountByDay[dateStr]) {

@@ -1,83 +1,100 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
-import { format, parseISO } from "date-fns";
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
+import React, { useState } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 import {
-  Clock,
-  User,
-  MoreHorizontal,
   Check,
-  XCircle,
-  Loader2,
+  Clock,
   FileText,
-  ClipboardList,
-  CalendarIcon,
-  MapPin
+  MapPin,
+  MoreHorizontal,
+  PlayCircle,
+  User,
+  XCircle,
 } from "lucide-react";
-import { MaintenanceWithDetails, getStatusClasses } from "@/lib/types";
+import { MaintenanceWithDetails, formatDate, getStatusClasses } from "@/lib/types";
 
-interface MaintenanceListViewProps {
+type MaintenanceListViewProps = {
   maintenances: MaintenanceWithDetails[];
   isLoading: boolean;
   onStatusUpdate?: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
   isUpdatingStatus?: boolean;
   selectedMaintenance?: MaintenanceWithDetails | null;
-}
+};
 
 export function MaintenanceListView({
   maintenances,
   isLoading,
   onStatusUpdate,
-  isUpdatingStatus = false,
-  selectedMaintenance = null
+  isUpdatingStatus,
+  selectedMaintenance,
 }: MaintenanceListViewProps) {
-  const [, navigate] = useLocation();
-  const [viewMode, setViewMode] = useState<string>("grouped");
+  // State for grouping and pagination
+  const [groupBy, setGroupBy] = useState<'date' | 'status' | 'client' | 'technician' | null>(null);
 
-  // Format the maintenance type for display
-  const formatMaintenanceType = (type: string): string => {
+  // Group maintenances based on the selected grouping option
+  const groupedMaintenances = React.useMemo(() => {
+    if (!groupBy) return { 'All Maintenance': maintenances };
+
+    return maintenances.reduce((acc, maintenance) => {
+      let groupKey: string;
+
+      switch (groupBy) {
+        case 'date':
+          groupKey = formatDate(new Date(maintenance.scheduleDate));
+          break;
+        case 'status':
+          groupKey = maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ');
+          break;
+        case 'client':
+          groupKey = maintenance.client?.user?.name || 'Unknown Client';
+          break;
+        case 'technician':
+          groupKey = maintenance.technician?.user?.name || 'Unassigned';
+          break;
+        default:
+          groupKey = 'All Maintenance';
+      }
+
+      if (!acc[groupKey]) {
+        acc[groupKey] = [];
+      }
+      
+      acc[groupKey].push(maintenance);
+      return acc;
+    }, {} as Record<string, MaintenanceWithDetails[]>);
+  }, [maintenances, groupBy]);
+
+  // Format a maintenance type for display
+  const formatMaintenanceType = (type: string) => {
     return type
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-  };
-
-  // Group maintenances by date for list view
-  const groupedByDate = maintenances?.reduce((acc, maintenance) => {
-    const date = maintenance.scheduleDate;
-    if (!acc[date]) {
-      acc[date] = [];
-    }
-    acc[date].push(maintenance);
-    return acc;
-  }, {} as Record<string, MaintenanceWithDetails[]>);
-
-  // Handle opening service report form
-  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false, useNewPage = false) => {
-    if (useNewPage) {
-      // Navigate to the SmartWater style report page
-      navigate(`/service-report-page/${maintenance.id}`);
-    } else if (usePage) {
-      // Navigate to standard service report page
-      navigate(`/service-report/${maintenance.id}`);
-    }
   };
 
   if (isLoading) {
@@ -97,395 +114,154 @@ export function MaintenanceListView({
     );
   }
 
-  if (viewMode === "grouped") {
+  if (!maintenances.length) {
     return (
-      <div className="space-y-6">
-        <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-          <h2 className="text-xl font-semibold">List View</h2>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className={viewMode === "grouped" ? "bg-primary/10" : ""}
-              onClick={() => setViewMode("grouped")}
-            >
-              <CalendarIcon className="h-4 w-4 mr-2" />
-              Grouped by Date
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className={viewMode === "detailed" ? "bg-primary/10" : ""}
-              onClick={() => setViewMode("detailed")}
-            >
-              <ClipboardList className="h-4 w-4 mr-2" />
-              Detailed View
-            </Button>
-          </div>
+      <div className="flex flex-col items-center justify-center py-12">
+        <div className="text-center space-y-3">
+          <h3 className="text-lg font-medium">No maintenance records found</h3>
+          <p className="text-muted-foreground">Try adjusting your filters or adding new maintenance records.</p>
         </div>
-
-        {groupedByDate && Object.keys(groupedByDate).length > 0 ? (
-          <div className="space-y-6">
-            {Object.entries(groupedByDate)
-              .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
-              .map(([date, maintenances]) => (
-                <div key={date} className="space-y-2">
-                  <h3 className="text-md font-semibold flex items-center gap-2">
-                    <CalendarIcon className="h-4 w-4 text-primary" />
-                    {format(parseISO(date), "EEEE, MMMM d, yyyy")}
-                    <Badge variant="outline" className="ml-2">
-                      {maintenances.length} {maintenances.length === 1 ? "service" : "services"}
-                    </Badge>
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {maintenances.map((maintenance) => {
-                      const statusClasses = getStatusClasses(maintenance.status);
-                      const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
-                      const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
-                      
-                      return (
-                        <Card 
-                          key={maintenance.id} 
-                          className={`${maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''} overflow-hidden hover:shadow-md transition-shadow`}
-                        >
-                          <CardHeader className="pb-2">
-                            <CardTitle className="text-lg flex justify-between items-center">
-                              <span className="capitalize">{formatMaintenanceType(maintenance.type)}</span>
-                              <Badge 
-                                className={`${statusClasses.bg} ${statusClasses.text}`}
-                              >
-                                {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
-                              </Badge>
-                            </CardTitle>
-                            <CardDescription>
-                              {hasServiceReport ? (
-                                <div className="flex items-center text-xs text-blue-600">
-                                  <FileText className="h-3 w-3 mr-1" />
-                                  <span>Service report submitted</span>
-                                </div>
-                              ) : (maintenance.notes || "No details available")}
-                            </CardDescription>
-                          </CardHeader>
-                          <CardContent className="pb-2">
-                            <div className="flex flex-wrap gap-4">
-                              <div className="flex items-center text-sm">
-                                <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                                <span>{maintenance.notes && !hasServiceReport ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
-                              </div>
-                              <div className="flex items-center text-sm">
-                                <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                                <span>{maintenance.client.user.name}</span>
-                              </div>
-                              {maintenance.client?.address && (
-                                <div className="flex items-center text-sm">
-                                  <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                                  <span className="truncate max-w-[200px]">{maintenance.client.address}</span>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* If this is a completed service with a report, show a summary */}
-                            {hasServiceReport && maintenance.notes && (
-                              <div className="mt-3 text-sm p-2 bg-blue-50 rounded border border-blue-100">
-                                <div className="font-medium text-blue-700 mb-1">Service Report Summary</div>
-                                <div className="space-y-1 text-xs">
-                                  {maintenance.notes.split('\n').slice(0, 3).map((line, i) => (
-                                    <div key={i} className="text-gray-600">
-                                      {line.length > 60 ? line.substring(0, 60) + '...' : line}
-                                    </div>
-                                  ))}
-                                  {maintenance.notes.split('\n').length > 3 && (
-                                    <div className="text-blue-600 cursor-pointer" onClick={() => handleServiceReportOpen(maintenance, false, true)}>
-                                      View full report...
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </CardContent>
-                          <CardFooter className="flex justify-between pt-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              onClick={() => handleServiceReportOpen(maintenance, false, true)}
-                            >
-                              <FileText className="h-4 w-4 mr-2" />
-                              Service Report
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  className="h-8 w-8"
-                                >
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {maintenance.status !== "completed" && (
-                                  <DropdownMenuItem
-                                    onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "completed")}
-                                    disabled={isUpdating}
-                                  >
-                                    {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <Check className="h-4 w-4 mr-2" />
-                                    )}
-                                    Mark as Completed
-                                  </DropdownMenuItem>
-                                )}
-                                
-                                {maintenance.status !== "in_progress" && (
-                                  <DropdownMenuItem
-                                    onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "in_progress")}
-                                    disabled={isUpdating}
-                                  >
-                                    {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <Clock className="h-4 w-4 mr-2" />
-                                    )}
-                                    Mark as In Progress
-                                  </DropdownMenuItem>
-                                )}
-                                
-                                {maintenance.status !== "cancelled" && (
-                                  <DropdownMenuItem
-                                    onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "cancelled")}
-                                    disabled={isUpdating}
-                                  >
-                                    {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                    ) : (
-                                      <XCircle className="h-4 w-4 mr-2" />
-                                    )}
-                                    Cancel Maintenance
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </CardFooter>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-          </div>
-        ) : (
-          <Card>
-            <CardContent className="pt-6 pb-6 text-center">
-              <p className="text-muted-foreground">
-                No maintenance records found matching your filters.
-              </p>
-            </CardContent>
-          </Card>
-        )}
       </div>
     );
   }
 
-  // Detailed view
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
-        <h2 className="text-xl font-semibold">List View</h2>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className={viewMode === "grouped" ? "bg-primary/10" : ""}
-            onClick={() => setViewMode("grouped")}
-          >
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Grouped by Date
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className={viewMode === "detailed" ? "bg-primary/10" : ""}
-            onClick={() => setViewMode("detailed")}
-          >
-            <ClipboardList className="h-4 w-4 mr-2" />
-            Detailed View
-          </Button>
-        </div>
+    <div className="space-y-4">
+      <div className="flex justify-end mb-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              {groupBy ? `Group by: ${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}` : 'Group by'}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setGroupBy(null)}>
+              No Grouping
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => setGroupBy('date')}>
+              Date
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setGroupBy('status')}>
+              Status
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setGroupBy('client')}>
+              Client
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setGroupBy('technician')}>
+              Technician
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
-      {maintenances && maintenances.length > 0 ? (
-        <div className="space-y-4">
-          {maintenances
-            .sort((a, b) => new Date(a.scheduleDate).getTime() - new Date(b.scheduleDate).getTime())
-            .map((maintenance) => {
-              const statusClasses = getStatusClasses(maintenance.status);
-              const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
-              const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
-              
-              return (
-                <Card 
-                  key={maintenance.id} 
-                  className={`${maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''} overflow-hidden hover:shadow-md transition-shadow`}
-                >
-                  <CardHeader>
-                    <div className="flex flex-wrap justify-between items-start gap-2">
-                      <div>
-                        <CardTitle className="text-lg">
-                          {maintenance.client.user.name}
-                        </CardTitle>
-                        <CardDescription className="flex items-center mt-1">
-                          <CalendarIcon className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
-                          {format(parseISO(maintenance.scheduleDate), "EEEE, MMMM d, yyyy")}
-                          {maintenance.notes && !hasServiceReport && (
-                            <span className="ml-2">
-                              <Clock className="h-3.5 w-3.5 mr-1 inline text-muted-foreground" />
-                              {maintenance.notes.split(' ')[0]}
-                            </span>
-                          )}
-                        </CardDescription>
-                      </div>
-                      <div className="flex items-center gap-2">
+      {Object.entries(groupedMaintenances).map(([groupName, groupMaintenance]) => (
+        <div key={groupName} className="space-y-2">
+          <h3 className="text-lg font-medium">{groupName}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {groupMaintenance.map((maintenance) => (
+              <Card key={maintenance.id} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-base">{maintenance.client?.user?.name}</CardTitle>
+                      <CardDescription className="text-xs flex items-center mt-1">
+                        <MapPin className="h-3 w-3 mr-1" />
+                        {maintenance.client?.address || 'No address'}
+                      </CardDescription>
+                    </div>
+                    <div>
+                      {maintenance.status && (
                         <Badge 
-                          className={`${statusClasses.bg} ${statusClasses.text}`}
+                          className={getStatusClasses(maintenance.status).bg}
                         >
-                          {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
+                          {maintenance.status.replace('_', ' ')}
                         </Badge>
-                        <Badge variant="outline">
-                          {formatMaintenanceType(maintenance.type)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="pb-3">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">Client Details</h4>
-                        <div className="space-y-2 text-sm">
-                          {maintenance.client?.address && (
-                            <div className="flex items-start">
-                              <MapPin className="h-4 w-4 mr-2 mt-0.5 text-muted-foreground" />
-                              <span className="flex-1">{maintenance.client.address}</span>
-                            </div>
-                          )}
-                          {maintenance.client?.phone && (
-                            <div className="flex items-center">
-                              <svg className="h-4 w-4 mr-2 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                              </svg>
-                              <span>{maintenance.client.phone}</span>
-                            </div>
-                          )}
-                          {maintenance.client?.poolType && (
-                            <div className="flex items-center">
-                              <svg className="h-4 w-4 mr-2 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                              </svg>
-                              <span>
-                                {maintenance.client.poolType} Pool
-                                {maintenance.client.poolSize && ` (${maintenance.client.poolSize})`}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <h4 className="text-sm font-medium mb-2">Service Details</h4>
-                        {hasServiceReport && maintenance.notes ? (
-                          <div className="p-2 bg-blue-50 rounded border border-blue-100">
-                            <div className="font-medium text-blue-700 text-xs mb-1">Service Report Summary</div>
-                            <div className="space-y-1 text-xs">
-                              {maintenance.notes.split('\n').slice(0, 3).map((line, i) => (
-                                <div key={i} className="text-gray-600">
-                                  {line.length > 60 ? line.substring(0, 60) + '...' : line}
-                                </div>
-                              ))}
-                              {maintenance.notes.split('\n').length > 3 && (
-                                <div className="text-blue-600 cursor-pointer" onClick={() => handleServiceReportOpen(maintenance, false, true)}>
-                                  View full report...
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground">
-                            {maintenance.notes || "No service details available."}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-
-                  <CardFooter className="flex justify-between pt-2 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => handleServiceReportOpen(maintenance, false, true)}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Service Report
-                    </Button>
-                    <div className="flex gap-2">
-                      {maintenance.status !== "completed" && (
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "completed")}
-                          disabled={isUpdating}
-                        >
-                          {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Check className="h-4 w-4 mr-2" />
-                          )}
-                          Complete
-                        </Button>
                       )}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {maintenance.status !== "in_progress" && (
-                            <DropdownMenuItem
-                              onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "in_progress")}
-                              disabled={isUpdating}
-                            >
-                              <Clock className="h-4 w-4 mr-2" />
-                              Mark as In Progress
-                            </DropdownMenuItem>
-                          )}
-                          
-                          {maintenance.status !== "cancelled" && (
-                            <DropdownMenuItem
-                              onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "cancelled")}
-                              disabled={isUpdating}
-                            >
-                              <XCircle className="h-4 w-4 mr-2" />
-                              Cancel Maintenance
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
                     </div>
-                  </CardFooter>
-                </Card>
-              );
-            })}
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-2">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span>{formatDate(new Date(maintenance.scheduleDate))}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <span>{maintenance.technician?.user?.name || 'Unassigned'}</span>
+                    </div>
+                  </div>
+                  <div className="mt-2">
+                    <span className="text-sm font-medium">Type: </span>
+                    <span className="text-sm">{formatMaintenanceType(maintenance.type)}</span>
+                  </div>
+                  {maintenance.notes && (
+                    <div className="mt-2 text-sm">
+                      <span className="font-medium">Notes: </span>
+                      <span className="text-muted-foreground">{maintenance.notes.length > 100 
+                        ? `${maintenance.notes.substring(0, 100)}...` 
+                        : maintenance.notes}
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter className="pt-2 flex justify-between">
+                  <Button variant="outline" size="sm">
+                    <FileText className="h-4 w-4 mr-1" />
+                    Details
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      {onStatusUpdate && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => onStatusUpdate(maintenance, 'scheduled')}
+                            disabled={isUpdatingStatus && selectedMaintenance?.id === maintenance.id}
+                          >
+                            <Clock className="h-4 w-4 mr-2" />
+                            Mark as Scheduled
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => onStatusUpdate(maintenance, 'in_progress')}
+                            disabled={isUpdatingStatus && selectedMaintenance?.id === maintenance.id}
+                          >
+                            <PlayCircle className="h-4 w-4 mr-2" />
+                            Mark as In Progress
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => onStatusUpdate(maintenance, 'completed')}
+                            disabled={isUpdatingStatus && selectedMaintenance?.id === maintenance.id}
+                          >
+                            <Check className="h-4 w-4 mr-2" />
+                            Mark as Completed
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => onStatusUpdate(maintenance, 'cancelled')}
+                            disabled={isUpdatingStatus && selectedMaintenance?.id === maintenance.id}
+                          >
+                            <XCircle className="h-4 w-4 mr-2" />
+                            Mark as Cancelled
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
         </div>
-      ) : (
-        <Card>
-          <CardContent className="pt-6 pb-6 text-center">
-            <p className="text-muted-foreground">
-              No maintenance records found matching your filters.
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      ))}
     </div>
   );
 }
+
+export default MaintenanceListView;

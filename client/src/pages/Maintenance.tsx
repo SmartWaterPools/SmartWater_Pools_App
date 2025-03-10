@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Suspense, lazy } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
@@ -41,9 +41,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
-import { MaintenanceListView } from "@/components/maintenance/MaintenanceListView";
-import { MaintenanceMapView } from "@/components/maintenance/MaintenanceMapView";
-import { RouteScheduler } from "@/components/maintenance/RouteScheduler";
+import { LazyMaintenanceListView } from "@/components/maintenance/LazyMaintenanceListView";
+import { LazyMaintenanceMapView } from "@/components/maintenance/LazyMaintenanceMapView";
+import { LazyRouteScheduler } from "@/components/maintenance/LazyRouteScheduler";
 import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
 import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
@@ -292,30 +292,7 @@ export default function Maintenance() {
         </div>
       </div>
 
-      {/* SmartWater Style Report Promo */}
-      <div className="mb-6 p-3 bg-blue-50 rounded-lg shadow-sm">
-        <div className="flex flex-wrap justify-between items-center gap-2">
-          <div>
-            <h3 className="text-base font-medium text-blue-700">SmartWater Style Reporting</h3>
-            <p className="text-sm text-blue-600">Try our new advanced reporting tool with chemical tracking, water readings, and technician metrics</p>
-          </div>
-          <Button
-            variant="default"
-            className="mt-2 sm:mt-0"
-            onClick={() => {
-              // Find the first available maintenance record
-              const maintenance = filteredMaintenances && filteredMaintenances[0];
-              if (maintenance) {
-                handleServiceReportOpen(maintenance, false, true);
-              }
-            }}
-            disabled={!filteredMaintenances || filteredMaintenances.length === 0}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Try SmartWater Style Report
-          </Button>
-        </div>
-      </div>
+
 
       <Tabs 
         defaultValue="calendar" 
@@ -399,7 +376,7 @@ export default function Maintenance() {
         <TabsContent value="list">
           <Card>
             <CardContent className="p-6">
-              <MaintenanceListView
+              <LazyMaintenanceListView
                 maintenances={filteredMaintenances || []}
                 isLoading={isLoading}
                 onStatusUpdate={handleStatusUpdate}
@@ -414,7 +391,7 @@ export default function Maintenance() {
         <TabsContent value="map">
           <Card>
             <CardContent className="p-6">
-              <MaintenanceMapView
+              <LazyMaintenanceMapView
                 maintenances={filteredMaintenances || []}
                 selectedView={selectedView}
                 selectedTechnician={selectedTechnician}
@@ -431,7 +408,7 @@ export default function Maintenance() {
         <TabsContent value="routes">
           <Card>
             <CardContent className="p-6">
-              <RouteScheduler />
+              <LazyRouteScheduler />
             </CardContent>
           </Card>
         </TabsContent>
