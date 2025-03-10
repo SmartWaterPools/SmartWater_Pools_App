@@ -1900,6 +1900,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch financial reports" });
     }
   });
+  
+  // Pool Reports endpoints
+  app.get("/api/business/pool-reports", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder pool reports
+      const reports = [
+        { 
+          id: 1, 
+          name: "Monthly Water Chemistry Analysis", 
+          type: "water_chemistry", 
+          startDate: "2025-02-01T00:00:00Z", 
+          endDate: "2025-02-28T23:59:59Z", 
+          schedule: "monthly", 
+          lastRun: "2025-03-01T08:00:00Z",
+          isPublic: true 
+        },
+        { 
+          id: 2, 
+          name: "Quarterly Chemical Usage Trends", 
+          type: "chemical_usage", 
+          startDate: "2025-01-01T00:00:00Z", 
+          endDate: "2025-03-31T23:59:59Z", 
+          schedule: "quarterly",
+          lastRun: null,
+          isPublic: false 
+        },
+        { 
+          id: 3, 
+          name: "Pool Equipment Performance", 
+          type: "equipment_performance", 
+          startDate: "2025-02-01T00:00:00Z", 
+          endDate: "2025-02-28T23:59:59Z", 
+          schedule: "on_demand",
+          lastRun: null,
+          isPublic: false 
+        }
+      ];
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching pool reports:", error);
+      res.status(500).json({ message: "Failed to fetch pool reports" });
+    }
+  });
+  
+  app.get("/api/business/pool-reports/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder pool report for given ID
+      const reports = [
+        { 
+          id: 1, 
+          name: "Monthly Water Chemistry Analysis", 
+          type: "water_chemistry", 
+          startDate: "2025-02-01T00:00:00Z", 
+          endDate: "2025-02-28T23:59:59Z", 
+          schedule: "monthly", 
+          description: "Comprehensive analysis of water chemistry trends for all clients",
+          lastRun: "2025-03-01T08:00:00Z",
+          isPublic: true 
+        },
+        { 
+          id: 2, 
+          name: "Quarterly Chemical Usage Trends", 
+          type: "chemical_usage", 
+          startDate: "2025-01-01T00:00:00Z", 
+          endDate: "2025-03-31T23:59:59Z", 
+          schedule: "quarterly",
+          description: "Analysis of chemical usage by type across all clients",
+          lastRun: null,
+          isPublic: false 
+        },
+        { 
+          id: 3, 
+          name: "Pool Equipment Performance", 
+          type: "equipment_performance", 
+          startDate: "2025-02-01T00:00:00Z", 
+          endDate: "2025-02-28T23:59:59Z", 
+          schedule: "on_demand",
+          description: "Equipment efficiency and maintenance needs report",
+          lastRun: null,
+          isPublic: false 
+        }
+      ];
+      
+      const report = reports.find(r => r.id === id);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Pool report not found" });
+      }
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching pool report:", error);
+      res.status(500).json({ message: "Failed to fetch pool report" });
+    }
+  });
+  
+  app.post("/api/business/pool-reports", async (req: Request, res: Response) => {
+    try {
+      // This would normally validate and create a new report
+      const newReport = {
+        id: 4, // This would normally be generated
+        ...req.body,
+        lastRun: null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newReport);
+    } catch (error) {
+      console.error("Error creating pool report:", error);
+      res.status(500).json({ message: "Failed to create pool report" });
+    }
+  });
+  
+  app.patch("/api/business/pool-reports/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // This would normally validate, find and update the report
+      const updatedReport = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedReport);
+    } catch (error) {
+      console.error("Error updating pool report:", error);
+      res.status(500).json({ message: "Failed to update pool report" });
+    }
+  });
+  
+  app.delete("/api/business/pool-reports/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      // This would normally delete the report
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting pool report:", error);
+      res.status(500).json({ message: "Failed to delete pool report" });
+    }
+  });
 
   app.get("/api/business/reports/:id", async (req: Request, res: Response) => {
     try {

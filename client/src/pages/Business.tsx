@@ -20,12 +20,14 @@ import {
   FileText,
   BarChart4,
   FileCheck,
-  Shield
+  Shield,
+  Droplet
 } from "lucide-react";
 import ExpensesTable from "@/components/business/ExpensesTable";
 // Payroll table component removed
 import TimeEntryTable from "@/components/business/TimeEntryTable";
 import FinancialReportsTable from "@/components/business/FinancialReportsTable";
+import PoolReportsTable from "@/components/business/PoolReportsTable";
 import VendorsTable from "@/components/business/VendorsTable";
 import PurchaseOrdersTable from "@/components/business/PurchaseOrdersTable";
 import InventoryTable from "@/components/business/InventoryTable";
@@ -35,6 +37,7 @@ import { ExpenseForm } from "@/components/business/ExpenseForm";
 // PayrollForm component removed
 import { TimeEntryForm } from "@/components/business/TimeEntryForm";
 import { FinancialReportForm } from "@/components/business/FinancialReportForm";
+import { PoolReportForm } from "@/components/business/PoolReportForm";
 import { VendorForm } from "@/components/business/VendorForm";
 import { PurchaseOrderForm } from "@/components/business/PurchaseOrderForm";
 import { InventoryItemForm } from "@/components/business/InventoryItemForm";
@@ -48,6 +51,7 @@ export default function Business() {
   // Payroll state removed
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
+  const [showPoolReportForm, setShowPoolReportForm] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [showPurchaseOrderForm, setShowPurchaseOrderForm] = useState(false);
   const [showInventoryForm, setShowInventoryForm] = useState(false);
@@ -109,6 +113,12 @@ export default function Business() {
     queryKey: ['/api/business/insurance'],
     enabled: activeTab === "insurance"
   });
+  
+  // Query for pool reports data
+  const { data: poolReports, isLoading: poolReportsLoading } = useQuery({
+    queryKey: ['/api/business/pool-reports'],
+    enabled: activeTab === "pool-reports"
+  });
 
   // Dashboard metrics (placeholder data until API is implemented)
   const metrics = {
@@ -123,131 +133,137 @@ export default function Business() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Business Management</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Business Management</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Manage your business finances, inventory, and operations.
           </p>
         </div>
       </div>
 
       <Tabs defaultValue="dashboard" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-4 md:grid-cols-10 gap-2">
-          <TabsTrigger value="dashboard" className="flex items-center gap-1">
-            <BarChart4 className="h-4 w-4" />
-            <span className="hidden md:inline">Dashboard</span>
-          </TabsTrigger>
-          <TabsTrigger value="expenses" className="flex items-center gap-1">
-            <DollarSign className="h-4 w-4" />
-            <span className="hidden md:inline">Expenses</span>
-          </TabsTrigger>
-          {/* Payroll tab removed */}
-          <TabsTrigger value="time-tracking" className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            <span className="hidden md:inline">Time</span>
-          </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-1">
-            <FileText className="h-4 w-4" />
-            <span className="hidden md:inline">Reports</span>
-          </TabsTrigger>
-          <TabsTrigger value="vendors" className="flex items-center gap-1">
-            <ShoppingCart className="h-4 w-4" />
-            <span className="hidden md:inline">Vendors</span>
-          </TabsTrigger>
-          <TabsTrigger value="purchase-orders" className="flex items-center gap-1">
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden md:inline">Orders</span>
-          </TabsTrigger>
-          <TabsTrigger value="inventory" className="flex items-center gap-1">
-            <Package className="h-4 w-4" />
-            <span className="hidden md:inline">Inventory</span>
-          </TabsTrigger>
-          <TabsTrigger value="licenses" className="flex items-center gap-1">
-            <FileCheck className="h-4 w-4" />
-            <span className="hidden md:inline">Licenses</span>
-          </TabsTrigger>
-          <TabsTrigger value="insurance" className="flex items-center gap-1">
-            <Shield className="h-4 w-4" />
-            <span className="hidden md:inline">Insurance</span>
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto pb-2">
+          <TabsList className="inline-flex w-auto min-w-full">
+            <TabsTrigger value="dashboard" className="flex items-center gap-1">
+              <BarChart4 className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Dashboard</span>
+            </TabsTrigger>
+            <TabsTrigger value="expenses" className="flex items-center gap-1">
+              <DollarSign className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Expenses</span>
+            </TabsTrigger>
+            {/* Payroll tab removed */}
+            <TabsTrigger value="time-tracking" className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Time</span>
+            </TabsTrigger>
+            <TabsTrigger value="reports" className="flex items-center gap-1">
+              <FileText className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Financial</span>
+            </TabsTrigger>
+            <TabsTrigger value="pool-reports" className="flex items-center gap-1">
+              <Droplet className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Pool Reports</span>
+            </TabsTrigger>
+            <TabsTrigger value="vendors" className="flex items-center gap-1">
+              <ShoppingCart className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Vendors</span>
+            </TabsTrigger>
+            <TabsTrigger value="purchase-orders" className="flex items-center gap-1">
+              <ClipboardList className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Orders</span>
+            </TabsTrigger>
+            <TabsTrigger value="inventory" className="flex items-center gap-1">
+              <Package className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Inventory</span>
+            </TabsTrigger>
+            <TabsTrigger value="licenses" className="flex items-center gap-1">
+              <FileCheck className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Licenses</span>
+            </TabsTrigger>
+            <TabsTrigger value="insurance" className="flex items-center gap-1">
+              <Shield className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Insurance</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
                   Total Revenue
                 </CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.totalRevenue}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
+                <div className="text-base sm:text-2xl font-bold">{metrics.totalRevenue}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   +20.1% from last month
                 </p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
                   Expenses
                 </CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.expenses}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
+                <div className="text-base sm:text-2xl font-bold">{metrics.expenses}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   -4.5% from last month
                 </p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
                   Net Profit
                 </CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.profit}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
+                <div className="text-base sm:text-2xl font-bold">{metrics.profit}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   Profit Margin: {metrics.profitMargin}
                 </p>
               </CardContent>
             </Card>
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
+                <CardTitle className="text-xs sm:text-sm font-medium">
                   Inventory Value
                 </CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
+                <Package className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{metrics.inventoryValue}</div>
-                <p className="text-xs text-muted-foreground">
+              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
+                <div className="text-base sm:text-2xl font-bold">{metrics.inventoryValue}</div>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">
                   {metrics.lowStockItems} items low in stock
                 </p>
               </CardContent>
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
             <Card className="col-span-1">
-              <CardHeader>
-                <CardTitle>Recent Expenses</CardTitle>
-                <CardDescription>Your most recent business expenses</CardDescription>
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg">Recent Expenses</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Your most recent business expenses</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p>Loading expenses...</p>
+                  <p className="text-sm">Loading expenses...</p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-4">
                     {/* Placeholder for expense data */}
-                    <p className="text-sm text-muted-foreground">No recent expenses to display.</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">No recent expenses to display.</p>
                   </div>
                 )}
               </CardContent>
@@ -255,51 +271,51 @@ export default function Business() {
             {/* Payroll card removed */}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
             <Card className="col-span-1">
-              <CardHeader>
-                <CardTitle>Vendor Orders</CardTitle>
-                <CardDescription>Recent purchase orders</CardDescription>
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg">Vendor Orders</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Recent purchase orders</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p>Loading purchase orders...</p>
+                  <p className="text-sm">Loading purchase orders...</p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-4">
                     {/* Placeholder for purchase order data */}
-                    <p className="text-sm text-muted-foreground">No recent purchase orders to display.</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">No recent purchase orders to display.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
             <Card className="col-span-1">
-              <CardHeader>
-                <CardTitle>Low Stock</CardTitle>
-                <CardDescription>Items below minimum stock level</CardDescription>
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg">Low Stock</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Items below minimum stock level</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p>Loading inventory data...</p>
+                  <p className="text-sm">Loading inventory data...</p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-4">
                     {/* Placeholder for inventory data */}
-                    <p className="text-sm text-muted-foreground">No low stock items to display.</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">No low stock items to display.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
             <Card className="col-span-1">
-              <CardHeader>
-                <CardTitle>Outstanding Invoices</CardTitle>
-                <CardDescription>Unpaid client invoices</CardDescription>
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg">Outstanding Invoices</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Unpaid client invoices</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p>Loading invoice data...</p>
+                  <p className="text-sm">Loading invoice data...</p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-4">
                     {/* Placeholder for invoice data */}
-                    <p className="text-sm text-muted-foreground">No outstanding invoices to display.</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">No outstanding invoices to display.</p>
                   </div>
                 )}
               </CardContent>
@@ -310,10 +326,10 @@ export default function Business() {
         {/* Expenses Tab */}
         <TabsContent value="expenses" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Expenses</h2>
-            <Button onClick={() => setShowExpenseForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Expense
+            <h2 className="text-xl sm:text-2xl font-bold">Expenses</h2>
+            <Button onClick={() => setShowExpenseForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Add</span> Expense
             </Button>
           </div>
           {showExpenseForm && (
@@ -333,10 +349,10 @@ export default function Business() {
         {/* Time Tracking Tab */}
         <TabsContent value="time-tracking" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Time Tracking</h2>
-            <Button onClick={() => setShowTimeEntryForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Time Entry
+            <h2 className="text-xl sm:text-2xl font-bold">Time Tracking</h2>
+            <Button onClick={() => setShowTimeEntryForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Add</span> Time
             </Button>
           </div>
           {showTimeEntryForm && (
@@ -353,10 +369,10 @@ export default function Business() {
         {/* Financial Reports Tab */}
         <TabsContent value="reports" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Financial Reports</h2>
-            <Button onClick={() => setShowReportForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Create Report
+            <h2 className="text-xl sm:text-2xl font-bold">Financial Reports</h2>
+            <Button onClick={() => setShowReportForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Create</span> Report
             </Button>
           </div>
           {showReportForm && (
@@ -373,10 +389,10 @@ export default function Business() {
         {/* Vendors Tab */}
         <TabsContent value="vendors" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Vendors</h2>
-            <Button onClick={() => setShowVendorForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Vendor
+            <h2 className="text-xl sm:text-2xl font-bold">Vendors</h2>
+            <Button onClick={() => setShowVendorForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Add</span> Vendor
             </Button>
           </div>
           {showVendorForm && (
@@ -393,10 +409,10 @@ export default function Business() {
         {/* Purchase Orders Tab */}
         <TabsContent value="purchase-orders" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Purchase Orders</h2>
-            <Button onClick={() => setShowPurchaseOrderForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Create Purchase Order
+            <h2 className="text-xl sm:text-2xl font-bold">Purchase Orders</h2>
+            <Button onClick={() => setShowPurchaseOrderForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Create</span> Order
             </Button>
           </div>
           {showPurchaseOrderForm && (
@@ -413,10 +429,10 @@ export default function Business() {
         {/* Inventory Tab */}
         <TabsContent value="inventory" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Inventory</h2>
-            <Button onClick={() => setShowInventoryForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Inventory Item
+            <h2 className="text-xl sm:text-2xl font-bold">Inventory</h2>
+            <Button onClick={() => setShowInventoryForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Add</span> Item
             </Button>
           </div>
           {showInventoryForm && (
@@ -433,10 +449,10 @@ export default function Business() {
         {/* Licenses Tab */}
         <TabsContent value="licenses" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Licenses & Certifications</h2>
-            <Button onClick={() => setShowLicenseForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add License
+            <h2 className="text-xl sm:text-2xl font-bold">Licenses & Certifications</h2>
+            <Button onClick={() => setShowLicenseForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Add</span> License
             </Button>
           </div>
           {showLicenseForm && (
@@ -453,10 +469,10 @@ export default function Business() {
         {/* Insurance Tab */}
         <TabsContent value="insurance" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Insurance Policies</h2>
-            <Button onClick={() => setShowInsuranceForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Insurance Policy
+            <h2 className="text-xl sm:text-2xl font-bold">Insurance Policies</h2>
+            <Button onClick={() => setShowInsuranceForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Add</span> Policy
             </Button>
           </div>
           {showInsuranceForm && (
@@ -467,6 +483,28 @@ export default function Business() {
           <InsuranceTable
             data={insurance || []}
             isLoading={insuranceLoading}
+          />
+        </TabsContent>
+        
+        {/* Pool Reports Tab */}
+        <TabsContent value="pool-reports" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl font-bold">Pool Reports</h2>
+            <Button onClick={() => setShowPoolReportForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Create</span> Report
+            </Button>
+          </div>
+          {showPoolReportForm && (
+            <PoolReportForm
+              open={showPoolReportForm}
+              onOpenChange={setShowPoolReportForm}
+            />
+          )}
+          <PoolReportsTable
+            reports={poolReports || []}
+            isLoading={poolReportsLoading}
+            onCreateReport={() => setShowPoolReportForm(true)}
           />
         </TabsContent>
       </Tabs>
