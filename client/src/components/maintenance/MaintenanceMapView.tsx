@@ -141,7 +141,13 @@ export function MaintenanceMapView({
   const [infoPosition, setInfoPosition] = useState<google.maps.LatLngLiteral | null>(null);
   
   // Access the Google Maps API key from the environment
-  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  // Try to get the key from different possible sources
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 
+                          (typeof process !== 'undefined' && process.env && process.env.GOOGLE_MAPS_API_KEY) || 
+                          '';
+  
+  // Log environment variables for debugging
+  console.log('Environment variables available:', Object.keys(import.meta.env));
   
   const hasApiKey = typeof googleMapsApiKey === 'string' && googleMapsApiKey.length > 0;
   
@@ -251,27 +257,20 @@ export function MaintenanceMapView({
       </div>
       
       <Card className="p-4 mt-4">
-        {!hasApiKey ? (
-          <div className="p-6 text-center">
-            <MapPin className="h-12 w-12 mx-auto text-gray-300 mb-2" />
-            <h3 className="text-lg font-medium">Google Maps API Key Required</h3>
-            <p className="text-sm text-gray-500 mt-1">A valid Google Maps API key is needed to display the map.</p>
-          </div>
-        ) : (
-          <MapWithLazyLoading 
-            googleMapsApiKey={googleMapsApiKey} 
-            libraries={libraries}
-            mapCenter={mapCenter}
-            containerStyle={containerStyle}
-            onLoad={onLoad}
-            onUnmount={onUnmount}
-            filteredMaintenances={filteredMaintenances}
-            selectedLocation={selectedLocation}
-            setSelectedLocation={setSelectedLocation}
-            technicians={technicians}
-            defaultCenter={defaultCenter}
-          />
-        )}
+        {/* Render the map component with the API key from environment */}
+        <MapWithLazyLoading 
+          googleMapsApiKey={googleMapsApiKey} 
+          libraries={libraries}
+          mapCenter={mapCenter}
+          containerStyle={containerStyle}
+          onLoad={onLoad}
+          onUnmount={onUnmount}
+          filteredMaintenances={filteredMaintenances}
+          selectedLocation={selectedLocation}
+          setSelectedLocation={setSelectedLocation}
+          technicians={technicians}
+          defaultCenter={defaultCenter}
+        />
       </Card>
     </div>
   );
@@ -292,6 +291,17 @@ interface MapWithLazyLoadingProps {
   defaultCenter: { lat: number; lng: number };
 }
 
+// Helper function to ensure we're using the correct API key
+const getApiKey = () => {
+  // Check if API key is available from different sources
+  // First try client-side env vars, then check server-side, then check for the secret
+  const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || 
+             (typeof process !== 'undefined' && process.env && process.env.GOOGLE_MAPS_API_KEY) || 
+             '';
+             
+  return key;
+};
+
 function MapWithLazyLoading({
   googleMapsApiKey,
   libraries,
@@ -305,18 +315,35 @@ function MapWithLazyLoading({
   technicians,
   defaultCenter
 }: MapWithLazyLoadingProps) {
+  // Ensure we're using a valid API key - either passed in or from our helper
+  const apiKey = googleMapsApiKey || getApiKey();
   // Set up intersection observer to detect when component is visible
   const { ref, inView } = useInView({
     triggerOnce: true, // Only trigger once when component becomes visible
-    threshold: 0.1 // 10% of the component needs to be visible
+    threshold: 0.1, // 10% of the component needs to be visible
+    initialInView: true // Force initial render to speed up map loading
   });
+  
+  // Log when the component becomes visible
+  useEffect(() => {
+    if (inView) {
+      console.log("Map component is now visible, loading Google Maps");
+    }
+  }, [inView]);
+
+  // Log the API key being used
+  useEffect(() => {
+    console.log(`Using API key: ${apiKey ? "✅ Provided" : "❌ Missing"}`);
+  }, [apiKey]);
 
   return (
     <div ref={ref} className="w-full">
       {inView ? (
         <LoadScript 
-          googleMapsApiKey={googleMapsApiKey}
+          googleMapsApiKey={apiKey}
           libraries={libraries}
+          onError={(error) => console.error("Google Maps Script Error:", error)}
+          onLoad={() => console.log("Google Maps Script loaded successfully")}
           loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}>
           <GoogleMap
             mapContainerStyle={containerStyle}
