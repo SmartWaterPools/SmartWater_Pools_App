@@ -3,9 +3,12 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ChemicalType, CHEMICAL_TYPES } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "../../lib/queryClient";
+import { useToast } from "../../hooks/use-toast";
+
+// Add the ChemicalType and CHEMICAL_TYPES directly to avoid import issues
+const CHEMICAL_TYPES = ['liquid_chlorine', 'tablets', 'muriatic_acid', 'soda_ash', 'sodium_bicarbonate', 'calcium_chloride', 'stabilizer', 'algaecide', 'salt', 'phosphate_remover', 'other'] as const;
+type ChemicalType = typeof CHEMICAL_TYPES[number];
 
 import {
   Form,
@@ -15,18 +18,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from "../../components/ui/form";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "../../components/ui/select";
+import { Input } from "../../components/ui/input";
+import { Button } from "../../components/ui/button";
+import { Textarea } from "../../components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 
 // Define the schema for chemical usage form
 const chemicalUsageSchema = z.object({

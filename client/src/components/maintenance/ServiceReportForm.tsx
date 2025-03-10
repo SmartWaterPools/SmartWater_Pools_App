@@ -5,9 +5,9 @@ import { format } from "date-fns";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "../../components/ui/button";
+import { Calendar } from "../../components/ui/calendar";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -16,27 +16,27 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+} from "../../components/ui/form";
+import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "../../components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "../../components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { CalendarIcon, Loader2, Beaker, DollarSign } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { MaintenanceWithDetails } from "@/lib/types";
-import { apiRequest } from "@/lib/queryClient";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "../../hooks/use-toast";
+import { MaintenanceWithDetails } from "../../lib/types";
+import { apiRequest } from "../../lib/queryClient";
+import { Checkbox } from "../../components/ui/checkbox";
 import { ChemicalUsageForm } from "./ChemicalUsageForm";
 import { ChemicalUsageHistory } from "./ChemicalUsageHistory";
 

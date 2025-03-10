@@ -1,8 +1,26 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChemicalType, ChemicalUsage } from "@shared/schema";
-import { formatDate, formatCurrency } from "@/lib/types";
-import { apiRequest } from "@/lib/queryClient";
+import { formatDate, formatCurrency } from "../../lib/types";
+import { apiRequest } from "../../lib/queryClient";
+
+// Add the ChemicalType and ChemicalUsage directly to avoid import issues
+const CHEMICAL_TYPES = ['liquid_chlorine', 'tablets', 'muriatic_acid', 'soda_ash', 'sodium_bicarbonate', 'calcium_chloride', 'stabilizer', 'algaecide', 'salt', 'phosphate_remover', 'other'] as const;
+type ChemicalType = typeof CHEMICAL_TYPES[number];
+
+interface ChemicalUsage {
+  id: number;
+  maintenanceId: number;
+  chemicalType: string;
+  amount: number;
+  unit: string;
+  unitCost: number;
+  totalCost: number;
+  reason: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  costPercentage?: number; // Added for calculations
+}
 
 import {
   Card,
@@ -10,8 +28,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+} from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 import { 
   Table, 
   TableHeader, 
@@ -19,8 +37,8 @@ import {
   TableHead, 
   TableRow, 
   TableCell 
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+} from "../../components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import { 
   BarChart, 
   Bar, 
@@ -33,8 +51,8 @@ import {
   PieChart,
   Pie
 } from "recharts";
-import { Progress } from "@/components/ui/progress";
-import { Label } from "@/components/ui/label";
+import { Progress } from "../../components/ui/progress";
+import { Label } from "../../components/ui/label";
 import { Beaker, DollarSign, Droplets, LineChart } from "lucide-react";
 
 interface ChemicalUsageHistoryProps {
@@ -62,9 +80,7 @@ export function ChemicalUsageHistory({ maintenanceId }: ChemicalUsageHistoryProp
   // Fetch chemical usage data for this maintenance record
   const { data: chemicalUsages, isLoading, error } = useQuery({
     queryKey: [`/api/chemical-usage/maintenance/${maintenanceId}`],
-    queryFn: async () => {
-      return apiRequest<ChemicalUsage[]>(`/api/chemical-usage/maintenance/${maintenanceId}`);
-    },
+    queryFn: () => apiRequest<ChemicalUsage[]>(`/api/chemical-usage/maintenance/${maintenanceId}`),
     enabled: !!maintenanceId,
   });
   
@@ -232,8 +248,10 @@ export function ChemicalUsageHistory({ maintenanceId }: ChemicalUsageHistoryProp
                     <Progress 
                       value={usage.costPercentage} 
                       className="h-2" 
-                      style={{ backgroundColor: `${chemicalColors[usage.chemicalType as ChemicalType]}20` }}
-                      indicatorColor={chemicalColors[usage.chemicalType as ChemicalType]}
+                      style={{ 
+                        backgroundColor: `${chemicalColors[usage.chemicalType as ChemicalType]}20`,
+                        "--tw-progress-bar-color": chemicalColors[usage.chemicalType as ChemicalType]
+                      } as React.CSSProperties}
                     />
                   </div>
                 ))}

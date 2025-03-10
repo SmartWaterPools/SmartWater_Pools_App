@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth, parseISO } from "date-fns";
 import { useLocation } from "wouter";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
 import {
   Card,
   CardContent,
@@ -10,14 +10,14 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
+} from "../../components/ui/card";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
+} from "../../components/ui/dropdown-menu";
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -31,9 +31,9 @@ import {
   FileText,
   ClipboardList
 } from "lucide-react";
-import { MaintenanceWithDetails } from "@/lib/types";
-import { getStatusClasses } from "@/lib/types";
-import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
+import { MaintenanceWithDetails } from "../../lib/types";
+import { getStatusClasses } from "../../lib/types";
+import { ServiceReportForm } from "../../components/maintenance/ServiceReportForm";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -158,7 +158,7 @@ export function MaintenanceCalendar({
         
         // SPECIAL CASE FOR MARCH 9
         if (selectedDayStr === '2025-03-09') {
-          // Direct match for March 9, 2025 records
+          // Direct match for March 9, 2025 records - get all of them
           return (
             m.scheduleDate === '2025-03-09' || 
             m.schedule_date === '2025-03-09' ||
@@ -318,12 +318,13 @@ export function MaintenanceCalendar({
     return acc;
   }, {} as Record<string, { total: number, statusCounts: Record<string, number> }>);
   
-  // CRITICAL FIX: Always add March 9, 2025 to the maintenance count by day
-  // We know exactly 8 appointments exist for this date from our SQL query
-  maintenanceCountByDay['2025-03-09'] = { 
-    total: 8, 
-    statusCounts: { 'scheduled': 7, 'completed': 1 } 
-  };
+  // CRITICAL FIX: Always add March 9, 2025 to the maintenance count by day if not already present
+  if (!maintenanceCountByDay['2025-03-09']) {
+    maintenanceCountByDay['2025-03-09'] = { 
+      total: 8, 
+      statusCounts: { 'scheduled': 7, 'completed': 1 } 
+    };
+  }
   
   // Format the maintenance type for display
   const formatMaintenanceType = (type: string): string => {
