@@ -63,7 +63,7 @@ app.use((req, res, next) => {
   // Use environment variable PORT if available (required for Cloud Run)
   // Otherwise use 8080 for production and 5000 for development
   const isProduction = process.env.NODE_ENV === 'production';
-  const defaultPort = isProduction ? 8080 : 5000;
+  const defaultPort = isProduction ? 8080 : 5000; // Use 5000 for Replit compatibility
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : defaultPort;
   
   // Enhanced server setup with proper error handling for Cloud Run compatibility
@@ -75,6 +75,7 @@ app.use((req, res, next) => {
       log(`Server running on port ${port} - Environment: ${isProduction ? 'production' : 'development'}`);
       log(`Local access URL: http://localhost:${port}`);
       log(`Network access URL: http://0.0.0.0:${port}`);
+      log(`Using port ${port} for Replit compatibility`);
       log(`Cloud Run will use PORT env var: ${process.env.PORT || 'not set, will use default'}`);
     }).on('error', (error: any) => {
       // If port is already in use and we're in development, try alternative port
