@@ -372,17 +372,17 @@ export function MaintenanceCalendar({
                       {/* If this is a completed service with a report, show a summary */}
                       {hasServiceReport && maintenance.notes && (
                         <div className="mt-3 text-sm p-2 bg-blue-50 rounded border border-blue-100">
-                          <p className="font-medium text-blue-700 mb-1">Service Report Summary</p>
+                          <div className="font-medium text-blue-700 mb-1">Service Report Summary</div>
                           <div className="space-y-1 text-xs">
                             {maintenance.notes.split('\n').slice(0, 3).map((line, i) => (
-                              <p key={i} className="text-gray-600">
+                              <div key={i} className="text-gray-600">
                                 {line.length > 60 ? line.substring(0, 60) + '...' : line}
-                              </p>
+                              </div>
                             ))}
                             {maintenance.notes.split('\n').length > 3 && (
-                              <p className="text-blue-600 cursor-pointer" onClick={() => navigate(`/service-report/${maintenance.id}`)}>
+                              <div className="text-blue-600 cursor-pointer" onClick={() => navigate(`/service-report/${maintenance.id}`)}>
                                 View full report...
-                              </p>
+                              </div>
                             )}
                           </div>
                         </div>

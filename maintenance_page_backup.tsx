@@ -16,10 +16,7 @@ import {
   Clock,
   ClipboardList,
   FileText,
-  FileBarChart2,
-  Map,
-  ListFilter,
-  List
+  FileBarChart2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,8 +38,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
-import { MaintenanceListView } from "@/components/maintenance/MaintenanceListView";
-import { MaintenanceMapView } from "@/components/maintenance/MaintenanceMapView";
 import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
 import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
 import { 
@@ -50,7 +45,7 @@ import {
   formatDate, 
   getStatusClasses 
 } from "@/lib/types";
-import { format, addMonths, subMonths, isSameDay, isToday, parseISO } from "date-fns";
+import { format, addMonths, subMonths, isSameDay, isToday } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -141,6 +136,16 @@ export default function Maintenance() {
     return true;
   });
 
+  // Group maintenances by date for list view
+  const groupedByDate = filteredMaintenances?.reduce((acc, maintenance) => {
+    const date = maintenance.scheduleDate;
+    if (!acc[date]) {
+      acc[date] = [];
+    }
+    acc[date].push(maintenance);
+    return acc;
+  }, {} as Record<string, MaintenanceWithDetails[]>);
+
   // Mutation to update maintenance status
   const updateMaintenanceMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
@@ -173,7 +178,7 @@ export default function Maintenance() {
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
-  // Open service report form - supports both dialog and page navigation
+  // Open service report form - now supports both dialog and page navigation
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false, useNewPage = false) => {
     if (useNewPage) {
       // Use the new SmartWater style report page
@@ -252,7 +257,7 @@ export default function Maintenance() {
                 <Button variant="outline" className="flex gap-2">
                   <Filter className="h-4 w-4" />
                   {statusFilter !== "all" ? (
-                    <span className="capitalize">{statusFilter.replace('_', ' ')}</span>
+                    <span className="capitalize">{statusFilter}</span>
                   ) : (
                     "Status"
                   )}
@@ -288,51 +293,39 @@ export default function Maintenance() {
         </div>
       </div>
 
-      {/* SmartWater Style Report Promo */}
-      <div className="mb-6 p-3 bg-blue-50 rounded-lg shadow-sm">
-        <div className="flex flex-wrap justify-between items-center gap-2">
-          <div>
-            <h3 className="text-base font-medium text-blue-700">SmartWater Style Reporting</h3>
-            <p className="text-sm text-blue-600">Try our new advanced reporting tool with chemical tracking, water readings, and technician metrics</p>
-          </div>
-          <Button
-            variant="default"
-            className="mt-2 sm:mt-0"
-            onClick={() => {
-              // Find the first available maintenance record
-              const maintenance = filteredMaintenances && filteredMaintenances[0];
-              if (maintenance) {
-                handleServiceReportOpen(maintenance, false, true);
-              }
-            }}
-            disabled={!filteredMaintenances || filteredMaintenances.length === 0}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Try SmartWater Style Report
-          </Button>
-        </div>
-      </div>
-
       <Tabs defaultValue="calendar" className="mb-6">
-        <TabsList className="grid grid-cols-3 w-full md:w-auto">
-          <TabsTrigger value="calendar" className="flex items-center gap-2">
-            <CalendarIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Calendar View</span>
-          </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
-            <span className="hidden sm:inline">List View</span>
-          </TabsTrigger>
-          <TabsTrigger value="map" className="flex items-center gap-2">
-            <Map className="h-4 w-4" />
-            <span className="hidden sm:inline">Map View</span>
-          </TabsTrigger>
+        <TabsList>
+          <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+          <TabsTrigger value="list">List View</TabsTrigger>
         </TabsList>
-
-        {/* Calendar View */}
         <TabsContent value="calendar">
           <Card>
             <CardContent className="p-6">
+              {/* SmartWater Style Report Promo */}
+              <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <div>
+                    <h3 className="text-base font-medium text-blue-700">SmartWater Style Reporting</h3>
+                    <p className="text-sm text-blue-600">Try our new advanced reporting tool with chemical tracking, water readings, and technician metrics</p>
+                  </div>
+                  <Button
+                    variant="default"
+                    className="mt-2 sm:mt-0"
+                    onClick={() => {
+                      // Find the first available maintenance record
+                      const maintenance = filteredMaintenances && filteredMaintenances[0];
+                      if (maintenance) {
+                        handleServiceReportOpen(maintenance, false, true);
+                      }
+                    }}
+                    disabled={!filteredMaintenances || filteredMaintenances.length === 0}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Try SmartWater Style Report
+                  </Button>
+                </div>
+              </div>
+              
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                 <div className="flex items-center gap-2">
                   <Button 
@@ -382,74 +375,191 @@ export default function Maintenance() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* List View */}
         <TabsContent value="list">
           <Card>
             <CardContent className="p-6">
-              <MaintenanceListView
-                maintenances={filteredMaintenances || []}
-                isLoading={isLoading}
-                onStatusUpdate={handleStatusUpdate}
-                isUpdatingStatus={isUpdatingStatus}
-                selectedMaintenance={selectedMaintenance}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Map View */}
-        <TabsContent value="map">
-          <Card>
-            <CardContent className="p-6">
-              <MaintenanceMapView
-                maintenances={filteredMaintenances || []}
-                onStatusUpdate={handleStatusUpdate}
-                isUpdatingStatus={isUpdatingStatus}
-                selectedMaintenance={selectedMaintenance}
-              />
+              {isLoading ? (
+                <div className="space-y-4">
+                  {Array(5).fill(0).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                      <Skeleton className="h-6 w-32" />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                        <Skeleton className="h-28 w-full rounded-lg" />
+                        <Skeleton className="h-28 w-full rounded-lg" />
+                        <Skeleton className="h-28 w-full rounded-lg" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : groupedByDate && Object.keys(groupedByDate).length > 0 ? (
+                <div className="space-y-6">
+                  {Object.entries(groupedByDate)
+                    .sort(([dateA], [dateB]) => new Date(dateA).getTime() - new Date(dateB).getTime())
+                    .map(([date, maintenances]) => (
+                      <div key={date} className="space-y-2">
+                        <h3 className="text-md font-semibold flex items-center gap-2">
+                          {formatDate(date)}
+                          {isToday(new Date(date)) && (
+                            <Badge variant="outline" className="bg-primary/10 text-primary">Today</Badge>
+                          )}
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                          {maintenances.map(maintenance => {
+                            const statusClasses = getStatusClasses(maintenance.status);
+                            const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
+                            
+                            return (
+                              <div 
+                                key={maintenance.id} 
+                                className={`bg-white border rounded-lg p-4 hover:shadow-sm transition ${
+                                  maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : 'border-gray-100'
+                                }`}
+                              >
+                                <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                    <h4 className="font-medium text-foreground">
+                                      {maintenance.client.user.name}
+                                    </h4>
+                                    <p className="text-sm text-gray-500">
+                                      {formatMaintenanceType(maintenance.type)}
+                                    </p>
+                                  </div>
+                                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusClasses.bg} ${statusClasses.text}`}>
+                                    {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
+                                  </span>
+                                </div>
+                                
+                                {hasServiceReport ? (
+                                  <div className="mb-2">
+                                    <div className="flex items-center text-xs text-blue-600 mb-1">
+                                      <FileText className="h-3 w-3 mr-1" />
+                                      <span>Service report submitted</span>
+                                    </div>
+                                    <div className="text-xs text-gray-600 mt-1 border-l-2 border-blue-200 pl-2">
+                                      {maintenance.notes && maintenance.notes.split('\n').slice(0, 2).map((line, i) => (
+                                        <p key={i}>{line.length > 50 ? line.substring(0, 50) + '...' : line}</p>
+                                      ))}
+                                      {maintenance.notes && maintenance.notes.split('\n').length > 2 && (
+                                        <Button 
+                                          variant="link" 
+                                          size="sm" 
+                                          className="text-xs h-auto p-0 mt-1"
+                                          onClick={() => handleServiceReportOpen(maintenance, true)}
+                                        >
+                                          View full report
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center text-sm text-gray-600 mb-2">
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    <span>{maintenance.notes ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
+                                  </div>
+                                )}
+                                
+                                <div className="flex items-center justify-between mt-2">
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <User className="h-4 w-4 mr-1" />
+                                    {maintenance.technician ? maintenance.technician.user.name : 'Unassigned'}
+                                  </div>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-8 w-8 text-gray-600"
+                                        disabled={isUpdatingStatus && selectedMaintenance?.id === maintenance.id}
+                                      >
+                                        {isUpdatingStatus && selectedMaintenance?.id === maintenance.id ? (
+                                          <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        )}
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        onClick={() => handleServiceReportOpen(maintenance, true)}
+                                      >
+                                        <ClipboardList className="h-4 w-4 mr-2" />
+                                        {hasServiceReport ? "View/Edit Service Report" : "Submit Service Report"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        onClick={() => handleServiceReportOpen(maintenance, false)}
+                                      >
+                                        <ClipboardList className="h-4 w-4 mr-2" />
+                                        {hasServiceReport ? "Quick Edit (Dialog)" : "Quick Submit (Dialog)"}
+                                      </DropdownMenuItem>
+                                      
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        onClick={() => handleServiceReportOpen(maintenance, false, true)}
+                                      >
+                                        <FileBarChart2 className="h-4 w-4 mr-2" />
+                                        SmartWater Style Report
+                                      </DropdownMenuItem>
+                                      
+                                      <DropdownMenuSeparator />
+                                      
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        disabled={maintenance.status === "in_progress"}
+                                        onClick={() => handleStatusUpdate(maintenance, "in_progress")}
+                                      >
+                                        Mark In Progress
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        disabled={maintenance.status === "completed"}
+                                        onClick={() => handleStatusUpdate(maintenance, "completed")}
+                                      >
+                                        <Check className="h-4 w-4 mr-1" />
+                                        Mark Completed
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        className="cursor-pointer"
+                                        disabled={maintenance.status === "cancelled"}
+                                        onClick={() => handleStatusUpdate(maintenance, "cancelled")}
+                                      >
+                                        <XCircle className="h-4 w-4 mr-1" />
+                                        Cancel Maintenance
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500">No maintenance appointments found</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* Maintenance Form Dialog */}
-      {open && (
-        <MaintenanceForm 
-          open={open} 
-          onOpenChange={setOpen} 
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-            setOpen(false);
-            toast({
-              title: "Maintenance scheduled",
-              description: "The maintenance has been scheduled successfully.",
-            });
-          }}
-        />
-      )}
-      
-      {/* Service Report Form Dialog */}
-      {serviceReportOpen && selectedServiceMaintenance && (
-        <ServiceReportForm
-          open={serviceReportOpen}
-          onOpenChange={setServiceReportOpen}
-          maintenanceId={selectedServiceMaintenance.id}
-          clientId={selectedServiceMaintenance.clientId}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-            setServiceReportOpen(false);
-            toast({
-              title: "Service report submitted",
-              description: "The service report has been submitted successfully.",
-            });
-          }}
-        />
-      )}
+      {/* Maintenance form dialog */}
+      <MaintenanceForm 
+        open={open} 
+        onOpenChange={setOpen} 
+        initialDate={date}
+      />
+
+      {/* Service Report Form */}
+      <ServiceReportForm 
+        open={serviceReportOpen} 
+        onOpenChange={setServiceReportOpen}
+        maintenance={selectedServiceMaintenance}
+      />
     </div>
   );
 }

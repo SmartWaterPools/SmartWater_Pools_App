@@ -59,6 +59,7 @@ interface MaintenanceFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialDate?: Date;
+  onSuccess?: () => void;
 }
 
 export function MaintenanceForm({ open, onOpenChange, initialDate }: MaintenanceFormProps) {

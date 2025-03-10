@@ -1,6 +1,7 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { format } from "date-fns";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -31,7 +32,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { format } from "date-fns";
 import { CalendarIcon, Loader2, Beaker, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MaintenanceWithDetails } from "@/lib/types";
@@ -79,15 +79,34 @@ const STANDARD_TASKS = [
 interface ServiceReportFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  maintenance: MaintenanceWithDetails | null;
+  maintenance?: MaintenanceWithDetails | null;
+  maintenanceId?: number;
+  clientId?: number;
+  onSuccess?: () => void;
 }
 
-export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceReportFormProps) {
+export function ServiceReportForm({ 
+  open, 
+  onOpenChange, 
+  maintenance, 
+  maintenanceId, 
+  clientId,
+  onSuccess
+}: ServiceReportFormProps) {
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showWaterReadings, setShowWaterReadings] = useState(false);
+  
+  // Fetch maintenance if we have an ID but no maintenance object
+  const { data: fetchedMaintenance, isLoading: isMaintenanceLoading } = useQuery<MaintenanceWithDetails>({
+    queryKey: [`/api/maintenances/${maintenanceId}`],
+    enabled: !!maintenanceId && !maintenance,
+  });
+  
+  // Use either the passed maintenance or the fetched one
+  const activeMaintenance = maintenance || fetchedMaintenance;
 
   // Form definition
   const form = useForm<ServiceReportValues>({
@@ -100,15 +119,25 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
         alkalinity: undefined,
       },
       tasksCompleted: [],
-      notes: maintenance?.notes || "",
-      status: maintenance?.status === "completed" ? "completed" : "in_progress",
+      notes: activeMaintenance?.notes || "",
+      status: activeMaintenance?.status === "completed" ? "completed" : "in_progress",
     },
+    mode: "onChange",
   });
+
+  // Update form values when maintenance data changes
+  useEffect(() => {
+    if (activeMaintenance) {
+      form.setValue("notes", activeMaintenance.notes || "");
+      form.setValue("status", activeMaintenance.status === "completed" ? "completed" : "in_progress");
+    }
+  }, [activeMaintenance, form]);
 
   // Update maintenance mutation
   const updateMaintenanceMutation = useMutation({
     mutationFn: async (values: ServiceReportValues) => {
-      if (!maintenance) return null;
+      const id = activeMaintenance?.id || maintenanceId;
+      if (!id) return null;
 
       const updateData = {
         ...values,
@@ -116,7 +145,7 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
         notes: formatServiceReport(values)
       };
 
-      return await apiRequest(`/api/maintenances/${maintenance.id}`, 'PATCH', updateData);
+      return await apiRequest(`/api/maintenances/${id}`, 'PATCH', updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
@@ -126,6 +155,9 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
         title: "Service report submitted",
         description: "The service report has been submitted successfully.",
       });
+      if (onSuccess) {
+        onSuccess();
+      }
       onOpenChange(false);
     },
     onError: (error) => {
@@ -186,7 +218,33 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
     });
   }
 
-  if (!maintenance) return null;
+  // Show loading state while fetching maintenance data
+  if (isMaintenanceLoading) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+            <p className="text-sm text-muted-foreground">Loading service details...</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // If we have neither a maintenance object nor could fetch one by ID
+  if (!activeMaintenance) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px]">
+          <div className="flex flex-col items-center justify-center py-8">
+            <p className="text-sm text-red-500 mb-2">Unable to load maintenance data</p>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -197,11 +255,11 @@ export function ServiceReportForm({ open, onOpenChange, maintenance }: ServiceRe
         
         <div className="mb-4">
           <div className="text-sm text-muted-foreground">
-            <p><span className="font-medium">Client:</span> {maintenance.client.user.name}</p>
-            <p><span className="font-medium">Service Type:</span> {maintenance.type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
-            <p><span className="font-medium">Scheduled Date:</span> {format(new Date(maintenance.scheduleDate), "PPP")}</p>
-            {maintenance.technician && (
-              <p><span className="font-medium">Technician:</span> {maintenance.technician.user.name}</p>
+            <p><span className="font-medium">Client:</span> {activeMaintenance.client.user.name}</p>
+            <p><span className="font-medium">Service Type:</span> {activeMaintenance.type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+            <p><span className="font-medium">Scheduled Date:</span> {format(new Date(activeMaintenance.scheduleDate), "PPP")}</p>
+            {activeMaintenance.technician && (
+              <p><span className="font-medium">Technician:</span> {activeMaintenance.technician.user.name}</p>
             )}
           </div>
         </div>
