@@ -258,7 +258,7 @@ export function MaintenanceMapView({
             <p className="text-sm text-gray-500 mt-1">A valid Google Maps API key is needed to display the map.</p>
           </div>
         ) : (
-          <LazyMapLoader 
+          <MapWithLazyLoading 
             googleMapsApiKey={googleMapsApiKey} 
             libraries={libraries}
             mapCenter={mapCenter}
@@ -277,8 +277,8 @@ export function MaintenanceMapView({
   );
 }
 
-// LazyMapLoader component to only load the map when it's visible in the viewport
-interface LazyMapLoaderProps {
+// Map with lazy loading components
+interface MapWithLazyLoadingProps {
   googleMapsApiKey: string;
   libraries: any[];
   mapCenter: { lat: number; lng: number };
@@ -292,7 +292,7 @@ interface LazyMapLoaderProps {
   defaultCenter: { lat: number; lng: number };
 }
 
-function LazyMapLoader({
+function MapWithLazyLoading({
   googleMapsApiKey,
   libraries,
   mapCenter,
@@ -304,7 +304,7 @@ function LazyMapLoader({
   setSelectedLocation,
   technicians,
   defaultCenter
-}: LazyMapLoaderProps) {
+}: MapWithLazyLoadingProps) {
   // Set up intersection observer to detect when component is visible
   const { ref, inView } = useInView({
     triggerOnce: true, // Only trigger once when component becomes visible
