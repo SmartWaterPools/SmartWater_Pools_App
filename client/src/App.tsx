@@ -25,6 +25,7 @@ import PoolWizardPage from "@/pages/PoolWizardPage";
 import ServiceReport from "@/pages/ServiceReport";
 import ServiceReportPage from "@/pages/ServiceReportPage";
 import Communications from "@/pages/Communications";
+import Business from "@/pages/Business";
 import Settings from "@/pages/Settings";
 import NotFound from "@/pages/not-found";
 
@@ -209,6 +210,7 @@ function App() {
               <Route path="/service-report/:id" component={ServiceReport} />
               <Route path="/service-report-page/:id" component={ServiceReportPage} />
               <Route path="/communications" component={Communications} />
+              <Route path="/business" component={Business} />
               <Route path="/settings" component={Settings} />
               <Route component={NotFound} />
             </Switch>

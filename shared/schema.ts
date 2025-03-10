@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex, doublePrecision } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -657,3 +657,324 @@ export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
 
 export type CommunicationProvider = typeof communicationProviders.$inferSelect;
 export type InsertCommunicationProvider = z.infer<typeof insertCommunicationProviderSchema>;
+
+// Business Module Schemas
+
+// Expense Categories
+export const EXPENSE_CATEGORIES = [
+  'chemicals',
+  'equipment',
+  'vehicle',
+  'office',
+  'marketing',
+  'insurance',
+  'utilities',
+  'rent',
+  'payroll',
+  'taxes',
+  'sales_tax',
+  'training',
+  'travel',
+  'other'
+] as const;
+export type ExpenseCategory = typeof EXPENSE_CATEGORIES[number];
+
+// Expense schema
+export const expenses = pgTable("expenses", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull(),
+  category: text("category").notNull(), // one of EXPENSE_CATEGORIES
+  amount: integer("amount").notNull(), // in cents
+  description: text("description").notNull(),
+  receipt: text("receipt"), // URL to receipt image
+  vendor: text("vendor"),
+  paymentMethod: text("payment_method"), // cash, credit card, check, etc.
+  approved: boolean("approved").default(false),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedDate: timestamp("approved_date"),
+  reimbursable: boolean("reimbursable").default(false),
+  reimbursed: boolean("reimbursed").default(false),
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertExpenseSchema = createInsertSchema(expenses).omit({
+  id: true,
+  approvedDate: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Payroll entry schema
+export const payrollEntries = pgTable("payroll_entries", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  payPeriodStart: date("pay_period_start").notNull(),
+  payPeriodEnd: date("pay_period_end").notNull(),
+  regularHours: doublePrecision("regular_hours").notNull().default(0),
+  overtimeHours: doublePrecision("overtime_hours").notNull().default(0),
+  holidayHours: doublePrecision("holiday_hours").notNull().default(0),
+  sickHours: doublePrecision("sick_hours").notNull().default(0),
+  vacationHours: doublePrecision("vacation_hours").notNull().default(0),
+  hourlyRate: integer("hourly_rate").notNull(), // in cents
+  overtimeRate: integer("overtime_rate").notNull(), // in cents
+  grossPay: integer("gross_pay").notNull(), // in cents
+  federalTax: integer("federal_tax").notNull().default(0), // in cents
+  stateTax: integer("state_tax").notNull().default(0), // in cents
+  socialSecurity: integer("social_security").notNull().default(0), // in cents
+  medicare: integer("medicare").notNull().default(0), // in cents
+  otherDeductions: integer("other_deductions").notNull().default(0), // in cents
+  netPay: integer("net_pay").notNull(), // in cents
+  notes: text("notes"),
+  status: text("status").notNull().default("pending"), // pending, approved, paid
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedDate: timestamp("approved_date"),
+  paymentDate: date("payment_date"),
+  paymentMethod: text("payment_method"), // direct deposit, check, etc.
+  paymentRef: text("payment_ref"), // reference number for payment
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertPayrollEntrySchema = createInsertSchema(payrollEntries).omit({
+  id: true,
+  approvedDate: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Time tracking schema
+export const timeEntries = pgTable("time_entries", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  date: date("date").notNull(),
+  startTime: time("start_time").notNull(),
+  endTime: time("end_time"),
+  breakDuration: integer("break_duration").default(0), // in minutes
+  projectId: integer("project_id").references(() => projects.id),
+  maintenanceId: integer("maintenance_id").references(() => maintenances.id),
+  repairId: integer("repair_id").references(() => repairs.id),
+  notes: text("notes"),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedDate: timestamp("approved_date"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  approvedDate: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Financial Report Types
+export const REPORT_TYPES = [
+  'income_statement', 
+  'balance_sheet', 
+  'cash_flow',
+  'profit_loss',
+  'expense_summary',
+  'revenue_by_service',
+  'technician_productivity',
+  'chemical_usage',
+  'route_profitability',
+  'custom'
+] as const;
+export type ReportType = typeof REPORT_TYPES[number];
+
+// Financial Report Schema
+export const financialReports = pgTable("financial_reports", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // one of REPORT_TYPES
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  parameters: text("parameters"), // JSON string of parameters
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastRunDate: timestamp("last_run_date"),
+  scheduleFrequency: text("schedule_frequency"), // daily, weekly, monthly, quarterly, yearly
+  isPublic: boolean("is_public").default(false),
+  notes: text("notes"),
+});
+
+export const insertFinancialReportSchema = createInsertSchema(financialReports).omit({
+  id: true,
+  createdAt: true,
+  lastRunDate: true,
+});
+
+// Vendor Schema
+export const vendors = pgTable("vendors", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  contactName: text("contact_name"),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  website: text("website"),
+  accountNumber: text("account_number"),
+  category: text("category").notNull(), // chemical supplier, equipment, service, etc.
+  paymentTerms: text("payment_terms"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertVendorSchema = createInsertSchema(vendors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Purchase Order Schema
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: serial("id").primaryKey(),
+  vendorId: integer("vendor_id").references(() => vendors.id).notNull(),
+  orderDate: date("order_date").notNull(),
+  expectedDeliveryDate: date("expected_delivery_date"),
+  actualDeliveryDate: date("actual_delivery_date"),
+  status: text("status").notNull().default("draft"), // draft, sent, received, cancelled
+  totalAmount: integer("total_amount").notNull(), // in cents
+  items: text("items").notNull(), // JSON string of items
+  notes: text("notes"),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Inventory Item Schema
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // chemical, equipment, part, etc.
+  sku: text("sku"),
+  unit: text("unit").notNull(), // gallon, pound, each, etc.
+  costPerUnit: integer("cost_per_unit").notNull(), // in cents
+  minStockLevel: integer("min_stock_level").notNull().default(0),
+  currentStock: integer("current_stock").notNull().default(0),
+  location: text("location"), // where it's stored
+  vendorId: integer("vendor_id").references(() => vendors.id),
+  lastOrderDate: date("last_order_date"),
+  imageUrl: text("image_url"),
+  notes: text("notes"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Define relations for new business module entities
+export const expensesRelations = relations(expenses, ({ one }) => ({
+  createdByUser: one(users, {
+    fields: [expenses.createdBy],
+    references: [users.id],
+  }),
+  approvedByUser: one(users, {
+    fields: [expenses.approvedBy],
+    references: [users.id],
+  }),
+}));
+
+export const payrollEntriesRelations = relations(payrollEntries, ({ one }) => ({
+  user: one(users, {
+    fields: [payrollEntries.userId],
+    references: [users.id],
+  }),
+  approvedByUser: one(users, {
+    fields: [payrollEntries.approvedBy],
+    references: [users.id],
+  }),
+}));
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  user: one(users, {
+    fields: [timeEntries.userId],
+    references: [users.id],
+  }),
+  project: one(projects, {
+    fields: [timeEntries.projectId],
+    references: [projects.id],
+  }),
+  maintenance: one(maintenances, {
+    fields: [timeEntries.maintenanceId],
+    references: [maintenances.id],
+  }),
+  repair: one(repairs, {
+    fields: [timeEntries.repairId],
+    references: [repairs.id],
+  }),
+  approvedByUser: one(users, {
+    fields: [timeEntries.approvedBy],
+    references: [users.id],
+  }),
+}));
+
+export const financialReportsRelations = relations(financialReports, ({ one }) => ({
+  createdByUser: one(users, {
+    fields: [financialReports.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const vendorsRelations = relations(vendors, ({ many }) => ({
+  purchaseOrders: many(purchaseOrders),
+  inventoryItems: many(inventoryItems),
+}));
+
+export const purchaseOrdersRelations = relations(purchaseOrders, ({ one }) => ({
+  vendor: one(vendors, {
+    fields: [purchaseOrders.vendorId],
+    references: [vendors.id],
+  }),
+  createdByUser: one(users, {
+    fields: [purchaseOrders.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const inventoryItemsRelations = relations(inventoryItems, ({ one }) => ({
+  vendor: one(vendors, {
+    fields: [inventoryItems.vendorId],
+    references: [vendors.id],
+  }),
+}));
+
+// Export types for business module entities
+export type Expense = typeof expenses.$inferSelect;
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+
+export type PayrollEntry = typeof payrollEntries.$inferSelect;
+export type InsertPayrollEntry = z.infer<typeof insertPayrollEntrySchema>;
+
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+
+export type FinancialReport = typeof financialReports.$inferSelect;
+export type InsertFinancialReport = z.infer<typeof insertFinancialReportSchema>;
+
+export type Vendor = typeof vendors.$inferSelect;
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;

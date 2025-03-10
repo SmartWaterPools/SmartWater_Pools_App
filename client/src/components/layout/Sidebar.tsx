@@ -14,7 +14,8 @@ import {
   ChevronRight,
   Droplet,
   AlignRight,
-  MessageSquare
+  MessageSquare,
+  BarChart4
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -38,6 +39,7 @@ export function Sidebar({ user }: SidebarProps) {
   const [isOnClients] = useRoute("/clients");
   const [isOnTechnicians] = useRoute("/technicians");
   const [isOnCommunications] = useRoute("/communications");
+  const [isOnBusiness] = useRoute("/business");
   const [isOnSettings] = useRoute("/settings");
   
   const toggleSidebar = () => {
@@ -74,6 +76,8 @@ export function Sidebar({ user }: SidebarProps) {
         return 'Technicians';
       case '/communications':
         return 'Communications';
+      case '/business':
+        return 'Business';
       case '/settings':
         return 'Settings';
       default:
@@ -97,6 +101,8 @@ export function Sidebar({ user }: SidebarProps) {
         return <UserRound className="h-4 w-4" />;
       case '/communications':
         return <MessageSquare className="h-4 w-4" />;
+      case '/business':
+        return <BarChart4 className="h-4 w-4" />;
       case '/settings':
         return <Settings className="h-4 w-4" />;
       default:
@@ -368,6 +374,40 @@ export function Sidebar({ user }: SidebarProps) {
             )}
           </div>
           
+          {/* Business */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/business")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnBusiness ? "text-primary" : "text-gray-500"
+            )}>
+              <BarChart4 className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnBusiness ? "text-primary" : "text-gray-700"
+              )}>
+                Business
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnBusiness ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Business
+              </span>
+            )}
+          </div>
+          
           {/* Settings - updated from More */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/settings")}
@@ -504,6 +544,16 @@ export function Sidebar({ user }: SidebarProps) {
             <MessageSquare className="h-5 w-5" />
           </div>
           <span className={cn("text-xs mt-0.5", isOnCommunications ? "text-primary font-medium" : "text-gray-500")}>Comms</span>
+        </div>
+        
+        <div 
+          onClick={(e) => handleSidebarNavigation(e, "/business")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnBusiness ? "text-primary" : "text-gray-500")}>
+            <BarChart4 className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnBusiness ? "text-primary font-medium" : "text-gray-500")}>Business</span>
         </div>
         
         <div 

@@ -23,7 +23,18 @@ import {
   CHEMICAL_TYPES,
   COMMUNICATION_PROVIDER_TYPES,
   CommunicationProviderType,
-  ChemicalType
+  ChemicalType,
+  // Business Module schemas
+  insertExpenseSchema,
+  insertPayrollEntrySchema,
+  insertTimeEntrySchema,
+  insertFinancialReportSchema,
+  insertVendorSchema,
+  insertPurchaseOrderSchema,
+  insertInventoryItemSchema,
+  EXPENSE_CATEGORIES,
+  ExpenseCategory,
+  REPORT_TYPES
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -1649,6 +1660,1029 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting document:", error);
       res.status(500).json({ message: "Failed to delete document" });
+    }
+  });
+
+  // Business Module Routes
+  
+  // Business Dashboard
+  app.get("/api/business/dashboard", async (_req: Request, res: Response) => {
+    try {
+      // Dashboard summary data with placeholder data
+      const metrics = {
+        totalRevenue: 45231.89,
+        expenses: 12756.42,
+        profit: 32475.47,
+        profitMargin: 71.8,
+        pendingPayroll: 8943.21,
+        inventoryValue: 32156.90,
+        lowStockItems: 7,
+        outstandingInvoices: 12
+      };
+      
+      const recentExpenses = [
+        { id: 1, date: "2025-02-25", amount: 235.50, category: "supplies", description: "Chlorine tablets", paymentMethod: "credit_card", receiptUrl: null, notes: "Monthly stock", createdAt: "2025-02-25T14:32:00Z" },
+        { id: 2, date: "2025-02-22", amount: 890.00, category: "equipment", description: "Replacement pump", paymentMethod: "check", receiptUrl: "receipts/pump-28923.pdf", notes: "For Johnson project", createdAt: "2025-02-22T09:45:00Z" },
+        { id: 3, date: "2025-02-20", amount: 125.75, category: "office", description: "Office supplies", paymentMethod: "credit_card", receiptUrl: null, notes: "Paper, ink, etc", createdAt: "2025-02-20T16:10:00Z" }
+      ];
+      
+      const pendingPayroll = [
+        { id: 1, userId: 3, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 3248.50, status: "pending", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 2, userId: 4, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2894.75, status: "pending", hoursWorked: 76, payRate: 38.25, bonuses: 0, deductions: 870.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 3, userId: 2, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2800.00, status: "pending", hoursWorked: 80, payRate: 35.00, bonuses: 0, deductions: 750.00, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" }
+      ];
+      
+      const lowStockItems = [
+        { id: 1, name: "Chlorine tablets", category: "chemicals", currentStock: 5, minimumStock: 10, unit: "bucket", unitPrice: 89.99, supplierInfo: "Pool Supply Co.", lastOrderDate: "2025-01-15", notes: "Need to reorder", createdAt: "2024-10-15T08:30:00Z" },
+        { id: 2, name: "pH Plus", category: "chemicals", currentStock: 3, minimumStock: 8, unit: "gallon", unitPrice: 24.99, supplierInfo: "Pool Supply Co.", lastOrderDate: "2025-01-28", notes: "Order more next week", createdAt: "2024-10-15T08:35:00Z" }
+      ];
+      
+      const recentTimeEntries = [
+        { id: 1, userId: 3, projectId: 1, date: "2025-03-01", hoursWorked: 8, description: "Pool installation - framing", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-03-01T17:00:00Z" },
+        { id: 2, userId: 4, projectId: 1, date: "2025-03-01", hoursWorked: 8, description: "Pool installation - plumbing", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-03-01T17:05:00Z" },
+        { id: 3, userId: 2, projectId: 3, date: "2025-03-01", hoursWorked: 6, description: "Maintenance route - north", status: "approved", approvedBy: 1, notes: "Completed 8 service calls", createdAt: "2025-03-01T15:30:00Z" }
+      ];
+      
+      res.json({
+        metrics,
+        recentExpenses,
+        pendingPayroll,
+        lowStockItems,
+        recentTimeEntries
+      });
+    } catch (error) {
+      console.error("Error fetching business dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch business dashboard data" });
+    }
+  });
+
+  // Expenses routes
+  app.get("/api/business/expenses", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder expenses data
+      const expenses = [
+        { id: 1, date: "2025-02-25", amount: 235.50, category: "supplies", description: "Chlorine tablets", paymentMethod: "credit_card", receiptUrl: null, notes: "Monthly stock", createdAt: "2025-02-25T14:32:00Z" },
+        { id: 2, date: "2025-02-22", amount: 890.00, category: "equipment", description: "Replacement pump", paymentMethod: "check", receiptUrl: "receipts/pump-28923.pdf", notes: "For Johnson project", createdAt: "2025-02-22T09:45:00Z" },
+        { id: 3, date: "2025-02-20", amount: 125.75, category: "office", description: "Office supplies", paymentMethod: "credit_card", receiptUrl: null, notes: "Paper, ink, etc", createdAt: "2025-02-20T16:10:00Z" },
+        { id: 4, date: "2025-02-15", amount: 450.00, category: "vehicle", description: "Truck maintenance", paymentMethod: "credit_card", receiptUrl: "receipts/truck-service.pdf", notes: "Oil change and tune-up", createdAt: "2025-02-15T11:20:00Z" },
+        { id: 5, date: "2025-02-10", amount: 1200.00, category: "insurance", description: "Liability insurance", paymentMethod: "bank_transfer", receiptUrl: "receipts/insurance-feb.pdf", notes: "Monthly premium", createdAt: "2025-02-10T09:00:00Z" }
+      ];
+      res.json(expenses);
+    } catch (error) {
+      console.error("Error fetching expenses:", error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  app.get("/api/business/expenses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder expense data for the given ID
+      const expenses = [
+        { id: 1, date: "2025-02-25", amount: 235.50, category: "supplies", description: "Chlorine tablets", paymentMethod: "credit_card", receiptUrl: null, notes: "Monthly stock", createdAt: "2025-02-25T14:32:00Z" },
+        { id: 2, date: "2025-02-22", amount: 890.00, category: "equipment", description: "Replacement pump", paymentMethod: "check", receiptUrl: "receipts/pump-28923.pdf", notes: "For Johnson project", createdAt: "2025-02-22T09:45:00Z" },
+        { id: 3, date: "2025-02-20", amount: 125.75, category: "office", description: "Office supplies", paymentMethod: "credit_card", receiptUrl: null, notes: "Paper, ink, etc", createdAt: "2025-02-20T16:10:00Z" },
+        { id: 4, date: "2025-02-15", amount: 450.00, category: "vehicle", description: "Truck maintenance", paymentMethod: "credit_card", receiptUrl: "receipts/truck-service.pdf", notes: "Oil change and tune-up", createdAt: "2025-02-15T11:20:00Z" },
+        { id: 5, date: "2025-02-10", amount: 1200.00, category: "insurance", description: "Liability insurance", paymentMethod: "bank_transfer", receiptUrl: "receipts/insurance-feb.pdf", notes: "Monthly premium", createdAt: "2025-02-10T09:00:00Z" }
+      ];
+      
+      const expense = expenses.find(e => e.id === id);
+      
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      res.json(expense);
+    } catch (error) {
+      console.error("Error fetching expense:", error);
+      res.status(500).json({ message: "Failed to fetch expense" });
+    }
+  });
+
+  app.post("/api/business/expenses", async (req: Request, res: Response) => {
+    try {
+      // Create a new expense with a generated ID and return it
+      const newExpense = {
+        id: 6, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newExpense);
+    } catch (error) {
+      console.error("Error creating expense:", error);
+      res.status(500).json({ message: "Failed to create expense" });
+    }
+  });
+
+  app.patch("/api/business/expenses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated expense
+      const updatedExpense = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedExpense);
+    } catch (error) {
+      console.error("Error updating expense:", error);
+      res.status(500).json({ message: "Failed to update expense" });
+    }
+  });
+
+  app.delete("/api/business/expenses/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+
+  // Payroll routes
+  app.get("/api/business/payroll", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder payroll entries
+      const payrollEntries = [
+        { id: 1, userId: 3, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 3248.50, status: "pending", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 2, userId: 4, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2894.75, status: "pending", hoursWorked: 76, payRate: 38.25, bonuses: 0, deductions: 870.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 3, userId: 2, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2800.00, status: "pending", hoursWorked: 80, payRate: 35.00, bonuses: 0, deductions: 750.00, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 4, userId: 3, payPeriodStart: "2025-02-01", payPeriodEnd: "2025-02-14", amount: 3248.50, status: "paid", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: "2025-02-16T12:30:00Z", createdAt: "2025-02-14T23:59:00Z" }
+      ];
+      res.json(payrollEntries);
+    } catch (error) {
+      console.error("Error fetching payroll entries:", error);
+      res.status(500).json({ message: "Failed to fetch payroll entries" });
+    }
+  });
+
+  app.get("/api/business/payroll/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder payroll entry for given ID
+      const payrollEntries = [
+        { id: 1, userId: 3, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 3248.50, status: "pending", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 2, userId: 4, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2894.75, status: "pending", hoursWorked: 76, payRate: 38.25, bonuses: 0, deductions: 870.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 3, userId: 2, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2800.00, status: "pending", hoursWorked: 80, payRate: 35.00, bonuses: 0, deductions: 750.00, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
+        { id: 4, userId: 3, payPeriodStart: "2025-02-01", payPeriodEnd: "2025-02-14", amount: 3248.50, status: "paid", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: "2025-02-16T12:30:00Z", createdAt: "2025-02-14T23:59:00Z" }
+      ];
+      
+      const payrollEntry = payrollEntries.find(e => e.id === id);
+      
+      if (!payrollEntry) {
+        return res.status(404).json({ message: "Payroll entry not found" });
+      }
+      
+      res.json(payrollEntry);
+    } catch (error) {
+      console.error("Error fetching payroll entry:", error);
+      res.status(500).json({ message: "Failed to fetch payroll entry" });
+    }
+  });
+
+  app.post("/api/business/payroll", async (req: Request, res: Response) => {
+    try {
+      // Create a new payroll entry with a generated ID and return it
+      const newPayrollEntry = {
+        id: 5, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newPayrollEntry);
+    } catch (error) {
+      console.error("Error creating payroll entry:", error);
+      res.status(500).json({ message: "Failed to create payroll entry" });
+    }
+  });
+
+  app.patch("/api/business/payroll/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated payroll entry
+      const updatedPayrollEntry = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedPayrollEntry);
+    } catch (error) {
+      console.error("Error updating payroll entry:", error);
+      res.status(500).json({ message: "Failed to update payroll entry" });
+    }
+  });
+
+  app.delete("/api/business/payroll/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting payroll entry:", error);
+      res.status(500).json({ message: "Failed to delete payroll entry" });
+    }
+  });
+
+  // Time Entry routes
+  app.get("/api/business/time-entries", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder time entries
+      const timeEntries = [
+        { id: 1, userId: 3, projectId: 1, date: "2025-03-01", hoursWorked: 8, description: "Pool installation - framing", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-03-01T17:00:00Z" },
+        { id: 2, userId: 4, projectId: 1, date: "2025-03-01", hoursWorked: 8, description: "Pool installation - plumbing", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-03-01T17:05:00Z" },
+        { id: 3, userId: 2, projectId: 3, date: "2025-03-01", hoursWorked: 6, description: "Maintenance route - north", status: "approved", approvedBy: 1, notes: "Completed 8 service calls", createdAt: "2025-03-01T15:30:00Z" },
+        { id: 4, userId: 3, projectId: 1, date: "2025-02-28", hoursWorked: 8, description: "Pool installation - excavation", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-02-28T17:00:00Z" },
+        { id: 5, userId: 4, projectId: 1, date: "2025-02-28", hoursWorked: 8, description: "Pool installation - excavation", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-02-28T17:05:00Z" }
+      ];
+      res.json(timeEntries);
+    } catch (error) {
+      console.error("Error fetching time entries:", error);
+      res.status(500).json({ message: "Failed to fetch time entries" });
+    }
+  });
+
+  app.get("/api/business/time-entries/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder time entry for given ID
+      const timeEntries = [
+        { id: 1, userId: 3, projectId: 1, date: "2025-03-01", hoursWorked: 8, description: "Pool installation - framing", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-03-01T17:00:00Z" },
+        { id: 2, userId: 4, projectId: 1, date: "2025-03-01", hoursWorked: 8, description: "Pool installation - plumbing", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-03-01T17:05:00Z" },
+        { id: 3, userId: 2, projectId: 3, date: "2025-03-01", hoursWorked: 6, description: "Maintenance route - north", status: "approved", approvedBy: 1, notes: "Completed 8 service calls", createdAt: "2025-03-01T15:30:00Z" },
+        { id: 4, userId: 3, projectId: 1, date: "2025-02-28", hoursWorked: 8, description: "Pool installation - excavation", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-02-28T17:00:00Z" },
+        { id: 5, userId: 4, projectId: 1, date: "2025-02-28", hoursWorked: 8, description: "Pool installation - excavation", status: "approved", approvedBy: 1, notes: null, createdAt: "2025-02-28T17:05:00Z" }
+      ];
+      
+      const timeEntry = timeEntries.find(e => e.id === id);
+      
+      if (!timeEntry) {
+        return res.status(404).json({ message: "Time entry not found" });
+      }
+      
+      res.json(timeEntry);
+    } catch (error) {
+      console.error("Error fetching time entry:", error);
+      res.status(500).json({ message: "Failed to fetch time entry" });
+    }
+  });
+
+  app.post("/api/business/time-entries", async (req: Request, res: Response) => {
+    try {
+      // Create a new time entry with a generated ID and return it
+      const newTimeEntry = {
+        id: 6, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newTimeEntry);
+    } catch (error) {
+      console.error("Error creating time entry:", error);
+      res.status(500).json({ message: "Failed to create time entry" });
+    }
+  });
+
+  app.patch("/api/business/time-entries/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated time entry
+      const updatedTimeEntry = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedTimeEntry);
+    } catch (error) {
+      console.error("Error updating time entry:", error);
+      res.status(500).json({ message: "Failed to update time entry" });
+    }
+  });
+
+  app.delete("/api/business/time-entries/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting time entry:", error);
+      res.status(500).json({ message: "Failed to delete time entry" });
+    }
+  });
+
+  // Financial Report routes
+  app.get("/api/business/reports", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder financial reports
+      const reports = [
+        { id: 1, title: "Monthly P&L", type: "profit_loss", period: "2025-02-01 to 2025-02-28", data: JSON.stringify({revenue: 45231.89, expenses: 12756.42, profit: 32475.47, profitMargin: 71.8}), status: "approved", createdBy: 1, createdAt: "2025-03-01T09:00:00Z", updatedAt: "2025-03-01T09:00:00Z" },
+        { id: 2, title: "Q1 Cash Flow", type: "cash_flow", period: "2025-01-01 to 2025-03-31", data: JSON.stringify({startingBalance: 125000.00, endingBalance: 142750.89, inflows: 87500.00, outflows: 69749.11}), status: "draft", createdBy: 1, createdAt: "2025-03-01T10:30:00Z", updatedAt: "2025-03-01T10:30:00Z" },
+        { id: 3, title: "Revenue by Service Type", type: "custom", period: "2025-02-01 to 2025-02-28", data: JSON.stringify({categories: ["Maintenance", "Repairs", "Installations"], values: [22450.00, 8750.00, 14031.89]}), status: "approved", createdBy: 1, createdAt: "2025-03-01T11:15:00Z", updatedAt: "2025-03-01T11:15:00Z" }
+      ];
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching financial reports:", error);
+      res.status(500).json({ message: "Failed to fetch financial reports" });
+    }
+  });
+
+  app.get("/api/business/reports/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder financial report for given ID
+      const reports = [
+        { id: 1, title: "Monthly P&L", type: "profit_loss", period: "2025-02-01 to 2025-02-28", data: JSON.stringify({revenue: 45231.89, expenses: 12756.42, profit: 32475.47, profitMargin: 71.8}), status: "approved", createdBy: 1, createdAt: "2025-03-01T09:00:00Z", updatedAt: "2025-03-01T09:00:00Z" },
+        { id: 2, title: "Q1 Cash Flow", type: "cash_flow", period: "2025-01-01 to 2025-03-31", data: JSON.stringify({startingBalance: 125000.00, endingBalance: 142750.89, inflows: 87500.00, outflows: 69749.11}), status: "draft", createdBy: 1, createdAt: "2025-03-01T10:30:00Z", updatedAt: "2025-03-01T10:30:00Z" },
+        { id: 3, title: "Revenue by Service Type", type: "custom", period: "2025-02-01 to 2025-02-28", data: JSON.stringify({categories: ["Maintenance", "Repairs", "Installations"], values: [22450.00, 8750.00, 14031.89]}), status: "approved", createdBy: 1, createdAt: "2025-03-01T11:15:00Z", updatedAt: "2025-03-01T11:15:00Z" }
+      ];
+      
+      const report = reports.find(r => r.id === id);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Financial report not found" });
+      }
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching financial report:", error);
+      res.status(500).json({ message: "Failed to fetch financial report" });
+    }
+  });
+
+  app.post("/api/business/reports", async (req: Request, res: Response) => {
+    try {
+      // Create a new financial report with a generated ID and return it
+      const newReport = {
+        id: 4, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newReport);
+    } catch (error) {
+      console.error("Error creating financial report:", error);
+      res.status(500).json({ message: "Failed to create financial report" });
+    }
+  });
+
+  app.patch("/api/business/reports/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated financial report
+      const updatedReport = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedReport);
+    } catch (error) {
+      console.error("Error updating financial report:", error);
+      res.status(500).json({ message: "Failed to update financial report" });
+    }
+  });
+
+  app.delete("/api/business/reports/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting financial report:", error);
+      res.status(500).json({ message: "Failed to delete financial report" });
+    }
+  });
+
+  // Vendor routes
+  app.get("/api/business/vendors", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder vendors
+      const vendors = [
+        { id: 1, name: "Pool Supply Co.", category: "chemicals", contactName: "John Smith", email: "john@poolsupply.com", phone: "555-123-4567", address: "123 Main St, Anytown, CA 90210", paymentTerms: "net_30", notes: "Preferred supplier for chemicals", createdAt: "2024-10-01T00:00:00Z", updatedAt: "2024-10-01T00:00:00Z" },
+        { id: 2, name: "Premium Pumps Inc.", category: "equipment", contactName: "Sarah Johnson", email: "sarah@premiumpumps.com", phone: "555-987-6543", address: "456 Oak St, Somewhere, CA 90211", paymentTerms: "net_15", notes: "Quality pump equipment", createdAt: "2024-10-02T00:00:00Z", updatedAt: "2024-10-02T00:00:00Z" },
+        { id: 3, name: "Poolside Accessories", category: "accessories", contactName: "Mike Wilson", email: "mike@poolsideacc.com", phone: "555-456-7890", address: "789 Pine St, Nowhere, CA 90212", paymentTerms: "net_30", notes: "Wide range of pool accessories", createdAt: "2024-10-03T00:00:00Z", updatedAt: "2024-10-03T00:00:00Z" }
+      ];
+      res.json(vendors);
+    } catch (error) {
+      console.error("Error fetching vendors:", error);
+      res.status(500).json({ message: "Failed to fetch vendors" });
+    }
+  });
+
+  app.get("/api/business/vendors/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder vendor for given ID
+      const vendors = [
+        { id: 1, name: "Pool Supply Co.", category: "chemicals", contactName: "John Smith", email: "john@poolsupply.com", phone: "555-123-4567", address: "123 Main St, Anytown, CA 90210", paymentTerms: "net_30", notes: "Preferred supplier for chemicals", createdAt: "2024-10-01T00:00:00Z", updatedAt: "2024-10-01T00:00:00Z" },
+        { id: 2, name: "Premium Pumps Inc.", category: "equipment", contactName: "Sarah Johnson", email: "sarah@premiumpumps.com", phone: "555-987-6543", address: "456 Oak St, Somewhere, CA 90211", paymentTerms: "net_15", notes: "Quality pump equipment", createdAt: "2024-10-02T00:00:00Z", updatedAt: "2024-10-02T00:00:00Z" },
+        { id: 3, name: "Poolside Accessories", category: "accessories", contactName: "Mike Wilson", email: "mike@poolsideacc.com", phone: "555-456-7890", address: "789 Pine St, Nowhere, CA 90212", paymentTerms: "net_30", notes: "Wide range of pool accessories", createdAt: "2024-10-03T00:00:00Z", updatedAt: "2024-10-03T00:00:00Z" }
+      ];
+      
+      const vendor = vendors.find(v => v.id === id);
+      
+      if (!vendor) {
+        return res.status(404).json({ message: "Vendor not found" });
+      }
+      
+      res.json(vendor);
+    } catch (error) {
+      console.error("Error fetching vendor:", error);
+      res.status(500).json({ message: "Failed to fetch vendor" });
+    }
+  });
+
+  app.post("/api/business/vendors", async (req: Request, res: Response) => {
+    try {
+      // Create a new vendor with a generated ID and return it
+      const newVendor = {
+        id: 4, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newVendor);
+    } catch (error) {
+      console.error("Error creating vendor:", error);
+      res.status(500).json({ message: "Failed to create vendor" });
+    }
+  });
+
+  app.patch("/api/business/vendors/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated vendor
+      const updatedVendor = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedVendor);
+    } catch (error) {
+      console.error("Error updating vendor:", error);
+      res.status(500).json({ message: "Failed to update vendor" });
+    }
+  });
+
+  app.delete("/api/business/vendors/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting vendor:", error);
+      res.status(500).json({ message: "Failed to delete vendor" });
+    }
+  });
+
+  // Purchase Order routes
+  app.get("/api/business/purchase-orders", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder purchase orders
+      const purchaseOrders = [
+        { id: 1, vendorId: 1, orderedBy: 1, orderDate: "2025-02-25", status: "completed", totalAmount: 1245.75, items: JSON.stringify([{name: "Chlorine tablets", quantity: 10, unitPrice: 89.99}, {name: "pH Plus", quantity: 8, unitPrice: 24.99}]), deliveryDate: "2025-03-01", notes: "Regular monthly order", createdAt: "2025-02-25T09:00:00Z", updatedAt: "2025-03-01T14:00:00Z" },
+        { id: 2, vendorId: 2, orderedBy: 1, orderDate: "2025-02-28", status: "pending", totalAmount: 2150.00, items: JSON.stringify([{name: "SuperFlo VS Pump", quantity: 1, unitPrice: 1250.00}, {name: "Cartridge Filter", quantity: 1, unitPrice: 900.00}]), deliveryDate: null, notes: "For Johnson installation", createdAt: "2025-02-28T10:30:00Z", updatedAt: "2025-02-28T10:30:00Z" },
+        { id: 3, vendorId: 3, orderedBy: 1, orderDate: "2025-02-20", status: "completed", totalAmount: 435.85, items: JSON.stringify([{name: "Leaf skimmer", quantity: 3, unitPrice: 45.95}, {name: "Pool brush", quantity: 4, unitPrice: 35.50}, {name: "Test kit", quantity: 2, unitPrice: 89.00}]), deliveryDate: "2025-02-23", notes: "Restocking supplies", createdAt: "2025-02-20T14:15:00Z", updatedAt: "2025-02-23T11:00:00Z" }
+      ];
+      res.json(purchaseOrders);
+    } catch (error) {
+      console.error("Error fetching purchase orders:", error);
+      res.status(500).json({ message: "Failed to fetch purchase orders" });
+    }
+  });
+
+  app.get("/api/business/purchase-orders/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder purchase order for given ID
+      const purchaseOrders = [
+        { id: 1, vendorId: 1, orderedBy: 1, orderDate: "2025-02-25", status: "completed", totalAmount: 1245.75, items: JSON.stringify([{name: "Chlorine tablets", quantity: 10, unitPrice: 89.99}, {name: "pH Plus", quantity: 8, unitPrice: 24.99}]), deliveryDate: "2025-03-01", notes: "Regular monthly order", createdAt: "2025-02-25T09:00:00Z", updatedAt: "2025-03-01T14:00:00Z" },
+        { id: 2, vendorId: 2, orderedBy: 1, orderDate: "2025-02-28", status: "pending", totalAmount: 2150.00, items: JSON.stringify([{name: "SuperFlo VS Pump", quantity: 1, unitPrice: 1250.00}, {name: "Cartridge Filter", quantity: 1, unitPrice: 900.00}]), deliveryDate: null, notes: "For Johnson installation", createdAt: "2025-02-28T10:30:00Z", updatedAt: "2025-02-28T10:30:00Z" },
+        { id: 3, vendorId: 3, orderedBy: 1, orderDate: "2025-02-20", status: "completed", totalAmount: 435.85, items: JSON.stringify([{name: "Leaf skimmer", quantity: 3, unitPrice: 45.95}, {name: "Pool brush", quantity: 4, unitPrice: 35.50}, {name: "Test kit", quantity: 2, unitPrice: 89.00}]), deliveryDate: "2025-02-23", notes: "Restocking supplies", createdAt: "2025-02-20T14:15:00Z", updatedAt: "2025-02-23T11:00:00Z" }
+      ];
+      
+      const purchaseOrder = purchaseOrders.find(po => po.id === id);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      res.json(purchaseOrder);
+    } catch (error) {
+      console.error("Error fetching purchase order:", error);
+      res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  app.post("/api/business/purchase-orders", async (req: Request, res: Response) => {
+    try {
+      // Create a new purchase order with a generated ID and return it
+      const newPurchaseOrder = {
+        id: 4, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newPurchaseOrder);
+    } catch (error) {
+      console.error("Error creating purchase order:", error);
+      res.status(500).json({ message: "Failed to create purchase order" });
+    }
+  });
+
+  app.patch("/api/business/purchase-orders/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated purchase order
+      const updatedPurchaseOrder = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedPurchaseOrder);
+    } catch (error) {
+      console.error("Error updating purchase order:", error);
+      res.status(500).json({ message: "Failed to update purchase order" });
+    }
+  });
+
+  app.delete("/api/business/purchase-orders/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting purchase order:", error);
+      res.status(500).json({ message: "Failed to delete purchase order" });
+    }
+  });
+
+  // Inventory routes
+  app.get("/api/business/inventory", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder inventory items
+      const inventoryItems = [
+        { id: 1, name: "Chlorine tablets", category: "chemicals", currentStock: 5, minimumStock: 10, unit: "bucket", unitPrice: 89.99, supplierInfo: "Pool Supply Co.", lastOrderDate: "2025-01-15", notes: "Need to reorder", createdAt: "2024-10-15T08:30:00Z", updatedAt: "2025-02-25T14:32:00Z" },
+        { id: 2, name: "pH Plus", category: "chemicals", currentStock: 3, minimumStock: 8, unit: "gallon", unitPrice: 24.99, supplierInfo: "Pool Supply Co.", lastOrderDate: "2025-01-28", notes: "Order more next week", createdAt: "2024-10-15T08:35:00Z", updatedAt: "2025-02-25T14:35:00Z" },
+        { id: 3, name: "SuperFlo VS Pump", category: "equipment", currentStock: 2, minimumStock: 1, unit: "each", unitPrice: 1250.00, supplierInfo: "Premium Pumps Inc.", lastOrderDate: "2025-01-10", notes: null, createdAt: "2024-10-15T08:40:00Z", updatedAt: "2025-01-10T11:20:00Z" },
+        { id: 4, name: "Cartridge Filter", category: "equipment", currentStock: 3, minimumStock: 2, unit: "each", unitPrice: 900.00, supplierInfo: "Premium Pumps Inc.", lastOrderDate: "2025-01-10", notes: null, createdAt: "2024-10-15T08:45:00Z", updatedAt: "2025-01-10T11:25:00Z" },
+        { id: 5, name: "Leaf skimmer", category: "accessories", currentStock: 8, minimumStock: 5, unit: "each", unitPrice: 45.95, supplierInfo: "Poolside Accessories", lastOrderDate: "2025-02-20", notes: null, createdAt: "2024-10-15T08:50:00Z", updatedAt: "2025-02-20T14:15:00Z" },
+        { id: 6, name: "Pool brush", category: "accessories", currentStock: 12, minimumStock: 4, unit: "each", unitPrice: 35.50, supplierInfo: "Poolside Accessories", lastOrderDate: "2025-02-20", notes: null, createdAt: "2024-10-15T08:55:00Z", updatedAt: "2025-02-20T14:20:00Z" },
+        { id: 7, name: "Test kit", category: "accessories", currentStock: 7, minimumStock: 3, unit: "each", unitPrice: 89.00, supplierInfo: "Poolside Accessories", lastOrderDate: "2025-02-20", notes: null, createdAt: "2024-10-15T09:00:00Z", updatedAt: "2025-02-20T14:25:00Z" }
+      ];
+      res.json(inventoryItems);
+    } catch (error) {
+      console.error("Error fetching inventory items:", error);
+      res.status(500).json({ message: "Failed to fetch inventory items" });
+    }
+  });
+
+  app.get("/api/business/inventory/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder inventory item for given ID
+      const inventoryItems = [
+        { id: 1, name: "Chlorine tablets", category: "chemicals", currentStock: 5, minimumStock: 10, unit: "bucket", unitPrice: 89.99, supplierInfo: "Pool Supply Co.", lastOrderDate: "2025-01-15", notes: "Need to reorder", createdAt: "2024-10-15T08:30:00Z", updatedAt: "2025-02-25T14:32:00Z" },
+        { id: 2, name: "pH Plus", category: "chemicals", currentStock: 3, minimumStock: 8, unit: "gallon", unitPrice: 24.99, supplierInfo: "Pool Supply Co.", lastOrderDate: "2025-01-28", notes: "Order more next week", createdAt: "2024-10-15T08:35:00Z", updatedAt: "2025-02-25T14:35:00Z" },
+        { id: 3, name: "SuperFlo VS Pump", category: "equipment", currentStock: 2, minimumStock: 1, unit: "each", unitPrice: 1250.00, supplierInfo: "Premium Pumps Inc.", lastOrderDate: "2025-01-10", notes: null, createdAt: "2024-10-15T08:40:00Z", updatedAt: "2025-01-10T11:20:00Z" },
+        { id: 4, name: "Cartridge Filter", category: "equipment", currentStock: 3, minimumStock: 2, unit: "each", unitPrice: 900.00, supplierInfo: "Premium Pumps Inc.", lastOrderDate: "2025-01-10", notes: null, createdAt: "2024-10-15T08:45:00Z", updatedAt: "2025-01-10T11:25:00Z" },
+        { id: 5, name: "Leaf skimmer", category: "accessories", currentStock: 8, minimumStock: 5, unit: "each", unitPrice: 45.95, supplierInfo: "Poolside Accessories", lastOrderDate: "2025-02-20", notes: null, createdAt: "2024-10-15T08:50:00Z", updatedAt: "2025-02-20T14:15:00Z" },
+        { id: 6, name: "Pool brush", category: "accessories", currentStock: 12, minimumStock: 4, unit: "each", unitPrice: 35.50, supplierInfo: "Poolside Accessories", lastOrderDate: "2025-02-20", notes: null, createdAt: "2024-10-15T08:55:00Z", updatedAt: "2025-02-20T14:20:00Z" },
+        { id: 7, name: "Test kit", category: "accessories", currentStock: 7, minimumStock: 3, unit: "each", unitPrice: 89.00, supplierInfo: "Poolside Accessories", lastOrderDate: "2025-02-20", notes: null, createdAt: "2024-10-15T09:00:00Z", updatedAt: "2025-02-20T14:25:00Z" }
+      ];
+      
+      const inventoryItem = inventoryItems.find(item => item.id === id);
+      
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      res.json(inventoryItem);
+    } catch (error) {
+      console.error("Error fetching inventory item:", error);
+      res.status(500).json({ message: "Failed to fetch inventory item" });
+    }
+  });
+
+  app.post("/api/business/inventory", async (req: Request, res: Response) => {
+    try {
+      // Create a new inventory item with a generated ID and return it
+      const newInventoryItem = {
+        id: 8, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newInventoryItem);
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      res.status(500).json({ message: "Failed to create inventory item" });
+    }
+  });
+
+  app.patch("/api/business/inventory/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated inventory item
+      const updatedInventoryItem = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedInventoryItem);
+    } catch (error) {
+      console.error("Error updating inventory item:", error);
+      res.status(500).json({ message: "Failed to update inventory item" });
+    }
+  });
+
+  app.delete("/api/business/inventory/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting inventory item:", error);
+      res.status(500).json({ message: "Failed to delete inventory item" });
+    }
+  });
+
+  // Licenses routes
+  app.get("/api/business/licenses", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder licenses data
+      const licenses = [
+        { 
+          id: 1, 
+          name: "Business Operation License", 
+          licenseNumber: "BUS-12345-2025", 
+          issueDate: "2025-01-15", 
+          expiryDate: "2026-01-14", 
+          issuingAuthority: "City of Sunnyvale", 
+          status: "active", 
+          documentUrl: "licenses/business-license-2025.pdf", 
+          notes: "Main business license",
+          reminderDate: "2025-12-15",
+          createdAt: "2025-01-15T10:30:00Z",
+          updatedAt: "2025-01-15T10:30:00Z"
+        },
+        { 
+          id: 2, 
+          name: "Pool Contractor License", 
+          licenseNumber: "PCL-78901-2025", 
+          issueDate: "2025-02-01", 
+          expiryDate: "2026-01-31", 
+          issuingAuthority: "State Pool Contractors Board", 
+          status: "active", 
+          documentUrl: "licenses/contractor-license-2025.pdf", 
+          notes: "State-level contractor license",
+          reminderDate: "2026-01-01",
+          createdAt: "2025-02-01T11:45:00Z",
+          updatedAt: "2025-02-01T11:45:00Z"
+        },
+        { 
+          id: 3, 
+          name: "Chemical Handling Certification", 
+          licenseNumber: "CHC-56789-2025", 
+          issueDate: "2025-03-10", 
+          expiryDate: "2027-03-09", 
+          issuingAuthority: "Chemical Safety Board", 
+          status: "active", 
+          documentUrl: "licenses/chemical-cert-2025.pdf", 
+          notes: "Required for handling pool chemicals",
+          reminderDate: "2027-02-10",
+          createdAt: "2025-03-10T09:20:00Z",
+          updatedAt: "2025-03-10T09:20:00Z"
+        }
+      ];
+      res.json(licenses);
+    } catch (error) {
+      console.error("Error fetching licenses:", error);
+      res.status(500).json({ message: "Failed to fetch licenses" });
+    }
+  });
+
+  app.get("/api/business/licenses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder license for given ID
+      const licenses = [
+        { 
+          id: 1, 
+          name: "Business Operation License", 
+          licenseNumber: "BUS-12345-2025", 
+          issueDate: "2025-01-15", 
+          expiryDate: "2026-01-14", 
+          issuingAuthority: "City of Sunnyvale", 
+          status: "active", 
+          documentUrl: "licenses/business-license-2025.pdf", 
+          notes: "Main business license",
+          reminderDate: "2025-12-15",
+          createdAt: "2025-01-15T10:30:00Z",
+          updatedAt: "2025-01-15T10:30:00Z"
+        },
+        { 
+          id: 2, 
+          name: "Pool Contractor License", 
+          licenseNumber: "PCL-78901-2025", 
+          issueDate: "2025-02-01", 
+          expiryDate: "2026-01-31", 
+          issuingAuthority: "State Pool Contractors Board", 
+          status: "active", 
+          documentUrl: "licenses/contractor-license-2025.pdf", 
+          notes: "State-level contractor license",
+          reminderDate: "2026-01-01",
+          createdAt: "2025-02-01T11:45:00Z",
+          updatedAt: "2025-02-01T11:45:00Z"
+        },
+        { 
+          id: 3, 
+          name: "Chemical Handling Certification", 
+          licenseNumber: "CHC-56789-2025", 
+          issueDate: "2025-03-10", 
+          expiryDate: "2027-03-09", 
+          issuingAuthority: "Chemical Safety Board", 
+          status: "active", 
+          documentUrl: "licenses/chemical-cert-2025.pdf", 
+          notes: "Required for handling pool chemicals",
+          reminderDate: "2027-02-10",
+          createdAt: "2025-03-10T09:20:00Z",
+          updatedAt: "2025-03-10T09:20:00Z"
+        }
+      ];
+      
+      const license = licenses.find(l => l.id === id);
+      
+      if (!license) {
+        return res.status(404).json({ message: "License not found" });
+      }
+      
+      res.json(license);
+    } catch (error) {
+      console.error("Error fetching license:", error);
+      res.status(500).json({ message: "Failed to fetch license" });
+    }
+  });
+
+  app.post("/api/business/licenses", async (req: Request, res: Response) => {
+    try {
+      // Create a new license with a generated ID and return it
+      const newLicense = {
+        id: 4, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newLicense);
+    } catch (error) {
+      console.error("Error creating license:", error);
+      res.status(500).json({ message: "Failed to create license" });
+    }
+  });
+
+  app.patch("/api/business/licenses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated license
+      const updatedLicense = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedLicense);
+    } catch (error) {
+      console.error("Error updating license:", error);
+      res.status(500).json({ message: "Failed to update license" });
+    }
+  });
+
+  app.delete("/api/business/licenses/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting license:", error);
+      res.status(500).json({ message: "Failed to delete license" });
+    }
+  });
+
+  // Insurance routes
+  app.get("/api/business/insurance", async (_req: Request, res: Response) => {
+    try {
+      // Return placeholder insurance data
+      const insurancePolicies = [
+        { 
+          id: 1, 
+          name: "General Liability Insurance", 
+          policyNumber: "GLI-98765-2025", 
+          provider: "SafeGuard Insurance Co.", 
+          startDate: "2025-01-01", 
+          endDate: "2025-12-31", 
+          coverageAmount: 2000000.00, 
+          premium: 4800.00, 
+          paymentFrequency: "monthly",
+          status: "active", 
+          documentUrl: "insurance/liability-policy-2025.pdf", 
+          notes: "Covers general business liability",
+          reminderDate: "2025-12-01",
+          createdAt: "2025-01-01T09:00:00Z",
+          updatedAt: "2025-01-01T09:00:00Z"
+        },
+        { 
+          id: 2, 
+          name: "Workers' Compensation", 
+          policyNumber: "WCI-54321-2025", 
+          provider: "WorkSafe Insurance", 
+          startDate: "2025-01-01", 
+          endDate: "2025-12-31", 
+          coverageAmount: 1000000.00, 
+          premium: 6200.00, 
+          paymentFrequency: "quarterly",
+          status: "active", 
+          documentUrl: "insurance/workers-comp-2025.pdf", 
+          notes: "Required workers' compensation coverage",
+          reminderDate: "2025-12-01",
+          createdAt: "2025-01-01T10:15:00Z",
+          updatedAt: "2025-01-01T10:15:00Z"
+        },
+        { 
+          id: 3, 
+          name: "Commercial Auto Insurance", 
+          policyNumber: "CAI-12345-2025", 
+          provider: "AutoProtect Insurance", 
+          startDate: "2025-01-15", 
+          endDate: "2026-01-14", 
+          coverageAmount: 500000.00, 
+          premium: 3200.00, 
+          paymentFrequency: "monthly",
+          status: "active", 
+          documentUrl: "insurance/auto-policy-2025.pdf", 
+          notes: "Covers all company vehicles",
+          reminderDate: "2025-12-15",
+          createdAt: "2025-01-15T14:30:00Z",
+          updatedAt: "2025-01-15T14:30:00Z"
+        },
+        { 
+          id: 4, 
+          name: "Equipment Insurance", 
+          policyNumber: "EQI-67890-2025", 
+          provider: "ToolSafe Insurance", 
+          startDate: "2025-02-01", 
+          endDate: "2026-01-31", 
+          coverageAmount: 250000.00, 
+          premium: 1800.00, 
+          paymentFrequency: "annually",
+          status: "active", 
+          documentUrl: "insurance/equipment-policy-2025.pdf", 
+          notes: "Covers all pool service equipment",
+          reminderDate: "2026-01-01",
+          createdAt: "2025-02-01T11:00:00Z",
+          updatedAt: "2025-02-01T11:00:00Z"
+        }
+      ];
+      res.json(insurancePolicies);
+    } catch (error) {
+      console.error("Error fetching insurance policies:", error);
+      res.status(500).json({ message: "Failed to fetch insurance policies" });
+    }
+  });
+
+  app.get("/api/business/insurance/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return placeholder insurance policy for given ID
+      const insurancePolicies = [
+        { 
+          id: 1, 
+          name: "General Liability Insurance", 
+          policyNumber: "GLI-98765-2025", 
+          provider: "SafeGuard Insurance Co.", 
+          startDate: "2025-01-01", 
+          endDate: "2025-12-31", 
+          coverageAmount: 2000000.00, 
+          premium: 4800.00, 
+          paymentFrequency: "monthly",
+          status: "active", 
+          documentUrl: "insurance/liability-policy-2025.pdf", 
+          notes: "Covers general business liability",
+          reminderDate: "2025-12-01",
+          createdAt: "2025-01-01T09:00:00Z",
+          updatedAt: "2025-01-01T09:00:00Z"
+        },
+        { 
+          id: 2, 
+          name: "Workers' Compensation", 
+          policyNumber: "WCI-54321-2025", 
+          provider: "WorkSafe Insurance", 
+          startDate: "2025-01-01", 
+          endDate: "2025-12-31", 
+          coverageAmount: 1000000.00, 
+          premium: 6200.00, 
+          paymentFrequency: "quarterly",
+          status: "active", 
+          documentUrl: "insurance/workers-comp-2025.pdf", 
+          notes: "Required workers' compensation coverage",
+          reminderDate: "2025-12-01",
+          createdAt: "2025-01-01T10:15:00Z",
+          updatedAt: "2025-01-01T10:15:00Z"
+        },
+        { 
+          id: 3, 
+          name: "Commercial Auto Insurance", 
+          policyNumber: "CAI-12345-2025", 
+          provider: "AutoProtect Insurance", 
+          startDate: "2025-01-15", 
+          endDate: "2026-01-14", 
+          coverageAmount: 500000.00, 
+          premium: 3200.00, 
+          paymentFrequency: "monthly",
+          status: "active", 
+          documentUrl: "insurance/auto-policy-2025.pdf", 
+          notes: "Covers all company vehicles",
+          reminderDate: "2025-12-15",
+          createdAt: "2025-01-15T14:30:00Z",
+          updatedAt: "2025-01-15T14:30:00Z"
+        },
+        { 
+          id: 4, 
+          name: "Equipment Insurance", 
+          policyNumber: "EQI-67890-2025", 
+          provider: "ToolSafe Insurance", 
+          startDate: "2025-02-01", 
+          endDate: "2026-01-31", 
+          coverageAmount: 250000.00, 
+          premium: 1800.00, 
+          paymentFrequency: "annually",
+          status: "active", 
+          documentUrl: "insurance/equipment-policy-2025.pdf", 
+          notes: "Covers all pool service equipment",
+          reminderDate: "2026-01-01",
+          createdAt: "2025-02-01T11:00:00Z",
+          updatedAt: "2025-02-01T11:00:00Z"
+        }
+      ];
+      
+      const insurance = insurancePolicies.find(i => i.id === id);
+      
+      if (!insurance) {
+        return res.status(404).json({ message: "Insurance policy not found" });
+      }
+      
+      res.json(insurance);
+    } catch (error) {
+      console.error("Error fetching insurance policy:", error);
+      res.status(500).json({ message: "Failed to fetch insurance policy" });
+    }
+  });
+
+  app.post("/api/business/insurance", async (req: Request, res: Response) => {
+    try {
+      // Create a new insurance policy with a generated ID and return it
+      const newInsurance = {
+        id: 5, // In a real app, this would be auto-generated
+        ...req.body,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.status(201).json(newInsurance);
+    } catch (error) {
+      console.error("Error creating insurance policy:", error);
+      res.status(500).json({ message: "Failed to create insurance policy" });
+    }
+  });
+
+  app.patch("/api/business/insurance/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      // Return the updated insurance policy
+      const updatedInsurance = {
+        id,
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+      
+      res.json(updatedInsurance);
+    } catch (error) {
+      console.error("Error updating insurance policy:", error);
+      res.status(500).json({ message: "Failed to update insurance policy" });
+    }
+  });
+
+  app.delete("/api/business/insurance/:id", async (req: Request, res: Response) => {
+    try {
+      // Just return success for now
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting insurance policy:", error);
+      res.status(500).json({ message: "Failed to delete insurance policy" });
     }
   });
 

@@ -136,6 +136,73 @@ export interface IStorage {
   deleteCommunicationProvider(id: number): Promise<boolean>;
   getAllCommunicationProviders(): Promise<CommunicationProvider[]>;
   getDefaultCommunicationProvider(type: CommunicationProviderType): Promise<CommunicationProvider | undefined>;
+  
+  // Business Module Operations
+  
+  // Expense operations
+  getExpense(id: number): Promise<Expense | undefined>;
+  createExpense(expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: number, expense: Partial<Expense>): Promise<Expense | undefined>;
+  deleteExpense(id: number): Promise<boolean>;
+  getAllExpenses(): Promise<Expense[]>;
+  getExpensesByCategory(category: ExpenseCategory): Promise<Expense[]>;
+  getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]>;
+  
+  // Payroll operations
+  getPayrollEntry(id: number): Promise<PayrollEntry | undefined>;
+  createPayrollEntry(entry: InsertPayrollEntry): Promise<PayrollEntry>;
+  updatePayrollEntry(id: number, entry: Partial<PayrollEntry>): Promise<PayrollEntry | undefined>;
+  deletePayrollEntry(id: number): Promise<boolean>;
+  getAllPayrollEntries(): Promise<PayrollEntry[]>;
+  getPayrollEntriesByUserId(userId: number): Promise<PayrollEntry[]>;
+  getPayrollEntriesByDateRange(startDate: Date, endDate: Date): Promise<PayrollEntry[]>;
+  getPayrollEntriesByStatus(status: string): Promise<PayrollEntry[]>;
+  
+  // Time Entry operations
+  getTimeEntry(id: number): Promise<TimeEntry | undefined>;
+  createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry>;
+  updateTimeEntry(id: number, entry: Partial<TimeEntry>): Promise<TimeEntry | undefined>;
+  deleteTimeEntry(id: number): Promise<boolean>;
+  getAllTimeEntries(): Promise<TimeEntry[]>;
+  getTimeEntriesByUserId(userId: number): Promise<TimeEntry[]>;
+  getTimeEntriesByDateRange(startDate: Date, endDate: Date): Promise<TimeEntry[]>;
+  getTimeEntriesByStatus(status: string): Promise<TimeEntry[]>;
+  getTimeEntriesByProjectId(projectId: number): Promise<TimeEntry[]>;
+  
+  // Financial Report operations
+  getFinancialReport(id: number): Promise<FinancialReport | undefined>;
+  createFinancialReport(report: InsertFinancialReport): Promise<FinancialReport>;
+  updateFinancialReport(id: number, report: Partial<FinancialReport>): Promise<FinancialReport | undefined>;
+  deleteFinancialReport(id: number): Promise<boolean>;
+  getAllFinancialReports(): Promise<FinancialReport[]>;
+  getFinancialReportsByType(type: ReportType): Promise<FinancialReport[]>;
+  
+  // Vendor operations
+  getVendor(id: number): Promise<Vendor | undefined>;
+  createVendor(vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(id: number, vendor: Partial<Vendor>): Promise<Vendor | undefined>;
+  deleteVendor(id: number): Promise<boolean>;
+  getAllVendors(): Promise<Vendor[]>;
+  getVendorsByCategory(category: string): Promise<Vendor[]>;
+  
+  // Purchase Order operations
+  getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined>;
+  createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder>;
+  updatePurchaseOrder(id: number, order: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined>;
+  deletePurchaseOrder(id: number): Promise<boolean>;
+  getAllPurchaseOrders(): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersByVendorId(vendorId: number): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersByStatus(status: string): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersByDateRange(startDate: Date, endDate: Date): Promise<PurchaseOrder[]>;
+  
+  // Inventory Item operations
+  getInventoryItem(id: number): Promise<InventoryItem | undefined>;
+  createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
+  deleteInventoryItem(id: number): Promise<boolean>;
+  getAllInventoryItems(): Promise<InventoryItem[]>;
+  getInventoryItemsByCategory(category: string): Promise<InventoryItem[]>;
+  getLowStockItems(): Promise<InventoryItem[]>;
 }
 
 // In-memory storage implementation
