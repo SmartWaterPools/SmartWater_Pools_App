@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getGoogleMapsApiKey } from '@/lib/googleMapsUtils';
+import { getGoogleMapsApiKey } from '../lib/googleMapsUtils';
 
 interface GoogleMapsContextType {
   apiKey: string;

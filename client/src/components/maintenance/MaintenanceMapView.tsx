@@ -2,21 +2,21 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { GoogleMap, useJsApiLoader, MarkerClusterer, Marker, InfoWindow } from "@react-google-maps/api";
 import { useLocation } from "wouter";
 import { CalendarIcon, MapPin, Clock, User } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner"; 
-import { useGoogleMaps } from "@/contexts/GoogleMapsContext";
+import { Card, CardContent } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
+import { Spinner } from "../../components/ui/spinner"; 
+import { useGoogleMaps } from "../../contexts/GoogleMapsContext";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "../../components/ui/tooltip";
 import { 
   MaintenanceWithDetails, 
   getStatusClasses, 
   formatDate 
-} from "@/lib/types";
+} from "../../lib/types";
 
 const containerStyle = {
   width: '100%',

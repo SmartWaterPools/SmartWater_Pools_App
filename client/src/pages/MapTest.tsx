@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { LoadScript, GoogleMap } from '@react-google-maps/api';
-import { Skeleton } from "@/components/ui/skeleton";
-import { useGoogleMaps } from "@/contexts/GoogleMapsContext";
+import { Skeleton } from "../components/ui/skeleton";
+import { useGoogleMaps } from "../contexts/GoogleMapsContext";
 
 const containerStyle = {
   width: '100%',
