@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SmartWater Pools - System Diagnostic</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        line-height: 1.6;
+        color: #333;
+        margin: 0;
+        padding: 20px;
+        background-color: #f5f7fa;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background-color: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: #0077B6;
+        border-bottom: 2px solid #0077B6;
+        padding-bottom: 10px;
+        margin-top: 0;
+      }
+      h2 {
+        color: #0077B6;
+        margin-top: 30px;
+        font-size: 1.5rem;
+      }
+      .status {
+        margin: 20px 0;
+        padding: 15px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+      }
+      .status-icon {
+        font-size: 24px;
+        margin-right: 10px;
+      }
+      .success {
+        background-color: #d4edda;
+        border-left: 4px solid #28a745;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        border-left: 4px solid #dc3545;
+        color: #721c24;
+      }
+      .warning {
+        background-color: #fff3cd;
+        border-left: 4px solid #ffc107;
+        color: #856404;
+      }
+      .info {
+        background-color: #cff4fc;
+        border-left: 4px solid #0dcaf0;
+        color: #055160;
+      }
+      .api-results {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin-top: 20px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        overflow-x: auto;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+      button {
+        background-color: #0077B6;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+        display: inline-flex;
+        align-items: center;
+      }
+      button:hover {
+        background-color: #005f8f;
+      }
+      button:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+      }
+      .endpoints {
+        margin-top: 20px;
+      }
+      .endpoint-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .endpoint-url {
+        font-family: monospace;
+        background-color: #f1f1f1;
+        padding: 5px 10px;
+        border-radius: 4px;
+        margin-right: 10px;
+        flex-grow: 1;
+      }
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 10px;
+      }
+      .status-pending {
+        background-color: #6c757d;
+      }
+      .status-success {
+        background-color: #28a745;
+      }
+      .status-error {
+        background-color: #dc3545;
+      }
+      .progress-bar {
+        width: 100%;
+        background-color: #e9ecef;
+        border-radius: 4px;
+        margin: 10px 0;
+        overflow: hidden;
+      }
+      .progress {
+        height: 8px;
+        background-color: #0077B6;
+        width: 0%;
+        transition: width 0.5s;
+      }
+      .diagnostic-card {
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .diagnostic-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+      .diagnostic-title {
+        margin: 0;
+        font-size: 1.2rem;
+        color: #0077B6;
+      }
+      .diagnostic-result {
+        font-weight: bold;
+      }
+      .diagnostic-result.pass {
+        color: #28a745;
+      }
+      .diagnostic-result.fail {
+        color: #dc3545;
+      }
+      .diagnostic-result.pending {
+        color: #6c757d;
+      }
+      .diagnostic-details {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        margin-top: 10px;
+        font-size: 0.9rem;
+      }
+      .tab-container {
+        margin-top: 20px;
+      }
+      .tab-buttons {
+        display: flex;
+        border-bottom: 1px solid #dee2e6;
+        margin-bottom: 20px;
+      }
+      .tab-button {
+        background-color: transparent;
+        color: #495057;
+        border: none;
+        padding: 10px 15px;
+        border-bottom: 2px solid transparent;
+        margin-right: 10px;
+        cursor: pointer;
+      }
+      .tab-button.active {
+        color: #0077B6;
+        border-bottom: 2px solid #0077B6;
+        font-weight: bold;
+      }
+      .tab-content {
+        display: none;
+      }
+      .tab-content.active {
+        display: block;
+      }
+      .fixed-header {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        padding: 20px 30px;
+        margin: -30px -30px 20px -30px;
+        border-bottom: 1px solid #dee2e6;
+        z-index: 100;
+      }
+      .page-actions {
+        margin-top: 15px;
+        display: flex;
+        justify-content: space-between;
+      }
+      .route-test {
+        margin-top: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+      }
+      .route-form {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+      .route-form input {
+        flex-grow: 1;
+        padding: 8px 10px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-family: monospace;
+      }
+      .route-log {
+        max-height: 200px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 0.9rem;
+        margin-top: 10px;
+        padding: 10px;
+        background-color: #343a40;
+        color: #f8f9fa;
+        border-radius: 4px;
+      }
+      .resource-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        border-bottom: 1px solid #dee2e6;
+      }
+      .resource-item:last-child {
+        border-bottom: none;
+      }
+      .resource-name {
+        font-weight: bold;
+      }
+      .resource-status {
+        font-weight: bold;
+      }
+      .status-ok {
+        color: #28a745;
+      }
+      .status-warning {
+        color: #ffc107;
+      }
+      .status-error {
+        color: #dc3545;
+      }
+      .log-entry {
+        padding: 5px 0;
+        border-bottom: 1px solid #4b545c;
+      }
+      .log-entry:last-child {
+        border-bottom: none;
+      }
+      .badge {
+        display: inline-block;
+        padding: 3px 7px;
+        border-radius: 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+      }
+      .badge-health {
+        background-color: #d1e7dd;
+        color: #0f5132;
+      }
+      .badge-api {
+        background-color: #dbeafe;
+        color: #1e40af;
+      }
+      .badge-system {
+        background-color: #e9d5ff;
+        color: #6d28d9;
+      }
+      .open-app-btn {
+        background-color: #28a745;
+      }
+      .open-app-btn:hover {
+        background-color: #218838;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="fixed-header">
+        <h1>🌊 SmartWater Pools - System Diagnostic</h1>
+        <div class="progress-bar">
+          <div class="progress" id="diagnostic-progress"></div>
+        </div>
+        <div class="page-actions">
+          <div>
+            <button id="run-all-diagnostics">
+              <span id="diagnostic-spinner">⚙️</span> Run All Diagnostics
+            </button>
+            <button id="check-environment">
+              🔍 Environment Info
+            </button>
+          </div>
+          <button id="open-app" class="open-app-btn">
+            🚀 Open Application
+          </button>
+        </div>
+      </div>
+      
+      <div class="tab-container">
+        <div class="tab-buttons">
+          <button class="tab-button active" data-tab="system-tab">System Status</button>
+          <button class="tab-button" data-tab="api-tab">API Endpoints</button>
+          <button class="tab-button" data-tab="resources-tab">Resources</button>
+          <button class="tab-button" data-tab="routes-tab">Route Testing</button>
+        </div>
+        
+        <!-- System Status Tab -->
+        <div class="tab-content active" id="system-tab">
+          <div id="server-status" class="status warning">
+            <span class="status-icon">⏳</span>
+            <div>
+              <strong>Running system diagnostics...</strong>
+              <p>Checking server connectivity and configuration...</p>
+            </div>
+          </div>
+          
+          <div id="diagnostic-cards">
+            <!-- Cards will be added here by JavaScript -->
+          </div>
+        </div>
+        
+        <!-- API Endpoints Tab -->
+        <div class="tab-content" id="api-tab">
+          <h2>API Endpoint Testing</h2>
+          
+          <div class="endpoints">
+            <div class="endpoint-row">
+              <span class="status-dot status-pending" id="health-status-dot"></span>
+              <span class="endpoint-url">/api/health</span>
+              <button id="test-health">Test</button>
+            </div>
+            
+            <div class="endpoint-row">
+              <span class="status-dot status-pending" id="dashboard-status-dot"></span>
+              <span class="endpoint-url">/api/dashboard/summary</span>
+              <button id="test-dashboard">Test</button>
+            </div>
+            
+            <div class="endpoint-row">
+              <span class="status-dot status-pending" id="clients-status-dot"></span>
+              <span class="endpoint-url">/api/clients</span>
+              <button id="test-clients">Test</button>
+            </div>
+            
+            <div class="endpoint-row">
+              <span class="status-dot status-pending" id="projects-status-dot"></span>
+              <span class="endpoint-url">/api/projects</span>
+              <button id="test-projects">Test</button>
+            </div>
+            
+            <div class="endpoint-row">
+              <span class="status-dot status-pending" id="technicians-status-dot"></span>
+              <span class="endpoint-url">/api/technicians</span>
+              <button id="test-technicians">Test</button>
+            </div>
+          </div>
+          
+          <div class="api-results" id="api-results">Select an endpoint to test...</div>
+          
+          <div style="margin-top: 20px;">
+            <button id="test-all-endpoints">Test All Endpoints</button>
+          </div>
+        </div>
+        
+        <!-- Resources Tab -->
+        <div class="tab-content" id="resources-tab">
+          <h2>System Resources</h2>
+          
+          <div id="resources-list">
+            <div class="resource-item">
+              <span class="resource-name">Server Status</span>
+              <span class="resource-status status-pending" id="server-resource-status">Checking...</span>
+            </div>
+            <div class="resource-item">
+              <span class="resource-name">Database Connection</span>
+              <span class="resource-status status-pending" id="database-resource-status">Checking...</span>
+            </div>
+            <div class="resource-item">
+              <span class="resource-name">Frontend Service</span>
+              <span class="resource-status status-pending" id="frontend-resource-status">Checking...</span>
+            </div>
+            <div class="resource-item">
+              <span class="resource-name">API Services</span>
+              <span class="resource-status status-pending" id="api-resource-status">Checking...</span>
+            </div>
+            <div class="resource-item">
+              <span class="resource-name">Environment Configuration</span>
+              <span class="resource-status status-pending" id="env-resource-status">Checking...</span>
+            </div>
+          </div>
+          
+          <h2>System Environment</h2>
+          <div class="api-results" id="env-results">Run environment check to see details...</div>
+        </div>
+        
+        <!-- Routes Tab -->
+        <div class="tab-content" id="routes-tab">
+          <h2>Route Testing</h2>
+          
+          <div class="route-test">
+            <h3>Test Any Route</h3>
+            <div class="route-form">
+              <input type="text" id="custom-route" placeholder="/api/health" value="/api/health" />
+              <button id="test-custom-route">Test Route</button>
+            </div>
+            
+            <div id="route-result" class="api-results">Enter a route to test...</div>
+            
+            <h3>Request Log</h3>
+            <div id="route-log" class="route-log">
+              <div class="log-entry">System initialized. Ready to test routes.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      // Get DOM elements
+      const serverStatus = document.getElementById('server-status');
+      const diagnosticProgress = document.getElementById('diagnostic-progress');
+      const diagnosticSpinner = document.getElementById('diagnostic-spinner');
+      const diagnosticCards = document.getElementById('diagnostic-cards');
+      
+      const apiResultsDiv = document.getElementById('api-results');
+      const envResultsDiv = document.getElementById('env-results');
+      const routeResultDiv = document.getElementById('route-result');
+      const routeLogDiv = document.getElementById('route-log');
+      
+      // Tab navigation
+      const tabButtons = document.querySelectorAll('.tab-button');
+      const tabContents = document.querySelectorAll('.tab-content');
+      
+      tabButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          // Remove active class from all buttons and contents
+          tabButtons.forEach(btn => btn.classList.remove('active'));
+          tabContents.forEach(content => content.classList.remove('active'));
+          
+          // Add active class to clicked button and corresponding content
+          button.classList.add('active');
+          document.getElementById(button.dataset.tab).classList.add('active');
+        });
+      });
+      
+      // Status dots for API endpoints
+      const healthStatusDot = document.getElementById('health-status-dot');
+      const dashboardStatusDot = document.getElementById('dashboard-status-dot');
+      const clientsStatusDot = document.getElementById('clients-status-dot');
+      const projectsStatusDot = document.getElementById('projects-status-dot');
+      const techniciansStatusDot = document.getElementById('technicians-status-dot');
+      
+      // Resource status elements
+      const serverResourceStatus = document.getElementById('server-resource-status');
+      const databaseResourceStatus = document.getElementById('database-resource-status');
+      const frontendResourceStatus = document.getElementById('frontend-resource-status');
+      const apiResourceStatus = document.getElementById('api-resource-status');
+      const envResourceStatus = document.getElementById('env-resource-status');
+      
+      // Function to get API URL based on environment
+      function getApiUrl(endpoint) {
+        const isReplit = window.location.hostname.includes('.repl.co');
+        const apiBase = isReplit 
+          ? window.location.origin 
+          : `${window.location.protocol}//${window.location.hostname}:5000`;
+        return `${apiBase}${endpoint}`;
+      }
+      
+      // Function to update server status
+      function updateServerStatus(success, message, details) {
+        if (success) {
+          serverStatus.className = 'status success';
+          serverStatus.innerHTML = `
+            <span class="status-icon">✅</span>
+            <div>
+              <strong>${message}</strong>
+              <p>${details}</p>
+            </div>
+          `;
+        } else {
+          serverStatus.className = 'status error';
+          serverStatus.innerHTML = `
+            <span class="status-icon">❌</span>
+            <div>
+              <strong>${message}</strong>
+              <p>${details}</p>
+            </div>
+          `;
+        }
+      }
+      
+      // Function to update status dot
+      function updateStatusDot(element, status) {
+        element.className = `status-dot status-${status}`;
+      }
+      
+      // Function to update resource status
+      function updateResourceStatus(element, status, message = '') {
+        element.className = `resource-status status-${status}`;
+        element.textContent = message || (status === 'ok' ? 'OK' : status === 'warning' ? 'Warning' : 'Error');
+      }
+      
+      // Function to add a log entry
+      function addLogEntry(message, type = '') {
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+        
+        let badge = '';
+        if (type === 'health') {
+          badge = '<span class="badge badge-health">HEALTH</span> ';
+        } else if (type === 'api') {
+          badge = '<span class="badge badge-api">API</span> ';
+        } else if (type === 'system') {
+          badge = '<span class="badge badge-system">SYSTEM</span> ';
+        }
+        
+        logEntry.innerHTML = `${badge}${message}`;
+        routeLogDiv.appendChild(logEntry);
+        routeLogDiv.scrollTop = routeLogDiv.scrollHeight;
+      }
+      
+      // Function to create diagnostic card
+      function createDiagnosticCard(title, result, details, id) {
+        const card = document.createElement('div');
+        card.className = 'diagnostic-card';
+        card.id = id;
+        
+        const resultClass = result === 'PASS' ? 'pass' : result === 'FAIL' ? 'fail' : 'pending';
+        
+        card.innerHTML = `
+          <div class="diagnostic-header">
+            <h3 class="diagnostic-title">${title}</h3>
+            <span class="diagnostic-result ${resultClass}">${result}</span>
+          </div>
+          <div class="diagnostic-details">
+            ${details}
+          </div>
+        `;
+        
+        return card;
+      }
+      
+      // Function to update diagnostic card
+      function updateDiagnosticCard(id, result, details) {
+        const card = document.getElementById(id);
+        if (!card) return;
+        
+        const resultElement = card.querySelector('.diagnostic-result');
+        const detailsElement = card.querySelector('.diagnostic-details');
+        
+        const resultClass = result === 'PASS' ? 'pass' : result === 'FAIL' ? 'fail' : 'pending';
+        resultElement.className = `diagnostic-result ${resultClass}`;
+        resultElement.textContent = result;
+        
+        detailsElement.innerHTML = details;
+      }
+      
+      // Function to update progress bar
+      function updateProgressBar(percent) {
+        diagnosticProgress.style.width = `${percent}%`;
+      }
+      
+      // Function to test an API endpoint
+      async function testEndpoint(endpoint, statusDot) {
+        updateStatusDot(statusDot, 'pending');
+        addLogEntry(`Testing endpoint: ${endpoint}`, 'api');
+        
+        try {
+          const url = getApiUrl(endpoint);
+          apiResultsDiv.textContent = `Testing ${url}...`;
+          
+          const response = await fetch(url);
+          let data;
+          
+          try {
+            data = await response.json();
+          } catch (e) {
+            data = { error: "Failed to parse JSON response" };
+          }
+          
+          // Update status and results
+          if (response.ok) {
+            updateStatusDot(statusDot, 'success');
+            apiResultsDiv.textContent = JSON.stringify(data, null, 2);
+            addLogEntry(`Endpoint ${endpoint} returned status ${response.status}`, 'api');
+            return { success: true, data, status: response.status };
+          } else {
+            updateStatusDot(statusDot, 'error');
+            apiResultsDiv.textContent = `Error ${response.status}: ${response.statusText}\n${JSON.stringify(data, null, 2)}`;
+            addLogEntry(`Endpoint ${endpoint} failed with status ${response.status}`, 'api');
+            return { success: false, error: `${response.status}: ${response.statusText}`, status: response.status };
+          }
+        } catch (error) {
+          updateStatusDot(statusDot, 'error');
+          apiResultsDiv.textContent = `Error: ${error.message}`;
+          addLogEntry(`Endpoint ${endpoint} error: ${error.message}`, 'api');
+          return { success: false, error: error.message };
+        }
+      }
+      
+      // Test any custom route
+      async function testCustomRoute() {
+        const routeInput = document.getElementById('custom-route');
+        const route = routeInput.value.trim();
+        
+        if (!route) {
+          routeResultDiv.textContent = "Please enter a valid route";
+          return;
+        }
+        
+        addLogEntry(`Testing custom route: ${route}`, 'system');
+        routeResultDiv.textContent = `Testing ${route}...`;
+        
+        try {
+          const url = getApiUrl(route);
+          const response = await fetch(url);
+          
+          let data;
+          try {
+            data = await response.json();
+            routeResultDiv.textContent = JSON.stringify(data, null, 2);
+          } catch (e) {
+            // Try to get text if JSON parsing fails
+            const text = await response.text();
+            routeResultDiv.textContent = text || "No content returned";
+          }
+          
+          addLogEntry(`Route ${route} returned status ${response.status}`, 'system');
+          
+        } catch (error) {
+          routeResultDiv.textContent = `Error: ${error.message}`;
+          addLogEntry(`Route ${route} error: ${error.message}`, 'system');
+        }
+      }
+      
+      // Run a complete system diagnostic
+      async function runAllDiagnostics() {
+        // Reset and initialize diagnostics
+        diagnosticCards.innerHTML = '';
+        updateProgressBar(0);
+        
+        const spinnerAnimation = ['⚙️', '🔄', '⚙️', '🔄'];
+        let spinnerIndex = 0;
+        const spinnerInterval = setInterval(() => {
+          diagnosticSpinner.textContent = spinnerAnimation[spinnerIndex];
+          spinnerIndex = (spinnerIndex + 1) % spinnerAnimation.length;
+        }, 300);
+        
+        updateServerStatus(true, 'Running diagnostics', 'Please wait while we check your system...');
+        
+        // Add diagnostic cards with pending status
+        diagnosticCards.appendChild(createDiagnosticCard(
+          'Server Connectivity', 'PENDING', 'Checking server connection...', 'server-diag'
+        ));
+        diagnosticCards.appendChild(createDiagnosticCard(
+          'API Health Check', 'PENDING', 'Checking API health endpoint...', 'api-diag'
+        ));
+        diagnosticCards.appendChild(createDiagnosticCard(
+          'Database Connection', 'PENDING', 'Checking database connection...', 'db-diag'
+        ));
+        diagnosticCards.appendChild(createDiagnosticCard(
+          'Frontend Service', 'PENDING', 'Checking frontend service...', 'frontend-diag'
+        ));
+        diagnosticCards.appendChild(createDiagnosticCard(
+          'Environment Configuration', 'PENDING', 'Checking environment configuration...', 'env-diag'
+        ));
+        
+        // Update progress to 10%
+        updateProgressBar(10);
+        
+        // 1. Test server connectivity
+        try {
+          addLogEntry('Starting system diagnostics', 'system');
+          addLogEntry('Checking server connectivity', 'system');
+          
+          // Try a basic ping to the root URL
+          const rootUrl = getApiUrl('/');
+          const rootResponse = await fetch(rootUrl);
+          
+          if (rootResponse.ok) {
+            updateDiagnosticCard('server-diag', 'PASS', 'Server is accessible and responding to requests.');
+            updateResourceStatus(serverResourceStatus, 'ok', 'Running');
+            addLogEntry('Server connectivity check passed', 'system');
+          } else {
+            updateDiagnosticCard('server-diag', 'FAIL', `Server returned status ${rootResponse.status}. The server is running but may have configuration issues.`);
+            updateResourceStatus(serverResourceStatus, 'warning', `Status ${rootResponse.status}`);
+            addLogEntry(`Server connectivity check warning: Status ${rootResponse.status}`, 'system');
+          }
+          
+        } catch (error) {
+          updateDiagnosticCard('server-diag', 'FAIL', `Failed to connect to server: ${error.message}`);
+          updateResourceStatus(serverResourceStatus, 'error', 'Unreachable');
+          addLogEntry(`Server connectivity check failed: ${error.message}`, 'system');
+        }
+        
+        // Update progress to 30%
+        updateProgressBar(30);
+        
+        // 2. Test API health
+        try {
+          addLogEntry('Checking API health endpoint', 'health');
+          const healthResult = await testEndpoint('/api/health', healthStatusDot);
+          
+          if (healthResult.success) {
+            updateDiagnosticCard('api-diag', 'PASS', `API health check passed. Service: ${healthResult.data.service}, Environment: ${healthResult.data.environment}, Database: ${healthResult.data.database}`);
+            updateResourceStatus(apiResourceStatus, 'ok', 'Available');
+            addLogEntry('API health check passed', 'health');
+            
+            // If health check has database info, update database diagnostic
+            if (healthResult.data.database) {
+              const dbStatus = healthResult.data.database === 'configured' ? 'PASS' : 'FAIL';
+              const dbDetails = healthResult.data.database === 'configured' 
+                ? 'Database is properly configured and available.' 
+                : 'Database is not configured correctly.';
+              
+              updateDiagnosticCard('db-diag', dbStatus, dbDetails);
+              updateResourceStatus(databaseResourceStatus, 
+                healthResult.data.database === 'configured' ? 'ok' : 'error',
+                healthResult.data.database === 'configured' ? 'Connected' : 'Not Configured'
+              );
+              
+              addLogEntry(`Database check: ${healthResult.data.database}`, 'system');
+            }
+          } else {
+            updateDiagnosticCard('api-diag', 'FAIL', `API health check failed: ${healthResult.error}`);
+            updateResourceStatus(apiResourceStatus, 'error', 'Unavailable');
+            addLogEntry(`API health check failed: ${healthResult.error}`, 'health');
+            
+            // If health check fails, assume database check fails too
+            updateDiagnosticCard('db-diag', 'FAIL', 'Unable to check database status because health check failed.');
+            updateResourceStatus(databaseResourceStatus, 'error', 'Unknown');
+          }
+        } catch (error) {
+          updateDiagnosticCard('api-diag', 'FAIL', `API health check error: ${error.message}`);
+          updateResourceStatus(apiResourceStatus, 'error', 'Error');
+          addLogEntry(`API health check error: ${error.message}`, 'health');
+        }
+        
+        // Update progress to 50%
+        updateProgressBar(50);
+        
+        // 3. Check frontend service (try to get the main app page)
+        try {
+          addLogEntry('Checking frontend service', 'system');
+          const frontendResponse = await fetch(getApiUrl('/'));
+          
+          if (frontendResponse.ok) {
+            const contentType = frontendResponse.headers.get('content-type');
+            if (contentType && contentType.includes('text/html')) {
+              updateDiagnosticCard('frontend-diag', 'PASS', 'Frontend service is available and serving HTML.');
+              updateResourceStatus(frontendResourceStatus, 'ok', 'Available');
+              addLogEntry('Frontend service check passed', 'system');
+            } else {
+              updateDiagnosticCard('frontend-diag', 'FAIL', `Frontend service is responding but not serving HTML. Content-Type: ${contentType}`);
+              updateResourceStatus(frontendResourceStatus, 'warning', 'Wrong Content');
+              addLogEntry(`Frontend service warning: Unexpected content type ${contentType}`, 'system');
+            }
+          } else {
+            updateDiagnosticCard('frontend-diag', 'FAIL', `Frontend service returned status ${frontendResponse.status}.`);
+            updateResourceStatus(frontendResourceStatus, 'error', `Status ${frontendResponse.status}`);
+            addLogEntry(`Frontend service check failed: Status ${frontendResponse.status}`, 'system');
+          }
+        } catch (error) {
+          updateDiagnosticCard('frontend-diag', 'FAIL', `Frontend service check error: ${error.message}`);
+          updateResourceStatus(frontendResourceStatus, 'error', 'Error');
+          addLogEntry(`Frontend service check error: ${error.message}`, 'system');
+        }
+        
+        // Update progress to 70%
+        updateProgressBar(70);
+        
+        // 4. Check environment configuration
+        try {
+          addLogEntry('Checking environment configuration', 'system');
+          
+          const envInfo = {
+            'User Agent': navigator.userAgent,
+            'Window Location': window.location.href,
+            'Hostname': window.location.hostname,
+            'Origin': window.location.origin,
+            'Protocol': window.location.protocol,
+            'API Base URL': getApiUrl(''),
+            'Replit Environment': window.location.hostname.includes('.repl.co') ? 'Yes' : 'No',
+            'Online Status': navigator.onLine ? 'Yes' : 'No',
+            'Viewport': `${window.innerWidth}x${window.innerHeight}`,
+            'Device Pixel Ratio': window.devicePixelRatio
+          };
+          
+          envResultsDiv.textContent = JSON.stringify(envInfo, null, 2);
+          
+          // Check for environment issues
+          const envIssues = [];
+          if (!navigator.onLine) {
+            envIssues.push('Browser reports offline status.');
+          }
+          
+          if (window.location.protocol !== 'https:' && !window.location.hostname.includes('localhost')) {
+            envIssues.push('Not using HTTPS outside of localhost.');
+          }
+          
+          if (envIssues.length > 0) {
+            updateDiagnosticCard('env-diag', 'FAIL', `Environment issues detected:<br>- ${envIssues.join('<br>- ')}`);
+            updateResourceStatus(envResourceStatus, 'warning', 'Issues Detected');
+            addLogEntry(`Environment check warning: ${envIssues.length} issues found`, 'system');
+          } else {
+            updateDiagnosticCard('env-diag', 'PASS', 'Environment configuration looks good.');
+            updateResourceStatus(envResourceStatus, 'ok', 'Valid');
+            addLogEntry('Environment check passed', 'system');
+          }
+        } catch (error) {
+          updateDiagnosticCard('env-diag', 'FAIL', `Environment check error: ${error.message}`);
+          updateResourceStatus(envResourceStatus, 'error', 'Error');
+          addLogEntry(`Environment check error: ${error.message}`, 'system');
+        }
+        
+        // Update progress to 90%
+        updateProgressBar(90);
+        
+        // Summarize diagnostics
+        const serverStatus = document.getElementById('server-diag').querySelector('.diagnostic-result').textContent;
+        const apiStatus = document.getElementById('api-diag').querySelector('.diagnostic-result').textContent;
+        const dbStatus = document.getElementById('db-diag').querySelector('.diagnostic-result').textContent;
+        const frontendStatus = document.getElementById('frontend-diag').querySelector('.diagnostic-result').textContent;
+        
+        // Calculate overall status
+        const failCount = [serverStatus, apiStatus, dbStatus, frontendStatus].filter(s => s === 'FAIL').length;
+        
+        if (failCount === 0) {
+          updateServerStatus(true, 'All systems operational', 'All diagnostic checks have passed.');
+          addLogEntry('✅ All diagnostics completed successfully', 'system');
+        } else {
+          updateServerStatus(false, `System issues detected (${failCount})`, 'Some diagnostic checks have failed. See details below.');
+          addLogEntry(`⚠️ Diagnostics completed with ${failCount} issues`, 'system');
+        }
+        
+        // Complete progress
+        updateProgressBar(100);
+        clearInterval(spinnerInterval);
+        diagnosticSpinner.textContent = '✓';
+        
+        // After a delay, reset progress bar animation
+        setTimeout(() => {
+          updateProgressBar(0);
+        }, 2000);
+      }
+      
+      // Event listeners
+      document.getElementById('test-health').addEventListener('click', () => {
+        testEndpoint('/api/health', healthStatusDot);
+      });
+      
+      document.getElementById('test-dashboard').addEventListener('click', () => {
+        testEndpoint('/api/dashboard/summary', dashboardStatusDot);
+      });
+      
+      document.getElementById('test-clients').addEventListener('click', () => {
+        testEndpoint('/api/clients', clientsStatusDot);
+      });
+      
+      document.getElementById('test-projects').addEventListener('click', () => {
+        testEndpoint('/api/projects', projectsStatusDot);
+      });
+      
+      document.getElementById('test-technicians').addEventListener('click', () => {
+        testEndpoint('/api/technicians', techniciansStatusDot);
+      });
+      
+      document.getElementById('test-all-endpoints').addEventListener('click', async () => {
+        // Test all API endpoints
+        await testEndpoint('/api/health', healthStatusDot);
+        await testEndpoint('/api/dashboard/summary', dashboardStatusDot);
+        await testEndpoint('/api/clients', clientsStatusDot);
+        await testEndpoint('/api/projects', projectsStatusDot);
+        await testEndpoint('/api/technicians', techniciansStatusDot);
+      });
+      
+      document.getElementById('check-environment').addEventListener('click', () => {
+        // Get and display environment info
+        const envInfo = {
+          'User Agent': navigator.userAgent,
+          'Window Location': window.location.href,
+          'Hostname': window.location.hostname,
+          'Origin': window.location.origin,
+          'Protocol': window.location.protocol,
+          'API Base URL': getApiUrl(''),
+          'Replit Environment': window.location.hostname.includes('.repl.co') ? 'Yes' : 'No',
+          'Online Status': navigator.onLine ? 'Yes' : 'No',
+          'Viewport': `${window.innerWidth}x${window.innerHeight}`,
+          'Device Pixel Ratio': window.devicePixelRatio,
+          'Navigator Languages': navigator.languages,
+          'Connection Type': navigator.connection ? navigator.connection.effectiveType : 'Unknown',
+          'Current Time': new Date().toISOString()
+        };
+        
+        envResultsDiv.textContent = JSON.stringify(envInfo, null, 2);
+        addLogEntry('Environment check requested', 'system');
+        
+        // Switch to resources tab
+        document.querySelector('.tab-button[data-tab="resources-tab"]').click();
+      });
+      
+      document.getElementById('run-all-diagnostics').addEventListener('click', runAllDiagnostics);
+      
+      document.getElementById('test-custom-route').addEventListener('click', testCustomRoute);
+      
+      document.getElementById('open-app').addEventListener('click', () => {
+        window.location.href = '/';
+      });
+      
+      // Run initial diagnostics on page load
+      window.addEventListener('load', runAllDiagnostics);
+    </script>
+  </body>
+</html>

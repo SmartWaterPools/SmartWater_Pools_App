@@ -59,14 +59,26 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Enhanced Cloud Run compatibility
-  // Use environment variable PORT if available (required for Cloud Run)
-  // Otherwise use 8080 for production and 5000 for development
+  // Enhanced Replit & Cloud Run compatibility
+  // Special port configuration for Replit environment
+  // Default to port 5000 or use environment variable PORT if available (required for Cloud Run)
   const isProduction = process.env.NODE_ENV === 'production';
-  const defaultPort = isProduction ? 8080 : 5000; // Use 5000 for Replit compatibility
+  const isReplit = !!process.env.REPL_ID;
+  // Default port hierarchy: PORT env var > 5000 (to match Replit workflow) > 8080 (Cloud Run) > 3000 (local dev)
+  const defaultPort = isReplit ? 5000 : (isProduction ? 8080 : 3000);
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : defaultPort;
   
-  // Enhanced server setup with proper error handling for Cloud Run compatibility
+  // Output the current environment details for easier debugging
+  console.log('Current environment details:');
+  console.log(`- NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+  console.log(`- REPL_ID: ${process.env.REPL_ID || 'not set'}`);
+  console.log(`- REPL_SLUG: ${process.env.REPL_SLUG || 'not set'}`);
+  console.log(`- REPL_OWNER: ${process.env.REPL_OWNER || 'not set'}`);
+  console.log(`- PORT: ${process.env.PORT || 'not set'}`);
+  console.log(`- Selected Port: ${port}`);
+  console.log(`- Is Replit Environment: ${isReplit ? 'Yes' : 'No'}`);
+  
+  // Enhanced server setup with proper error handling for Cloud Run and Replit compatibility
   const startServer = (port: number) => {
     return server.listen({
       port,
@@ -75,14 +87,27 @@ app.use((req, res, next) => {
       log(`Server running on port ${port} - Environment: ${isProduction ? 'production' : 'development'}`);
       log(`Local access URL: http://localhost:${port}`);
       log(`Network access URL: http://0.0.0.0:${port}`);
-      log(`Using port ${port} for Replit compatibility`);
-      log(`Cloud Run will use PORT env var: ${process.env.PORT || 'not set, will use default'}`);
+      
+      // Display Replit-specific URLs when in Replit environment
+      if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        log(`Replit access URL: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+      }
+      
+      log(`Using port ${port} for server compatibility`);
+      if (isReplit) {
+        log(`Running in Replit environment - make sure to use relative URLs in frontend`);
+      }
     }).on('error', (error: any) => {
-      // If port is already in use and we're in development, try alternative port
-      if (error.code === 'EADDRINUSE' && !isProduction) {
+      // If port is already in use, try alternative ports
+      if (error.code === 'EADDRINUSE') {
         log(`Port ${port} is already in use, trying alternative port...`);
-        // For development, try the other common port if main port is unavailable
-        const alternativePort = port === 5000 ? 8080 : 5000;
+        // Try a sequence of alternative ports
+        let alternativePort: number;
+        if (port === 3000) alternativePort = 5000;
+        else if (port === 5000) alternativePort = 8080;
+        else if (port === 8080) alternativePort = 3001;
+        else alternativePort = port + 1; // Just increment if none of the standard ports
+        
         return startServer(alternativePort);
       }
       

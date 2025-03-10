@@ -11,7 +11,9 @@ import {
   ArrowRight, 
   Eye, 
   Edit, 
-  MoreHorizontal 
+  MoreHorizontal,
+  CheckCircle,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +29,20 @@ import {
   formatDate 
 } from "@/lib/types";
 
+// Helper for API URL construction to handle Replit environment
+const PORT = 5000; // The port our server is running on
+const getApiUrl = (endpoint: string) => {
+  // In all environments, simply use relative URLs
+  // This lets the browser handle the proper URL construction regardless of environment
+  
+  // Ensure the endpoint starts with a slash
+  if (!endpoint.startsWith('/')) {
+    endpoint = '/' + endpoint;
+  }
+  
+  return endpoint;
+};
+
 // Connection test component
 const ConnectionTest = () => {
   const [status, setStatus] = useState<string>("Testing connection...");
@@ -35,8 +51,9 @@ const ConnectionTest = () => {
   useEffect(() => {
     const testConnection = async () => {
       try {
-        console.log("Connection test: Starting API health check");
-        const response = await fetch("/api/health");
+        const url = getApiUrl('/api/health');
+        console.log("Connection test: Starting API health check at", url);
+        const response = await fetch(url);
         console.log("Connection test: Response received", response);
         
         if (response.ok) {
@@ -59,17 +76,40 @@ const ConnectionTest = () => {
   
   return (
     <div className="mb-4 p-3 border rounded-md bg-yellow-50 text-yellow-800">
-      <h3 className="font-bold">API Connection Status:</h3>
+      <h3 className="font-bold flex items-center">
+        API Connection Status:
+        {!error && status.includes("Connected") ? 
+          <CheckCircle className="ml-2 h-4 w-4 text-green-600" /> : 
+          <XCircle className="ml-2 h-4 w-4 text-red-600" />
+        }
+      </h3>
       <p>{status}</p>
       {error && <p className="text-red-500 mt-1">Error: {error}</p>}
+      <div className="mt-2 text-xs text-gray-600">
+        <p>API URL: <code>{getApiUrl('/api/health')}</code></p>
+      </div>
     </div>
   );
 };
 
 export default function Dashboard() {
+  // Add ConnectionTest to display API connectivity status
+  const [showConnectionTest, setShowConnectionTest] = useState(true);
+  
   // Use explicit 'any' type to avoid TypeScript errors with dynamic data
-  const { data: apiData, isLoading } = useQuery<any>({
+  const { data: apiData, isLoading, error } = useQuery<any>({
     queryKey: ["/api/dashboard/summary"],
+    queryFn: async () => {
+      console.log("Fetching data from:", "/api/dashboard/summary");
+      const url = getApiUrl('/api/dashboard/summary');
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+      
+      return response.json();
+    }
   });
   
   // Create a more safely typed summary with defaults for missing values
@@ -102,6 +142,23 @@ export default function Dashboard() {
   
   return (
     <div>
+      {/* Show connection diagnostic info - can be toggled */}
+      {showConnectionTest && (
+        <div className="mb-4">
+          <ConnectionTest />
+          <div className="flex justify-end">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => setShowConnectionTest(false)}
+              className="text-xs"
+            >
+              Hide Diagnostics
+            </Button>
+          </div>
+        </div>
+      )}
+    
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground font-heading">Dashboard</h1>
         <div className="flex space-x-2 mt-3 md:mt-0">
@@ -117,6 +174,21 @@ export default function Dashboard() {
             <PlusCircle className="h-4 w-4 mr-1" />
             New Task
           </Button>
+          {!showConnectionTest && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowConnectionTest(true)}
+              title="Show Connection Diagnostics"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+              </svg>
+            </Button>
+          )}
         </div>
       </div>
       
