@@ -10,7 +10,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { User, Calendar, MapPin } from 'lucide-react';
+import { User, Calendar, MapPin, AlertTriangle, RefreshCw } from 'lucide-react';
 import { MaintenanceWithDetails } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { useInView } from 'react-intersection-observer';
@@ -324,12 +324,16 @@ function MapWithLazyLoading({
 }: MapWithLazyLoadingProps) {
   // Ensure we're using a valid API key - either passed in or from our helper
   const apiKey = googleMapsApiKey || getApiKey();
+  
   // Set up intersection observer to detect when component is visible
   const { ref, inView } = useInView({
     triggerOnce: true, // Only trigger once when component becomes visible
     threshold: 0.1, // 10% of the component needs to be visible
     initialInView: true // Force initial render to speed up map loading
   });
+  
+  // Error state for map loading
+  const [mapLoadError, setMapLoadError] = useState<string | null>(null);
   
   // Log when the component becomes visible
   useEffect(() => {
@@ -343,69 +347,95 @@ function MapWithLazyLoading({
     console.log(`Using API key: ${apiKey ? "✅ Provided" : "❌ Missing"}`);
   }, [apiKey]);
 
+  // Render the map or error state
+  if (!inView) {
+    return (
+      <div ref={ref} className="h-[400px] w-full flex items-center justify-center">
+        <Skeleton className="h-[400px] w-full" />
+      </div>
+    );
+  }
+  
+  // Show error state if there was a problem
+  if (mapLoadError) {
+    return (
+      <div ref={ref} className="h-[400px] w-full flex flex-col items-center justify-center bg-gray-100 rounded-md p-4">
+        <AlertTriangle className="h-12 w-12 text-amber-500 mb-2" />
+        <h3 className="text-lg font-semibold">Map Loading Error</h3>
+        <p className="text-sm text-center text-gray-600 max-w-md">
+          {mapLoadError}
+        </p>
+        <Button 
+          variant="outline" 
+          className="mt-4"
+          onClick={() => setMapLoadError(null)}
+        >
+          <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+        </Button>
+      </div>
+    );
+  }
+  
+  // Show the map if no errors
   return (
     <div ref={ref} className="w-full">
-      {inView ? (
-        <LoadScript 
-          googleMapsApiKey={apiKey}
-          libraries={libraries}
-          onError={(error) => console.error("Google Maps Script Error:", error)}
-          onLoad={() => console.log("Google Maps Script loaded successfully")}
-          loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}>
-          <GoogleMap
-            mapContainerStyle={containerStyle}
-            center={mapCenter}
-            zoom={10}
-            onLoad={onLoad}
-            onUnmount={onUnmount}
-            options={{ 
-              // Optimize rendering performance
-              disableDefaultUI: false,
-              zoomControl: true,
-              mapTypeControl: false,
-              streetViewControl: false,
-              fullscreenControl: true
-            }}
-          >
-            {/* Markers are added via useEffect instead of being rendered here */}
-            {selectedLocation !== null && filteredMaintenances[selectedLocation] && (
-              <InfoWindow
-                position={{
-                  lat: filteredMaintenances[selectedLocation].client.latitude || defaultCenter.lat,
-                  lng: filteredMaintenances[selectedLocation].client.longitude || defaultCenter.lng
-                }}
-                onCloseClick={() => setSelectedLocation(null)}
-                options={{ maxWidth: 300 }}
-              >
-                <div className="p-1 max-w-[280px]">
-                  <h3 className="font-semibold">{filteredMaintenances[selectedLocation].client.user.name}</h3>
-                  <p className="text-sm text-gray-600 truncate">{filteredMaintenances[selectedLocation].client.address || 'No address'}</p>
-                  <div className="mt-2 flex flex-col gap-1">
-                    <div className="flex items-center gap-1">
-                      <span className={`w-2 h-2 rounded-full ${
-                        filteredMaintenances[selectedLocation].status === "completed" ? "bg-green-500" : 
-                        filteredMaintenances[selectedLocation].status === "in_progress" ? "bg-blue-500" :
-                        filteredMaintenances[selectedLocation].status === "cancelled" ? "bg-red-500" : "bg-yellow-500"
-                      }`}></span>
-                      <span className="text-xs font-medium capitalize">{filteredMaintenances[selectedLocation].status.replace('_', ' ')}</span>
-                    </div>
-                    <div className="text-xs">
-                      <span className="font-medium">Type:</span> {filteredMaintenances[selectedLocation].type.replace('_', ' ')}
-                    </div>
-                    <div className="text-xs">
-                      <span className="font-medium">Date:</span> {new Date(filteredMaintenances[selectedLocation].scheduleDate).toLocaleDateString()}
-                    </div>
+      <LoadScript 
+        googleMapsApiKey={apiKey}
+        libraries={libraries}
+        onError={(error) => {
+          console.error("Google Maps Script Error:", error);
+          setMapLoadError("There was a problem loading Google Maps. This may be due to domain restrictions on the API key or network connectivity issues.");
+        }}
+        onLoad={() => console.log("Google Maps Script loaded successfully")}
+        loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}
+      >
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          center={mapCenter}
+          zoom={10}
+          onLoad={onLoad}
+          onUnmount={onUnmount}
+          options={{ 
+            disableDefaultUI: false,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true
+          }}
+        >
+          {selectedLocation !== null && filteredMaintenances[selectedLocation] && (
+            <InfoWindow
+              position={{
+                lat: filteredMaintenances[selectedLocation].client.latitude || defaultCenter.lat,
+                lng: filteredMaintenances[selectedLocation].client.longitude || defaultCenter.lng
+              }}
+              onCloseClick={() => setSelectedLocation(null)}
+              options={{ maxWidth: 300 }}
+            >
+              <div className="p-1 max-w-[280px]">
+                <h3 className="font-semibold">{filteredMaintenances[selectedLocation].client.user.name}</h3>
+                <p className="text-sm text-gray-600 truncate">{filteredMaintenances[selectedLocation].client.address || 'No address'}</p>
+                <div className="mt-2 flex flex-col gap-1">
+                  <div className="flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${
+                      filteredMaintenances[selectedLocation].status === "completed" ? "bg-green-500" : 
+                      filteredMaintenances[selectedLocation].status === "in_progress" ? "bg-blue-500" :
+                      filteredMaintenances[selectedLocation].status === "cancelled" ? "bg-red-500" : "bg-yellow-500"
+                    }`}></span>
+                    <span className="text-xs font-medium capitalize">{filteredMaintenances[selectedLocation].status.replace('_', ' ')}</span>
+                  </div>
+                  <div className="text-xs">
+                    <span className="font-medium">Type:</span> {filteredMaintenances[selectedLocation].type.replace('_', ' ')}
+                  </div>
+                  <div className="text-xs">
+                    <span className="font-medium">Date:</span> {new Date(filteredMaintenances[selectedLocation].scheduleDate).toLocaleDateString()}
                   </div>
                 </div>
-              </InfoWindow>
-            )}
-          </GoogleMap>
-        </LoadScript>
-      ) : (
-        <div className="h-[400px] w-full flex items-center justify-center">
-          <Skeleton className="h-[400px] w-full" />
-        </div>
-      )}
+              </div>
+            </InfoWindow>
+          )}
+        </GoogleMap>
+      </LoadScript>
     </div>
   );
 }
