@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '../../components/ui/card';
+import { Button } from '../../components/ui/button';
+import { Badge } from '../../components/ui/badge';
+import { Skeleton } from '../../components/ui/skeleton';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { formatDate, getStatusClasses, MaintenanceWithDetails } from '@/lib/types';
+} from '../../components/ui/select';
+import { formatDate, getStatusClasses, MaintenanceWithDetails } from '../../lib/types';
 import { Check, Play, X, MapPin, Info, Calendar, User, Clock } from 'lucide-react';
 
 // Map container styles
@@ -96,7 +96,9 @@ export function MaintenanceMapView({
   // Load Google Maps API
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: process.env.NODE_ENV === 'production'
+      ? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '')
+      : 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk', // Fallback for development
   });
 
   // Filter maintenances based on selected filters

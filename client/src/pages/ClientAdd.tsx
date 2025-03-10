@@ -7,7 +7,7 @@ import { useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { AddressAutocomplete, AddressCoordinates } from "../components/ui/address-autocomplete";
 
 import {
   Card,
@@ -42,6 +42,9 @@ const clientFormSchema = z.object({
   username: z.string().min(4, { message: "Username must be at least 4 characters" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   role: z.string().default("client"),
+  // Add fields for coordinates (not directly visible in the form)
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
 });
 
 type ClientFormValues = z.infer<typeof clientFormSchema>;
@@ -49,6 +52,7 @@ type ClientFormValues = z.infer<typeof clientFormSchema>;
 export default function ClientAdd() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [addressCoordinates, setAddressCoordinates] = useState<AddressCoordinates | null>(null);
   
   // Default form values
   const defaultValues: Partial<ClientFormValues> = {
@@ -78,9 +82,12 @@ export default function ClientAdd() {
         client: {
           companyName: data.companyName || null,
           contractType: data.contractType || null,
+          latitude: data.latitude || null,
+          longitude: data.longitude || null
         }
       };
 
+      console.log('Client data with coordinates:', requestData);
       return await apiRequest('/api/clients', 'POST', requestData);
     },
     onSuccess: () => {
@@ -223,7 +230,21 @@ export default function ClientAdd() {
                         <FormLabel>Address</FormLabel>
                         <FormControl>
                           <AddressAutocomplete 
-                            onAddressSelect={(address) => field.onChange(address)}
+                            onAddressSelect={(address, coordinates) => {
+                              // Update the address field
+                              field.onChange(address);
+                              
+                              // If we have coordinates, update the form values
+                              if (coordinates) {
+                                form.setValue('latitude', coordinates.latitude);
+                                form.setValue('longitude', coordinates.longitude);
+                                console.log('Address geocoded:', coordinates);
+                              } else {
+                                // Clear coordinates if no address selected
+                                form.setValue('latitude', undefined);
+                                form.setValue('longitude', undefined);
+                              }
+                            }}
                             value={field.value || ""}
                             id={field.name}
                             onBlur={field.onBlur}

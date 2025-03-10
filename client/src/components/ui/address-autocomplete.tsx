@@ -1,11 +1,68 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Input } from '../../components/ui/input';
+import { Button } from '../../components/ui/button';
 import { Search, MapPin, X } from 'lucide-react';
 import { useDebounce } from '../../hooks/use-debounce';
+import { loadGoogleMapsApi, geocodeAddress } from '../../lib/googleMapsUtils';
 
-// Mock service for address suggestions (simulating Google Places API)
-const mockAddressSuggestions = (input: string): Promise<string[]> => {
+// Interface for Google Maps predictions
+interface Prediction {
+  description: string;
+  place_id: string;
+}
+
+// Function to get address suggestions using Google Maps Places API
+const getAddressSuggestions = async (input: string): Promise<string[]> => {
+  // Only return suggestions if input is at least 3 characters
+  if (!input || input.length < 3) {
+    return [];
+  }
+
+  try {
+    // Load Google Maps API if not already loaded
+    await loadGoogleMapsApi();
+
+    // Check if Google Maps API is loaded
+    if (!window.google || !window.google.maps || !window.google.maps.places) {
+      console.warn('Google Maps Places API not loaded. Using fallback suggestions.');
+      return getFallbackSuggestions(input);
+    }
+
+    // Create a session token for billing efficiency if supported
+    const sessionToken = new window.google.maps.places.AutocompleteSessionToken();
+    
+    // Create a new place service
+    const service = new window.google.maps.places.AutocompleteService();
+    
+    // Request predictions from the service
+    const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
+      service.getPlacePredictions(
+        {
+          input: input,
+          types: ['address'],
+          sessionToken: sessionToken,
+        },
+        (predictions, status) => {
+          if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
+            console.warn('Google Places API status:', status);
+            resolve([]);
+          } else {
+            resolve(predictions);
+          }
+        }
+      );
+    });
+    
+    // Extract address descriptions from predictions
+    return response.map(prediction => prediction.description);
+  } catch (error) {
+    console.error('Error fetching address suggestions:', error);
+    return getFallbackSuggestions(input);
+  }
+};
+
+// Fallback function if Google Maps API is not available
+const getFallbackSuggestions = (input: string): Promise<string[]> => {
   // Only return suggestions if input is at least 3 characters
   if (!input || input.length < 3) {
     return Promise.resolve([]);
@@ -71,8 +128,14 @@ const mockAddressSuggestions = (input: string): Promise<string[]> => {
   });
 };
 
+export interface AddressCoordinates {
+  latitude: number;
+  longitude: number;
+  formattedAddress: string;
+}
+
 export interface AddressAutocompleteProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  onAddressSelect: (address: string) => void;
+  onAddressSelect: (address: string, coordinates?: AddressCoordinates) => void;
   value: string;
 }
 
@@ -85,6 +148,7 @@ export function AddressAutocomplete({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
   const debouncedValue = useDebounce(inputValue, 300);
   const suggestionContainerRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +162,7 @@ export function AddressAutocomplete({
 
       setLoading(true);
       try {
-        const results = await mockAddressSuggestions(debouncedValue);
+        const results = await getAddressSuggestions(debouncedValue);
         setSuggestions(results);
         setShowSuggestions(results.length > 0);
       } catch (error) {
@@ -139,10 +203,33 @@ export function AddressAutocomplete({
     setShowSuggestions(e.target.value.length >= 3);
   };
 
-  const handleSelectSuggestion = (suggestion: string) => {
+  const handleSelectSuggestion = async (suggestion: string) => {
     setInputValue(suggestion);
-    onAddressSelect(suggestion);
     setShowSuggestions(false);
+    
+    // Geocode the selected address to get coordinates
+    setGeocoding(true);
+    
+    try {
+      const result = await geocodeAddress(suggestion);
+      if (result) {
+        console.log('Geocoded address:', result);
+        onAddressSelect(suggestion, {
+          latitude: result.latitude,
+          longitude: result.longitude,
+          formattedAddress: result.formattedAddress
+        });
+      } else {
+        // If geocoding fails, just return the address string
+        console.warn('Geocoding failed for address:', suggestion);
+        onAddressSelect(suggestion);
+      }
+    } catch (error) {
+      console.error('Error geocoding address:', error);
+      onAddressSelect(suggestion);
+    } finally {
+      setGeocoding(false);
+    }
   };
 
   const handleClear = () => {

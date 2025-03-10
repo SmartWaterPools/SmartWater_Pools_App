@@ -8,7 +8,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { ClientWithUser } from "@/lib/types";
 import { debounce, isEqual } from "@/lib/utils";
-import { AddressAutocomplete } from "@/components/ui/address-autocomplete";
+import { AddressAutocomplete, AddressCoordinates } from "../components/ui/address-autocomplete";
 
 import {
   Card,
@@ -58,6 +58,8 @@ const clientFormSchema = z.object({
   phone: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
   // Using a pre-processed string value
   contractType: z.string()
     .transform(val => {
@@ -127,6 +129,8 @@ export default function ClientEdit() {
       phone: "",
       address: "",
       companyName: "",
+      latitude: null,
+      longitude: null,
       contractType: "residential",
     },
     mode: "onChange", // Enable validation on change
@@ -174,6 +178,17 @@ export default function ClientEdit() {
         // Only add fields that have changed
         if (client.companyName !== (data.companyName || null)) {
           clientData.companyName = data.companyName || null;
+        }
+        
+        // Check if latitude/longitude have changed
+        if (client.latitude !== data.latitude && data.latitude !== undefined) {
+          clientData.latitude = data.latitude;
+          console.log(`[Client Update] LATITUDE CHANGE: ${client.latitude} → ${data.latitude}`);
+        }
+        
+        if (client.longitude !== data.longitude && data.longitude !== undefined) {
+          clientData.longitude = data.longitude;
+          console.log(`[Client Update] LONGITUDE CHANGE: ${client.longitude} → ${data.longitude}`);
         }
         
         // For contract type, we need to be extra careful to handle case differences
@@ -300,6 +315,17 @@ export default function ClientEdit() {
               clientData.companyName = offlineData.companyName || null;
             }
             
+            // Check if latitude/longitude have changed
+            if (client.latitude !== offlineData.latitude && offlineData.latitude !== undefined) {
+              clientData.latitude = offlineData.latitude;
+              console.log(`[Network Sync] LATITUDE CHANGE: ${client.latitude} → ${offlineData.latitude}`);
+            }
+            
+            if (client.longitude !== offlineData.longitude && offlineData.longitude !== undefined) {
+              clientData.longitude = offlineData.longitude;
+              console.log(`[Network Sync] LONGITUDE CHANGE: ${client.longitude} → ${offlineData.longitude}`);
+            }
+            
             // Normalize and compare contract types
             const normalizedType = String(offlineData.contractType).toLowerCase();
             const dbContractType = client.contractType 
@@ -420,6 +446,8 @@ export default function ClientEdit() {
         phone: client.user.phone || "",
         address: client.user.address || "",
         companyName: client.companyName || "",
+        latitude: client.latitude || null,
+        longitude: client.longitude || null,
         contractType: contractTypeValue,
       };
       
@@ -479,6 +507,8 @@ export default function ClientEdit() {
       data.phone === initialData.phone &&
       data.address === initialData.address &&
       data.companyName === initialData.companyName &&
+      data.latitude === initialData.latitude &&
+      data.longitude === initialData.longitude &&
       String(data.contractType).toLowerCase() === String(initialData.contractType).toLowerCase()
     ) {
       console.log("[Auto-save] No changes detected, skipping server save");
@@ -493,6 +523,8 @@ export default function ClientEdit() {
       phone: data.phone !== initialData.phone,
       address: data.address !== initialData.address,
       companyName: data.companyName !== initialData.companyName,
+      latitude: data.latitude !== initialData.latitude,
+      longitude: data.longitude !== initialData.longitude,
       contractType: String(data.contractType).toLowerCase() !== String(initialData.contractType).toLowerCase()
     };
     console.log("[Auto-save] Changes detected in:", differences);
@@ -523,6 +555,17 @@ export default function ClientEdit() {
           
           if (client.companyName !== (data.companyName || null)) {
             clientData.companyName = data.companyName || null;
+          }
+          
+          // Check if latitude/longitude have changed
+          if (client.latitude !== data.latitude && data.latitude !== undefined) {
+            clientData.latitude = data.latitude;
+            console.log(`[Manual Save] LATITUDE CHANGE: ${client.latitude} → ${data.latitude}`);
+          }
+          
+          if (client.longitude !== data.longitude && data.longitude !== undefined) {
+            clientData.longitude = data.longitude;
+            console.log(`[Manual Save] LONGITUDE CHANGE: ${client.longitude} → ${data.longitude}`);
           }
           
           // Normalize and compare contract types
@@ -617,6 +660,8 @@ export default function ClientEdit() {
             values.phone === initialData.phone &&
             values.address === initialData.address &&
             values.companyName === initialData.companyName &&
+            values.latitude === initialData.latitude &&
+            values.longitude === initialData.longitude &&
             String(values.contractType).toLowerCase() === String(initialData.contractType).toLowerCase()
           ) {
             console.log("[Auto-save] No changes detected, skipping server save");
@@ -646,6 +691,17 @@ export default function ClientEdit() {
               
               if (client.companyName !== (values.companyName || null)) {
                 clientData.companyName = values.companyName || null;
+              }
+              
+              // Check if latitude/longitude have changed
+              if (client.latitude !== values.latitude && values.latitude !== undefined) {
+                clientData.latitude = values.latitude;
+                console.log(`[Debounced Save] LATITUDE CHANGE: ${client.latitude} → ${values.latitude}`);
+              }
+              
+              if (client.longitude !== values.longitude && values.longitude !== undefined) {
+                clientData.longitude = values.longitude;
+                console.log(`[Debounced Save] LONGITUDE CHANGE: ${client.longitude} → ${values.longitude}`);
               }
               
               // Normalize and compare contract types
@@ -753,6 +809,8 @@ export default function ClientEdit() {
         
         // These are client fields, the only ones that will get sent to the client API
         companyName: formValues.companyName || "",
+        latitude: formValues.latitude,
+        longitude: formValues.longitude,
         contractType: contractTypeValue
       };
       
@@ -927,7 +985,14 @@ export default function ClientEdit() {
                         <FormLabel>Address</FormLabel>
                         <FormControl>
                           <AddressAutocomplete 
-                            onAddressSelect={(address) => field.onChange(address)}
+                            onAddressSelect={(address, coordinates) => {
+                              field.onChange(address);
+                              if (coordinates) {
+                                form.setValue("latitude", coordinates.latitude);
+                                form.setValue("longitude", coordinates.longitude);
+                                console.log("Address coordinates set:", coordinates);
+                              }
+                            }}
                             value={field.value || ""}
                             id={field.name}
                             onBlur={field.onBlur}
