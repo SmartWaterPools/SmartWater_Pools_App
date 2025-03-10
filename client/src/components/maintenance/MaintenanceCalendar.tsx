@@ -73,10 +73,14 @@ export function MaintenanceCalendar({
       const allDates = maintenances.map(m => m.scheduleDate || m.schedule_date);
       console.log("All schedule dates:", allDates);
       
-      // Show which records are for March 9th specifically
+      // Show which records are for March 9th specifically - using more flexible matching
       const march9Records = maintenances.filter(m => {
         const dateStr = m.scheduleDate || m.schedule_date || '';
-        return dateStr === '2025-03-09';
+        // More flexible matching for both exact and ISO format strings
+        return typeof dateStr === 'string' && (
+          dateStr === '2025-03-09' || 
+          dateStr.includes('2025-03-09')
+        );
       });
       console.log("March 9, 2025 records:", march9Records);
       
@@ -116,6 +120,32 @@ export function MaintenanceCalendar({
   const monthEnd = endOfMonth(month);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   
+  // Special debugging for March 9 - find if we have any records for the day
+  if (debugMode) {
+    const march9Records = maintenances.filter(m => {
+      const dateStr = m.scheduleDate || m.schedule_date || '';
+      return typeof dateStr === 'string' && dateStr.includes('2025-03-09');
+    });
+    console.log(`March 9 records detected in main data (raw filter): ${march9Records.length}`);
+    
+    // Check if any of the days in our current month is March 9
+    const hasMarch9 = days.some(day => format(day, 'yyyy-MM-dd') === '2025-03-09');
+    console.log(`Current month contains March 9: ${hasMarch9}`);
+    
+    // Explicitly check for March 9 maintenances to verify data
+    if (format(month, 'yyyy-MM') === '2025-03') {
+      console.log("CRITICAL DEBUG: March 2025 calendar is being displayed");
+      console.log("Checking for March 9 records in raw data:");
+      
+      maintenances.forEach(m => {
+        const dateStr = m.scheduleDate || m.schedule_date || '';
+        if (typeof dateStr === 'string' && (dateStr === '2025-03-09' || dateStr.includes('2025-03-09'))) {
+          console.log(`🔍 Found March 9 record ID ${m.id} in raw data: ${dateStr}`);
+        }
+      });
+    }
+  }
+  
   // Get weekday names
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   
@@ -143,8 +173,14 @@ export function MaintenanceCalendar({
         // Normalize to consistent YYYY-MM-DD format
         let maintenanceDateStr = '';
         
+        // Handle string dates in ISO format with timestamp (2025-03-09T04:00:00.000Z)
+        if (typeof dateValue === 'string' && dateValue.includes('T')) {
+          const datePart = dateValue.split('T')[0]; // Extract YYYY-MM-DD part
+          maintenanceDateStr = datePart;
+          if (debugMode) console.log(`- Extracted date from ISO string: ${maintenanceDateStr}`);
+        }
         // Check if already in YYYY-MM-DD format (fast path)
-        if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+        else if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
           maintenanceDateStr = dateValue;
           if (debugMode) console.log(`- Using direct date string: ${maintenanceDateStr}`);
         } 
@@ -187,7 +223,21 @@ export function MaintenanceCalendar({
   // Using parseISO to avoid timezone issues when converting strings to dates
   const maintenanceDays = maintenances.map((m) => {
     const dateStr = m.scheduleDate || m.schedule_date || '';
-    return parseISO(dateStr);
+    if (debugMode) {
+      console.log(`Processing maintenance day for ID #${m.id}: "${dateStr}"`);
+    }
+    
+    try {
+      // Handle ISO strings with timestamp directly
+      if (typeof dateStr === 'string' && dateStr.includes('T')) {
+        const datePart = dateStr.split('T')[0]; // Extract YYYY-MM-DD part
+        return parseISO(datePart);
+      }
+      return parseISO(dateStr);
+    } catch (e) {
+      console.error(`Failed to parse date for maintenance ID #${m.id}:`, dateStr, e);
+      return new Date(); // Fallback to today to avoid crashes
+    }
   });
   
   // Count maintenances by day for badge display
@@ -212,8 +262,14 @@ export function MaintenanceCalendar({
       // Normalize to YYYY-MM-DD format for consistent key usage regardless of source format
       let dayStr = '';
       
+      // Handle string dates in ISO format with timestamp (2025-03-09T04:00:00.000Z)
+      if (typeof dateValue === 'string' && dateValue.includes('T')) {
+        const datePart = dateValue.split('T')[0]; // Extract YYYY-MM-DD part
+        dayStr = datePart;
+        if (debugMode) console.log(`- Extracted date from ISO string: ${dayStr}`);
+      }
       // Check if it's already in the expected YYYY-MM-DD format (fast path)
-      if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+      else if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
         dayStr = dateValue;
         if (debugMode) console.log(`- Using direct date string: ${dayStr}`);
       } 

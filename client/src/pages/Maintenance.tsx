@@ -86,6 +86,28 @@ export default function Maintenance() {
     queryKey: ["/api/maintenances"],
     select: (data) => {
       console.log("Raw maintenance data from API:", data);
+      
+      // Enhanced debugging for March 9, 2025 appointments
+      const march9Records = data.filter(m => {
+        const dateStr = m.scheduleDate || m.schedule_date || '';
+        if (typeof dateStr === 'string' && dateStr.includes('2025-03-09')) {
+          console.log(`Found March 9 record - ID: ${m.id}, Date: ${dateStr}`);
+          return true;
+        }
+        return false;
+      });
+      
+      if (march9Records.length > 0) {
+        console.log(`Found ${march9Records.length} maintenance records for March 9, 2025:`);
+        march9Records.forEach(m => {
+          console.log(`- ID: ${m.id}, Client: ${m.client?.user?.name}, Status: ${m.status}`);
+          console.log(`  Date value: "${m.scheduleDate}" (${typeof m.scheduleDate})`);
+          console.log(`  Alt date value: "${m.schedule_date}" (${typeof m.schedule_date})`);
+        });
+      } else {
+        console.log("No March 9, 2025 maintenance records found in API response");
+      }
+      
       return data;
     }
   });
