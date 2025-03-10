@@ -119,7 +119,7 @@ export function RouteScheduler() {
     if (selectedDay && route.dayOfWeek !== selectedDay) {
       return false;
     }
-    if (selectedTechnician && route.technicianId !== parseInt(selectedTechnician)) {
+    if (selectedTechnician && selectedTechnician !== "all" && route.technicianId !== parseInt(selectedTechnician)) {
       return false;
     }
     return true;
@@ -293,10 +293,10 @@ export function RouteScheduler() {
 
   // Handle route creation
   const handleCreateRoute = () => {
-    if (!newRouteName || !selectedTechnician) {
+    if (!newRouteName || !selectedTechnician || selectedTechnician === "all") {
       toast({
         title: "Missing information",
-        description: "Please provide a route name and select a technician.",
+        description: "Please provide a route name and select a specific technician.",
         variant: "destructive",
       });
       return;
@@ -366,14 +366,14 @@ export function RouteScheduler() {
           </Select>
           
           <Select
-            value={selectedTechnician || ""}
+            value={selectedTechnician || "all"}
             onValueChange={setSelectedTechnician}
           >
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select technician" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Technicians</SelectItem>
+              <SelectItem value="all">All Technicians</SelectItem>
               {technicians?.map((tech) => (
                 <SelectItem key={tech.id} value={tech.id.toString()}>
                   {tech.user.name}
@@ -446,13 +446,14 @@ export function RouteScheduler() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Technician</label>
                   <Select
-                    value={selectedTechnician || ""}
+                    value={selectedTechnician || "all"}
                     onValueChange={setSelectedTechnician}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select technician" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="all">All Technicians</SelectItem>
                       {technicians?.map((tech) => (
                         <SelectItem key={tech.id} value={tech.id.toString()}>
                           {tech.user.name}
