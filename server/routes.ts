@@ -617,6 +617,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/maintenances", async (_req: Request, res: Response) => {
     try {
       const maintenances = await storage.getAllMaintenances();
+      
+      // Debug logging to understand data discrepancy
+      console.log(`[API] getAllMaintenances returned ${maintenances.length} records`);
+      const march9Count = maintenances.filter(m => 
+        m.scheduleDate === '2025-03-09' || 
+        (typeof m.scheduleDate === 'object' && m.scheduleDate !== null && 
+         'toISOString' in m.scheduleDate && 
+         (m.scheduleDate as Date).toISOString().includes('2025-03-09'))
+      ).length;
+      console.log(`[API] Found ${march9Count} records for March 9, 2025`);
 
       // Fetch additional data for each maintenance
       const maintenancesWithDetails = await Promise.all(
@@ -628,14 +638,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
             technicianWithUser = await storage.getTechnicianWithUser(maintenance.technicianId);
           }
 
-          return {
+          // Make sure schedule_date and scheduleDate are both present for maximum compatibility
+          const maintenanceWithBothDateFormats = {
             ...maintenance,
             client: clientWithUser,
-            technician: technicianWithUser
+            technician: technicianWithUser,
+            schedule_date: maintenance.scheduleDate, // Ensure snake_case is present
+            scheduleDate: maintenance.scheduleDate   // Ensure camelCase is present
           };
+
+          return maintenanceWithBothDateFormats;
         })
       );
 
+      console.log(`[API] Returning ${maintenancesWithDetails.length} maintenances with details`);
       res.json(maintenancesWithDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch maintenances" });
