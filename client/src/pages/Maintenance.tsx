@@ -326,7 +326,10 @@ export default function Maintenance() {
             <CalendarIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2" onClick={() => setSelectedView("list")}>
+          <TabsTrigger value="list" className="flex items-center gap-2" onClick={() => {
+            setSelectedView("list");
+            navigate("/maintenance/list");
+          }}>
             <List className="h-4 w-4" />
             <span className="hidden sm:inline">List</span>
           </TabsTrigger>
@@ -418,6 +421,7 @@ export default function Maintenance() {
             <CardContent className="p-6">
               <LazyMaintenanceMapView
                 maintenances={filteredMaintenances || []}
+                isLoading={isLoading}
                 selectedView={selectedView}
                 selectedTechnician={selectedTechnician}
                 selectedDay={selectedDay}

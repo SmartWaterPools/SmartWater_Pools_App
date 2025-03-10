@@ -2,13 +2,13 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { CalendarDays, Map, ListFilter, PlusCircle, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { MaintenanceMapView } from "@/components/maintenance/MaintenanceMapView";
-import { Spinner } from "@/components/ui/spinner";
-import { MaintenanceWithDetails } from "@/lib/types";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
+import { Spinner } from "../components/ui/spinner";
+import { MaintenanceWithDetails } from "../lib/types";
 
 export default function MaintenanceMap() {
   const [, navigate] = useLocation();
@@ -20,8 +20,21 @@ export default function MaintenanceMap() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Filter maintenances based on search term
+  // Filter maintenances to show only today and future appointments
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Set to start of day
+  
   const filteredMaintenances = maintenances?.filter(maintenance => {
+    // First filter out past appointments
+    const scheduleDate = new Date(maintenance.scheduleDate);
+    scheduleDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    
+    // Only show appointments from today onwards
+    if (scheduleDate < today) {
+      return false;
+    }
+    
+    // Then apply search term filter
     const clientName = maintenance.client.user?.name?.toLowerCase() || "";
     const clientAddress = maintenance.client.address?.toLowerCase() || "";
     const searchLower = searchTerm.toLowerCase();
@@ -92,19 +105,15 @@ export default function MaintenanceMap() {
           <Card>
             <CardHeader className="p-4 pb-0">
               <CardTitle className="text-lg">Maintenance Map</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Showing today's and upcoming maintenance appointments
+              </p>
             </CardHeader>
             <CardContent className="p-4">
-              {isLoading ? (
-                <div className="flex justify-center items-center h-[600px] bg-gray-50 rounded-lg">
-                  <Spinner size="lg" />
-                  <span className="ml-2">Loading maintenance data...</span>
-                </div>
-              ) : (
-                <MaintenanceMapView
-                  maintenances={filteredMaintenances}
-                  isLoading={isLoading}
-                />
-              )}
+              <LazyMaintenanceMapView
+                maintenances={filteredMaintenances || []}
+                isLoading={isLoading}
+              />
             </CardContent>
           </Card>
         </TabsContent>

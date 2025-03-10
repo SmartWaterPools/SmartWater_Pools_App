@@ -1,6 +1,5 @@
 import React, { lazy, Suspense } from 'react';
 import { Skeleton } from "../../components/ui/skeleton";
-import { Card } from "../../components/ui/card";
 import { MaintenanceWithDetails } from "../../lib/types";
 
 // Lazy load the MaintenanceMapView component
@@ -8,29 +7,23 @@ const MaintenanceMapView = lazy(() => import('./MaintenanceMapView').then(module
 
 interface LazyMaintenanceMapViewProps {
   maintenances: MaintenanceWithDetails[];
-  selectedView: string;
-  selectedTechnician: string | null;
-  selectedDay: string | null;
-  onStatusUpdate: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
-  isUpdatingStatus: boolean;
-  selectedMaintenance: MaintenanceWithDetails | null;
+  isLoading?: boolean;
+  selectedView?: string;
+  selectedTechnician?: string | null;
+  selectedDay?: string | null;
+  onStatusUpdate?: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
+  isUpdatingStatus?: boolean;
+  selectedMaintenance?: MaintenanceWithDetails | null;
 }
 
 export function LazyMaintenanceMapView(props: LazyMaintenanceMapViewProps) {
   return (
     <Suspense fallback={
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="w-full sm:w-auto flex items-center gap-2">
-            <Skeleton className="h-10 w-[200px]" />
-          </div>
-          <div className="w-full sm:w-auto flex items-center gap-2">
-            <Skeleton className="h-10 w-[200px]" />
-          </div>
+      <div className="flex justify-center items-center h-[600px] bg-gray-50 rounded-lg">
+        <div className="text-center">
+          <Skeleton className="h-[600px] w-full rounded-lg" />
+          <div className="mt-4 text-sm text-gray-500">Loading map view...</div>
         </div>
-        <Card className="p-4 mt-4">
-          <Skeleton className="h-[400px] w-full" />
-        </Card>
       </div>
     }>
       <MaintenanceMapView {...props} />

@@ -2,21 +2,21 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { GoogleMap, useJsApiLoader, MarkerClusterer, Marker, InfoWindow } from "@react-google-maps/api";
 import { useLocation } from "wouter";
 import { CalendarIcon, MapPin, Clock, User } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Spinner } from "@/components/ui/spinner"; 
-import { getGoogleMapsApiKey, loadGoogleMapsApi } from "@/lib/googleMapsUtils";
+import { Card, CardContent } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
+import { Spinner } from "../../components/ui/spinner"; 
+import { getGoogleMapsApiKey, loadGoogleMapsApi } from "../../lib/googleMapsUtils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "@/components/ui/tooltip";
+} from "../../components/ui/tooltip";
 import { 
   MaintenanceWithDetails, 
   getStatusClasses, 
   formatDate 
-} from "@/lib/types";
+} from "../../lib/types";
 
 const containerStyle = {
   width: '100%',
@@ -31,14 +31,36 @@ const defaultCenter = {
 interface MaintenanceMapViewProps {
   maintenances: MaintenanceWithDetails[];
   isLoading?: boolean;
+  selectedView?: string;
+  selectedTechnician?: string | null;
+  selectedDay?: string | null;
+  onStatusUpdate?: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
+  isUpdatingStatus?: boolean;
+  selectedMaintenance?: MaintenanceWithDetails | null;
 }
 
-export function MaintenanceMapView({ maintenances, isLoading = false }: MaintenanceMapViewProps) {
+export function MaintenanceMapView({ 
+  maintenances, 
+  isLoading = false,
+  selectedView,
+  selectedTechnician,
+  selectedDay,
+  onStatusUpdate,
+  isUpdatingStatus,
+  selectedMaintenance: propSelectedMaintenance
+}: MaintenanceMapViewProps) {
   const [, navigate] = useLocation();
-  const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
+  const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(propSelectedMaintenance || null);
   const [showRoutes, setShowRoutes] = useState(false);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
   const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | null>(null);
+  
+  // Update selected maintenance when prop changes
+  useEffect(() => {
+    if (propSelectedMaintenance) {
+      setSelectedMaintenance(propSelectedMaintenance);
+    }
+  }, [propSelectedMaintenance]);
 
   useEffect(() => {
     const fetchApiKey = async () => {
@@ -103,6 +125,7 @@ export function MaintenanceMapView({ maintenances, isLoading = false }: Maintena
     }
   }, [mapInstance, bounds, maintenances.length]);
 
+  // Show loading state when the map isn't loaded or when data is loading
   if (!isLoaded || isLoading) {
     return (
       <div className="flex justify-center items-center h-[600px] bg-gray-50 border rounded-lg">
