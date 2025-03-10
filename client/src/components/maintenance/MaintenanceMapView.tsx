@@ -1,290 +1,250 @@
-import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
-import { 
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle
-} from "@/components/ui/card";
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
+import React, { useCallback, useRef, useState, useEffect } from 'react';
+import { Card } from "@/components/ui/card";
+import { LoadScript, GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  User,
-  MapPin,
-  MoreHorizontal,
-  Check,
-  Loader2,
-  Clock,
-  FileText
-} from "lucide-react";
-import { MaintenanceWithDetails, getStatusClasses } from "@/lib/types";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { User, Calendar, MapPin } from 'lucide-react';
+import { MaintenanceWithDetails } from "@/lib/types";
+import { useQuery } from "@tanstack/react-query";
+
+const containerStyle = {
+  width: '100%',
+  height: '400px'
+};
+
+const defaultCenter = {
+  lat: 40.7128,
+  lng: -74.0060
+};
 
 interface MaintenanceMapViewProps {
   maintenances: MaintenanceWithDetails[];
-  onStatusUpdate?: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
-  isUpdatingStatus?: boolean;
-  selectedMaintenance?: MaintenanceWithDetails | null;
+  selectedView: string;
+  selectedTechnician: string | null;
+  selectedDay: string | null;
+  onStatusUpdate: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
+  isUpdatingStatus: boolean;
+  selectedMaintenance: MaintenanceWithDetails | null;
 }
 
 export function MaintenanceMapView({
   maintenances,
+  selectedView,
+  selectedTechnician: propSelectedTechnician,
+  selectedDay: propSelectedDay,
   onStatusUpdate,
-  isUpdatingStatus = false,
-  selectedMaintenance = null
+  isUpdatingStatus,
+  selectedMaintenance,
 }: MaintenanceMapViewProps) {
-  const [, navigate] = useLocation();
-  const [mapLoaded, setMapLoaded] = useState(false);
-
-  // Format the maintenance type for display
-  const formatMaintenanceType = (type: string): string => {
-    return type
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  // Handle opening service report form
-  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false, useNewPage = false) => {
-    if (useNewPage) {
-      // Navigate to the SmartWater style report page
-      navigate(`/service-report-page/${maintenance.id}`);
-    } else if (usePage) {
-      // Navigate to standard service report page
-      navigate(`/service-report/${maintenance.id}`);
+  // Local state for filters
+  const [localTechnician, setLocalTechnician] = useState<string>(propSelectedTechnician || "all");
+  const [localDay, setLocalDay] = useState<string>(propSelectedDay || "all");
+  
+  // Fetch technicians for the dropdown
+  const { data: technicians = [] } = useQuery<any[]>({
+    queryKey: ["/api/technicians"],
+    enabled: true
+  });
+  
+  // Update local state if props change
+  useEffect(() => {
+    if (propSelectedTechnician !== null) {
+      setLocalTechnician(propSelectedTechnician);
     }
+  }, [propSelectedTechnician]);
+  
+  useEffect(() => {
+    if (propSelectedDay !== null) {
+      setLocalDay(propSelectedDay);
+    }
+  }, [propSelectedDay]);
+  
+  // Filter maintenances based on selected technician and day
+  const filteredMaintenances = maintenances.filter(maintenance => {
+    // Apply technician filter
+    if (localTechnician && localTechnician !== "all") {
+      if (maintenance.technicianId?.toString() !== localTechnician) {
+        return false;
+      }
+    }
+    
+    // Apply day filter - not implemented yet
+    if (localDay && localDay !== "all") {
+      // Future implementation
+    }
+    
+    return true;
+  });
+
+  const [selectedLocation, setSelectedLocation] = useState<number | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+
+  const onLoad = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  const onUnmount = useCallback(() => {
+    mapRef.current = null;
+  }, []);
+
+  // Calculate map center based on maintenance locations if available
+  const calculateMapCenter = () => {
+    if (filteredMaintenances && filteredMaintenances.length > 0) {
+      // Try to find center of all points
+      let totalLat = 0;
+      let totalLng = 0;
+      let validPoints = 0;
+      
+      filteredMaintenances.forEach(maintenance => {
+        if (maintenance.client.latitude && maintenance.client.longitude) {
+          totalLat += maintenance.client.latitude;
+          totalLng += maintenance.client.longitude;
+          validPoints++;
+        }
+      });
+      
+      if (validPoints > 0) {
+        return {
+          lat: totalLat / validPoints,
+          lng: totalLng / validPoints
+        };
+      }
+    }
+    return defaultCenter;
   };
 
-  // Mock the map container
-  // In a real implementation, this would be replaced with an actual map library (e.g. Leaflet, Google Maps, etc.)
+  const mapCenter = calculateMapCenter();
+  
+  // Days of the week options
+  const dayOptions = [
+    { value: "all", label: "All Days" },
+    { value: "monday", label: "Monday" },
+    { value: "tuesday", label: "Tuesday" },
+    { value: "wednesday", label: "Wednesday" },
+    { value: "thursday", label: "Thursday" },
+    { value: "friday", label: "Friday" },
+    { value: "saturday", label: "Saturday" },
+    { value: "sunday", label: "Sunday" },
+  ];
+
+  // Check if the Google Maps API key is available
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const hasApiKey = !!apiKey;
+
   return (
     <div className="space-y-4">
-      <Card className="border shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Maintenance Route Map</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {/* Map placeholder - would be replaced with an actual map component */}
-          <div className="h-[400px] bg-gray-100 rounded-md relative flex items-center justify-center border border-dashed border-gray-300 overflow-hidden">
-            <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 gap-1 p-4">
-              {maintenances.slice(0, 9).map((maintenance, index) => {
-                const statusClasses = getStatusClasses(maintenance.status);
-                const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
-                const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
-                
-                // Calculate a somewhat random position for the maintenance on the grid
-                const row = Math.floor(index / 3);
-                const col = index % 3;
-                
-                return (
-                  <div 
-                    key={maintenance.id}
-                    className="relative group"
-                    style={{
-                      gridRow: row + 1,
-                      gridColumn: col + 1,
-                    }}
-                  >
-                    <div 
-                      className={`
-                        absolute p-1.5 rounded-full cursor-pointer transform transition-all
-                        ${statusClasses.bg} border-2 border-white shadow-md
-                        hover:scale-110 hover:z-10
-                      `}
-                      style={{
-                        left: `${30 + Math.random() * 40}%`,
-                        top: `${30 + Math.random() * 40}%`,
-                      }}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="w-full sm:w-auto flex items-center gap-2">
+          <User className="h-4 w-4 text-muted-foreground" />
+          <Select value={localTechnician} onValueChange={setLocalTechnician}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Filter by technician" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Technicians</SelectItem>
+              {technicians?.map((tech: any) => (
+                <SelectItem key={tech.id} value={tech.id.toString()}>
+                  {tech.user?.name || 'Unknown Technician'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <div className="w-full sm:w-auto flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <Select value={localDay} onValueChange={setLocalDay}>
+            <SelectTrigger className="w-full sm:w-[200px]">
+              <SelectValue placeholder="Filter by day" />
+            </SelectTrigger>
+            <SelectContent>
+              {dayOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      <Card className="p-4">
+        {!hasApiKey ? (
+          <div className="p-6 text-center">
+            <MapPin className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+            <h3 className="text-lg font-medium">Google Maps API Key Required</h3>
+            <p className="text-sm text-gray-500 mt-1">A valid Google Maps API key is needed to display the map.</p>
+          </div>
+        ) : (
+          <LoadScript googleMapsApiKey={apiKey} 
+            loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}>
+            <GoogleMap
+              mapContainerStyle={containerStyle}
+              center={mapCenter}
+              zoom={10}
+              onLoad={onLoad}
+              onUnmount={onUnmount}
+            >
+              {filteredMaintenances?.map((maintenance, index) => {
+              const position = {
+                lat: maintenance.client.latitude || defaultCenter.lat,
+                lng: maintenance.client.longitude || defaultCenter.lng
+              };
+
+              return (
+                <Marker
+                  key={maintenance.id}
+                  position={position}
+                  onClick={() => setSelectedLocation(index)}
+                >
+                  {selectedLocation === index && (
+                    <InfoWindow
+                      position={position}
+                      onCloseClick={() => setSelectedLocation(null)}
                     >
-                      <MapPin className="h-5 w-5 text-white" />
-                      
-                      {/* Tooltip on hover */}
-                      <div className="opacity-0 group-hover:opacity-100 absolute z-20 bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-60 p-2 bg-white rounded-md shadow-lg text-sm transition-opacity duration-200">
-                        <div className="font-medium">{maintenance.client.user.name}</div>
-                        <div className="text-xs text-gray-600">{formatMaintenanceType(maintenance.type)}</div>
-                        <div className="mt-1 flex items-center justify-between">
-                          <Badge className={`${statusClasses.bg} ${statusClasses.text} text-xs`}>
-                            {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
-                          </Badge>
-                          
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6">
-                                <MoreHorizontal className="h-3 w-3" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => handleServiceReportOpen(maintenance, false, true)}
-                              >
-                                <FileText className="h-4 w-4 mr-2" />
-                                Service Report
-                              </DropdownMenuItem>
-                              
-                              <DropdownMenuSeparator />
-                              
-                              {maintenance.status !== "completed" && (
-                                <DropdownMenuItem
-                                  onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "completed")}
-                                  disabled={isUpdating}
-                                >
-                                  {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  ) : (
-                                    <Check className="h-4 w-4 mr-2" />
-                                  )}
-                                  Mark as Completed
-                                </DropdownMenuItem>
-                              )}
-                              
-                              {maintenance.status !== "in_progress" && (
-                                <DropdownMenuItem
-                                  onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "in_progress")}
-                                  disabled={isUpdating}
-                                >
-                                  {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                  ) : (
-                                    <Clock className="h-4 w-4 mr-2" />
-                                  )}
-                                  Mark as In Progress
-                                </DropdownMenuItem>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                      <div className="p-1">
+                        <h3 className="font-semibold">{maintenance.client.user.name}</h3>
+                        <p className="text-sm text-gray-600">{maintenance.client.address || 'No address'}</p>
+                        <div className="mt-2 flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span className={`w-2 h-2 rounded-full ${
+                              maintenance.status === "completed" ? "bg-green-500" : 
+                              maintenance.status === "in_progress" ? "bg-blue-500" :
+                              maintenance.status === "cancelled" ? "bg-red-500" : "bg-yellow-500"
+                            }`}></span>
+                            <span className="text-xs font-medium capitalize">{maintenance.status.replace('_', ' ')}</span>
+                          </div>
+                          <div className="text-xs">
+                            <span className="font-medium">Type:</span> {maintenance.type.replace('_', ' ')}
+                          </div>
+                          <div className="text-xs">
+                            <span className="font-medium">Date:</span> {new Date(maintenance.scheduleDate).toLocaleDateString()}
+                          </div>
+                          {maintenance.technicianId ? (
+                            <div className="text-xs">
+                              <span className="font-medium">Technician:</span> {
+                                technicians.find((t: any) => t.id === maintenance.technicianId)?.user?.name || 'Unassigned'
+                              }
+                            </div>
+                          ) : null}
                         </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            
-            <div className="text-center">
-              <MapPin className="h-8 w-8 text-gray-400 mb-2" />
-              <p className="text-sm text-gray-500">
-                Interactive map will display client locations for scheduled maintenance
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                {maintenances.length} locations found
-              </p>
-            </div>
-          </div>
-          
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Badge variant="outline" className="bg-blue-50">
-              <div className="w-2 h-2 rounded-full bg-blue-500 mr-1.5"></div>
-              In Progress
-            </Badge>
-            <Badge variant="outline" className="bg-yellow-50">
-              <div className="w-2 h-2 rounded-full bg-yellow-500 mr-1.5"></div>
-              Scheduled
-            </Badge>
-            <Badge variant="outline" className="bg-green-50">
-              <div className="w-2 h-2 rounded-full bg-green-500 mr-1.5"></div>
-              Completed
-            </Badge>
-            <Badge variant="outline" className="bg-gray-50">
-              <div className="w-2 h-2 rounded-full bg-gray-500 mr-1.5"></div>
-              Cancelled
-            </Badge>
-          </div>
-        </CardContent>
+                    </InfoWindow>
+                  )}
+                </Marker>
+              );
+            })}
+            </GoogleMap>
+          </LoadScript>
+        )}
       </Card>
-
-      {/* List of maintenances below the map for quick access */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-        {maintenances.slice(0, 6).map((maintenance) => {
-          const statusClasses = getStatusClasses(maintenance.status);
-          const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
-          const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
-          
-          return (
-            <Card 
-              key={maintenance.id} 
-              className={`${maintenance.status === 'completed' ? 'border-green-200 bg-green-50/30' : ''} overflow-hidden`}
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg flex justify-between items-center">
-                  <span className="capitalize">{formatMaintenanceType(maintenance.type)}</span>
-                  <Badge 
-                    className={`${statusClasses.bg} ${statusClasses.text}`}
-                  >
-                    {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pb-4">
-                <div className="flex flex-wrap gap-4">
-                  <div className="flex items-center text-sm">
-                    <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{maintenance.notes && !hasServiceReport ? maintenance.notes.split(' ')[0] : "Time not specified"}</span>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                    <span>{maintenance.client.user.name}</span>
-                  </div>
-                </div>
-                
-                <div className="mt-3 flex justify-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        Actions
-                        <MoreHorizontal className="h-4 w-4 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => handleServiceReportOpen(maintenance, false, true)}
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Service Report
-                      </DropdownMenuItem>
-                      
-                      <DropdownMenuSeparator />
-                      
-                      {maintenance.status !== "completed" && (
-                        <DropdownMenuItem
-                          onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "completed")}
-                          disabled={isUpdating}
-                        >
-                          {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Check className="h-4 w-4 mr-2" />
-                          )}
-                          Mark as Completed
-                        </DropdownMenuItem>
-                      )}
-                      
-                      {maintenance.status !== "in_progress" && (
-                        <DropdownMenuItem
-                          onClick={() => onStatusUpdate && onStatusUpdate(maintenance, "in_progress")}
-                          disabled={isUpdating}
-                        >
-                          {isUpdating && selectedMaintenance?.id === maintenance.id ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Clock className="h-4 w-4 mr-2" />
-                          )}
-                          Mark as In Progress
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
     </div>
   );
 }

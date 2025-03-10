@@ -41,6 +41,8 @@ export const clients = pgTable("clients", {
   userId: integer("user_id").references(() => users.id).notNull(),
   companyName: text("company_name"),
   contractType: text("contract_type"), // Should always be one of CONTRACT_TYPES or null
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
   // Pool details
   poolType: text("pool_type"), // vinyl, gunite, concrete, fiberglass
   poolSize: text("pool_size"), // dimensions or gallons
@@ -67,7 +69,10 @@ export const insertClientSchema = createInsertSchema(clients)
       })
       .refine((val) => val === null || CONTRACT_TYPES.includes(val as any), {
         message: `Contract type must be one of: ${CONTRACT_TYPES.join(', ')} or null`
-      })
+      }),
+    // Add validation for latitude and longitude
+    latitude: z.number().nullable(),
+    longitude: z.number().nullable()
   });
 
 // Technician schema

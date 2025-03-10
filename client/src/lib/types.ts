@@ -13,6 +13,8 @@ export interface ClientWithUser extends Client {
   user: User;
   phone?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface TechnicianWithUser extends Technician {

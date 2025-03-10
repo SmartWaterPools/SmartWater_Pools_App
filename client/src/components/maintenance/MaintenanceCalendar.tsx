@@ -369,7 +369,7 @@ export function MaintenanceCalendar({
                         </div>
                         <div className="flex items-center text-sm">
                           <User className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{maintenance.client.user.name}</span>
+                          <span>{maintenance.client?.user?.name || 'Client'}</span>
                         </div>
                       </div>
                       
@@ -394,7 +394,7 @@ export function MaintenanceCalendar({
                     </CardContent>
                     <CardFooter className="border-t pt-3 flex justify-between">
                       <div className="text-sm text-muted-foreground">
-                        {maintenance.technician ? (
+                        {maintenance.technician?.user?.name ? (
                           <span>Assigned to: {maintenance.technician.user.name}</span>
                         ) : (
                           <span className="text-amber-500 font-medium">Not assigned</span>

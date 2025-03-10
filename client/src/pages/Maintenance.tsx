@@ -77,6 +77,9 @@ export default function Maintenance() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [serviceReportOpen, setServiceReportOpen] = useState(false);
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
+  const [selectedView, setSelectedView] = useState<string>("calendar");
+  const [selectedTechnician, setSelectedTechnician] = useState<string | null>("all");
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
 
   // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
@@ -314,21 +317,25 @@ export default function Maintenance() {
         </div>
       </div>
 
-      <Tabs defaultValue="calendar" className="mb-6">
+      <Tabs 
+        defaultValue="calendar" 
+        className="mb-6"
+        onValueChange={(value) => setSelectedView(value)}
+      >
         <TabsList className="grid grid-cols-4 w-full md:w-auto">
-          <TabsTrigger value="calendar" className="flex items-center gap-2">
+          <TabsTrigger value="calendar" className="flex items-center gap-2" onClick={() => setSelectedView("calendar")}>
             <CalendarIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2">
+          <TabsTrigger value="list" className="flex items-center gap-2" onClick={() => setSelectedView("list")}>
             <List className="h-4 w-4" />
             <span className="hidden sm:inline">List</span>
           </TabsTrigger>
-          <TabsTrigger value="map" className="flex items-center gap-2">
+          <TabsTrigger value="map" className="flex items-center gap-2" onClick={() => setSelectedView("map")}>
             <Map className="h-4 w-4" />
             <span className="hidden sm:inline">Map</span>
           </TabsTrigger>
-          <TabsTrigger value="routes" className="flex items-center gap-2">
+          <TabsTrigger value="routes" className="flex items-center gap-2" onClick={() => setSelectedView("routes")}>
             <ListFilter className="h-4 w-4" />
             <span className="hidden sm:inline">Routes</span>
           </TabsTrigger>
@@ -409,6 +416,9 @@ export default function Maintenance() {
             <CardContent className="p-6">
               <MaintenanceMapView
                 maintenances={filteredMaintenances || []}
+                selectedView={selectedView}
+                selectedTechnician={selectedTechnician}
+                selectedDay={selectedDay}
                 onStatusUpdate={handleStatusUpdate}
                 isUpdatingStatus={isUpdatingStatus}
                 selectedMaintenance={selectedMaintenance}
