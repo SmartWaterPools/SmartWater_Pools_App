@@ -21,40 +21,40 @@ import {
   ListFilter,
   List
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Calendar } from "@/components/ui/calendar";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Calendar } from "../components/ui/calendar";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu";
+} from "../components/ui/dropdown-menu";
 import { 
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { MaintenanceCalendar } from "@/components/maintenance/MaintenanceCalendar";
-import { LazyMaintenanceListView } from "@/components/maintenance/LazyMaintenanceListView";
-import { LazyMaintenanceMapView } from "@/components/maintenance/LazyMaintenanceMapView";
-import { LazyRouteScheduler } from "@/components/maintenance/LazyRouteScheduler";
-import { MaintenanceForm } from "@/components/maintenance/MaintenanceForm";
-import { ServiceReportForm } from "@/components/maintenance/ServiceReportForm";
+} from "../components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Card, CardContent } from "../components/ui/card";
+import { Skeleton } from "../components/ui/skeleton";
+import { Badge } from "../components/ui/badge";
+import { MaintenanceCalendar } from "../components/maintenance/MaintenanceCalendar";
+import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
+import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
+import { LazyRouteScheduler } from "../components/maintenance/LazyRouteScheduler";
+import { MaintenanceForm } from "../components/maintenance/MaintenanceForm";
+import { ServiceReportForm } from "../components/maintenance/ServiceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
   getStatusClasses 
-} from "@/lib/types";
+} from "../lib/types";
 import { format, addMonths, subMonths, isSameDay, isToday, parseISO } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "../lib/queryClient";
+import { useToast } from "../hooks/use-toast";
 
 // Format a maintenance type for display
 const formatMaintenanceType = (type: string) => {

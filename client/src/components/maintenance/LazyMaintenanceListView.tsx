@@ -1,6 +1,6 @@
 import React, { lazy, Suspense } from 'react';
-import { Skeleton } from "@/components/ui/skeleton";
-import { MaintenanceWithDetails } from "@/lib/types";
+import { Skeleton } from "../../components/ui/skeleton";
+import { MaintenanceWithDetails } from "../../lib/types";
 
 // Lazy load the MaintenanceListView component
 const MaintenanceListView = lazy(() => import('./MaintenanceListView').then(module => ({ default: module.MaintenanceListView })));

@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react';
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card } from "@/components/ui/card";
-import { MaintenanceWithDetails } from "@/lib/types";
+import { Skeleton } from "../../components/ui/skeleton";
+import { Card } from "../../components/ui/card";
+import { MaintenanceWithDetails } from "../../lib/types";
 
 // Lazy load the MaintenanceMapView component
 const MaintenanceMapView = lazy(() => import('./MaintenanceMapView').then(module => ({ default: module.MaintenanceMapView })));
