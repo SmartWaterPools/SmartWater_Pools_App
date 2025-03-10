@@ -82,15 +82,32 @@ const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boo
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
-  // Health check endpoint for Cloud Run deployment verification
-  app.get("/api/health", (_req: Request, res: Response) => {
-    res.status(200).json({
+  // Enhanced health check endpoint with detailed diagnostics
+  app.get("/api/health", (req: Request, res: Response) => {
+    console.log(`Health check request received from: ${req.headers.host || 'unknown host'}`);
+    console.log(`User agent: ${req.headers['user-agent'] || 'unknown'}`);
+    
+    // Get server metrics
+    const serverInfo = {
       status: "healthy",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development',
       service: "SmartWater Pools Management System",
-      database: process.env.DATABASE_URL ? "configured" : "not configured"
-    });
+      database: process.env.DATABASE_URL ? "configured" : "not configured",
+      requestFrom: req.headers.host || 'unknown',
+      requestPath: req.path,
+      requestMethod: req.method,
+      requestProtocol: req.protocol,
+      nodeVersion: process.version,
+      memory: {
+        heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + ' MB',
+        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB'
+      },
+      uptime: Math.round(process.uptime()) + ' seconds'
+    };
+    
+    console.log('Health check response:', serverInfo);
+    res.status(200).json(serverInfo);
   });
 
   // User routes

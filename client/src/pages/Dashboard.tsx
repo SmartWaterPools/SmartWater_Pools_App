@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { useEffect, useState } from "react";
 import { 
   Building, 
   CalendarCheck, 
@@ -25,6 +26,45 @@ import {
   getPriorityClasses, 
   formatDate 
 } from "@/lib/types";
+
+// Connection test component
+const ConnectionTest = () => {
+  const [status, setStatus] = useState<string>("Testing connection...");
+  const [error, setError] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const testConnection = async () => {
+      try {
+        console.log("Connection test: Starting API health check");
+        const response = await fetch("/api/health");
+        console.log("Connection test: Response received", response);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Connection test: API health check successful", data);
+          setStatus(`Connected to API: ${data.status}`);
+        } else {
+          console.error("Connection test: API health check failed", response);
+          setStatus(`API Error: ${response.status} ${response.statusText}`);
+        }
+      } catch (err) {
+        console.error("Connection test: Exception during API health check", err);
+        setError(err instanceof Error ? err.message : String(err));
+        setStatus("Connection failed");
+      }
+    };
+    
+    testConnection();
+  }, []);
+  
+  return (
+    <div className="mb-4 p-3 border rounded-md bg-yellow-50 text-yellow-800">
+      <h3 className="font-bold">API Connection Status:</h3>
+      <p>{status}</p>
+      {error && <p className="text-red-500 mt-1">Error: {error}</p>}
+    </div>
+  );
+};
 
 export default function Dashboard() {
   // Use explicit 'any' type to avoid TypeScript errors with dynamic data
