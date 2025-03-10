@@ -1,6 +1,6 @@
 import React, { useCallback, useRef, useState, useEffect, lazy, Suspense } from 'react';
 import { Card } from "@/components/ui/card";
-import { LoadScript, GoogleMap, InfoWindow } from "@react-google-maps/api";
+import { LoadScript, GoogleMap, InfoWindow, Marker } from "@react-google-maps/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { 
@@ -10,10 +10,11 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/components/ui/select";
-import { User, Calendar, MapPin, AlertTriangle, RefreshCw } from 'lucide-react';
+import { User, Calendar, MapPin, AlertTriangle, RefreshCw, Info } from 'lucide-react';
 import { MaintenanceWithDetails } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { useInView } from 'react-intersection-observer';
+import { useToast } from "@/hooks/use-toast";
 
 const containerStyle = {
   width: '100%',
@@ -309,6 +310,8 @@ const getApiKey = () => {
   return key;
 };
 
+// Already have the Lucide icons imported at the top of the file
+
 function MapWithLazyLoading({
   googleMapsApiKey,
   libraries,
@@ -322,6 +325,8 @@ function MapWithLazyLoading({
   technicians,
   defaultCenter
 }: MapWithLazyLoadingProps) {
+  // State for fallback mode
+  const [showFallbackView, setShowFallbackView] = useState(false);
   // Ensure we're using a valid API key - either passed in or from our helper
   const apiKey = googleMapsApiKey || getApiKey();
   
@@ -347,6 +352,9 @@ function MapWithLazyLoading({
     console.log(`Using API key: ${apiKey ? "✅ Provided" : "❌ Missing"}`);
   }, [apiKey]);
 
+  // Access toast for user notifications
+  const { toast } = useToast();
+  
   // Render the map or error state
   if (!inView) {
     return (
@@ -358,6 +366,9 @@ function MapWithLazyLoading({
   
   // Show error state if there was a problem
   if (mapLoadError) {
+    // Determine if this is a domain restriction issue
+    const isDomainIssue = mapLoadError.toLowerCase().includes('domain');
+    
     return (
       <div ref={ref} className="h-[400px] w-full flex flex-col items-center justify-center bg-gray-100 rounded-md p-4">
         <AlertTriangle className="h-12 w-12 text-amber-500 mb-2" />
@@ -365,18 +376,147 @@ function MapWithLazyLoading({
         <p className="text-sm text-center text-gray-600 max-w-md">
           {mapLoadError}
         </p>
-        <Button 
-          variant="outline" 
-          className="mt-4"
-          onClick={() => setMapLoadError(null)}
-        >
-          <RefreshCw className="mr-2 h-4 w-4" /> Try Again
-        </Button>
+        
+        {isDomainIssue && (
+          <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-md max-w-md">
+            <div className="flex items-start">
+              <Info className="h-5 w-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0" />
+              <div className="text-xs text-blue-800">
+                <p className="font-medium mb-1">How to fix this issue:</p>
+                <ol className="list-decimal pl-4 space-y-1">
+                  <li>Access your Google Cloud Console</li>
+                  <li>Navigate to "API & Services" &gt; "Credentials"</li>
+                  <li>Find your Maps API key and edit the restrictions</li>
+                  <li>Add this application's domain to the allowed domains</li>
+                  <li>Include both HTTP and HTTPS variants if needed</li>
+                </ol>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        <div className="flex gap-2 mt-4">
+          <Button 
+            variant="outline" 
+            onClick={() => setMapLoadError(null)}
+          >
+            <RefreshCw className="mr-2 h-4 w-4" /> Try Again
+          </Button>
+          
+          {isDomainIssue && (
+            <Button 
+              variant="default"
+              onClick={() => {
+                toast({
+                  title: "Fallback Mode Activated",
+                  description: "Using simple location list instead of map view. Fix the API key to restore full functionality.",
+                  duration: 5000,
+                });
+                setMapLoadError(null);
+                setShowFallbackView(true); // Switch to fallback view
+              }}
+            >
+              Use Fallback View
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
   
-  // Show the map if no errors
+  // Show fallback view if that mode is active
+  if (showFallbackView) {
+    return (
+      <div ref={ref} className="w-full h-[400px] overflow-y-auto">
+        <div className="p-4 border rounded-md bg-white">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-medium">Location List View (Fallback)</h3>
+            <div className="text-xs text-gray-500 flex items-center">
+              <Info className="h-3 w-3 mr-1" />
+              <span>Map view unavailable - Check API key</span>
+            </div>
+          </div>
+          
+          {filteredMaintenances.length === 0 ? (
+            <div className="p-6 text-center text-gray-500">
+              No maintenance locations to display
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {filteredMaintenances.map((maintenance, index) => {
+                // Status color based on maintenance status
+                const statusColor = 
+                  maintenance.status === "completed" ? "bg-green-100 border-green-200 text-green-800" : 
+                  maintenance.status === "in_progress" ? "bg-blue-100 border-blue-200 text-blue-800" :
+                  maintenance.status === "cancelled" ? "bg-red-100 border-red-200 text-red-800" : 
+                  "bg-yellow-100 border-yellow-200 text-yellow-800";
+                
+                return (
+                  <div 
+                    key={maintenance.id} 
+                    className={`border rounded-md overflow-hidden transition-all ${statusColor}`}
+                  >
+                    <div className="p-3 flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        <div>
+                          <div className="font-medium">
+                            {maintenance.client.user.name}
+                          </div>
+                          <div className="text-xs truncate max-w-[200px]">
+                            {maintenance.client.address || 'No address available'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs capitalize font-medium">
+                        {maintenance.status.replace('_', ' ')}
+                      </div>
+                    </div>
+                    <div className="p-3 border-t bg-white/75">
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <span className="font-medium">Date:</span> {
+                            new Date(maintenance.scheduleDate).toLocaleDateString()
+                          }
+                        </div>
+                        <div>
+                          <span className="font-medium">Type:</span> {
+                            maintenance.type.replace('_', ' ')
+                          }
+                        </div>
+                        <div>
+                          <span className="font-medium">Technician:</span> {
+                            maintenance.technician?.user?.name || 'Not assigned'
+                          }
+                        </div>
+                        <div>
+                          <span className="font-medium">Notes:</span> {
+                            maintenance.notes?.substring(0, 20) || 'None'
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          <div className="mt-4 flex justify-center">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowFallbackView(false)}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" /> Try Map View Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show the map if no errors and not in fallback mode
   return (
     <div ref={ref} className="w-full">
       <LoadScript 
@@ -384,7 +524,31 @@ function MapWithLazyLoading({
         libraries={libraries}
         onError={(error) => {
           console.error("Google Maps Script Error:", error);
-          setMapLoadError("There was a problem loading Google Maps. This may be due to domain restrictions on the API key or network connectivity issues.");
+          
+          // Enhanced error logging
+          if (error) {
+            console.error("Google Maps error details:", {
+              message: error.message,
+              type: typeof error,
+              toString: String(error)
+            });
+            
+            // Try to determine if it's a domain restriction issue
+            const errorStr = String(error).toLowerCase();
+            const isDomainIssue = errorStr.includes('api key') || 
+                                  errorStr.includes('apikey') || 
+                                  errorStr.includes('domain') || 
+                                  errorStr.includes('referer') || 
+                                  errorStr.includes('url');
+            
+            if (isDomainIssue) {
+              setMapLoadError("Domain restriction error: The Google Maps API key is restricted to specific domains that don't include this application's URL. Please update the API key settings in the Google Cloud Console to include this domain.");
+            } else {
+              setMapLoadError("There was a problem loading Google Maps: " + String(error).substring(0, 150));
+            }
+          } else {
+            setMapLoadError("Unknown Google Maps loading error. Please check your network connection and try again.");
+          }
         }}
         onLoad={() => console.log("Google Maps Script loaded successfully")}
         loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}
@@ -403,6 +567,43 @@ function MapWithLazyLoading({
             fullscreenControl: true
           }}
         >
+          {/* Display markers for all maintenance locations */}
+          {filteredMaintenances.map((maintenance, index) => {
+            // Only show if we have valid coordinates
+            if (!maintenance.client.latitude || !maintenance.client.longitude) {
+              return null;
+            }
+            
+            // Color based on status
+            const getMarkerColor = () => {
+              if (maintenance.status === "completed") return "#10b981"; // green
+              if (maintenance.status === "in_progress") return "#3b82f6"; // blue
+              if (maintenance.status === "cancelled") return "#ef4444"; // red
+              return "#eab308"; // yellow for scheduled
+            };
+            
+            return (
+              <Marker
+                key={maintenance.id}
+                position={{
+                  lat: maintenance.client.latitude,
+                  lng: maintenance.client.longitude
+                }}
+                onClick={() => setSelectedLocation(index)}
+                icon={{
+                  path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z",
+                  fillColor: getMarkerColor(),
+                  fillOpacity: 1,
+                  strokeWeight: 1,
+                  strokeColor: "#ffffff",
+                  scale: 1.5,
+                  anchor: { x: 12, y: 22 }
+                }}
+              />
+            );
+          })}
+          
+          {/* Display info window for selected location */}
           {selectedLocation !== null && filteredMaintenances[selectedLocation] && (
             <InfoWindow
               position={{
