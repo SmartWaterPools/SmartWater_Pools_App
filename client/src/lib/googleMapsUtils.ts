@@ -27,7 +27,7 @@ export const getGoogleMapsApiKey = async (): Promise<string> => {
     }
     
     const data = await response.json();
-    return data.key || '';
+    return data.apiKey || '';
   } catch (error) {
     console.error('Error getting Google Maps API key:', error);
     return '';

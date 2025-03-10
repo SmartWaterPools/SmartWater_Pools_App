@@ -330,7 +330,10 @@ export default function Maintenance() {
             <List className="h-4 w-4" />
             <span className="hidden sm:inline">List</span>
           </TabsTrigger>
-          <TabsTrigger value="map" className="flex items-center gap-2" onClick={() => setSelectedView("map")}>
+          <TabsTrigger value="map" className="flex items-center gap-2" onClick={() => {
+            setSelectedView("map");
+            navigate("/maintenance/map");
+          }}>
             <Map className="h-4 w-4" />
             <span className="hidden sm:inline">Map</span>
           </TabsTrigger>

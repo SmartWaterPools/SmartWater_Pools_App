@@ -1,358 +1,231 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { GoogleMap, MarkerF, InfoWindowF, useJsApiLoader } from '@react-google-maps/api';
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { Skeleton } from '../../components/ui/skeleton';
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { GoogleMap, useJsApiLoader, MarkerClusterer, Marker, InfoWindow } from "@react-google-maps/api";
+import { useLocation } from "wouter";
+import { CalendarIcon, MapPin, Clock, User } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner"; 
+import { getGoogleMapsApiKey, loadGoogleMapsApi } from "@/lib/googleMapsUtils";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../../components/ui/select';
-import { formatDate, getStatusClasses, MaintenanceWithDetails } from '../../lib/types';
-import { Check, Play, X, MapPin, Info, Calendar, User, Clock } from 'lucide-react';
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { 
+  MaintenanceWithDetails, 
+  getStatusClasses, 
+  formatDate 
+} from "@/lib/types";
 
-// Map container styles
 const containerStyle = {
   width: '100%',
   height: '600px',
 };
 
-// Default map center (will be updated based on maintenance locations)
 const defaultCenter = {
-  lat: 34.0522, // Los Angeles as default
-  lng: -118.2437,
+  lat: 33.448376, // Default to Central Florida
+  lng: -82.041256
 };
 
-type MaintenanceMapViewProps = {
+interface MaintenanceMapViewProps {
   maintenances: MaintenanceWithDetails[];
-  selectedView: string;
-  selectedTechnician: string | null;
-  selectedDay: string | null;
-  onStatusUpdate: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
-  isUpdatingStatus: boolean;
-  selectedMaintenance: MaintenanceWithDetails | null;
-};
+  isLoading?: boolean;
+}
 
-export function MaintenanceMapView({
-  maintenances,
-  selectedView,
-  selectedTechnician,
-  selectedDay,
-  onStatusUpdate,
-  isUpdatingStatus,
-  selectedMaintenance,
-}: MaintenanceMapViewProps) {
-  // State for selected markers and map center
-  const [selectedMarker, setSelectedMarker] = useState<MaintenanceWithDetails | null>(null);
-  const [mapCenter, setMapCenter] = useState(defaultCenter);
-  const [filterDay, setFilterDay] = useState<string>("all");
-  const [filterTech, setFilterTech] = useState<string>("all");
-  
-  // Define type for technician data
-  interface Technician {
-    id: number;
-    user: {
-      id: number;
-      name: string;
-    };
-  }
+export function MaintenanceMapView({ maintenances, isLoading = false }: MaintenanceMapViewProps) {
+  const [, navigate] = useLocation();
+  const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
+  const [showRoutes, setShowRoutes] = useState(false);
+  const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
+  const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | null>(null);
 
-  // Fetch technicians for filtering
-  const { data: technicians } = useQuery<Technician[]>({
-    queryKey: ['/api/technicians'],
-    enabled: selectedView === 'map', // Only fetch when map view is active
-  });
-
-  // Format day for display
-  const formatDay = (date: string) => {
-    try {
-      return new Date(date).toLocaleDateString('en-US', { weekday: 'long' });
-    } catch (e) {
-      console.error('Error formatting day:', e);
-      return 'Unknown';
-    }
-  };
-
-  // Get all unique days from maintenances
-  const uniqueDays = React.useMemo(() => {
-    const days = new Set<string>();
-    
-    maintenances.forEach(maintenance => {
-      try {
-        const day = formatDay(maintenance.scheduleDate || maintenance.schedule_date || '');
-        days.add(day);
-      } catch (e) {
-        console.error('Error adding day:', e);
-      }
-    });
-    
-    return Array.from(days).sort();
-  }, [maintenances]);
-
-  // Load Google Maps API
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: process.env.NODE_ENV === 'production'
-      ? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '')
-      : 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk', // Fallback for development
-  });
-
-  // Filter maintenances based on selected filters
-  const filteredMaintenances = React.useMemo(() => {
-    return maintenances.filter(maintenance => {
-      // Filter by technician if selected
-      if (filterTech !== 'all' && maintenance.technicianId?.toString() !== filterTech) {
-        return false;
-      }
-      
-      // Filter by day if selected
-      if (filterDay !== 'all') {
-        const maintenanceDay = formatDay(maintenance.scheduleDate || maintenance.schedule_date || '');
-        if (maintenanceDay !== filterDay) {
-          return false;
-        }
-      }
-      
-      return true;
-    });
-  }, [maintenances, filterTech, filterDay]);
-
-  // Calculate map center based on maintenance locations
   useEffect(() => {
-    if (filteredMaintenances.length > 0) {
-      let validLocations = filteredMaintenances.filter(m => 
-        m.client?.latitude && m.client?.longitude
-      );
-      
-      if (validLocations.length > 0) {
-        const sumLat = validLocations.reduce((sum, m) => sum + (m.client?.latitude || 0), 0);
-        const sumLng = validLocations.reduce((sum, m) => sum + (m.client?.longitude || 0), 0);
-        
-        setMapCenter({
-          lat: sumLat / validLocations.length,
-          lng: sumLng / validLocations.length,
-        });
+    const fetchApiKey = async () => {
+      try {
+        const key = await getGoogleMapsApiKey();
+        setGoogleMapsApiKey(key);
+      } catch (error) {
+        console.error("Failed to load Google Maps API key:", error);
       }
-    }
-  }, [filteredMaintenances]);
-
-  // Handle marker click
-  const handleMarkerClick = useCallback((maintenance: MaintenanceWithDetails) => {
-    setSelectedMarker(maintenance);
+    };
+    
+    fetchApiKey();
   }, []);
 
-  // Handle info window close
-  const handleInfoWindowClose = useCallback(() => {
-    setSelectedMarker(null);
+  const { isLoaded } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: googleMapsApiKey || '',
+    libraries: ['places']
+  });
+
+  const onLoad = useCallback((map: google.maps.Map) => {
+    setMapInstance(map);
   }, []);
 
-  // Format a maintenance type for display
-  const formatMaintenanceType = (type: string) => {
-    return type
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  const onUnmount = useCallback(() => {
+    setMapInstance(null);
+  }, []);
+
+  const navigateToMaintenance = (id: number) => {
+    navigate(`/maintenance/${id}`);
   };
 
-  if (loadError) {
+  // Compute the map bounds based on maintenance locations
+  const bounds = useMemo(() => {
+    if (!maintenances?.length || !isLoaded) return null;
+    
+    const bounds = new google.maps.LatLngBounds();
+    let hasValidCoordinates = false;
+
+    maintenances.forEach(maintenance => {
+      if (maintenance.client?.latitude && maintenance.client?.longitude) {
+        bounds.extend({
+          lat: maintenance.client.latitude,
+          lng: maintenance.client.longitude
+        });
+        hasValidCoordinates = true;
+      }
+    });
+
+    return hasValidCoordinates ? bounds : null;
+  }, [maintenances, isLoaded]);
+
+  // Fit map to bounds when markers or map changes
+  useEffect(() => {
+    if (mapInstance && bounds) {
+      mapInstance.fitBounds(bounds);
+      
+      // If we only have one location, zoom out a bit
+      if (maintenances.length === 1) {
+        mapInstance.setZoom(14);
+      }
+    }
+  }, [mapInstance, bounds, maintenances.length]);
+
+  if (!isLoaded || isLoading) {
     return (
-      <div className="p-4 rounded-md bg-red-50 border border-red-200 text-red-800">
-        <h3 className="text-lg font-medium mb-2">Error Loading Google Maps</h3>
-        <p>There was an error loading the Google Maps API. Please check your API key and try again.</p>
+      <div className="flex justify-center items-center h-[600px] bg-gray-50 border rounded-lg">
+        <Spinner size="lg" />
+        <span className="ml-2 text-gray-500">Loading map...</span>
       </div>
     );
   }
 
-  if (!isLoaded) {
+  if (!googleMapsApiKey) {
     return (
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="w-full sm:w-auto flex items-center gap-2">
-            <Skeleton className="h-10 w-[200px]" />
-          </div>
-          <div className="w-full sm:w-auto flex items-center gap-2">
-            <Skeleton className="h-10 w-[200px]" />
-          </div>
-        </div>
-        <Card className="p-4 mt-4">
-          <Skeleton className="h-[600px] w-full" />
-        </Card>
+      <div className="flex flex-col justify-center items-center h-[600px] bg-gray-50 border rounded-lg">
+        <p className="text-red-500 mb-2">Google Maps API key is not configured.</p>
+        <p className="text-sm text-gray-600">Please add your Google Maps API key to environment variables.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 mb-4">
-        <div className="w-full sm:w-auto flex items-center gap-2">
-          <Select value={filterDay} onValueChange={setFilterDay}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by day" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Days</SelectItem>
-              {uniqueDays.map(day => (
-                <SelectItem key={day} value={day}>{day}</SelectItem>
+    <div className="w-full h-full">
+      <GoogleMap
+        mapContainerStyle={containerStyle}
+        center={defaultCenter}
+        zoom={7}
+        onLoad={onLoad}
+        onUnmount={onUnmount}
+        options={{
+          disableDefaultUI: false,
+          zoomControl: true,
+          streetViewControl: false,
+          fullscreenControl: true,
+          mapTypeControl: true,
+        }}
+      >
+        {/* Marker Clusterer */}
+        <MarkerClusterer>
+          {(clusterer) => (
+            <div>
+              {maintenances.map((maintenance) => (
+                maintenance.client?.latitude && maintenance.client?.longitude && (
+                  <Marker
+                    key={maintenance.id}
+                    position={{
+                      lat: maintenance.client.latitude,
+                      lng: maintenance.client.longitude
+                    }}
+                    onClick={() => setSelectedMaintenance(maintenance)}
+                    clusterer={clusterer}
+                  />
+                )
               ))}
-            </SelectContent>
-          </Select>
-        </div>
+            </div>
+          )}
+        </MarkerClusterer>
 
-        <div className="w-full sm:w-auto flex items-center gap-2">
-          <Select value={filterTech} onValueChange={setFilterTech}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by technician" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Technicians</SelectItem>
-              {technicians && technicians.map((tech) => (
-                <SelectItem key={tech.id} value={tech.id.toString()}>{tech.user.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+        {/* Tooltips on markers */}
+        {maintenances.map((maintenance) => (
+          maintenance.client?.latitude && maintenance.client?.longitude && (
+            <TooltipProvider key={`tooltip-${maintenance.id}`}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: '-1000px', // Off-screen
+                      top: '-1000px'
+                    }}
+                  />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="font-medium">{maintenance.client.user?.name || "Client"}</div>
+                  <div className="text-xs">{formatDate(maintenance.scheduleDate)}</div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )
+        ))}
 
-      <Card className="p-0 mt-4 overflow-hidden">
-        <GoogleMap
-          mapContainerStyle={containerStyle}
-          center={mapCenter}
-          zoom={10}
-          options={{
-            disableDefaultUI: false,
-            zoomControl: true,
-            streetViewControl: false,
-            mapTypeControl: true,
-          }}
-        >
-          {filteredMaintenances.map((maintenance) => {
-            if (!maintenance.client?.latitude || !maintenance.client?.longitude) {
-              return null; // Skip markers without valid coordinates
-            }
-            
-            return (
-              <MarkerF
-                key={maintenance.id}
-                position={{
-                  lat: maintenance.client.latitude,
-                  lng: maintenance.client.longitude,
-                }}
-                onClick={() => handleMarkerClick(maintenance)}
-                icon={{
-                  path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-                  fillColor: maintenance.status === 'completed' 
-                    ? '#16a34a' // Green for completed
-                    : maintenance.status === 'in_progress' 
-                      ? '#2563eb' // Blue for in progress
-                      : maintenance.status === 'cancelled'
-                        ? '#dc2626' // Red for cancelled
-                        : '#f59e0b', // Amber for scheduled
-                  fillOpacity: 1,
-                  strokeWeight: 1,
-                  strokeColor: '#ffffff',
-                  scale: 1.5,
-                  // Use a simpler anchor format compatible with the API
-                  anchor: new window.google.maps.Point(12, 24),
-                }}
-                label={{
-                  text: `${maintenance.id}`,
-                  color: 'white',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                }}
-              />
-            );
-          })}
-
-          {selectedMarker && selectedMarker.client?.latitude && selectedMarker.client?.longitude && (
-            <InfoWindowF
-              position={{
-                lat: selectedMarker.client.latitude,
-                lng: selectedMarker.client.longitude,
-              }}
-              onCloseClick={handleInfoWindowClose}
-            >
-              <div className="p-1" style={{ maxWidth: 200 }}>
-                <div className="text-sm font-semibold mb-1">{selectedMarker.client?.user?.name}</div>
-                <div className="text-xs text-gray-600 mb-2">{selectedMarker.client?.address}</div>
-                <div className="flex flex-col gap-1 text-xs mb-2">
-                  <div className="flex items-center">
-                    <Calendar className="w-3 h-3 mr-1" />
-                    {formatDate(new Date(selectedMarker.scheduleDate || selectedMarker.schedule_date || ''))}
-                  </div>
-                  <div className="flex items-center">
-                    <User className="w-3 h-3 mr-1" />
-                    {selectedMarker.technician?.user?.name || 'Unassigned'}
-                  </div>
-                  <div className="flex items-center">
-                    <Info className="w-3 h-3 mr-1" />
-                    {formatMaintenanceType(selectedMarker.type)}
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-1 mt-2">
-                  <Badge className={getStatusClasses(selectedMarker.status).bg}>
-                    {selectedMarker.status.replace('_', ' ')}
+        {/* Info Window for selected maintenance */}
+        {selectedMaintenance && selectedMaintenance.client && (
+          <InfoWindow
+            position={{
+              lat: selectedMaintenance.client.latitude || defaultCenter.lat,
+              lng: selectedMaintenance.client.longitude || defaultCenter.lng
+            }}
+            onCloseClick={() => setSelectedMaintenance(null)}
+          >
+            <Card className="w-72 border-none shadow-none">
+              <CardContent className="p-3">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-lg">{selectedMaintenance.client.user?.name || "Client"}</h3>
+                  <Badge 
+                    className={`${getStatusClasses(selectedMaintenance.status).bg} ${getStatusClasses(selectedMaintenance.status).text}`}
+                  >
+                    {selectedMaintenance.status}
                   </Badge>
                 </div>
-                <div className="flex gap-1 mt-2">
-                  {selectedMarker.status !== 'completed' && (
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="h-6 text-xs w-full"
-                      disabled={isUpdatingStatus && selectedMaintenance?.id === selectedMarker.id}
-                      onClick={() => onStatusUpdate(selectedMarker, 'completed')}
-                    >
-                      <Check className="w-3 h-3 mr-1" />
-                      Complete
-                    </Button>
-                  )}
-                  {selectedMarker.status !== 'in_progress' && selectedMarker.status !== 'completed' && (
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="h-6 text-xs w-full"
-                      disabled={isUpdatingStatus && selectedMaintenance?.id === selectedMarker.id}
-                      onClick={() => onStatusUpdate(selectedMarker, 'in_progress')}
-                    >
-                      <Play className="w-3 h-3 mr-1" />
-                      Start
-                    </Button>
+                <div className="text-sm mb-2">
+                  <p><span className="font-medium">Address:</span> {selectedMaintenance.client.address || "No address"}</p>
+                  <p><span className="font-medium">Date:</span> {formatDate(selectedMaintenance.scheduleDate)}</p>
+                  {selectedMaintenance.startTime && (
+                    <p><span className="font-medium">Time:</span> {new Date(selectedMaintenance.startTime).toLocaleTimeString()}</p>
                   )}
                 </div>
-              </div>
-            </InfoWindowF>
-          )}
-        </GoogleMap>
-      </Card>
+                <div className="mt-3">
+                  <button 
+                    onClick={() => navigateToMaintenance(selectedMaintenance.id)}
+                    className="w-full py-1 px-3 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors"
+                  >
+                    View Details
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          </InfoWindow>
+        )}
 
-      <div className="bg-muted p-3 rounded-lg mt-4">
-        <h3 className="text-sm font-medium mb-2">Map Legend</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-amber-500"></div>
-            <span className="text-xs">Scheduled</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-blue-600"></div>
-            <span className="text-xs">In Progress</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-green-600"></div>
-            <span className="text-xs">Completed</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-red-600"></div>
-            <span className="text-xs">Cancelled</span>
-          </div>
-        </div>
-      </div>
+        {/* Route lines would go here when showRoutes is true */}
+        {showRoutes && (
+          // Implementation for route lines will come later
+          null
+        )}
+      </GoogleMap>
     </div>
   );
 }
-
-export default MaintenanceMapView;

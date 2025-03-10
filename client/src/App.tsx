@@ -14,6 +14,8 @@ import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import Maintenance from "./pages/Maintenance";
+import MaintenanceMap from "./pages/MaintenanceMap";
+import MaintenanceList from "./pages/MaintenanceList";
 import Repairs from "./pages/Repairs";
 import Clients from "./pages/Clients";
 import ClientDetails from "./pages/ClientDetails";
@@ -200,6 +202,8 @@ function App() {
               <Route path="/projects" component={Projects} />
               <Route path="/projects/:id" component={ProjectDetails} />
               <Route path="/maintenance" component={Maintenance} />
+              <Route path="/maintenance/map" component={MaintenanceMap} />
+              <Route path="/maintenance/list" component={MaintenanceList} />
               <Route path="/repairs" component={Repairs} />
               <Route path="/clients" component={Clients} />
               <Route path="/clients/add" component={ClientAdd} />
