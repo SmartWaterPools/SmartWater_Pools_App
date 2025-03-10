@@ -124,8 +124,7 @@ export default function ExpensesTable({
         return "bg-yellow-100 text-yellow-800";
       case "utilities":
         return "bg-red-100 text-red-800";
-      case "payroll":
-        return "bg-indigo-100 text-indigo-800";
+      // payroll category removed
       default:
         return "bg-gray-100 text-gray-800";
     }

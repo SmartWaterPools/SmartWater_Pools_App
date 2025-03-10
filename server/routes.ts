@@ -26,7 +26,7 @@ import {
   ChemicalType,
   // Business Module schemas
   insertExpenseSchema,
-  insertPayrollEntrySchema,
+  // insertPayrollEntrySchema removed
   insertTimeEntrySchema,
   insertFinancialReportSchema,
   insertVendorSchema,
@@ -1674,7 +1674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         expenses: 12756.42,
         profit: 32475.47,
         profitMargin: 71.8,
-        pendingPayroll: 8943.21,
+        // pendingPayroll field removed
         inventoryValue: 32156.90,
         lowStockItems: 7,
         outstandingInvoices: 12
@@ -1686,11 +1686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { id: 3, date: "2025-02-20", amount: 125.75, category: "office", description: "Office supplies", paymentMethod: "credit_card", receiptUrl: null, notes: "Paper, ink, etc", createdAt: "2025-02-20T16:10:00Z" }
       ];
       
-      const pendingPayroll = [
-        { id: 1, userId: 3, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 3248.50, status: "pending", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 2, userId: 4, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2894.75, status: "pending", hoursWorked: 76, payRate: 38.25, bonuses: 0, deductions: 870.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 3, userId: 2, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2800.00, status: "pending", hoursWorked: 80, payRate: 35.00, bonuses: 0, deductions: 750.00, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" }
-      ];
+      // Payroll data has been removed
       
       const lowStockItems = [
         { id: 1, name: "Chlorine tablets", category: "chemicals", currentStock: 5, minimumStock: 10, unit: "bucket", unitPrice: 89.99, supplierInfo: "Pool Supply Co.", lastOrderDate: "2025-01-15", notes: "Need to reorder", createdAt: "2024-10-15T08:30:00Z" },
@@ -1706,7 +1702,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         metrics,
         recentExpenses,
-        pendingPayroll,
         lowStockItems,
         recentTimeEntries
       });
@@ -1802,89 +1797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Payroll routes
-  app.get("/api/business/payroll", async (_req: Request, res: Response) => {
-    try {
-      // Return placeholder payroll entries
-      const payrollEntries = [
-        { id: 1, userId: 3, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 3248.50, status: "pending", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 2, userId: 4, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2894.75, status: "pending", hoursWorked: 76, payRate: 38.25, bonuses: 0, deductions: 870.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 3, userId: 2, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2800.00, status: "pending", hoursWorked: 80, payRate: 35.00, bonuses: 0, deductions: 750.00, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 4, userId: 3, payPeriodStart: "2025-02-01", payPeriodEnd: "2025-02-14", amount: 3248.50, status: "paid", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: "2025-02-16T12:30:00Z", createdAt: "2025-02-14T23:59:00Z" }
-      ];
-      res.json(payrollEntries);
-    } catch (error) {
-      console.error("Error fetching payroll entries:", error);
-      res.status(500).json({ message: "Failed to fetch payroll entries" });
-    }
-  });
-
-  app.get("/api/business/payroll/:id", async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      // Return placeholder payroll entry for given ID
-      const payrollEntries = [
-        { id: 1, userId: 3, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 3248.50, status: "pending", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 2, userId: 4, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2894.75, status: "pending", hoursWorked: 76, payRate: 38.25, bonuses: 0, deductions: 870.50, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 3, userId: 2, payPeriodStart: "2025-02-15", payPeriodEnd: "2025-02-28", amount: 2800.00, status: "pending", hoursWorked: 80, payRate: 35.00, bonuses: 0, deductions: 750.00, notes: null, processedDate: null, createdAt: "2025-02-28T23:59:00Z" },
-        { id: 4, userId: 3, payPeriodStart: "2025-02-01", payPeriodEnd: "2025-02-14", amount: 3248.50, status: "paid", hoursWorked: 80, payRate: 40.60, bonuses: 0, deductions: 980.50, notes: null, processedDate: "2025-02-16T12:30:00Z", createdAt: "2025-02-14T23:59:00Z" }
-      ];
-      
-      const payrollEntry = payrollEntries.find(e => e.id === id);
-      
-      if (!payrollEntry) {
-        return res.status(404).json({ message: "Payroll entry not found" });
-      }
-      
-      res.json(payrollEntry);
-    } catch (error) {
-      console.error("Error fetching payroll entry:", error);
-      res.status(500).json({ message: "Failed to fetch payroll entry" });
-    }
-  });
-
-  app.post("/api/business/payroll", async (req: Request, res: Response) => {
-    try {
-      // Create a new payroll entry with a generated ID and return it
-      const newPayrollEntry = {
-        id: 5, // In a real app, this would be auto-generated
-        ...req.body,
-        createdAt: new Date().toISOString()
-      };
-      
-      res.status(201).json(newPayrollEntry);
-    } catch (error) {
-      console.error("Error creating payroll entry:", error);
-      res.status(500).json({ message: "Failed to create payroll entry" });
-    }
-  });
-
-  app.patch("/api/business/payroll/:id", async (req: Request, res: Response) => {
-    try {
-      const id = parseInt(req.params.id);
-      // Return the updated payroll entry
-      const updatedPayrollEntry = {
-        id,
-        ...req.body,
-        updatedAt: new Date().toISOString()
-      };
-      
-      res.json(updatedPayrollEntry);
-    } catch (error) {
-      console.error("Error updating payroll entry:", error);
-      res.status(500).json({ message: "Failed to update payroll entry" });
-    }
-  });
-
-  app.delete("/api/business/payroll/:id", async (req: Request, res: Response) => {
-    try {
-      // Just return success for now
-      res.status(204).send();
-    } catch (error) {
-      console.error("Error deleting payroll entry:", error);
-      res.status(500).json({ message: "Failed to delete payroll entry" });
-    }
-  });
+  // Payroll routes removed
 
   // Time Entry routes
   app.get("/api/business/time-entries", async (_req: Request, res: Response) => {

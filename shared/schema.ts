@@ -670,7 +670,7 @@ export const EXPENSE_CATEGORIES = [
   'insurance',
   'utilities',
   'rent',
-  'payroll',
+  // 'payroll' category removed
   'taxes',
   'sales_tax',
   'training',
@@ -707,43 +707,7 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({
   updatedAt: true,
 });
 
-// Payroll entry schema
-export const payrollEntries = pgTable("payroll_entries", {
-  id: serial("id").primaryKey(),
-  userId: integer("user_id").references(() => users.id).notNull(),
-  payPeriodStart: date("pay_period_start").notNull(),
-  payPeriodEnd: date("pay_period_end").notNull(),
-  regularHours: doublePrecision("regular_hours").notNull().default(0),
-  overtimeHours: doublePrecision("overtime_hours").notNull().default(0),
-  holidayHours: doublePrecision("holiday_hours").notNull().default(0),
-  sickHours: doublePrecision("sick_hours").notNull().default(0),
-  vacationHours: doublePrecision("vacation_hours").notNull().default(0),
-  hourlyRate: integer("hourly_rate").notNull(), // in cents
-  overtimeRate: integer("overtime_rate").notNull(), // in cents
-  grossPay: integer("gross_pay").notNull(), // in cents
-  federalTax: integer("federal_tax").notNull().default(0), // in cents
-  stateTax: integer("state_tax").notNull().default(0), // in cents
-  socialSecurity: integer("social_security").notNull().default(0), // in cents
-  medicare: integer("medicare").notNull().default(0), // in cents
-  otherDeductions: integer("other_deductions").notNull().default(0), // in cents
-  netPay: integer("net_pay").notNull(), // in cents
-  notes: text("notes"),
-  status: text("status").notNull().default("pending"), // pending, approved, paid
-  approvedBy: integer("approved_by").references(() => users.id),
-  approvedDate: timestamp("approved_date"),
-  paymentDate: date("payment_date"),
-  paymentMethod: text("payment_method"), // direct deposit, check, etc.
-  paymentRef: text("payment_ref"), // reference number for payment
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-export const insertPayrollEntrySchema = createInsertSchema(payrollEntries).omit({
-  id: true,
-  approvedDate: true,
-  createdAt: true,
-  updatedAt: true,
-});
+// Payroll schema removed as requested
 
 // Time tracking schema
 export const timeEntries = pgTable("time_entries", {
@@ -893,16 +857,7 @@ export const expensesRelations = relations(expenses, ({ one }) => ({
   }),
 }));
 
-export const payrollEntriesRelations = relations(payrollEntries, ({ one }) => ({
-  user: one(users, {
-    fields: [payrollEntries.userId],
-    references: [users.id],
-  }),
-  approvedByUser: one(users, {
-    fields: [payrollEntries.approvedBy],
-    references: [users.id],
-  }),
-}));
+// Payroll relations removed as requested
 
 export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
   user: one(users, {
@@ -961,8 +916,7 @@ export const inventoryItemsRelations = relations(inventoryItems, ({ one }) => ({
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 
-export type PayrollEntry = typeof payrollEntries.$inferSelect;
-export type InsertPayrollEntry = z.infer<typeof insertPayrollEntrySchema>;
+// Payroll types removed as requested
 
 export type TimeEntry = typeof timeEntries.$inferSelect;
 export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;

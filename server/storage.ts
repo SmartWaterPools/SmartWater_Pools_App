@@ -148,15 +148,7 @@ export interface IStorage {
   getExpensesByCategory(category: ExpenseCategory): Promise<Expense[]>;
   getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]>;
   
-  // Payroll operations
-  getPayrollEntry(id: number): Promise<PayrollEntry | undefined>;
-  createPayrollEntry(entry: InsertPayrollEntry): Promise<PayrollEntry>;
-  updatePayrollEntry(id: number, entry: Partial<PayrollEntry>): Promise<PayrollEntry | undefined>;
-  deletePayrollEntry(id: number): Promise<boolean>;
-  getAllPayrollEntries(): Promise<PayrollEntry[]>;
-  getPayrollEntriesByUserId(userId: number): Promise<PayrollEntry[]>;
-  getPayrollEntriesByDateRange(startDate: Date, endDate: Date): Promise<PayrollEntry[]>;
-  getPayrollEntriesByStatus(status: string): Promise<PayrollEntry[]>;
+  // Payroll operations removed
   
   // Time Entry operations
   getTimeEntry(id: number): Promise<TimeEntry | undefined>;

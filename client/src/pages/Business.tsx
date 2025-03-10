@@ -23,7 +23,7 @@ import {
   Shield
 } from "lucide-react";
 import ExpensesTable from "@/components/business/ExpensesTable";
-import PayrollTable from "@/components/business/PayrollTable";
+// Payroll table component removed
 import TimeEntryTable from "@/components/business/TimeEntryTable";
 import FinancialReportsTable from "@/components/business/FinancialReportsTable";
 import VendorsTable from "@/components/business/VendorsTable";
@@ -32,7 +32,7 @@ import InventoryTable from "@/components/business/InventoryTable";
 import LicensesTable from "@/components/business/LicensesTable";
 import InsuranceTable from "@/components/business/InsuranceTable";
 import { ExpenseForm } from "@/components/business/ExpenseForm";
-import { PayrollForm } from "@/components/business/PayrollForm";
+// PayrollForm component removed
 import { TimeEntryForm } from "@/components/business/TimeEntryForm";
 import { FinancialReportForm } from "@/components/business/FinancialReportForm";
 import { VendorForm } from "@/components/business/VendorForm";
@@ -45,7 +45,7 @@ import { EXPENSE_CATEGORIES } from "@shared/schema";
 export default function Business() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [showPayrollForm, setShowPayrollForm] = useState(false);
+  // Payroll state removed
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
@@ -66,11 +66,7 @@ export default function Business() {
     enabled: activeTab === "expenses"
   });
 
-  // Query for payroll data
-  const { data: payroll, isLoading: payrollLoading } = useQuery({
-    queryKey: ['/api/business/payroll'],
-    enabled: activeTab === "payroll"
-  });
+  // Payroll query removed
 
   // Query for time entries data
   const { data: timeEntries, isLoading: timeEntriesLoading } = useQuery({
@@ -120,7 +116,7 @@ export default function Business() {
     expenses: "$12,756.42",
     profit: "$32,475.47",
     profitMargin: "71.8%",
-    pendingPayroll: "$8,943.21",
+    // Payroll metrics removed
     inventoryValue: "$32,156.90",
     lowStockItems: 7,
     outstandingInvoices: 12
@@ -147,10 +143,7 @@ export default function Business() {
             <DollarSign className="h-4 w-4" />
             <span className="hidden md:inline">Expenses</span>
           </TabsTrigger>
-          <TabsTrigger value="payroll" className="flex items-center gap-1">
-            <Users className="h-4 w-4" />
-            <span className="hidden md:inline">Payroll</span>
-          </TabsTrigger>
+          {/* Payroll tab removed */}
           <TabsTrigger value="time-tracking" className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
             <span className="hidden md:inline">Time</span>
@@ -259,22 +252,7 @@ export default function Business() {
                 )}
               </CardContent>
             </Card>
-            <Card className="col-span-1">
-              <CardHeader>
-                <CardTitle>Pending Payroll</CardTitle>
-                <CardDescription>Upcoming payroll entries</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dashboardLoading ? (
-                  <p>Loading payroll data...</p>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Placeholder for payroll data */}
-                    <p className="text-sm text-muted-foreground">No pending payroll entries to display.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Payroll card removed */}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -350,25 +328,7 @@ export default function Business() {
           />
         </TabsContent>
 
-        {/* Payroll Tab */}
-        <TabsContent value="payroll" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-2xl font-bold">Payroll</h2>
-            <Button onClick={() => setShowPayrollForm(true)} className="flex items-center gap-1">
-              <Plus className="h-4 w-4" />
-              Add Payroll Entry
-            </Button>
-          </div>
-          {showPayrollForm && (
-            <PayrollForm
-              onClose={() => setShowPayrollForm(false)}
-            />
-          )}
-          <PayrollTable
-            data={payroll || []}
-            isLoading={payrollLoading}
-          />
-        </TabsContent>
+        {/* Payroll Tab removed */}
 
         {/* Time Tracking Tab */}
         <TabsContent value="time-tracking" className="space-y-4">
