@@ -3112,6 +3112,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to provide Google Maps API key" });
     }
   });
+  
+  /**
+   * Endpoint to manually reschedule incomplete maintenance appointments
+   * This is primarily for testing the rescheduling functionality
+   */
+  app.post("/api/maintenances/reschedule-incomplete", async (_req: Request, res: Response) => {
+    try {
+      const rescheduledMaintenances = await storage.rescheduleIncompleteMaintenances();
+      
+      res.json({
+        success: true, 
+        message: `Successfully rescheduled ${rescheduledMaintenances.length} incomplete maintenance appointments`,
+        rescheduledMaintenances
+      });
+    } catch (error) {
+      console.error("Error rescheduling incomplete maintenances:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to reschedule incomplete maintenance appointments",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
 
   return httpServer;
 }

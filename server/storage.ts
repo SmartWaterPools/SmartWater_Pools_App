@@ -73,6 +73,8 @@ export interface IStorage {
   getMaintenancesByClientId(clientId: number): Promise<Maintenance[]>;
   getMaintenancesByTechnicianId(technicianId: number): Promise<Maintenance[]>;
   getUpcomingMaintenances(days: number): Promise<Maintenance[]>;
+  getIncompleteMaintenances(date: Date): Promise<Maintenance[]>;
+  rescheduleIncompleteMaintenances(): Promise<Maintenance[]>;
   
   // Route operations
   getRoute(id: number): Promise<Route | undefined>;
@@ -618,6 +620,47 @@ export class MemStorage implements IStorage {
     }).sort((a, b) => {
       return new Date(a.scheduleDate).getTime() - new Date(b.scheduleDate).getTime();
     });
+  }
+  
+  async getIncompleteMaintenances(date: Date): Promise<Maintenance[]> {
+    const dateStr = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    
+    return Array.from(this.maintenances.values()).filter((maintenance) => {
+      const maintenanceDate = new Date(maintenance.scheduleDate).toISOString().split('T')[0];
+      return maintenanceDate === dateStr && 
+             (maintenance.status === "scheduled" || maintenance.status === "in_progress") &&
+             !maintenance.completionDate;
+    });
+  }
+  
+  async rescheduleIncompleteMaintenances(): Promise<Maintenance[]> {
+    // Get yesterday's date
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Get incomplete maintenances from yesterday
+    const incompleteMaintenances = await this.getIncompleteMaintenances(yesterday);
+    
+    // Reschedule each maintenance to today
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const rescheduledMaintenances: Maintenance[] = [];
+    
+    for (const maintenance of incompleteMaintenances) {
+      const updatedMaintenance = await this.updateMaintenance(maintenance.id, {
+        scheduleDate: todayStr,
+        notes: maintenance.notes 
+          ? `${maintenance.notes}\nAutomatically rescheduled from ${maintenance.scheduleDate}` 
+          : `Automatically rescheduled from ${maintenance.scheduleDate}`
+      });
+      
+      if (updatedMaintenance) {
+        rescheduledMaintenances.push(updatedMaintenance);
+      }
+    }
+    
+    return rescheduledMaintenances;
   }
   
   // Chemical Usage operations
@@ -1837,6 +1880,54 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(maintenances.scheduleDate);
+  }
+  
+  async getIncompleteMaintenances(date: Date): Promise<Maintenance[]> {
+    const dateStr = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    
+    return await db
+      .select()
+      .from(maintenances)
+      .where(
+        and(
+          eq(maintenances.scheduleDate, dateStr),
+          sql`(${maintenances.status} = 'scheduled' OR ${maintenances.status} = 'in_progress')`,
+          sql`${maintenances.completionDate} IS NULL`
+        )
+      );
+  }
+  
+  async rescheduleIncompleteMaintenances(): Promise<Maintenance[]> {
+    // Get yesterday's date
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    // Get incomplete maintenances from yesterday
+    const incompleteMaintenances = await this.getIncompleteMaintenances(yesterday);
+    
+    // Reschedule each maintenance to today
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    const rescheduledMaintenances: Maintenance[] = [];
+    
+    for (const maintenance of incompleteMaintenances) {
+      // Add a note about the rescheduling
+      const notes = maintenance.notes 
+        ? `${maintenance.notes}\nAutomatically rescheduled from ${maintenance.scheduleDate}` 
+        : `Automatically rescheduled from ${maintenance.scheduleDate}`;
+      
+      const updatedMaintenance = await this.updateMaintenance(maintenance.id, {
+        scheduleDate: todayStr,
+        notes: notes
+      });
+      
+      if (updatedMaintenance) {
+        rescheduledMaintenances.push(updatedMaintenance);
+      }
+    }
+    
+    return rescheduledMaintenances;
   }
   
   // Chemical Usage operations

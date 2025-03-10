@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LoadScript, GoogleMap } from '@react-google-maps/api';
 import { Skeleton } from "@/components/ui/skeleton";
+import { useGoogleMaps } from "@/contexts/GoogleMapsContext";
 
 const containerStyle = {
   width: '100%',
@@ -17,10 +18,8 @@ export default function MapTest() {
   const [libraries] = useState(['marker'] as any);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   
-  // Force the use of the environment variable or a fallback for development
-  const googleMapsApiKey = process.env.NODE_ENV === 'production'
-    ? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '')
-    : 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk'; // Fallback for development
+  // Use our GoogleMapsContext to get the API key
+  const { apiKey: googleMapsApiKey } = useGoogleMaps();
 
   // Add the advanced marker when the map loads
   useEffect(() => {

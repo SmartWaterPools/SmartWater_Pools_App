@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { Scheduler } from "./scheduler";
+import { storage, DatabaseStorage } from "./storage";
 
 const app = express();
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images
@@ -90,9 +92,17 @@ app.use((req, res, next) => {
 
   const serverInstance = startServer(port);
   
+  // Initialize the scheduler for automatic maintenance rescheduling
+  const scheduler = new Scheduler(storage);
+  scheduler.initialize();
+  
   // Handle graceful shutdown for Cloud Run
   process.on('SIGTERM', () => {
     log('SIGTERM received, shutting down gracefully');
+    
+    // Stop scheduler before shutting down
+    scheduler.stop();
+    
     serverInstance.close(() => {
       log('Server closed');
       process.exit(0);

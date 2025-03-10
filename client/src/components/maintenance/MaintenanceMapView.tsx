@@ -2,21 +2,21 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { GoogleMap, useJsApiLoader, MarkerClusterer, Marker, InfoWindow } from "@react-google-maps/api";
 import { useLocation } from "wouter";
 import { CalendarIcon, MapPin, Clock, User } from "lucide-react";
-import { Card, CardContent } from "../../components/ui/card";
-import { Badge } from "../../components/ui/badge";
-import { Spinner } from "../../components/ui/spinner"; 
-import { getGoogleMapsApiKey, loadGoogleMapsApi } from "../../lib/googleMapsUtils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Spinner } from "@/components/ui/spinner"; 
+import { useGoogleMaps } from "@/contexts/GoogleMapsContext";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "../../components/ui/tooltip";
+} from "@/components/ui/tooltip";
 import { 
   MaintenanceWithDetails, 
   getStatusClasses, 
   formatDate 
-} from "../../lib/types";
+} from "@/lib/types";
 
 const containerStyle = {
   width: '100%',
@@ -62,23 +62,21 @@ export function MaintenanceMapView({
     }
   }, [propSelectedMaintenance]);
 
+  // Use our GoogleMapsContext to get the API key
+  const { apiKey, isLoaded: apiKeyLoaded } = useGoogleMaps();
+  
   useEffect(() => {
-    const fetchApiKey = async () => {
-      try {
-        const key = await getGoogleMapsApiKey();
-        setGoogleMapsApiKey(key);
-      } catch (error) {
-        console.error("Failed to load Google Maps API key:", error);
-      }
-    };
-    
-    fetchApiKey();
-  }, []);
+    console.log("MaintenanceMapView: Using API key from context:", apiKey ? "Valid key" : "Empty key");
+    if (apiKey) {
+      setGoogleMapsApiKey(apiKey);
+    }
+  }, [apiKey]);
 
+  // Only initialize the Google Maps loader once when using the GoogleMapsContext
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: googleMapsApiKey || '',
-    libraries: ['places']
+    googleMapsApiKey: apiKey || '',
+    libraries: ['places'],
   });
 
   const onLoad = useCallback((map: google.maps.Map) => {
