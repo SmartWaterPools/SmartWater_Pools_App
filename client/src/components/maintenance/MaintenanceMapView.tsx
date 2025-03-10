@@ -1,6 +1,6 @@
-import React, { useCallback, useRef, useState, useEffect } from 'react';
+import React, { useCallback, useRef, useState, useEffect, lazy, Suspense } from 'react';
 import { Card } from "@/components/ui/card";
-import { LoadScript, GoogleMap, Marker, InfoWindow } from "@react-google-maps/api";
+import { LoadScript, GoogleMap, InfoWindow } from "@react-google-maps/api";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { 
@@ -13,7 +13,7 @@ import {
 import { User, Calendar, MapPin } from 'lucide-react';
 import { MaintenanceWithDetails } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
-import { EnvTest } from './EnvTest';
+import { useInView } from 'react-intersection-observer';
 
 const containerStyle = {
   width: '100%',
@@ -135,11 +135,13 @@ export function MaintenanceMapView({
     { value: "sunday", label: "Sunday" },
   ];
 
-  // Force the use of the environment variable or a fallback for development
-  // In production, this will use the environment variable from .env
-  const googleMapsApiKey = process.env.NODE_ENV === 'production'
-    ? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '')
-    : 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk'; // Fallback for development
+  // State for markers and Google Maps libraries
+  const [markers, setMarkers] = useState<any[]>([]);
+  const [libraries] = useState(['places', 'geometry', 'drawing', 'visualization'] as any);
+  const [infoPosition, setInfoPosition] = useState<google.maps.LatLngLiteral | null>(null);
+  
+  // Access the Google Maps API key from the environment
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   
   const hasApiKey = typeof googleMapsApiKey === 'string' && googleMapsApiKey.length > 0;
   
@@ -149,11 +151,67 @@ export function MaintenanceMapView({
   // Check if we have a valid key
   useEffect(() => {
     if (!hasApiKey) {
-      console.warn("Google Maps API key is missing. Using fallback key for development.");
+      console.warn("Google Maps API key is missing. Please add VITE_GOOGLE_MAPS_API_KEY to your environment.");
     } else {
       console.info("Google Maps API key successfully loaded.");
     }
   }, [hasApiKey]);
+  
+  // Add markers for all filtered maintenances
+  useEffect(() => {
+    if (!mapRef.current || !window.google?.maps) return;
+    
+    // Clear any existing markers
+    markers.forEach(marker => {
+      if (marker) {
+        marker.setMap(null);
+      }
+    });
+    setMarkers([]);
+    
+    // Create markers for filtered maintenances
+    const newMarkers: any[] = [];
+    
+    filteredMaintenances.forEach((maintenance, index) => {
+      const position = {
+        lat: maintenance.client.latitude || defaultCenter.lat,
+        lng: maintenance.client.longitude || defaultCenter.lng
+      };
+      
+      // Use standard markers as fallback
+      const statusColor = 
+        maintenance.status === "completed" ? "#10b981" : // green
+        maintenance.status === "in_progress" ? "#3b82f6" : // blue
+        maintenance.status === "cancelled" ? "#ef4444" : // red
+        "#f59e0b"; // yellow/amber for scheduled
+      
+      // Create a standard marker with custom icon
+      const marker = new google.maps.Marker({
+        position,
+        map: mapRef.current,
+        title: maintenance.client.user.name,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          fillColor: statusColor,
+          fillOpacity: 1.0,
+          strokeWeight: 2,
+          strokeColor: "#FFFFFF",
+          scale: 8
+        },
+        zIndex: 1
+      });
+      
+      // Add click listener
+      marker.addListener('click', () => {
+        setSelectedLocation(index);
+      });
+      
+      // Store the marker
+      newMarkers.push(marker);
+    });
+    
+    setMarkers(newMarkers);
+  }, [filteredMaintenances]);
 
   return (
     <div className="space-y-4">
@@ -192,9 +250,6 @@ export function MaintenanceMapView({
         </div>
       </div>
       
-      {/* Environment Variables Debug Component */}
-      <EnvTest />
-      
       <Card className="p-4 mt-4">
         {!hasApiKey ? (
           <div className="p-6 text-center">
@@ -203,68 +258,120 @@ export function MaintenanceMapView({
             <p className="text-sm text-gray-500 mt-1">A valid Google Maps API key is needed to display the map.</p>
           </div>
         ) : (
-          <LoadScript googleMapsApiKey={googleMapsApiKey} 
-            loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}>
-            <GoogleMap
-              mapContainerStyle={containerStyle}
-              center={mapCenter}
-              zoom={10}
-              onLoad={onLoad}
-              onUnmount={onUnmount}
-            >
-              {filteredMaintenances?.map((maintenance, index) => {
-              const position = {
-                lat: maintenance.client.latitude || defaultCenter.lat,
-                lng: maintenance.client.longitude || defaultCenter.lng
-              };
-
-              return (
-                <Marker
-                  key={maintenance.id}
-                  position={position}
-                  onClick={() => setSelectedLocation(index)}
-                >
-                  {selectedLocation === index && (
-                    <InfoWindow
-                      position={position}
-                      onCloseClick={() => setSelectedLocation(null)}
-                    >
-                      <div className="p-1">
-                        <h3 className="font-semibold">{maintenance.client.user.name}</h3>
-                        <p className="text-sm text-gray-600">{maintenance.client.address || 'No address'}</p>
-                        <div className="mt-2 flex flex-col gap-1">
-                          <div className="flex items-center gap-1">
-                            <span className={`w-2 h-2 rounded-full ${
-                              maintenance.status === "completed" ? "bg-green-500" : 
-                              maintenance.status === "in_progress" ? "bg-blue-500" :
-                              maintenance.status === "cancelled" ? "bg-red-500" : "bg-yellow-500"
-                            }`}></span>
-                            <span className="text-xs font-medium capitalize">{maintenance.status.replace('_', ' ')}</span>
-                          </div>
-                          <div className="text-xs">
-                            <span className="font-medium">Type:</span> {maintenance.type.replace('_', ' ')}
-                          </div>
-                          <div className="text-xs">
-                            <span className="font-medium">Date:</span> {new Date(maintenance.scheduleDate).toLocaleDateString()}
-                          </div>
-                          {maintenance.technicianId ? (
-                            <div className="text-xs">
-                              <span className="font-medium">Technician:</span> {
-                                technicians.find((t: any) => t.id === maintenance.technicianId)?.user?.name || 'Unassigned'
-                              }
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </InfoWindow>
-                  )}
-                </Marker>
-              );
-            })}
-            </GoogleMap>
-          </LoadScript>
+          <LazyMapLoader 
+            googleMapsApiKey={googleMapsApiKey} 
+            libraries={libraries}
+            mapCenter={mapCenter}
+            containerStyle={containerStyle}
+            onLoad={onLoad}
+            onUnmount={onUnmount}
+            filteredMaintenances={filteredMaintenances}
+            selectedLocation={selectedLocation}
+            setSelectedLocation={setSelectedLocation}
+            technicians={technicians}
+            defaultCenter={defaultCenter}
+          />
         )}
       </Card>
+    </div>
+  );
+}
+
+// LazyMapLoader component to only load the map when it's visible in the viewport
+interface LazyMapLoaderProps {
+  googleMapsApiKey: string;
+  libraries: any[];
+  mapCenter: { lat: number; lng: number };
+  containerStyle: { width: string; height: string };
+  onLoad: (map: google.maps.Map) => void;
+  onUnmount: () => void;
+  filteredMaintenances: MaintenanceWithDetails[];
+  selectedLocation: number | null;
+  setSelectedLocation: (index: number | null) => void;
+  technicians: any[];
+  defaultCenter: { lat: number; lng: number };
+}
+
+function LazyMapLoader({
+  googleMapsApiKey,
+  libraries,
+  mapCenter,
+  containerStyle,
+  onLoad,
+  onUnmount,
+  filteredMaintenances,
+  selectedLocation,
+  setSelectedLocation,
+  technicians,
+  defaultCenter
+}: LazyMapLoaderProps) {
+  // Set up intersection observer to detect when component is visible
+  const { ref, inView } = useInView({
+    triggerOnce: true, // Only trigger once when component becomes visible
+    threshold: 0.1 // 10% of the component needs to be visible
+  });
+
+  return (
+    <div ref={ref} className="w-full">
+      {inView ? (
+        <LoadScript 
+          googleMapsApiKey={googleMapsApiKey}
+          libraries={libraries}
+          loadingElement={<div className="h-[400px] w-full flex items-center justify-center"><Skeleton className="h-[400px] w-full" /></div>}>
+          <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={mapCenter}
+            zoom={10}
+            onLoad={onLoad}
+            onUnmount={onUnmount}
+            options={{ 
+              // Optimize rendering performance
+              disableDefaultUI: false,
+              zoomControl: true,
+              mapTypeControl: false,
+              streetViewControl: false,
+              fullscreenControl: true
+            }}
+          >
+            {/* Markers are added via useEffect instead of being rendered here */}
+            {selectedLocation !== null && filteredMaintenances[selectedLocation] && (
+              <InfoWindow
+                position={{
+                  lat: filteredMaintenances[selectedLocation].client.latitude || defaultCenter.lat,
+                  lng: filteredMaintenances[selectedLocation].client.longitude || defaultCenter.lng
+                }}
+                onCloseClick={() => setSelectedLocation(null)}
+                options={{ maxWidth: 300 }}
+              >
+                <div className="p-1 max-w-[280px]">
+                  <h3 className="font-semibold">{filteredMaintenances[selectedLocation].client.user.name}</h3>
+                  <p className="text-sm text-gray-600 truncate">{filteredMaintenances[selectedLocation].client.address || 'No address'}</p>
+                  <div className="mt-2 flex flex-col gap-1">
+                    <div className="flex items-center gap-1">
+                      <span className={`w-2 h-2 rounded-full ${
+                        filteredMaintenances[selectedLocation].status === "completed" ? "bg-green-500" : 
+                        filteredMaintenances[selectedLocation].status === "in_progress" ? "bg-blue-500" :
+                        filteredMaintenances[selectedLocation].status === "cancelled" ? "bg-red-500" : "bg-yellow-500"
+                      }`}></span>
+                      <span className="text-xs font-medium capitalize">{filteredMaintenances[selectedLocation].status.replace('_', ' ')}</span>
+                    </div>
+                    <div className="text-xs">
+                      <span className="font-medium">Type:</span> {filteredMaintenances[selectedLocation].type.replace('_', ' ')}
+                    </div>
+                    <div className="text-xs">
+                      <span className="font-medium">Date:</span> {new Date(filteredMaintenances[selectedLocation].scheduleDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              </InfoWindow>
+            )}
+          </GoogleMap>
+        </LoadScript>
+      ) : (
+        <div className="h-[400px] w-full flex items-center justify-center">
+          <Skeleton className="h-[400px] w-full" />
+        </div>
+      )}
     </div>
   );
 }
