@@ -13,12 +13,18 @@ import {
   Edit, 
   MoreHorizontal,
   CheckCircle,
-  XCircle
+  XCircle,
+  RefreshCw,
+  AlertCircle,
+  ServerOff,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { MaintenanceItem } from "@/components/dashboard/MaintenanceItem";
@@ -28,9 +34,9 @@ import {
   getPriorityClasses, 
   formatDate 
 } from "@/lib/types";
+import { useToast } from "@/hooks/use-toast";
 
-// Helper for API URL construction to handle Replit environment
-const PORT = 5000; // The port our server is running on
+// Helper for API URL construction using relative URLs
 const getApiUrl = (endpoint: string) => {
   // In all environments, simply use relative URLs
   // This lets the browser handle the proper URL construction regardless of environment
@@ -43,60 +49,135 @@ const getApiUrl = (endpoint: string) => {
   return endpoint;
 };
 
-// Connection test component (hidden by default, only for development/debugging)
+// Connection test component (displays connection status)
 const ConnectionTest = () => {
   const [status, setStatus] = useState<string>("Testing connection...");
   const [error, setError] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState<boolean | null>(null);
   
   useEffect(() => {
     const testConnection = async () => {
       try {
         const url = getApiUrl('/api/health');
         console.log("Connection test: Starting API health check at", url);
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          // Add cache busting
+          headers: {
+            'Cache-Control': 'no-cache, no-store',
+            'Pragma': 'no-cache',
+            'X-Request-Time': Date.now().toString()
+          }
+        });
         console.log("Connection test: Response received", response);
         
         if (response.ok) {
           const data = await response.json();
           console.log("Connection test: API health check successful", data);
           setStatus(`Connected to API: ${data.status}`);
+          setIsConnected(true);
         } else {
           console.error("Connection test: API health check failed", response);
           setStatus(`API Error: ${response.status} ${response.statusText}`);
+          setIsConnected(false);
         }
       } catch (err) {
-        console.error("Connection test: Exception during API health check", err);
+        console.error("API connection test failed:", err);
         setError(err instanceof Error ? err.message : String(err));
         setStatus("Connection failed");
+        setIsConnected(false);
       }
     };
     
     testConnection();
   }, []);
   
-  // Hidden by default - only shown if explicitly enabled in settings
-  return null;
+  return (
+    <div className="mb-4">
+      <Alert variant={isConnected === true ? "default" : "destructive"}>
+        <div className="flex items-center">
+          {isConnected === true ? (
+            <Wifi className="h-4 w-4 mr-2" />
+          ) : (
+            <WifiOff className="h-4 w-4 mr-2" />
+          )}
+          <AlertTitle>
+            {isConnected === true ? "Connected" : "Connection Issue"}
+          </AlertTitle>
+        </div>
+        <AlertDescription>
+          {status}
+          {error && (
+            <div className="text-sm mt-1 font-mono text-red-600">
+              Error: {error}
+            </div>
+          )}
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
 };
 
 export default function Dashboard() {
-  // Connection test is hidden by default, only for advanced debugging
+  // Connection test is shown when there's an error
   const [showConnectionTest, setShowConnectionTest] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
+  const { toast } = useToast();
   
   // Use explicit 'any' type to avoid TypeScript errors with dynamic data
-  const { data: apiData, isLoading, error } = useQuery<any>({
+  const { data: apiData, isLoading, error, refetch } = useQuery<any>({
     queryKey: ["/api/dashboard/summary"],
     queryFn: async () => {
       console.log("Fetching data from:", "/api/dashboard/summary");
       const url = getApiUrl('/api/dashboard/summary');
-      const response = await fetch(url);
       
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      try {
+        const response = await fetch(url, {
+          // Add cache busting
+          headers: {
+            'Cache-Control': 'no-cache, no-store',
+            'Pragma': 'no-cache',
+            'X-Request-Time': Date.now().toString()
+          },
+          // Increase timeout 
+          signal: AbortSignal.timeout(8000) // 8 second timeout
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status} ${response.statusText}`);
+        }
+        
+        return response.json();
+      } catch (err) {
+        // Show connection test on error
+        setShowConnectionTest(true);
+        throw err;
       }
-      
-      return response.json();
-    }
+    },
+    retry: 3, // Retry up to 3 times
+    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000) // Exponential backoff
   });
+  
+  // Handle manual retry
+  const handleRetry = async () => {
+    setIsRetrying(true);
+    try {
+      await refetch();
+      toast({
+        title: "Connection restored",
+        description: "Successfully reconnected to the server",
+        variant: "default",
+      });
+      setShowConnectionTest(false);
+    } catch (err) {
+      toast({
+        title: "Connection failed",
+        description: "Unable to connect to the server. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRetrying(false);
+    }
+  };
   
   // Create a more safely typed summary with defaults for missing values
   const summary: DashboardSummary = {
@@ -128,11 +209,72 @@ export default function Dashboard() {
   
   return (
     <div>
-      {/* Show connection diagnostic info - can be toggled */}
+      {/* Show connection error notice with retry button */}
+      {error && !showConnectionTest && (
+        <div className="mb-4">
+          <Alert variant="destructive">
+            <ServerOff className="h-4 w-4 mr-2" />
+            <AlertTitle>Connection Error</AlertTitle>
+            <AlertDescription>
+              Unable to reach the server. Please check your connection and try again.
+              <div className="mt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowConnectionTest(true)}
+                  className="mr-2"
+                >
+                  Show Diagnostics
+                </Button>
+                <Button 
+                  variant="default"
+                  size="sm"
+                  onClick={handleRetry}
+                  disabled={isRetrying}
+                  className="flex items-center"
+                >
+                  {isRetrying ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Retry Connection
+                    </>
+                  )}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+    
+      {/* Show connection diagnostic info when enabled */}
       {showConnectionTest && (
         <div className="mb-4">
           <ConnectionTest />
-          <div className="flex justify-end">
+          <div className="flex justify-between mt-2">
+            <Button 
+              variant="default"
+              size="sm"
+              onClick={handleRetry}
+              disabled={isRetrying}
+              className="flex items-center"
+            >
+              {isRetrying ? (
+                <>
+                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry Connection
+                </>
+              )}
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 
@@ -261,10 +403,26 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))
-            ) : (
-              summary?.recentProjects.map((project) => (
+            ) : error ? (
+              <div className="p-6 text-center">
+                <ServerOff className="h-12 w-12 mx-auto text-gray-400" />
+                <h3 className="mt-2 text-base font-semibold text-gray-900">Connection Error</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Unable to fetch project data. Please check your connection.
+                </p>
+              </div>
+            ) : summary?.recentProjects.length > 0 ? (
+              summary.recentProjects.map((project) => (
                 <ProjectCard key={project.id} project={project} />
               ))
+            ) : (
+              <div className="p-6 text-center">
+                <Building className="h-12 w-12 mx-auto text-gray-400" />
+                <h3 className="mt-2 text-base font-semibold text-gray-900">No Projects</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  There are no active projects to display.
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -295,10 +453,26 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))
-            ) : (
-              summary?.upcomingMaintenances.map((maintenance) => (
+            ) : error ? (
+              <div className="p-6 text-center">
+                <ServerOff className="h-12 w-12 mx-auto text-gray-400" />
+                <h3 className="mt-2 text-base font-semibold text-gray-900">Connection Error</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Unable to fetch maintenance data. Please check your connection.
+                </p>
+              </div>
+            ) : summary?.upcomingMaintenances.length > 0 ? (
+              summary.upcomingMaintenances.map((maintenance) => (
                 <MaintenanceItem key={maintenance.id} maintenance={maintenance} />
               ))
+            ) : (
+              <div className="p-6 text-center">
+                <CalendarCheck className="h-12 w-12 mx-auto text-gray-400" />
+                <h3 className="mt-2 text-base font-semibold text-gray-900">No Upcoming Maintenance</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  There are no scheduled maintenance visits.
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -321,6 +495,22 @@ export default function Dashboard() {
                 <Skeleton className="h-16 w-full" />
                 <Skeleton className="h-16 w-full" />
               </div>
+            </div>
+          ) : error ? (
+            <div className="p-10 text-center">
+              <ServerOff className="h-12 w-12 mx-auto text-gray-400" />
+              <h3 className="mt-2 text-base font-semibold text-gray-900">Connection Error</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Unable to fetch repair data. Please check your connection.
+              </p>
+            </div>
+          ) : summary?.recentRepairs.length === 0 ? (
+            <div className="p-10 text-center">
+              <Wrench className="h-12 w-12 mx-auto text-gray-400" />
+              <h3 className="mt-2 text-base font-semibold text-gray-900">No Repair Requests</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                There are no recent repair requests to display.
+              </p>
             </div>
           ) : (
             <table className="min-w-full divide-y divide-gray-200">

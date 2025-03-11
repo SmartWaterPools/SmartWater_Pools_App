@@ -1,373 +1,527 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartWater Pools - System Diagnostic</title>
-    <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            line-height: 1.6;
-        }
-        h1 {
-            color: #0077B6;
-            text-align: center;
-        }
-        .card {
-            margin-bottom: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .success {
-            background-color: #d4edda;
-            border-left: 5px solid #155724;
-            color: #155724;
-        }
-        .error {
-            background-color: #f8d7da;
-            border-left: 5px solid #721c24;
-            color: #721c24;
-        }
-        .warning {
-            background-color: #fff3cd;
-            border-left: 5px solid #856404;
-            color: #856404;
-        }
-        .info {
-            background-color: #d1ecf1;
-            border-left: 5px solid #0c5460;
-            color: #0c5460;
-        }
-        .neutral {
-            background-color: #f8f9fa;
-            border-left: 5px solid #383d41;
-            color: #383d41;
-        }
-        pre {
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            background-color: rgba(0,0,0,0.05);
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
-        }
-        button {
-            background-color: #0077B6;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-right: 10px;
-            margin-bottom: 10px;
-        }
-        button:hover {
-            background-color: #005f8b;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
-        @media (max-width: 600px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartWater Pools - Diagnostic Tool</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      line-height: 1.5;
+      color: #334155;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f8fafc;
+    }
+    h1 {
+      color: #0c4a6e;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 10px;
+    }
+    h2 {
+      color: #0369a1;
+      margin-top: 30px;
+    }
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    .test-button {
+      background-color: #0284c7;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 8px;
+      transition: background-color 0.2s;
+    }
+    .test-button:hover {
+      background-color: #0369a1;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .status-success {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+    .status-error {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+    .status-pending {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    pre {
+      background-color: #f1f5f9;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+    th, td {
+      text-align: left;
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    th {
+      background-color: #f1f5f9;
+      font-weight: 600;
+      color: #0c4a6e;
+    }
+    .success-icon {
+      color: #16a34a;
+    }
+    .error-icon {
+      color: #dc2626;
+    }
+    .info {
+      background-color: #f0f9ff;
+      border-left: 4px solid #0284c7;
+      padding: 12px;
+      margin: 16px 0;
+    }
+    .warning {
+      background-color: #fef3c7;
+      border-left: 4px solid #d97706;
+      padding: 12px;
+      margin: 16px 0;
+    }
+    .endpoint-list {
+      list-style: none;
+      padding: 0;
+    }
+    .endpoint-list li {
+      margin-bottom: 8px;
+      padding: 8px;
+      background-color: #f8fafc;
+      border-radius: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .endpoint-list .method {
+      font-weight: bold;
+      margin-right: 8px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .endpoint-list .get {
+      background-color: #dbeafe;
+      color: #1e40af;
+    }
+    .endpoint-list .post {
+      background-color: #dcfce7;
+      color: #166534;
+    }
+    .endpoint-list .patch {
+      background-color: #fef3c7;
+      color: #92400e;
+    }
+    .endpoint-list .delete {
+      background-color: #fee2e2;
+      color: #991b1b;
+    }
+    .logs {
+      height: 200px;
+      overflow-y: auto;
+      background-color: #1e293b;
+      color: #f8fafc;
+      padding: 12px;
+      border-radius: 4px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 14px;
+    }
+    .log-entry {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .log-entry.info {
+      color: #93c5fd;
+      background-color: transparent;
+      border-left: none;
+      padding: 0;
+      margin: 0 0 4px 0;
+    }
+    .log-entry.error {
+      color: #fca5a5;
+      background-color: transparent;
+      border-left: none;
+      padding: 0;
+      margin: 0 0 4px 0;
+    }
+    .collapsible {
+      cursor: pointer;
+      padding: 12px;
+      width: 100%;
+      border: none;
+      text-align: left;
+      outline: none;
+      font-size: 16px;
+      transition: 0.4s;
+      background-color: #f1f5f9;
+      border-radius: 4px;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #0c4a6e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .active, .collapsible:hover {
+      background-color: #e2e8f0;
+    }
+    .collapsible-content {
+      padding: 0 12px;
+      background-color: white;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.2s ease-out;
+      margin-bottom: 16px;
+      border-radius: 0 0 4px 4px;
+    }
+  </style>
 </head>
 <body>
-    <h1>SmartWater Pools - System Diagnostic</h1>
-    
-    <div class="card info">
-        <h2>System Information</h2>
-        <div id="systemInfo">Loading system information...</div>
+  <h1>SmartWater Pools Management System Diagnostic Tool</h1>
+  
+  <div class="container">
+    <h2>Server Health Check</h2>
+    <button id="checkHealth" class="test-button">Run Health Check</button>
+    <span id="healthStatus" class="status status-pending">Pending</span>
+    <div id="healthDetails" style="margin-top: 16px;">
+      <pre id="healthData">Run the health check to see server details</pre>
     </div>
-    
-    <div class="grid">
-        <div class="card neutral">
-            <h2>API Health</h2>
-            <button id="checkHealth">Test Health Endpoint</button>
-            <div id="healthResult">Not tested yet</div>
-        </div>
-        
-        <div class="card neutral">
-            <h2>Database Connection</h2>
-            <button id="checkDatabase">Test Database Connection</button>
-            <div id="databaseResult">Not tested yet</div>
-        </div>
-        
-        <div class="card neutral">
-            <h2>Frontend Assets</h2>
-            <button id="checkFrontend">Test Frontend Access</button>
-            <div id="frontendResult">Not tested yet</div>
-        </div>
-        
-        <div class="card neutral">
-            <h2>External APIs</h2>
-            <button id="checkGoogleMaps">Test Google Maps API</button>
-            <div id="googleMapsResult">Not tested yet</div>
-        </div>
+  </div>
+
+  <div class="container">
+    <h2>Environment Variables</h2>
+    <table>
+      <tr>
+        <th>Variable</th>
+        <th>Status</th>
+      </tr>
+      <tr>
+        <td>NODE_ENV</td>
+        <td id="nodeEnvStatus">Checking...</td>
+      </tr>
+      <tr>
+        <td>DATABASE_URL</td>
+        <td id="dbUrlStatus">Checking...</td>
+      </tr>
+      <tr>
+        <td>PORT</td>
+        <td id="portStatus">Checking...</td>
+      </tr>
+      <tr>
+        <td>GOOGLE_MAPS_API_KEY</td>
+        <td id="mapsApiStatus">Checking...</td>
+      </tr>
+    </table>
+  </div>
+
+  <div class="container">
+    <h2>API Connection Test</h2>
+    <button id="testApiConnection" class="test-button">Test Connection</button>
+    <span id="apiConnectionStatus" class="status status-pending">Pending</span>
+    <div id="apiConnectionDetails" style="margin-top: 16px;">
+      <pre id="apiConnectionData">Run the test to see connection details</pre>
     </div>
-    
-    <div class="card neutral">
-        <h2>Network Diagnostics</h2>
-        <button id="checkClientUrl">Check Client URL</button>
-        <button id="checkServerUrl">Check Server URL</button>
-        <button id="checkPort">Check Port Access</button>
-        <div id="networkResult">Not tested yet</div>
+  </div>
+
+  <div class="container">
+    <h2>Database Connection Test</h2>
+    <button id="testDatabaseConnection" class="test-button">Test Connection</button>
+    <span id="dbConnectionStatus" class="status status-pending">Pending</span>
+    <div id="dbConnectionDetails" style="margin-top: 16px;">
+      <pre id="dbConnectionData">Run the test to see connection details</pre>
     </div>
-    
-    <div class="card neutral">
-        <h2>Browser Information</h2>
-        <div id="browserInfo">Loading browser information...</div>
+  </div>
+
+  <div class="container">
+    <h2>Log Viewer</h2>
+    <div class="logs" id="logViewer">
+      <div class="log-entry info">Diagnostic page loaded successfully.</div>
     </div>
+  </div>
+
+  <div class="container">
+    <button class="collapsible">Available API Endpoints <span>+</span></button>
+    <div class="collapsible-content">
+      <ul class="endpoint-list">
+        <li><span class="method get">GET</span> /api/health <button class="test-button" onclick="testEndpoint('/api/health', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/users <button class="test-button" onclick="testEndpoint('/api/users', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/clients <button class="test-button" onclick="testEndpoint('/api/clients', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/technicians <button class="test-button" onclick="testEndpoint('/api/technicians', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/projects <button class="test-button" onclick="testEndpoint('/api/projects', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/maintenances <button class="test-button" onclick="testEndpoint('/api/maintenances', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/repairs <button class="test-button" onclick="testEndpoint('/api/repairs', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/invoices <button class="test-button" onclick="testEndpoint('/api/invoices', 'GET')">Test</button></li>
+        <li><span class="method get">GET</span> /api/dashboard/summary <button class="test-button" onclick="testEndpoint('/api/dashboard/summary', 'GET')">Test</button></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="container">
+    <button class="collapsible">Troubleshooting Information <span>+</span></button>
+    <div class="collapsible-content">
+      <h3>Common Issues</h3>
+      <div class="info">
+        <strong>Missing Database Connection:</strong> Make sure the DATABASE_URL environment variable is set correctly.
+      </div>
+      <div class="info">
+        <strong>API Connection Failed:</strong> Check that the server is running and accessible from your current network.
+      </div>
+      <div class="info">
+        <strong>CORS Issues:</strong> If you're accessing the API from a different domain, make sure CORS is properly configured.
+      </div>
+      <div class="warning">
+        <strong>Server Not Starting:</strong> Check the server logs for errors. Common issues include port conflicts or missing dependencies.
+      </div>
+      <h3>Quick Fixes</h3>
+      <ol>
+        <li>Restart the server</li>
+        <li>Check environment variables</li>
+        <li>Verify database connection</li>
+        <li>Clear browser cache</li>
+        <li>Check network connectivity</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    // Health check
+    document.getElementById('checkHealth').addEventListener('click', async () => {
+      const healthStatus = document.getElementById('healthStatus');
+      const healthData = document.getElementById('healthData');
+      
+      try {
+        healthStatus.className = 'status status-pending';
+        healthStatus.textContent = 'Testing...';
+        
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        
+        healthStatus.className = 'status status-success';
+        healthStatus.textContent = 'Healthy';
+        healthData.textContent = JSON.stringify(data, null, 2);
+        logMessage(`Health check successful. Server is ${data.status}.`, 'info');
+      } catch (error) {
+        healthStatus.className = 'status status-error';
+        healthStatus.textContent = 'Error';
+        healthData.textContent = `Error: ${error.message}`;
+        logMessage(`Health check failed: ${error.message}`, 'error');
+      }
+    });
     
-    <script>
-        // System information display
-        async function populateSystemInfo() {
-            const systemInfoEl = document.getElementById('systemInfo');
-            try {
-                const response = await fetch('/api/health');
-                if (!response.ok) {
-                    throw new Error(`HTTP error: ${response.status}`);
-                }
-                const data = await response.json();
-                
-                systemInfoEl.innerHTML = `
-                    <div><strong>Status:</strong> ${data.status}</div>
-                    <div><strong>Environment:</strong> ${data.environment}</div>
-                    <div><strong>Service:</strong> ${data.service}</div>
-                    <div><strong>Node Version:</strong> ${data.nodeVersion}</div>
-                    <div><strong>Database:</strong> ${data.database}</div>
-                    <div><strong>Uptime:</strong> ${data.uptime}</div>
-                    <div><strong>Timestamp:</strong> ${data.timestamp}</div>
-                `;
-            } catch (error) {
-                systemInfoEl.innerHTML = `<div class="error">Failed to load system information: ${error.message}</div>`;
-            }
+    // API Connection Test
+    document.getElementById('testApiConnection').addEventListener('click', async () => {
+      const apiStatus = document.getElementById('apiConnectionStatus');
+      const apiData = document.getElementById('apiConnectionData');
+      
+      try {
+        apiStatus.className = 'status status-pending';
+        apiStatus.textContent = 'Testing...';
+        
+        const startTime = performance.now();
+        const response = await fetch('/api/users');
+        const endTime = performance.now();
+        const responseTime = (endTime - startTime).toFixed(2);
+        
+        const data = await response.json();
+        
+        apiStatus.className = 'status status-success';
+        apiStatus.textContent = 'Connected';
+        apiData.textContent = `Response time: ${responseTime}ms\nStatus: ${response.status} ${response.statusText}\nData: ${JSON.stringify(data, null, 2).substring(0, 500)}${data.length > 500 ? '...' : ''}`;
+        logMessage(`API connection test successful. Response time: ${responseTime}ms`, 'info');
+      } catch (error) {
+        apiStatus.className = 'status status-error';
+        apiStatus.textContent = 'Failed';
+        apiData.textContent = `Error: ${error.message}`;
+        logMessage(`API connection test failed: ${error.message}`, 'error');
+      }
+    });
+    
+    // Database Connection Test
+    document.getElementById('testDatabaseConnection').addEventListener('click', async () => {
+      const dbStatus = document.getElementById('dbConnectionStatus');
+      const dbData = document.getElementById('dbConnectionData');
+      
+      try {
+        dbStatus.className = 'status status-pending';
+        dbStatus.textContent = 'Testing...';
+        
+        // This would be a custom endpoint that tests DB connection
+        const response = await fetch('/api/users');
+        const data = await response.json();
+        
+        dbStatus.className = 'status status-success';
+        dbStatus.textContent = 'Connected';
+        dbData.textContent = `Database appears to be working. User count: ${data.length || 0}`;
+        logMessage(`Database connection test successful.`, 'info');
+      } catch (error) {
+        dbStatus.className = 'status status-error';
+        dbStatus.textContent = 'Failed';
+        dbData.textContent = `Error: ${error.message}`;
+        logMessage(`Database connection test failed: ${error.message}`, 'error');
+      }
+    });
+    
+    // Check environment variables
+    async function checkEnvironmentVariables() {
+      try {
+        const response = await fetch('/api/health');
+        const data = await response.json();
+        
+        document.getElementById('nodeEnvStatus').textContent = data.environment || 'Not configured';
+        document.getElementById('dbUrlStatus').textContent = data.database || 'Not configured';
+        document.getElementById('portStatus').textContent = data.port || '8080 (default)';
+        
+        // Check Google Maps API Key
+        try {
+          const mapsResponse = await fetch('/api/google-maps-key');
+          const mapsData = await mapsResponse.json();
+          document.getElementById('mapsApiStatus').textContent = mapsData.apiKey ? 'Configured' : 'Not configured';
+        } catch (error) {
+          document.getElementById('mapsApiStatus').textContent = 'Error checking';
         }
         
-        // Browser information display
-        function populateBrowserInfo() {
-            const browserInfoEl = document.getElementById('browserInfo');
-            const userAgent = navigator.userAgent;
-            
-            browserInfoEl.innerHTML = `
-                <div><strong>User Agent:</strong> ${userAgent}</div>
-                <div><strong>Platform:</strong> ${navigator.platform}</div>
-                <div><strong>Language:</strong> ${navigator.language}</div>
-                <div><strong>Window Size:</strong> ${window.innerWidth} x ${window.innerHeight}</div>
-                <div><strong>Current URL:</strong> ${window.location.href}</div>
-                <div><strong>Cookies Enabled:</strong> ${navigator.cookieEnabled ? 'Yes' : 'No'}</div>
-            `;
+        logMessage('Environment variables checked.', 'info');
+      } catch (error) {
+        logMessage(`Error checking environment variables: ${error.message}`, 'error');
+      }
+    }
+    
+    // Test a specific endpoint
+    async function testEndpoint(endpoint, method) {
+      try {
+        logMessage(`Testing endpoint: ${method} ${endpoint}`, 'info');
+        
+        const startTime = performance.now();
+        const response = await fetch(endpoint);
+        const endTime = performance.now();
+        const responseTime = (endTime - startTime).toFixed(2);
+        
+        if (response.ok) {
+          const data = await response.json();
+          logMessage(`Endpoint ${endpoint} responded successfully in ${responseTime}ms. Status: ${response.status}`, 'info');
+          
+          // Create a modal to show the response
+          const modal = document.createElement('div');
+          modal.style.position = 'fixed';
+          modal.style.top = '0';
+          modal.style.left = '0';
+          modal.style.width = '100%';
+          modal.style.height = '100%';
+          modal.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+          modal.style.display = 'flex';
+          modal.style.justifyContent = 'center';
+          modal.style.alignItems = 'center';
+          modal.style.zIndex = '1000';
+          
+          const content = document.createElement('div');
+          content.style.backgroundColor = 'white';
+          content.style.padding = '20px';
+          content.style.borderRadius = '8px';
+          content.style.maxWidth = '80%';
+          content.style.maxHeight = '80%';
+          content.style.overflow = 'auto';
+          
+          const header = document.createElement('div');
+          header.style.display = 'flex';
+          header.style.justifyContent = 'space-between';
+          header.style.alignItems = 'center';
+          header.style.marginBottom = '16px';
+          
+          const title = document.createElement('h3');
+          title.textContent = `${method} ${endpoint}`;
+          title.style.margin = '0';
+          
+          const closeButton = document.createElement('button');
+          closeButton.textContent = 'Close';
+          closeButton.className = 'test-button';
+          closeButton.onclick = () => document.body.removeChild(modal);
+          
+          header.appendChild(title);
+          header.appendChild(closeButton);
+          
+          const details = document.createElement('pre');
+          details.textContent = JSON.stringify(data, null, 2);
+          details.style.maxHeight = '60vh';
+          details.style.overflow = 'auto';
+          
+          content.appendChild(header);
+          content.appendChild(details);
+          modal.appendChild(content);
+          
+          document.body.appendChild(modal);
+        } else {
+          logMessage(`Endpoint ${endpoint} failed with status: ${response.status} ${response.statusText}`, 'error');
         }
-        
-        // Generic fetch with timeout
-        async function fetchWithTimeout(url, options = {}, timeout = 5000) {
-            const controller = new AbortController();
-            const id = setTimeout(() => controller.abort(), timeout);
-            
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    signal: controller.signal
-                });
-                clearTimeout(id);
-                return response;
-            } catch (error) {
-                clearTimeout(id);
-                throw error;
-            }
-        }
-        
-        // Generic endpoint tester
-        async function testEndpoint(url, resultElementId) {
-            const resultEl = document.getElementById(resultElementId);
-            resultEl.innerHTML = "Testing...";
-            resultEl.parentElement.className = "card neutral";
-            
-            try {
-                const startTime = performance.now();
-                const response = await fetchWithTimeout(url);
-                const endTime = performance.now();
-                const responseTime = Math.round(endTime - startTime);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
-                }
-                
-                const data = await response.json();
-                resultEl.innerHTML = `
-                    <div>Request successful (${responseTime}ms)</div>
-                    <div><strong>Status:</strong> ${response.status} ${response.statusText}</div>
-                    <pre>${JSON.stringify(data, null, 2)}</pre>
-                `;
-                resultEl.parentElement.className = "card success";
-            } catch (error) {
-                resultEl.innerHTML = `
-                    <div>Request failed</div>
-                    <div><strong>Error:</strong> ${error.message}</div>
-                `;
-                resultEl.parentElement.className = "card error";
-            }
-        }
-        
-        // Client URL check
-        async function checkClientUrl() {
-            const resultEl = document.getElementById('networkResult');
-            resultEl.innerHTML = "Checking client URL...";
-            resultEl.parentElement.className = "card neutral";
-            
-            try {
-                const localUrl = window.location.origin;
-                resultEl.innerHTML = `
-                    <div><strong>Current client URL:</strong> ${localUrl}</div>
-                    <div><strong>Protocol:</strong> ${window.location.protocol}</div>
-                    <div><strong>Hostname:</strong> ${window.location.hostname}</div>
-                    <div><strong>Port:</strong> ${window.location.port || '(default)'}</div>
-                    <div><strong>Pathname:</strong> ${window.location.pathname}</div>
-                `;
-                resultEl.parentElement.className = "card info";
-            } catch (error) {
-                resultEl.innerHTML = `
-                    <div>Failed to check client URL</div>
-                    <div><strong>Error:</strong> ${error.message}</div>
-                `;
-                resultEl.parentElement.className = "card error";
-            }
-        }
-        
-        // Server URL check via health endpoint
-        async function checkServerUrl() {
-            const resultEl = document.getElementById('networkResult');
-            resultEl.innerHTML = "Checking server URL...";
-            resultEl.parentElement.className = "card neutral";
-            
-            try {
-                const response = await fetchWithTimeout('/api/health');
-                if (!response.ok) {
-                    throw new Error(`HTTP error: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                resultEl.innerHTML = `
-                    <div><strong>Server is accessible</strong></div>
-                    <div><strong>Request Origin:</strong> ${data.requestFrom || 'Not available'}</div>
-                    <div><strong>Request Path:</strong> ${data.requestPath || 'Not available'}</div>
-                    <div><strong>Request Method:</strong> ${data.requestMethod || 'Not available'}</div>
-                    <div><strong>Request Protocol:</strong> ${data.requestProtocol || 'Not available'}</div>
-                `;
-                resultEl.parentElement.className = "card success";
-            } catch (error) {
-                resultEl.innerHTML = `
-                    <div>Failed to check server URL</div>
-                    <div><strong>Error:</strong> ${error.message}</div>
-                `;
-                resultEl.parentElement.className = "card error";
-            }
-        }
-        
-        // Port access check
-        async function checkPort() {
-            const resultEl = document.getElementById('networkResult');
-            resultEl.innerHTML = "Checking port access...";
-            resultEl.parentElement.className = "card neutral";
-            
-            try {
-                const ports = [5000, 3000, 8080];
-                const results = [];
-                
-                for (const port of ports) {
-                    try {
-                        // Try to fetch from the same host but different port
-                        const portUrl = `${window.location.protocol}//${window.location.hostname}:${port}/api/health`;
-                        const startTime = performance.now();
-                        const response = await fetchWithTimeout(portUrl, {}, 2000);
-                        const endTime = performance.now();
-                        const responseTime = Math.round(endTime - startTime);
-                        
-                        if (response.ok) {
-                            results.push(`Port ${port}: ✅ Accessible (${responseTime}ms)`);
-                        } else {
-                            results.push(`Port ${port}: ❌ Error (Status: ${response.status})`);
-                        }
-                    } catch (error) {
-                        results.push(`Port ${port}: ❌ ${error.name === 'AbortError' ? 'Timeout' : 'Not accessible'}`);
-                    }
-                }
-                
-                resultEl.innerHTML = `
-                    <div><strong>Port access results:</strong></div>
-                    <div>${results.join('<br>')}</div>
-                    <div><strong>Current port:</strong> ${window.location.port || '(default)'}</div>
-                `;
-                resultEl.parentElement.className = "card info";
-            } catch (error) {
-                resultEl.innerHTML = `
-                    <div>Failed to check port access</div>
-                    <div><strong>Error:</strong> ${error.message}</div>
-                `;
-                resultEl.parentElement.className = "card error";
-            }
-        }
-        
-        // Frontend access check
-        async function checkFrontend() {
-            const resultEl = document.getElementById('frontendResult');
-            resultEl.innerHTML = "Checking frontend access...";
-            resultEl.parentElement.className = "card neutral";
-            
-            try {
-                // Check if we can access the main frontend assets
-                const mainJsUrl = '/assets/index.js';
-                const mainCssUrl = '/assets/index.css';
-                
-                const jsResponse = await fetchWithTimeout(mainJsUrl, {}, 3000);
-                const cssResponse = await fetchWithTimeout(mainCssUrl, {}, 3000);
-                
-                const jsStatus = jsResponse.ok ? '✅ Accessible' : `❌ Error (${jsResponse.status})`;
-                const cssStatus = cssResponse.ok ? '✅ Accessible' : `❌ Error (${cssResponse.status})`;
-                
-                resultEl.innerHTML = `
-                    <div><strong>Frontend access results:</strong></div>
-                    <div>Main JavaScript (${mainJsUrl}): ${jsStatus}</div>
-                    <div>Main CSS (${mainCssUrl}): ${cssStatus}</div>
-                `;
-                
-                if (jsResponse.ok && cssResponse.ok) {
-                    resultEl.parentElement.className = "card success";
-                } else if (!jsResponse.ok && !cssResponse.ok) {
-                    resultEl.parentElement.className = "card error";
-                } else {
-                    resultEl.parentElement.className = "card warning";
-                }
-            } catch (error) {
-                resultEl.innerHTML = `
-                    <div>Failed to check frontend access</div>
-                    <div><strong>Error:</strong> ${error.message}</div>
-                `;
-                resultEl.parentElement.className = "card error";
-            }
-        }
-        
-        // Initialize all data
-        populateSystemInfo();
-        populateBrowserInfo();
-        
-        // Add event listeners
-        document.getElementById('checkHealth').addEventListener('click', () => testEndpoint('/api/health', 'healthResult'));
-        document.getElementById('checkDatabase').addEventListener('click', () => testEndpoint('/api/health', 'databaseResult'));
-        document.getElementById('checkGoogleMaps').addEventListener('click', () => testEndpoint('/api/google-maps-key', 'googleMapsResult'));
-        document.getElementById('checkFrontend').addEventListener('click', checkFrontend);
-        document.getElementById('checkClientUrl').addEventListener('click', checkClientUrl);
-        document.getElementById('checkServerUrl').addEventListener('click', checkServerUrl);
-        document.getElementById('checkPort').addEventListener('click', checkPort);
-    </script>
+      } catch (error) {
+        logMessage(`Error testing endpoint ${endpoint}: ${error.message}`, 'error');
+      }
+    }
+    
+    // Logging function
+    function logMessage(message, type = 'info') {
+      const logViewer = document.getElementById('logViewer');
+      const logEntry = document.createElement('div');
+      logEntry.className = `log-entry ${type}`;
+      
+      const timestamp = new Date().toLocaleTimeString();
+      logEntry.textContent = `[${timestamp}] ${message}`;
+      
+      logViewer.appendChild(logEntry);
+      logViewer.scrollTop = logViewer.scrollHeight;
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      logMessage('Diagnostic tool initialized', 'info');
+      checkEnvironmentVariables();
+      
+      // Set up collapsible sections
+      const collapsibleButtons = document.getElementsByClassName('collapsible');
+      for (let i = 0; i < collapsibleButtons.length; i++) {
+        collapsibleButtons[i].addEventListener('click', function() {
+          this.classList.toggle('active');
+          const content = this.nextElementSibling;
+          
+          // Toggle the plus/minus sign
+          const icon = this.querySelector('span');
+          if (content.style.maxHeight) {
+            content.style.maxHeight = null;
+            icon.textContent = '+';
+          } else {
+            content.style.maxHeight = content.scrollHeight + 'px';
+            icon.textContent = '-';
+          }
+        });
+      }
+      
+      // Automatically run the health check
+      document.getElementById('checkHealth').click();
+    });
+  </script>
 </body>
 </html>

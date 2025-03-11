@@ -10,26 +10,71 @@ let googleMapsApiLoaded = false;
 let googleMapsApiLoading = false;
 let loadCallbacks: (() => void)[] = [];
 
+// Configuration for API key fetch retries
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
+
+/**
+ * Sleep for specified milliseconds
+ */
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Get the Google Maps API key from environment variables or from server
+ * with retry functionality for enhanced reliability
  */
-export const getGoogleMapsApiKey = async (): Promise<string> => {
+export const getGoogleMapsApiKey = async (retryCount = 0): Promise<string> => {
   try {
     // First check if we have it in the environment variables
     if (import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
       return import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
     }
     
-    // If not in environment, fetch from server API endpoint
-    const response = await fetch('/api/google-maps-key');
+    // Add cache-busting to prevent stale responses
+    const timestamp = Date.now();
+    const url = `/api/google-maps-key?_t=${timestamp}`;
+    
+    // If not in environment, fetch from server API endpoint with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    
+    const response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache'
+      }
+    });
+    
+    clearTimeout(timeoutId);
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch Google Maps API key');
+      throw new Error(`Failed to fetch Google Maps API key: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
-    return data.apiKey || '';
+    const apiKey = data.apiKey || '';
+    
+    // Verify we actually got a key
+    if (!apiKey && retryCount < MAX_RETRIES) {
+      console.warn(`Empty API key received, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
+      // Exponential backoff for retries
+      await sleep(RETRY_DELAY * Math.pow(2, retryCount));
+      return getGoogleMapsApiKey(retryCount + 1);
+    }
+    
+    return apiKey;
   } catch (error) {
     console.error('Error getting Google Maps API key:', error);
+    
+    // Implement retry for network errors or timeouts
+    if (retryCount < MAX_RETRIES) {
+      console.warn(`API key fetch failed, retrying (${retryCount + 1}/${MAX_RETRIES})...`);
+      // Exponential backoff for retries
+      await sleep(RETRY_DELAY * Math.pow(2, retryCount));
+      return getGoogleMapsApiKey(retryCount + 1);
+    }
+    
     return '';
   }
 };

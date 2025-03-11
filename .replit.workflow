@@ -13,6 +13,6 @@ workflows:
     command: node test-prod.js
     environment: node
     metadata:
-      port: 8080
+      port: 5000
       protocol: http
       host: 0.0.0.0

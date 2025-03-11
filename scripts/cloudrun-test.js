@@ -16,7 +16,7 @@ const rootDir = resolve(__dirname, '..');
 console.log('🚀 Starting Cloud Run environment simulation...');
 
 // Define test port
-const PORT = 8080;
+const PORT = 5000;
 
 // Check if build exists
 if (!fs.existsSync(resolve(rootDir, 'dist/index.js'))) {
@@ -61,7 +61,7 @@ setTimeout(() => {
             console.log(`🔹 Database: ${health.database}`);
           }
           
-          console.log('\n📝 Test your app in the browser: http://localhost:8080');
+          console.log(`\n📝 Test your app in the browser: http://localhost:${PORT}`);
           console.log('📝 This simulates how your app will run in Cloud Run');
         } catch (e) {
           console.log('\n⚠️ Server is running but returned invalid health check data');

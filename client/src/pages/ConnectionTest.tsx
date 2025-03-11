@@ -7,19 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
-// URLs with explicit port for testing in Replit environment
-const PORT = 5000; // The port our server is running on
+// Use relative URLs for all environments for maximum compatibility
 const getApiUrl = (endpoint: string) => {
-  // Handle both local development and Replit environments
-  const isReplit = typeof window !== 'undefined' && window.location.hostname.includes('.repl.co');
-  
-  if (isReplit) {
-    // In Replit, use the current origin (handles HTTPS properly)
-    return `${window.location.origin}${endpoint}`;
-  } else {
-    // For local development with explicit port
-    return `${window.location.protocol}//${window.location.hostname}:${PORT}${endpoint}`;
+  // Ensure the endpoint starts with a slash
+  if (!endpoint.startsWith('/')) {
+    endpoint = '/' + endpoint;
   }
+  
+  return endpoint;
 };
 
 export default function ConnectionTest() {
@@ -50,7 +45,7 @@ export default function ConnectionTest() {
     setEnvInfo(info);
   }, []);
 
-  // Test the API health endpoint
+  // Test the API health endpoint with more reliable error handling
   const testHealthEndpoint = async () => {
     setLoading(true);
     try {
@@ -59,13 +54,20 @@ export default function ConnectionTest() {
       
       // Use a timeout to prevent long-hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased timeout for Replit environment
+      
+      // Add unique timestamp to URL to prevent caching completely
+      const timestampedUrl = `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
       
       // Direct fetch to health endpoint with explicit URL and timeout
-      const response = await fetch(url, { 
+      const response = await fetch(timestampedUrl, { 
         signal: controller.signal,
-        // Add cache-busting query parameter to avoid cached responses
-        headers: { 'Cache-Control': 'no-cache, no-store' }
+        // Cache-busting headers
+        headers: { 
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       clearTimeout(timeoutId);
       
@@ -85,7 +87,7 @@ export default function ConnectionTest() {
       setHealthStatus(null);
       // Provide a more user-friendly error message
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setHealthError('Request timed out after 5 seconds. Server may be unresponsive.');
+        setHealthError('Request timed out after 8 seconds. Server may be unresponsive or experiencing high load.');
       } else {
         setHealthError(err instanceof Error ? err.message : String(err));
       }
@@ -94,7 +96,7 @@ export default function ConnectionTest() {
     }
   };
 
-  // Test the dashboard summary endpoint
+  // Test the dashboard summary endpoint with enhanced error handling
   const testDashboardEndpoint = async () => {
     setLoading(true);
     try {
@@ -103,13 +105,20 @@ export default function ConnectionTest() {
       
       // Use a timeout to prevent long-hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased timeout for Replit environment
+      
+      // Add unique timestamp to URL to prevent caching completely
+      const timestampedUrl = `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
       
       // Direct fetch to dashboard summary endpoint with explicit URL and timeout
-      const response = await fetch(url, { 
+      const response = await fetch(timestampedUrl, { 
         signal: controller.signal,
-        // Add cache-busting query parameter to avoid cached responses
-        headers: { 'Cache-Control': 'no-cache, no-store' }
+        // Cache-busting headers
+        headers: { 
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       clearTimeout(timeoutId);
       
@@ -130,7 +139,7 @@ export default function ConnectionTest() {
       
       // Provide a more user-friendly error message
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setDashboardError('Request timed out after 5 seconds. Server may be unresponsive.');
+        setDashboardError('Request timed out after 8 seconds. Server may be unresponsive or experiencing high load.');
       } else {
         setDashboardError(err instanceof Error ? err.message : String(err));
       }
@@ -139,7 +148,7 @@ export default function ConnectionTest() {
     }
   };
 
-  // Test a custom endpoint
+  // Test a custom endpoint with enhanced error handling
   const testCustomEndpoint = async () => {
     setLoading(true);
     try {
@@ -148,11 +157,19 @@ export default function ConnectionTest() {
       
       // Use a timeout to prevent long-hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased timeout for Replit environment
       
-      const response = await fetch(url, { 
+      // Add unique timestamp to URL to prevent caching completely
+      const timestampedUrl = `${url}${url.includes('?') ? '&' : '?'}_t=${Date.now()}`;
+      
+      const response = await fetch(timestampedUrl, { 
         signal: controller.signal,
-        headers: { 'Cache-Control': 'no-cache, no-store' }
+        // Cache-busting headers
+        headers: { 
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       clearTimeout(timeoutId);
       
@@ -173,7 +190,7 @@ export default function ConnectionTest() {
       
       // Provide a more user-friendly error message
       if (err instanceof DOMException && err.name === 'AbortError') {
-        setCustomEndpointError('Request timed out after 5 seconds. Server may be unresponsive.');
+        setCustomEndpointError('Request timed out after 8 seconds. Server may be unresponsive or experiencing high load.');
       } else {
         setCustomEndpointError(err instanceof Error ? err.message : String(err));
       }
@@ -358,10 +375,10 @@ export default function ConnectionTest() {
                   </div>
                   
                   <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
-                    <h3 className="text-lg font-semibold mb-2">Server Information</h3>
+                    <h3 className="text-lg font-semibold mb-2">API Access Method</h3>
                     <div>
-                      <p className="font-medium text-gray-600">Server Port</p>
-                      <p className="font-mono">{PORT}</p>
+                      <p className="font-medium text-gray-600">API Relative URL Method</p>
+                      <p className="font-mono">Using relative URLs for cross-environment compatibility</p>
                     </div>
                   </div>
                 </div>
