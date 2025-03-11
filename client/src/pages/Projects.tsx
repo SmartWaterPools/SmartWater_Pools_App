@@ -10,7 +10,8 @@ import {
   Users,
   MoreHorizontal,
   ClipboardList,
-  Layers 
+  Layers,
+  Edit
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -231,25 +232,25 @@ export default function Projects() {
                           </div>
                         )}
                       </div>
-                      <Link href={`/projects/${project.id}`}>
+                      <div className="flex gap-2">
+                        <Link href={`/projects/${project.id}`}>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="gap-1"
+                          >
+                            <Layers className="h-4 w-4 mr-1" />
+                            Details
+                          </Button>
+                        </Link>
                         <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="gap-1"
-                          onClick={(e) => {
-                            // Use the tab system for navigation
-                            const tabContext = (window as any).__TAB_CONTEXT__;
-                            if (tabContext && tabContext.addTab) {
-                              e.preventDefault(); // Prevent the Link navigation
-                              tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
-                            }
-                            // Otherwise, let the Link component handle navigation
-                          }}
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => setSelectedProject(project)}
                         >
-                          <Layers className="h-4 w-4 mr-1" />
-                          Details
+                          <Edit className="h-4 w-4" />
                         </Button>
-                      </Link>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -366,22 +367,18 @@ export default function Projects() {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                onClick={(e) => {
-                                  // Use the tab system for navigation
-                                  const tabContext = (window as any).__TAB_CONTEXT__;
-                                  if (tabContext && tabContext.addTab) {
-                                    e.preventDefault(); // Prevent the Link navigation
-                                    tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
-                                  }
-                                  // Otherwise, let the Link component handle navigation
-                                }}
                               >
                                 <Layers className="h-4 w-4 mr-1" />
                                 Details
                               </Button>
                             </Link>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
-                              <MoreHorizontal className="h-4 w-4" />
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-8 w-8 text-gray-600"
+                              onClick={() => setSelectedProject(project)}
+                            >
+                              <Edit className="h-4 w-4" />
                             </Button>
                           </div>
                         </td>

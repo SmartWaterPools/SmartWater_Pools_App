@@ -134,12 +134,10 @@ export default function ProjectDetails() {
             </Badge>
           </div>
         </div>
-        <Link href={`/projects/edit/${projectId}`}>
-          <Button className="sm:ml-auto w-full sm:w-auto">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Project
-          </Button>
-        </Link>
+        <Button className="sm:ml-auto w-full sm:w-auto" onClick={() => window.history.back()}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Projects
+        </Button>
       </div>
       
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
