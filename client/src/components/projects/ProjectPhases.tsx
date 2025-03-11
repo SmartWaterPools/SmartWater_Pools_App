@@ -46,19 +46,29 @@ import { Textarea } from "@/components/ui/textarea";
 const makeRequest = async <T,>(params: {url: string, method: string, data?: any}): Promise<T> => {
   const { url, method, data } = params;
   
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        ...(data ? { "Content-Type": "application/json" } : {}),
+        "Accept": "application/json"
+      },
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
 
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    if (!res.ok) {
+      const text = (await res.text()) || res.statusText;
+      throw new Error(`${res.status}: ${text}`);
+    }
+    
+    const result = await res.json();
+    console.log(`Data received from ${url}:`, result);
+    return result as T;
+  } catch (error) {
+    console.error(`Error fetching from ${url}:`, error);
+    throw error;
   }
-  
-  return await res.json() as T;
 };
 
 // Validation schema for project phase form

@@ -108,10 +108,12 @@ export default function ProjectDetails() {
             </Badge>
           </div>
         </div>
-        <Button className="sm:ml-auto w-full sm:w-auto">
-          <Edit className="h-4 w-4 mr-2" />
-          Edit Project
-        </Button>
+        <Link href={`/projects/edit/${projectId}`}>
+          <Button className="sm:ml-auto w-full sm:w-auto">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Project
+          </Button>
+        </Link>
       </div>
       
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
