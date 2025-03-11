@@ -83,27 +83,7 @@ const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boo
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
-  // Serve static files from the root diagnostic.html and app-test.html
-  // Using rootDir imported from utils.ts
-  
-  // Register diagnostic HTML routes
-  app.get('/diagnostic', (req: Request, res: Response) => {
-    const diagPath = path.join(rootDir, 'diagnostic.html');
-    if (fs.existsSync(diagPath)) {
-      res.sendFile(diagPath);
-    } else {
-      res.status(404).send('Diagnostic page not found');
-    }
-  });
-  
-  app.get('/app-test', (req: Request, res: Response) => {
-    const testPath = path.join(rootDir, 'app-test.html');
-    if (fs.existsSync(testPath)) {
-      res.sendFile(testPath);
-    } else {
-      res.status(404).send('App test page not found');
-    }
-  });
+  // Serve static files from the root directory
 
   // Enhanced health check endpoint with detailed diagnostics
   app.get("/api/health", (req: Request, res: Response) => {

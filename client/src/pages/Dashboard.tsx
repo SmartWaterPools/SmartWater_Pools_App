@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { 
   Building, 
   CalendarCheck, 
@@ -12,19 +12,12 @@ import {
   Eye, 
   Edit, 
   MoreHorizontal,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  AlertCircle,
-  ServerOff,
-  Wifi,
-  WifiOff
+  ServerOff
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { MaintenanceItem } from "@/components/dashboard/MaintenanceItem";
@@ -34,7 +27,6 @@ import {
   getPriorityClasses, 
   formatDate 
 } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
 
 // Helper for API URL construction using relative URLs
 const getApiUrl = (endpoint: string) => {
@@ -49,135 +41,23 @@ const getApiUrl = (endpoint: string) => {
   return endpoint;
 };
 
-// Connection test component (displays connection status)
-const ConnectionTest = () => {
-  const [status, setStatus] = useState<string>("Testing connection...");
-  const [error, setError] = useState<string | null>(null);
-  const [isConnected, setIsConnected] = useState<boolean | null>(null);
-  
-  useEffect(() => {
-    const testConnection = async () => {
-      try {
-        const url = getApiUrl('/api/health');
-        console.log("Connection test: Starting API health check at", url);
-        const response = await fetch(url, {
-          // Add cache busting
-          headers: {
-            'Cache-Control': 'no-cache, no-store',
-            'Pragma': 'no-cache',
-            'X-Request-Time': Date.now().toString()
-          }
-        });
-        console.log("Connection test: Response received", response);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Connection test: API health check successful", data);
-          setStatus(`Connected to API: ${data.status}`);
-          setIsConnected(true);
-        } else {
-          console.error("Connection test: API health check failed", response);
-          setStatus(`API Error: ${response.status} ${response.statusText}`);
-          setIsConnected(false);
-        }
-      } catch (err) {
-        console.error("API connection test failed:", err);
-        setError(err instanceof Error ? err.message : String(err));
-        setStatus("Connection failed");
-        setIsConnected(false);
-      }
-    };
-    
-    testConnection();
-  }, []);
-  
-  return (
-    <div className="mb-4">
-      <Alert variant={isConnected === true ? "default" : "destructive"}>
-        <div className="flex items-center">
-          {isConnected === true ? (
-            <Wifi className="h-4 w-4 mr-2" />
-          ) : (
-            <WifiOff className="h-4 w-4 mr-2" />
-          )}
-          <AlertTitle>
-            {isConnected === true ? "Connected" : "Connection Issue"}
-          </AlertTitle>
-        </div>
-        <AlertDescription>
-          {status}
-          {error && (
-            <div className="text-sm mt-1 font-mono text-red-600">
-              Error: {error}
-            </div>
-          )}
-        </AlertDescription>
-      </Alert>
-    </div>
-  );
-};
-
 export default function Dashboard() {
-  // Connection test is shown when there's an error
-  const [showConnectionTest, setShowConnectionTest] = useState(false);
-  const [isRetrying, setIsRetrying] = useState(false);
-  const { toast } = useToast();
-  
   // Use explicit 'any' type to avoid TypeScript errors with dynamic data
-  const { data: apiData, isLoading, error, refetch } = useQuery<any>({
+  const { data: apiData, isLoading, error } = useQuery<any>({
     queryKey: ["/api/dashboard/summary"],
     queryFn: async () => {
       console.log("Fetching data from:", "/api/dashboard/summary");
       const url = getApiUrl('/api/dashboard/summary');
       
-      try {
-        const response = await fetch(url, {
-          // Add cache busting
-          headers: {
-            'Cache-Control': 'no-cache, no-store',
-            'Pragma': 'no-cache',
-            'X-Request-Time': Date.now().toString()
-          },
-          // Increase timeout 
-          signal: AbortSignal.timeout(8000) // 8 second timeout
-        });
-        
-        if (!response.ok) {
-          throw new Error(`API error: ${response.status} ${response.statusText}`);
-        }
-        
-        return response.json();
-      } catch (err) {
-        // Show connection test on error
-        setShowConnectionTest(true);
-        throw err;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
       }
-    },
-    retry: 3, // Retry up to 3 times
-    retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 10000) // Exponential backoff
-  });
-  
-  // Handle manual retry
-  const handleRetry = async () => {
-    setIsRetrying(true);
-    try {
-      await refetch();
-      toast({
-        title: "Connection restored",
-        description: "Successfully reconnected to the server",
-        variant: "default",
-      });
-      setShowConnectionTest(false);
-    } catch (err) {
-      toast({
-        title: "Connection failed",
-        description: "Unable to connect to the server. Please try again later.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRetrying(false);
+      
+      return response.json();
     }
-  };
+  });
   
   // Create a more safely typed summary with defaults for missing values
   const summary: DashboardSummary = {
@@ -209,84 +89,6 @@ export default function Dashboard() {
   
   return (
     <div>
-      {/* Show connection error notice with retry button */}
-      {error && !showConnectionTest && (
-        <div className="mb-4">
-          <Alert variant="destructive">
-            <ServerOff className="h-4 w-4 mr-2" />
-            <AlertTitle>Connection Error</AlertTitle>
-            <AlertDescription>
-              Unable to reach the server. Please check your connection and try again.
-              <div className="mt-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => setShowConnectionTest(true)}
-                  className="mr-2"
-                >
-                  Show Diagnostics
-                </Button>
-                <Button 
-                  variant="default"
-                  size="sm"
-                  onClick={handleRetry}
-                  disabled={isRetrying}
-                  className="flex items-center"
-                >
-                  {isRetrying ? (
-                    <>
-                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-3 w-3 mr-1" />
-                      Retry Connection
-                    </>
-                  )}
-                </Button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
-    
-      {/* Show connection diagnostic info when enabled */}
-      {showConnectionTest && (
-        <div className="mb-4">
-          <ConnectionTest />
-          <div className="flex justify-between mt-2">
-            <Button 
-              variant="default"
-              size="sm"
-              onClick={handleRetry}
-              disabled={isRetrying}
-              className="flex items-center"
-            >
-              {isRetrying ? (
-                <>
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                  Connecting...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  Retry Connection
-                </>
-              )}
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => setShowConnectionTest(false)}
-              className="text-xs"
-            >
-              Hide Diagnostics
-            </Button>
-          </div>
-        </div>
-      )}
-    
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground font-heading">Dashboard</h1>
         <div className="flex space-x-2 mt-3 md:mt-0">
@@ -559,24 +361,37 @@ export default function Dashboard() {
                           {repair.status ? repair.status.charAt(0).toUpperCase() + repair.status.slice(1) : 'Pending'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {repair.technician?.user?.name || 'Unassigned'}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{repair.technician?.user?.name || 'Unassigned'}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {repair.reportedDate ? formatDate(repair.reportedDate) : 'N/A'}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{formatDate(repair.scheduledDate || new Date())}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-primary hover:text-primary/80">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-600 hover:text-gray-900">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 text-gray-600 hover:text-gray-900">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full"
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View</span>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full"
+                        >
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">Edit</span>
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 rounded-full"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Menu</span>
+                        </Button>
                       </td>
                     </tr>
                   );

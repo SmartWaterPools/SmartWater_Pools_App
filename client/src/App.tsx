@@ -30,9 +30,6 @@ import ServiceReportPage from "./pages/ServiceReportPage";
 import Communications from "./pages/Communications";
 import Business from "./pages/Business";
 import Settings from "./pages/Settings";
-import EnvTestPage from "./pages/EnvTest";
-import MapTest from "./pages/MapTest";
-import ConnectionTest from "./pages/ConnectionTest";
 import NotFound from "./pages/not-found";
 
 // Mock user data - in a real app this would come from authentication
@@ -221,9 +218,6 @@ function App() {
                   <Route path="/communications" component={Communications} />
                   <Route path="/business" component={Business} />
                   <Route path="/settings" component={Settings} />
-                  <Route path="/env-test" component={EnvTestPage} />
-                  <Route path="/map-test" component={MapTest} />
-                  <Route path="/connection-test" component={ConnectionTest} />
                   <Route component={NotFound} />
                 </Switch>
               </main>
