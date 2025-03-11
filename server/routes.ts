@@ -3119,17 +3119,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Endpoint to provide Google Maps API key to the client
   app.get("/api/google-maps-key", (_req: Request, res: Response) => {
     try {
-      // Return the API key from environment variable
-      const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      // Try to get the API key from different possible sources
+      let apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      
+      // If no API key in environment, check if we're in deployed environment
       if (!apiKey) {
-        console.warn("Google Maps API key not found in environment variables");
+        console.warn("Google Maps API key not found in process.env.GOOGLE_MAPS_API_KEY");
+        
+        // Log environment variables for debugging
+        console.log("Environment details:");
+        console.log("- NODE_ENV:", process.env.NODE_ENV);
+        console.log("- REPL_ID:", process.env.REPL_ID);
+        console.log("- REPL_SLUG:", process.env.REPL_SLUG);
+        console.log("- REPL_OWNER:", process.env.REPL_OWNER);
+        
+        // In a real production environment, handle the missing API key more gracefully
+        console.error("No Google Maps API key available - map functionality will be limited");
       } else {
         console.log("Successfully retrieved Google Maps API key for client");
       }
+      
       res.json({ apiKey });
     } catch (error) {
       console.error("Error providing Google Maps API key:", error);
       res.status(500).json({ message: "Failed to provide Google Maps API key" });
+    }
+  });
+  
+  // Enhanced API key debugging endpoint
+  app.get("/api/debug/google-maps-key", (_req: Request, res: Response) => {
+    try {
+      // Log environment details to help with debugging
+      console.log("--- Google Maps API Key Debug Info ---");
+      console.log("NODE_ENV:", process.env.NODE_ENV);
+      console.log("Is Replit environment:", process.env.REPL_ID ? "Yes" : "No");
+      console.log("REPL_SLUG:", process.env.REPL_SLUG);
+      console.log("REPL_OWNER:", process.env.REPL_OWNER);
+      
+      // Check for API key in environment
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      console.log("API key exists:", apiKey ? "Yes" : "No");
+      console.log("API key length:", apiKey.length);
+      
+      // Check for dotenv file
+      const envFiles = ['.env', '.env.local', '.env.development'];
+      const envFileExists = envFiles.map(file => {
+        try {
+          const exists = require('fs').existsSync(file);
+          return { file, exists };
+        } catch (e: any) {
+          return { file, exists: false, error: e.message };
+        }
+      });
+      console.log("Environment files:", envFileExists);
+      
+      // Return debugging info
+      res.json({
+        envInfo: {
+          nodeEnv: process.env.NODE_ENV,
+          isReplitEnv: !!process.env.REPL_ID,
+          replSlug: process.env.REPL_SLUG,
+          replOwner: process.env.REPL_OWNER
+        },
+        apiKeyInfo: {
+          exists: !!apiKey,
+          length: apiKey.length,
+          maskedKey: apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : '',
+        },
+        envFiles: envFileExists
+      });
+    } catch (error) {
+      console.error("Error in maps API key debug endpoint:", error);
+      res.status(500).json({ 
+        message: "Failed to debug Google Maps API key",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   

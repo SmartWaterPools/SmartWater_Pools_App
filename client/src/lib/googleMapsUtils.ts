@@ -32,7 +32,16 @@ export const getGoogleMapsApiKey = async (retryCount = 0): Promise<string> => {
     
     // Add cache-busting to prevent stale responses
     const timestamp = Date.now();
-    const url = `/api/google-maps-key?_t=${timestamp}`;
+    
+    // Determine the correct base URL - handle both development and production
+    const isProduction = window.location.hostname.includes('replit.app');
+    const baseUrl = isProduction
+      ? `https://${window.location.hostname}`
+      : '';
+    
+    const url = `${baseUrl}/api/google-maps-key?_t=${timestamp}`;
+    
+    console.log('Fetching Google Maps API key from:', url);
     
     // If not in environment, fetch from server API endpoint with timeout
     const controller = new AbortController();

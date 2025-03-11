@@ -30,6 +30,7 @@ import ServiceReportPage from "./pages/ServiceReportPage";
 import Communications from "./pages/Communications";
 import Business from "./pages/Business";
 import Settings from "./pages/Settings";
+import ApiKeyDebug from "./pages/ApiKeyDebug";
 import NotFound from "./pages/not-found";
 
 // Mock user data - in a real app this would come from authentication
@@ -218,6 +219,7 @@ function App() {
                   <Route path="/communications" component={Communications} />
                   <Route path="/business" component={Business} />
                   <Route path="/settings" component={Settings} />
+                  <Route path="/api-key-debug" component={ApiKeyDebug} />
                   <Route component={NotFound} />
                 </Switch>
               </main>
