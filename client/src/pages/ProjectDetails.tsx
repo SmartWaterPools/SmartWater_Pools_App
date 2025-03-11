@@ -37,10 +37,36 @@ export default function ProjectDetails() {
     enabled: !!projectId
   });
   
-  // Project phases query
-  const { data: phases } = useQuery({
+  // Project phases query with better error handling and logging
+  const { 
+    data: phases, 
+    isLoading: phasesLoading, 
+    isError: phasesError,
+    error: phasesErrorData
+  } = useQuery({
     queryKey: ['/api/projects', projectId, 'phases'],
-    enabled: !!projectId
+    enabled: !!projectId,
+    // Add a query function to log what's happening
+    queryFn: async () => {
+      console.log(`Fetching phases for project ID: ${projectId}`);
+      try {
+        // Use the fetch API directly for more detailed error handling
+        const response = await fetch(`/api/projects/${projectId}/phases`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch phases: ${response.status} ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        console.log(`Successfully fetched ${data?.length || 0} phases for project ${projectId}:`, data);
+        return data;
+      } catch (error) {
+        console.error(`Error fetching phases for project ${projectId}:`, error);
+        throw error;
+      }
+    },
+    // Make sure the data is always fresh
+    refetchOnWindowFocus: true
   });
   
   if (isLoading) {
@@ -249,10 +275,49 @@ export default function ProjectDetails() {
         </TabsContent>
         
         <TabsContent value="documents">
-          <DocumentGallery 
-            projectId={projectId} 
-            projectPhases={phases as unknown as Array<{ id: number; name: string; order: number; }>} 
-          />
+          {phasesLoading ? (
+            <div className="p-4 text-center">
+              <div className="h-8 w-64 rounded animate-pulse bg-muted mx-auto mb-4"></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map(n => (
+                  <div key={n} className="h-32 rounded animate-pulse bg-muted"></div>
+                ))}
+              </div>
+            </div>
+          ) : phasesError ? (
+            <div className="p-4 text-center text-red-500 border rounded-lg">
+              <p>Error loading project phases. Documents view requires phases to be loaded.</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                {phasesErrorData instanceof Error ? phasesErrorData.message : 'Unknown error'}
+              </p>
+              <Button 
+                className="mt-4" 
+                onClick={() => window.location.reload()}
+              >
+                Reload Page
+              </Button>
+            </div>
+          ) : !phases || (Array.isArray(phases) && phases.length === 0) ? (
+            <div className="p-4 text-center border rounded-lg">
+              <p>No phases have been defined for this project.</p>
+              <p className="text-sm text-muted-foreground mt-2">Please add phases before uploading documents.</p>
+              <Button
+                className="mt-4"
+                onClick={() => setActiveTab("phases")}
+              >
+                Go to Phases
+              </Button>
+            </div>
+          ) : (
+            <DocumentGallery 
+              projectId={projectId} 
+              projectPhases={Array.isArray(phases) ? phases.map(phase => ({
+                id: phase.id,
+                name: phase.name,
+                order: phase.order || 0
+              })) : []} 
+            />
+          )}
         </TabsContent>
         
         <TabsContent value="team">

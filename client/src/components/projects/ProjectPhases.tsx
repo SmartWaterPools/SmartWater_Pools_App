@@ -145,14 +145,25 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
 
   // Fetch project phases
-  const { data: phases = [], isLoading } = useQuery<ProjectPhase[]>({
+  const { data: phases = [], isLoading, isError, error } = useQuery<ProjectPhase[]>({
     queryKey: ["/api/projects", projectId, "phases"],
     queryFn: async () => {
-      return await makeRequest<ProjectPhase[]>({
-        url: `/api/projects/${projectId}/phases`,
-        method: "GET"
-      });
-    }
+      try {
+        const result = await makeRequest<ProjectPhase[]>({
+          url: `/api/projects/${projectId}/phases`,
+          method: "GET"
+        });
+        console.log(`Fetched phases for project ${projectId}:`, result);
+        return result;
+      } catch (err) {
+        console.error(`Error fetching phases for project ${projectId}:`, err);
+        throw err;
+      }
+    },
+    // Enable these options to make sure the data is always fresh
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
+    staleTime: 0
   });
 
   // Form for editing an existing phase
@@ -549,9 +560,17 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
         </div>
       </div>
 
-      {!phases || phases.length === 0 ? (
+      {isError ? (
+        <div className="text-center py-8 text-red-500">
+          <AlertCircle className="w-8 h-8 mx-auto mb-2" />
+          <p>Error loading project phases. Please try again.</p>
+          <p className="text-sm text-muted-foreground">{error instanceof Error ? error.message : 'Unknown error'}</p>
+        </div>
+      ) : (!phases || phases.length === 0) ? (
         <div className="text-center py-8 text-muted-foreground">
-          No phases have been defined for this project yet.
+          <Clock className="w-8 h-8 mx-auto mb-2" />
+          <p>No phases have been defined for this project yet.</p>
+          <p className="text-sm">Add phases manually or use a template to get started.</p>
         </div>
       ) : (
         <Tabs defaultValue="list" className="w-full">
@@ -559,7 +578,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
             <TabsTrigger value="list">
               <div className="flex items-center">
                 <Clock className="w-4 h-4 mr-2" />
-                Phase List
+                Phase List ({phases.length})
               </div>
             </TabsTrigger>
             <TabsTrigger value="timeline">
@@ -572,7 +591,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
           
           <TabsContent value="list" className="mt-0">
             <div className="space-y-4">
-              {Array.isArray(phases) && phases
+              {Array.isArray(phases) && phases.length > 0 && phases
                 .slice() // Create a copy of the array to safely sort
                 .sort((a, b) => a.order - b.order)
                 .map((phase) => (

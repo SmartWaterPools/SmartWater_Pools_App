@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "wouter";
 import { 
   PlusCircle, 
   Search, 
@@ -230,24 +231,25 @@ export default function Projects() {
                           </div>
                         )}
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="gap-1"
-                        onClick={() => {
-                          // Use the tab system for navigation
-                          const tabContext = (window as any).__TAB_CONTEXT__;
-                          if (tabContext && tabContext.addTab) {
-                            tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
-                          } else {
-                            // Fallback to direct navigation
-                            window.location.href = `/projects/${project.id}`;
-                          }
-                        }}
-                      >
-                        <Layers className="h-4 w-4 mr-1" />
-                        Details
-                      </Button>
+                      <Link href={`/projects/${project.id}`}>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1"
+                          onClick={(e) => {
+                            // Use the tab system for navigation
+                            const tabContext = (window as any).__TAB_CONTEXT__;
+                            if (tabContext && tabContext.addTab) {
+                              e.preventDefault(); // Prevent the Link navigation
+                              tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
+                            }
+                            // Otherwise, let the Link component handle navigation
+                          }}
+                        >
+                          <Layers className="h-4 w-4 mr-1" />
+                          Details
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -360,23 +362,24 @@ export default function Projects() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex justify-end space-x-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => {
-                                // Use the tab system for navigation
-                                const tabContext = (window as any).__TAB_CONTEXT__;
-                                if (tabContext && tabContext.addTab) {
-                                  tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
-                                } else {
-                                  // Fallback to direct navigation
-                                  window.location.href = `/projects/${project.id}`;
-                                }
-                              }}
-                            >
-                              <Layers className="h-4 w-4 mr-1" />
-                              Details
-                            </Button>
+                            <Link href={`/projects/${project.id}`}>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={(e) => {
+                                  // Use the tab system for navigation
+                                  const tabContext = (window as any).__TAB_CONTEXT__;
+                                  if (tabContext && tabContext.addTab) {
+                                    e.preventDefault(); // Prevent the Link navigation
+                                    tabContext.addTab(`/projects/${project.id}`, `Project ${project.name}`);
+                                  }
+                                  // Otherwise, let the Link component handle navigation
+                                }}
+                              >
+                                <Layers className="h-4 w-4 mr-1" />
+                                Details
+                              </Button>
+                            </Link>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
