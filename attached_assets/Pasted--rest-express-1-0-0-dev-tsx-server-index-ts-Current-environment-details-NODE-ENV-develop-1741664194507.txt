@@ -1,0 +1,84 @@
+> rest-express@1.0.0 dev
+> tsx server/index.ts
+
+Current environment details:
+- NODE_ENV: development
+- REPL_ID: 960d6dab-9873-41e1-b9b3-27c1b66a670f
+- REPL_SLUG: workspace
+- REPL_OWNER: TravisDeRisi
+- PORT: not set
+- Selected Port: 5000
+- Is Replit Environment: Yes
+3:35:39 AM [scheduler] Scheduler: Incomplete maintenance rescheduling job scheduled to run in 1224 minutes
+3:35:39 AM [scheduler] Scheduler initialized
+3:35:39 AM [express] Server running on port 5000 - Environment: development
+3:35:39 AM [express] Local access URL: http://localhost:5000
+3:35:39 AM [express] Network access URL: http://0.0.0.0:5000
+3:35:39 AM [express] Replit access URL: https://workspace.TravisDeRisi.repl.co
+3:35:39 AM [express] Using port 5000 for server compatibility
+3:35:39 AM [express] Running in Replit environment - make sure to use relative URLs in frontend
+Health check request received from: 960d6dab-9873-41e1-b9b3-27c1b66a670f-00-1le6yl850x0ma.picard.replit.dev
+User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+Health check response: {
+  status: 'healthy',
+  timestamp: '2025-03-11T03:35:48.587Z',
+  environment: 'development',
+  service: 'SmartWater Pools Management System',
+  database: 'configured',
+  requestFrom: '960d6dab-9873-41e1-b9b3-27c1b66a670f-00-1le6yl850x0ma.picard.replit.dev',
+  requestPath: '/api/health',
+  requestMethod: 'GET',
+  requestProtocol: 'http',
+  nodeVersion: 'v20.18.1',
+  memory: { heapTotal: '477 MB', heapUsed: '450 MB' },
+  uptime: '11 seconds'
+}
+3:35:48 AM [express] GET /api/health 200 in 4ms :: {"status":"healthy","timestamp":"2025-03-11T03:35…
+Successfully retrieved Google Maps API key for client
+3:35:48 AM [express] GET /api/google-maps-key 304 in 1ms :: {"apiKey":"AIzaSyB3mCrj1qCOz6wCAxPqBq3gE…
+Health check request received from: 960d6dab-9873-41e1-b9b3-27c1b66a670f-00-1le6yl850x0ma.picard.replit.dev
+User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+Health check response: {
+  status: 'healthy',
+  timestamp: '2025-03-11T03:35:48.682Z',
+  environment: 'development',
+  service: 'SmartWater Pools Management System',
+  database: 'configured',
+  requestFrom: '960d6dab-9873-41e1-b9b3-27c1b66a670f-00-1le6yl850x0ma.picard.replit.dev',
+  requestPath: '/api/health',
+  requestMethod: 'GET',
+  requestProtocol: 'http',
+  nodeVersion: 'v20.18.1',
+  memory: { heapTotal: '477 MB', heapUsed: '451 MB' },
+  uptime: '11 seconds'
+}
+3:35:48 AM [express] GET /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-03-11T03:35…
+Successfully retrieved client 2 with user 2
+Successfully retrieved client 1 with user 1
+Successfully retrieved client 2 with user 2
+Successfully retrieved client 2 with user 2
+Successfully retrieved client 3 with user 3
+Successfully retrieved client 2 with user 2
+Successfully retrieved client 1 with user 1
+Successfully retrieved client 1 with user 1
+Successfully retrieved client 2 with user 2
+Successfully retrieved Google Maps API key for client
+3:35:49 AM [express] GET /api/google-maps-key 304 in 0ms :: {"apiKey":"AIzaSyB3mCrj1qCOz6wCAxPqBq3gE…
+3:35:49 AM [express] GET /api/dashboard/summary 304 in 600ms :: {"metrics":{"activeProjects":2,"main…
+Health check request received from: 960d6dab-9873-41e1-b9b3-27c1b66a670f-00-1le6yl850x0ma.picard.replit.dev
+User agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36
+Health check response: {
+  status: 'healthy',
+  timestamp: '2025-03-11T03:35:49.318Z',
+  environment: 'development',
+  service: 'SmartWater Pools Management System',
+  database: 'configured',
+  requestFrom: '960d6dab-9873-41e1-b9b3-27c1b66a670f-00-1le6yl850x0ma.picard.replit.dev',
+  requestPath: '/api/health',
+  requestMethod: 'GET',
+  requestProtocol: 'http',
+  nodeVersion: 'v20.18.1',
+  memory: { heapTotal: '479 MB', heapUsed: '446 MB' },
+  uptime: '11 seconds'
+}
+3:35:49 AM [express] GET /api/health 200 in 1ms :: {"status":"healthy","timestamp":"2025-03-11T03:35…

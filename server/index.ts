@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { Scheduler } from "./scheduler";
 import { storage, DatabaseStorage } from "./storage";
+import { HealthMonitor } from "./health-monitor";
 
 const app = express();
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images

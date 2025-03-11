@@ -1,12 +1,16 @@
 import { useState } from "react";
+import { Link, useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceTemplates } from "@/components/settings/ServiceTemplates";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { PermissionSettings } from "@/components/settings/PermissionSettings";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
-import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail } from "lucide-react";
+import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail, Settings as SettingsIcon, Server } from "lucide-react";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("service-templates");
@@ -54,6 +58,10 @@ export default function Settings() {
               <LayoutGrid className="h-4 w-4" />
               <span className="whitespace-nowrap">Appearance</span>
             </TabsTrigger>
+            <TabsTrigger value="advanced" className="flex gap-2 items-center px-4 py-2">
+              <SettingsIcon className="h-4 w-4" />
+              <span className="whitespace-nowrap">Advanced</span>
+            </TabsTrigger>
           </TabsList>
         </div>
         
@@ -79,6 +87,42 @@ export default function Settings() {
 
         <TabsContent value="appearance" className="space-y-4">
           <AppearanceSettings />
+        </TabsContent>
+        
+        <TabsContent value="advanced" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Server className="mr-2 h-5 w-5" />
+                  System Diagnostics
+                </CardTitle>
+                <CardDescription>
+                  Advanced diagnostics tools for administrators
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600 mb-4">
+                  Access system diagnostic tools for troubleshooting connectivity and server issues.
+                  This should only be used by system administrators.
+                </p>
+                <div className="mb-4 p-3 rounded-lg border border-yellow-200 bg-yellow-50 text-yellow-800">
+                  <h4 className="font-semibold mb-1">Administrator access only</h4>
+                  <p className="text-sm">
+                    These tools are intended for system administrators and may affect system performance.
+                  </p>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Link href="/connection-test">
+                  <Button variant="outline" className="w-full">
+                    <Server className="mr-2 h-4 w-4" />
+                    Open Connection Diagnostics
+                  </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>

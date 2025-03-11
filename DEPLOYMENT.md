@@ -26,36 +26,47 @@ The application needs to be built before deployment. We've provided automated sc
 
 ### Using the Automated Build Script
 
-1. Run the build script:
+1. Run the deployment script:
    ```bash
-   node run-build.js
+   node scripts/deploy.js
    ```
 
 2. This script will:
+   - Create a .npmrc file to prevent path alias errors
    - Clean and create the `dist/` directory
    - Build the frontend with Vite
-   - Build the server with esbuild
+   - Build the server with esbuild with proper path alias resolution
    - Verify the build artifacts
-   - Create a production-ready package.json
-   - Add deployment instructions in the dist directory
+   - Create necessary environment configuration files
 
 ### Manual Build Process (if needed)
 
 If the automated script fails, you can build manually:
 
-1. Clean the dist directory:
+1. Create a .npmrc file to prevent path alias errors:
+   ```bash
+   echo "save-exact=true" > .npmrc
+   echo "save-prefix=\"\"" >> .npmrc
+   ```
+
+2. Clean the dist directory:
    ```bash
    rm -rf dist && mkdir dist
    ```
 
-2. Build the frontend:
+3. Build the frontend:
    ```bash
    npx vite build
    ```
 
-3. Build the server:
+4. Build the server with proper path aliases:
    ```bash
-   npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+   npx esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --alias:@/=./client/src/ --alias:@shared/=./shared/
+   ```
+
+5. Ensure environment files are in place:
+   ```bash
+   touch .env.production
    ```
 
 ## Cloud Run Deployment
@@ -147,6 +158,14 @@ If using an external PostgreSQL database:
 - Check if `dist/index.js` exists in the deployed files
 - Ensure all required environment variables are set
 - Check Cloud Run logs for detailed error messages
+
+#### Path Alias Resolution Errors
+
+- If you see errors like `npm ERR! code ENOENT` trying to install `@/components` or similar path aliases:
+  - Ensure the `.npmrc` file exists at the root of your project with proper settings
+  - Use the automated deployment script (`node scripts/deploy.js`)
+  - Check that esbuild is using the correct `--alias:@/=./client/src/` parameters
+  - Review imports in your code to ensure they use the correct path aliases
 
 #### Database Connection Issues
 

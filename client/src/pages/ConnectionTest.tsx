@@ -57,8 +57,18 @@ export default function ConnectionTest() {
       const url = getApiUrl('/api/health');
       console.log(`Testing API health endpoint at: ${url}`);
       
-      // Direct fetch to health endpoint with explicit URL
-      const response = await fetch(url);
+      // Use a timeout to prevent long-hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      // Direct fetch to health endpoint with explicit URL and timeout
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        // Add cache-busting query parameter to avoid cached responses
+        headers: { 'Cache-Control': 'no-cache, no-store' }
+      });
+      clearTimeout(timeoutId);
+      
       console.log(`Health endpoint response status: ${response.status} ${response.statusText}`);
       
       if (response.ok) {
@@ -73,7 +83,12 @@ export default function ConnectionTest() {
     } catch (err) {
       console.error("Error testing health endpoint:", err);
       setHealthStatus(null);
-      setHealthError(err instanceof Error ? err.message : String(err));
+      // Provide a more user-friendly error message
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setHealthError('Request timed out after 5 seconds. Server may be unresponsive.');
+      } else {
+        setHealthError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -86,8 +101,18 @@ export default function ConnectionTest() {
       const url = getApiUrl('/api/dashboard/summary');
       console.log(`Testing dashboard summary endpoint at: ${url}`);
       
-      // Direct fetch to dashboard summary endpoint with explicit URL
-      const response = await fetch(url);
+      // Use a timeout to prevent long-hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      // Direct fetch to dashboard summary endpoint with explicit URL and timeout
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        // Add cache-busting query parameter to avoid cached responses
+        headers: { 'Cache-Control': 'no-cache, no-store' }
+      });
+      clearTimeout(timeoutId);
+      
       console.log(`Dashboard summary response status: ${response.status} ${response.statusText}`);
       
       if (response.ok) {
@@ -102,7 +127,13 @@ export default function ConnectionTest() {
     } catch (err) {
       console.error("Error testing dashboard endpoint:", err);
       setDashboardStatus(null);
-      setDashboardError(err instanceof Error ? err.message : String(err));
+      
+      // Provide a more user-friendly error message
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setDashboardError('Request timed out after 5 seconds. Server may be unresponsive.');
+      } else {
+        setDashboardError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -115,7 +146,16 @@ export default function ConnectionTest() {
       const url = getApiUrl(customEndpoint);
       console.log(`Testing custom endpoint at: ${url}`);
       
-      const response = await fetch(url);
+      // Use a timeout to prevent long-hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const response = await fetch(url, { 
+        signal: controller.signal,
+        headers: { 'Cache-Control': 'no-cache, no-store' }
+      });
+      clearTimeout(timeoutId);
+      
       console.log(`Custom endpoint response status: ${response.status} ${response.statusText}`);
       
       if (response.ok) {
@@ -130,7 +170,13 @@ export default function ConnectionTest() {
     } catch (err) {
       console.error("Error testing custom endpoint:", err);
       setCustomEndpointResult(null);
-      setCustomEndpointError(err instanceof Error ? err.message : String(err));
+      
+      // Provide a more user-friendly error message
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        setCustomEndpointError('Request timed out after 5 seconds. Server may be unresponsive.');
+      } else {
+        setCustomEndpointError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setLoading(false);
     }

@@ -85,7 +85,7 @@
             ? `${window.location.origin}/api/health`
             : `${window.location.protocol}//${window.location.hostname}:5000/api/health`;
           
-          loadingStatus.textContent = `Connecting to ${apiUrl}...`;
+          loadingStatus.textContent = `Connecting to server...`;
           
           const response = await fetch(apiUrl);
           if (!response.ok) {
@@ -102,12 +102,12 @@
           
           return true;
         } catch (error) {
-          loadingStatus.textContent = `Connection error: ${error.message}. Retrying...`;
+          loadingStatus.textContent = 'Connection error. Retrying...';
           console.error('API connection test failed:', error);
           
           // Show a connection status message
           const connectionStatus = document.getElementById('connection-status');
-          connectionStatus.textContent = `Connection error: ${error.message}`;
+          connectionStatus.textContent = 'Connection error: Unable to reach server';
           connectionStatus.style.backgroundColor = '#f44336';
           connectionStatus.style.color = 'white';
           connectionStatus.style.display = 'block';
