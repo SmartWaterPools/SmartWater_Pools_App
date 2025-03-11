@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartWater Pools - Diagnostic Page</title>
+  <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      line-height: 1.6;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      color: #333;
+    }
+    h1 {
+      color: #0077B6;
+      border-bottom: 2px solid #0077B6;
+      padding-bottom: 10px;
+    }
+    .status {
+      margin: 20px 0;
+      padding: 15px;
+      border-radius: 5px;
+    }
+    .success {
+      background-color: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+    .error {
+      background-color: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+    .pending {
+      background-color: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+    }
+    button {
+      background-color: #0077B6;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background-color: #005b8c;
+    }
+    #results {
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      padding: 15px;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+      white-space: pre-wrap;
+      font-family: monospace;
+      height: 300px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>SmartWater Pools - System Diagnostic</h1>
+  <p>This page tests the basic functionality of the SmartWater Pools Management System.</p>
+  
+  <div id="serverStatus" class="status pending">
+    Checking server status...
+  </div>
+  
+  <div id="apiStatus" class="status pending">
+    Checking API endpoints...
+  </div>
+  
+  <div>
+    <button id="testServer">Test Server Connection</button>
+    <button id="testApi">Test API Endpoints</button>
+    <button id="testAll">Run All Tests</button>
+  </div>
+  
+  <h2>Results:</h2>
+  <div id="results"></div>
+  
+  <script>
+    // Helper function for logging
+    function log(message) {
+      const results = document.getElementById('results');
+      const timestamp = new Date().toLocaleTimeString();
+      results.innerHTML += `[${timestamp}] ${message}\n`;
+      results.scrollTop = results.scrollHeight;
+    }
+    
+    // Test server connection
+    async function testServerConnection() {
+      const serverStatus = document.getElementById('serverStatus');
+      serverStatus.className = 'status pending';
+      serverStatus.textContent = 'Testing server connection...';
+      
+      try {
+        log('Testing server connection...');
+        const response = await fetch('/', {
+          method: 'GET',
+          headers: { 'Accept': 'text/html' }
+        });
+        
+        if (response.ok) {
+          serverStatus.className = 'status success';
+          serverStatus.textContent = '✅ Server is running and accessible';
+          log('✅ Server connection successful');
+          return true;
+        } else {
+          throw new Error(`Server returned status: ${response.status}`);
+        }
+      } catch (error) {
+        serverStatus.className = 'status error';
+        serverStatus.textContent = `❌ Server connection failed: ${error.message}`;
+        log(`❌ Server connection error: ${error.message}`);
+        return false;
+      }
+    }
+    
+    // Test API endpoints
+    async function testApiEndpoints() {
+      const apiStatus = document.getElementById('apiStatus');
+      apiStatus.className = 'status pending';
+      apiStatus.textContent = 'Testing API endpoints...';
+      
+      try {
+        log('Testing API health endpoint...');
+        const healthResponse = await fetch('/api/health');
+        
+        if (!healthResponse.ok) {
+          throw new Error(`Health endpoint failed: ${healthResponse.status}`);
+        }
+        
+        const healthData = await healthResponse.json();
+        log(`✅ Health endpoint response: ${JSON.stringify(healthData.status)}`);
+        
+        log('Testing dashboard summary endpoint...');
+        const dashboardResponse = await fetch('/api/dashboard/summary');
+        
+        if (!dashboardResponse.ok) {
+          throw new Error(`Dashboard endpoint failed: ${dashboardResponse.status}`);
+        }
+        
+        const dashboardData = await dashboardResponse.json();
+        log(`✅ Dashboard endpoint response: Clients: ${dashboardData.metrics.totalClients}, Projects: ${dashboardData.metrics.activeProjects}`);
+        
+        apiStatus.className = 'status success';
+        apiStatus.textContent = '✅ API endpoints are working correctly';
+        log('✅ All API tests passed successfully');
+        return true;
+      } catch (error) {
+        apiStatus.className = 'status error';
+        apiStatus.textContent = `❌ API tests failed: ${error.message}`;
+        log(`❌ API test error: ${error.message}`);
+        return false;
+      }
+    }
+    
+    // Run all tests
+    async function runAllTests() {
+      log('Starting all tests...');
+      const serverResult = await testServerConnection();
+      const apiResult = await testApiEndpoints();
+      
+      if (serverResult && apiResult) {
+        log('🎉 All tests passed successfully!');
+      } else {
+        log('⚠️ Some tests failed. Check the results above for details.');
+      }
+    }
+    
+    // Event listeners
+    document.getElementById('testServer').addEventListener('click', testServerConnection);
+    document.getElementById('testApi').addEventListener('click', testApiEndpoints);
+    document.getElementById('testAll').addEventListener('click', runAllTests);
+    
+    // Run initial tests when page loads
+    window.addEventListener('load', runAllTests);
+  </script>
+</body>
+</html>
