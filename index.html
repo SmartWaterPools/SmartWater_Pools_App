@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartWater Pools - Redirect</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f8ff;
+        }
+        .container {
+            text-align: center;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 600px;
+        }
+        h1 {
+            color: #0077B6;
+            margin-bottom: 1rem;
+        }
+        p {
+            margin-bottom: 1.5rem;
+            color: #444;
+            line-height: 1.6;
+        }
+        .logo {
+            font-size: 3rem;
+            color: #0077B6;
+            margin-bottom: 1rem;
+        }
+        .button {
+            display: inline-block;
+            background-color: #0077B6;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .button:hover {
+            background-color: #005a8d;
+        }
+        .status {
+            margin-top: 2rem;
+            padding: 1rem;
+            background-color: #e6f7ff;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        .status.success {
+            background-color: #e6ffed;
+        }
+        .status.error {
+            background-color: #fff1f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">💧</div>
+        <h1>SmartWater Pools Management System</h1>
+        <p>Welcome to the SmartWater Pools Management System. You'll be redirected to the application dashboard in a moment.</p>
+        <a href="/client/" class="button">Go to Dashboard</a>
+        
+        <div id="apiStatus" class="status">
+            Checking API status...
+        </div>
+    </div>
+
+    <script>
+        // Check API health
+        async function checkApiHealth() {
+            const apiStatusElement = document.getElementById('apiStatus');
+            
+            try {
+                const response = await fetch('/api/health');
+                if (!response.ok) {
+                    throw new Error(`HTTP error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                apiStatusElement.innerHTML = `
+                    <strong>API Status:</strong> ${data.status}<br>
+                    <strong>Environment:</strong> ${data.environment}<br>
+                    <strong>Server Time:</strong> ${new Date(data.timestamp).toLocaleString()}<br>
+                    <strong>Uptime:</strong> ${data.uptime}
+                `;
+                apiStatusElement.className = 'status success';
+                
+                // Auto-redirect after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/client/';
+                }, 3000);
+                
+            } catch (error) {
+                apiStatusElement.innerHTML = `
+                    <strong>API Status:</strong> Error<br>
+                    <strong>Details:</strong> ${error.message}<br>
+                    <strong>Please try again later or contact support.</strong>
+                `;
+                apiStatusElement.className = 'status error';
+            }
+        }
+        
+        // Execute when the page loads
+        window.addEventListener('load', checkApiHealth);
+    </script>
+</body>
+</html>
