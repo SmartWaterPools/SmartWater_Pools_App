@@ -55,6 +55,8 @@ export interface IStorage {
   getAllProjects(): Promise<Project[]>;
   getProjectsByClientId(clientId: number): Promise<Project[]>;
   getProjectsByType(projectType: string): Promise<Project[]>;
+  getProjectsByStatus(status: string): Promise<Project[]>;
+  getArchivedProjects(): Promise<Project[]>;
   
   // Project Phases operations
   getProjectPhase(id: number): Promise<ProjectPhase | undefined>;
@@ -1722,16 +1724,41 @@ export class DatabaseStorage implements IStorage {
   // Project operations
   async getProject(id: number): Promise<Project | undefined> {
     try {
-      const [project] = await db.select().from(projects).where(eq(projects.id, id));
-      // Handle case where isArchived might not exist in the database yet
-      if (project && !('isArchived' in project)) {
-        console.log(`Project ${id} retrieved without isArchived field, adding default value`);
-        return {
-          ...project,
-          isArchived: false
-        };
+      // Use explicit SQL to select only columns that exist in the database
+      const result = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          description,
+          client_id as "clientId",
+          project_type as "projectType",
+          start_date as "startDate",
+          estimated_completion_date as "estimatedCompletionDate",
+          actual_completion_date as "actualCompletionDate",
+          status,
+          budget,
+          current_phase as "currentPhase",
+          percent_complete as "percentComplete",
+          permit_details as "permitDetails",
+          notes,
+          is_template as "isTemplate",
+          template_name as "templateName",
+          template_category as "templateCategory"
+        FROM projects
+        WHERE id = ${id}
+      `);
+      
+      if (result.rows.length === 0) {
+        return undefined;
       }
-      return project || undefined;
+      
+      const project = result.rows[0];
+      
+      // Add virtual isArchived field based on status
+      return {
+        ...project,
+        isArchived: project.status === "archived"
+      };
     } catch (error) {
       console.error(`Error retrieving project ${id}:`, error);
       throw error;
@@ -1745,29 +1772,65 @@ export class DatabaseStorage implements IStorage {
 
   async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
     try {
-      // Check if we're trying to update the isArchived field but it doesn't exist in the database
+      // Check if we're trying to archive or unarchive a project
       if ('isArchived' in data) {
-        // Store the isArchived value
-        const isArchivedValue = data.isArchived;
+        // Get the current project to know its current status
+        const currentProject = await this.getProject(id);
+        if (!currentProject) {
+          return undefined;
+        }
         
-        // Create a new data object without isArchived to prevent SQL errors
+        // Create a modified data object without the virtual isArchived field
         const { isArchived, ...safeData } = data;
         
-        // Update the project without the isArchived field
-        const [updatedProject] = await db
-          .update(projects)
-          .set(safeData)
-          .where(eq(projects.id, id))
-          .returning();
+        // If isArchived is changing, update the status field accordingly
+        if (isArchived !== currentProject.isArchived) {
+          // Set status to "archived" if isArchived is true, otherwise keep current status or set to active
+          safeData.status = isArchived === true ? "archived" : (safeData.status || currentProject.status === "archived" ? "active" : currentProject.status);
           
-        if (updatedProject) {
-          // Add the isArchived field back to the returned object
-          return {
-            ...updatedProject,
-            isArchived: isArchivedValue
-          };
+          console.log(`Project ${id} archive status changing to ${isArchived}. Setting status to: ${safeData.status}`);
         }
-        return undefined;
+        
+        // Execute the update with the safe data object
+        const result = await db.execute(sql`
+          UPDATE projects
+          SET ${Object.entries(safeData).map(([key, value]) => {
+            // Convert camelCase to snake_case
+            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+            return sql`${sql.identifier([snakeKey])} = ${value}`;
+          }).reduce((acc, curr) => sql`${acc}, ${curr}`)}
+          WHERE id = ${id}
+          RETURNING 
+            id, 
+            name,
+            description,
+            client_id as "clientId",
+            project_type as "projectType",
+            start_date as "startDate",
+            estimated_completion_date as "estimatedCompletionDate",
+            actual_completion_date as "actualCompletionDate",
+            status,
+            budget,
+            current_phase as "currentPhase",
+            percent_complete as "percentComplete",
+            permit_details as "permitDetails",
+            notes,
+            is_template as "isTemplate",
+            template_name as "templateName",
+            template_category as "templateCategory"
+        `);
+        
+        if (result.rows.length === 0) {
+          return undefined;
+        }
+        
+        const updatedProject = result.rows[0];
+        
+        // Add virtual isArchived field based on status
+        return {
+          ...updatedProject,
+          isArchived: updatedProject.status === "archived"
+        };
       } else {
         // Regular update without isArchived field
         const [updatedProject] = await db
@@ -1775,7 +1838,15 @@ export class DatabaseStorage implements IStorage {
           .set(data)
           .where(eq(projects.id, id))
           .returning();
-        return updatedProject || undefined;
+          
+        if (updatedProject) {
+          // Add virtual isArchived field based on status
+          return {
+            ...updatedProject,
+            isArchived: updatedProject.status === "archived"
+          };
+        }
+        return undefined;
       }
     } catch (error) {
       console.error(`Error updating project ${id}:`, error);
@@ -1808,11 +1879,31 @@ export class DatabaseStorage implements IStorage {
 
   async getAllProjects(): Promise<Project[]> {
     try {
-      // Simple selection without isArchived
-      const results = await db.select().from(projects);
+      // Use explicit SQL to select only columns that exist in the database
+      const results = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          description,
+          client_id as "clientId",
+          project_type as "projectType",
+          start_date as "startDate",
+          estimated_completion_date as "estimatedCompletionDate",
+          actual_completion_date as "actualCompletionDate",
+          status,
+          budget,
+          current_phase as "currentPhase",
+          percent_complete as "percentComplete",
+          permit_details as "permitDetails",
+          notes,
+          is_template as "isTemplate",
+          template_name as "templateName",
+          template_category as "templateCategory"
+        FROM projects
+      `);
       
       // Manually process results to add virtual isArchived field based on status
-      const processedResults = results.map(project => ({
+      const processedResults = results.rows.map(project => ({
         ...project,
         // Virtual isArchived field - consider "archived" status as archived
         isArchived: project.status === "archived"
@@ -1830,11 +1921,32 @@ export class DatabaseStorage implements IStorage {
 
   async getProjectsByClientId(clientId: number): Promise<Project[]> {
     try {
-      // Simple selection without isArchived
-      const results = await db.select().from(projects).where(eq(projects.clientId, clientId));
+      // Use explicit SQL to select only columns that exist in the database
+      const results = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          description,
+          client_id as "clientId",
+          project_type as "projectType",
+          start_date as "startDate",
+          estimated_completion_date as "estimatedCompletionDate",
+          actual_completion_date as "actualCompletionDate",
+          status,
+          budget,
+          current_phase as "currentPhase",
+          percent_complete as "percentComplete",
+          permit_details as "permitDetails",
+          notes,
+          is_template as "isTemplate",
+          template_name as "templateName",
+          template_category as "templateCategory"
+        FROM projects
+        WHERE client_id = ${clientId}
+      `);
       
       // Manually process results to add virtual isArchived field based on status
-      const processedResults = results.map(project => ({
+      const processedResults = results.rows.map(project => ({
         ...project,
         // Virtual isArchived field - consider "archived" status as archived
         isArchived: project.status === "archived"
@@ -1849,11 +1961,32 @@ export class DatabaseStorage implements IStorage {
   
   async getProjectsByType(projectType: string): Promise<Project[]> {
     try {
-      // Simple selection without isArchived
-      const results = await db.select().from(projects).where(eq(projects.projectType, projectType));
+      // Use explicit SQL to select only columns that exist in the database
+      const results = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          description,
+          client_id as "clientId",
+          project_type as "projectType",
+          start_date as "startDate",
+          estimated_completion_date as "estimatedCompletionDate",
+          actual_completion_date as "actualCompletionDate",
+          status,
+          budget,
+          current_phase as "currentPhase",
+          percent_complete as "percentComplete",
+          permit_details as "permitDetails",
+          notes,
+          is_template as "isTemplate",
+          template_name as "templateName",
+          template_category as "templateCategory"
+        FROM projects
+        WHERE project_type = ${projectType}
+      `);
       
       // Manually process results to add virtual isArchived field based on status
-      const processedResults = results.map(project => ({
+      const processedResults = results.rows.map(project => ({
         ...project,
         // Virtual isArchived field - consider "archived" status as archived
         isArchived: project.status === "archived"
@@ -1864,6 +1997,52 @@ export class DatabaseStorage implements IStorage {
       console.error(`Error fetching projects for type ${projectType}:`, error);
       return [];
     }
+  }
+  
+  async getProjectsByStatus(status: string): Promise<Project[]> {
+    try {
+      // Use explicit SQL to select only columns that exist in the database
+      const results = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          description,
+          client_id as "clientId",
+          project_type as "projectType",
+          start_date as "startDate",
+          estimated_completion_date as "estimatedCompletionDate",
+          actual_completion_date as "actualCompletionDate",
+          status,
+          budget,
+          current_phase as "currentPhase",
+          percent_complete as "percentComplete",
+          permit_details as "permitDetails",
+          notes,
+          is_template as "isTemplate",
+          template_name as "templateName",
+          template_category as "templateCategory"
+        FROM projects
+        WHERE status = ${status}
+      `);
+      
+      // Manually process results to add virtual isArchived field based on status
+      const processedResults = results.rows.map(project => ({
+        ...project,
+        // Virtual isArchived field - consider "archived" status as archived
+        isArchived: project.status === "archived"
+      }));
+      
+      console.log(`Retrieved ${processedResults.length} projects with status: ${status}`);
+      
+      return processedResults;
+    } catch (error) {
+      console.error(`Error fetching projects with status ${status}:`, error);
+      return [];
+    }
+  }
+  
+  async getArchivedProjects(): Promise<Project[]> {
+    return this.getProjectsByStatus("archived");
   }
   
   async getProjectPhase(id: number): Promise<ProjectPhase | undefined> {

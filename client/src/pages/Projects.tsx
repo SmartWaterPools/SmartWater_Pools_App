@@ -302,19 +302,6 @@ export default function Projects() {
                             Details
                           </Button>
                         </Link>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSelectedProject(project);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </Button>
                       </div>
                     </div>
                   </div>
@@ -442,18 +429,6 @@ export default function Projects() {
                                 Details
                               </Button>
                             </Link>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-                              onClick={() => {
-                                setSelectedProject(project);
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
                           </div>
                         </td>
                       </tr>

@@ -456,13 +456,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Project routes
-  app.get("/api/projects", async (_req: Request, res: Response) => {
+  app.get("/api/projects", async (req: Request, res: Response) => {
     try {
+      // Check if we should include archived projects (by default exclude them)
+      const includeArchived = req.query.includeArchived === 'true';
+      
+      // Get all projects
       const projects = await storage.getAllProjects();
+      
+      // Filter out archived projects unless explicitly requested
+      const filteredProjects = includeArchived 
+        ? projects 
+        : projects.filter(project => !project.isArchived);
+        
+      console.log(`Retrieved ${projects.length} total projects, returning ${filteredProjects.length} ${includeArchived ? 'including' : 'excluding'} archived`);
 
       // Fetch additional data for each project
       const projectsWithDetails = await Promise.all(
-        projects.map(async (project) => {
+        filteredProjects.map(async (project) => {
           const clientWithUser = await storage.getClientWithUser(project.clientId);
           const assignments = await storage.getProjectAssignments(project.id);
 
@@ -484,7 +495,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(projectsWithDetails);
     } catch (error) {
+      console.error("Failed to fetch projects:", error);
       res.status(500).json({ message: "Failed to fetch projects" });
+    }
+  });
+  
+  // Endpoint to get archived projects
+  app.get("/api/projects/archived", async (_req: Request, res: Response) => {
+    try {
+      const archivedProjects = await storage.getArchivedProjects();
+      
+      // Fetch additional data for each archived project
+      const projectsWithDetails = await Promise.all(
+        archivedProjects.map(async (project) => {
+          const clientWithUser = await storage.getClientWithUser(project.clientId);
+          const assignments = await storage.getProjectAssignments(project.id);
+
+          // Get technician details for each assignment
+          const assignmentsWithTechnicians = await Promise.all(
+            assignments.map(async (assignment) => {
+              const technicianWithUser = await storage.getTechnicianWithUser(assignment.technicianId);
+              return { ...assignment, technician: technicianWithUser };
+            })
+          );
+
+          return {
+            ...project,
+            client: clientWithUser,
+            assignments: assignmentsWithTechnicians
+          };
+        })
+      );
+      
+      console.log(`Retrieved ${archivedProjects.length} archived projects`);
+      res.json(projectsWithDetails);
+    } catch (error) {
+      console.error("Failed to fetch archived projects:", error);
+      res.status(500).json({ message: "Failed to fetch archived projects" });
     }
   });
 
