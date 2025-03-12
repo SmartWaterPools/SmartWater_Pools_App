@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { 
   PlusCircle, 
@@ -11,7 +11,8 @@ import {
   MoreHorizontal,
   ClipboardList,
   Layers,
-  Edit
+  Edit,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,16 +35,53 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProjectWithDetails, formatDate, formatCurrency } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogHeader } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogHeader, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 export default function Projects() {
   const [open, setOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<ProjectWithDetails | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: rawProjects, isLoading } = useQuery<any[]>({
     queryKey: ["/api/projects"],
+  });
+  
+  // Delete project mutation
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest<void>(
+        `/api/projects/${id}`,
+        'DELETE'
+      );
+    },
+    onSuccess: () => {
+      toast({
+        title: "Project Deleted",
+        description: "The project has been successfully deleted.",
+        variant: "default",
+      });
+      
+      // Close dialog and clear selection
+      setDeleteDialogOpen(false);
+      setSelectedProject(null);
+      
+      // Invalidate the projects query to refetch the list
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+    },
+    onError: (error) => {
+      console.error("Error deleting project:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive",
+      });
+    }
   });
 
   // Process projects to ensure they have all required fields
@@ -243,6 +281,19 @@ export default function Projects() {
                             Details
                           </Button>
                         </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSelectedProject(project);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -365,6 +416,18 @@ export default function Projects() {
                                 Details
                               </Button>
                             </Link>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                              onClick={() => {
+                                setSelectedProject(project);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
                           </div>
                         </td>
                       </tr>
@@ -377,9 +440,52 @@ export default function Projects() {
         </TabsContent>
       </Tabs>
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog 
+        open={deleteDialogOpen} 
+        onOpenChange={setDeleteDialogOpen}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold">Delete Project</DialogTitle>
+            <DialogDescription className="text-gray-600 pt-2">
+              Are you sure you want to delete this project? This action cannot be undone, and all related data including phases, assignments, and documentation will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="bg-yellow-50 border border-yellow-100 p-3 rounded-md mt-2 text-sm">
+            <strong>Warning:</strong> Deleting "{selectedProject?.name}" will remove:
+            <ul className="list-disc pl-5 mt-1 space-y-1">
+              <li>All project phases and tasks</li>
+              <li>All team assignments</li>
+              <li>All documentation and files</li>
+              <li>All progress tracking</li>
+            </ul>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (selectedProject) {
+                  deleteProjectMutation.mutate(selectedProject.id);
+                }
+              }}
+              disabled={deleteProjectMutation.isPending}
+            >
+              {deleteProjectMutation.isPending ? 'Deleting...' : 'Delete Project'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Project Details Dialog */}
       <Dialog 
-        open={!!selectedProject} 
+        open={!!selectedProject && !deleteDialogOpen} 
         onOpenChange={(open) => !open && setSelectedProject(null)}
       >
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">

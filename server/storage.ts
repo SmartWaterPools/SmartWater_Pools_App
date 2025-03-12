@@ -51,6 +51,7 @@ export interface IStorage {
   getProject(id: number): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: number, project: Partial<Project>): Promise<Project | undefined>;
+  deleteProject(id: number): Promise<boolean>;
   getAllProjects(): Promise<Project[]>;
   getProjectsByClientId(clientId: number): Promise<Project[]>;
   getProjectsByType(projectType: string): Promise<Project[]>;
@@ -489,6 +490,26 @@ export class MemStorage implements IStorage {
     const updatedProject = { ...project, ...data };
     this.projects.set(id, updatedProject);
     return updatedProject;
+  }
+  
+  async deleteProject(id: number): Promise<boolean> {
+    const project = await this.getProject(id);
+    if (!project) return false;
+    
+    // Delete all phases associated with this project
+    const phases = await this.getProjectPhasesByProjectId(id);
+    for (const phase of phases) {
+      await this.deleteProjectPhase(phase.id);
+    }
+    
+    // Delete all project documents associated with this project
+    const documents = await this.getProjectDocumentsByProjectId(id);
+    for (const document of documents) {
+      await this.deleteProjectDocument(document.id);
+    }
+    
+    // Remove the project
+    return this.projects.delete(id);
   }
   
   async getAllProjects(): Promise<Project[]> {
@@ -1716,6 +1737,29 @@ export class DatabaseStorage implements IStorage {
       .where(eq(projects.id, id))
       .returning();
     return updatedProject || undefined;
+  }
+  
+  async deleteProject(id: number): Promise<boolean> {
+    try {
+      // Delete all phases associated with this project
+      const projectPhases = await this.getProjectPhasesByProjectId(id);
+      for (const phase of projectPhases) {
+        await this.deleteProjectPhase(phase.id);
+      }
+      
+      // Delete all project documents associated with this project
+      const projectDocuments = await this.getProjectDocumentsByProjectId(id);
+      for (const document of projectDocuments) {
+        await this.deleteProjectDocument(document.id);
+      }
+      
+      // Delete the project itself
+      const result = await db.delete(projects).where(eq(projects.id, id));
+      return result.rowCount > 0;
+    } catch (error) {
+      console.error(`Error deleting project ${id}:`, error);
+      return false;
+    }
   }
 
   async getAllProjects(): Promise<Project[]> {

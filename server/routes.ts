@@ -562,6 +562,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to update project" });
     }
   });
+  
+  app.delete("/api/projects/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const project = await storage.getProject(id);
+
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      const result = await storage.deleteProject(id);
+      if (result) {
+        res.status(200).json({ message: "Project deleted successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to delete project" });
+      }
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      res.status(500).json({ message: "Failed to delete project" });
+    }
+  });
 
   // Project Phases routes
   app.post("/api/project-phases", async (req: Request, res: Response) => {
