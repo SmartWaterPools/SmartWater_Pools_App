@@ -52,7 +52,8 @@ const projectFormSchema = insertProjectSchema.extend({
   startDate: z.date({
     required_error: "Start date is required",
   }),
-  estimatedEndDate: z.date({
+  // Use the expected schema field name but keep our UI field name
+  estimatedCompletionDate: z.date({
     required_error: "Estimated end date is required",
   }),
   status: z.enum(["planning", "in_progress", "review", "completed"], {
@@ -148,6 +149,8 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       status: "planning",
       projectType: "construction",
       permitDetails: "",
+      startDate: new Date(),
+      estimatedCompletionDate: new Date(new Date().setMonth(new Date().getMonth() + 3)),
     },
   });
 
@@ -156,7 +159,7 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       // Convert dates to ISO strings for the API
       const dataToSubmit = {
         ...values,
-        estimatedCompletionDate: values.estimatedEndDate.toISOString().split('T')[0],
+        estimatedCompletionDate: values.estimatedCompletionDate.toISOString().split('T')[0],
         startDate: values.startDate.toISOString().split('T')[0],
       };
       
@@ -329,7 +332,7 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
           
           <FormField
             control={form.control}
-            name="estimatedEndDate"
+            name="estimatedCompletionDate"
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Estimated End Date</FormLabel>
