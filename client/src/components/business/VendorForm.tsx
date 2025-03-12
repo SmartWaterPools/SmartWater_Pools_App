@@ -152,7 +152,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-[600px] md:w-full overflow-y-auto max-h-[85vh]">
         <DialogHeader>
           <DialogTitle>
             {vendorToEdit?.id ? "Edit Vendor" : "Add New Vendor"}
@@ -173,7 +173,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
                 <FormItem>
                   <FormLabel>Vendor Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter vendor name" {...field} />
+                    <Input placeholder="Enter vendor name" {...field} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -192,7 +192,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
                     defaultValue={field.value}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                     </FormControl>
@@ -209,78 +209,76 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Contact Name Field */}
-              <FormField
-                control={form.control}
-                name="contactName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Contact Name (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Primary contact person" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Contact Name Field - Full width on mobile */}
+            <FormField
+              control={form.control}
+              name="contactName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Contact Name (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Primary contact person" {...field} value={field.value || ""} className="w-full" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* Email Field */}
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email (Optional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        type="email" 
-                        placeholder="contact@vendor.com" 
-                        {...field} 
-                        value={field.value || ""} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {/* Email Field - Full width on mobile */}
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email (Optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="email" 
+                      placeholder="contact@vendor.com" 
+                      {...field} 
+                      value={field.value || ""} 
+                      className="w-full"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Phone Field */}
-              <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="555-123-4567" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            {/* Phone Field - Full width on mobile */}
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone (Optional)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="555-123-4567" {...field} value={field.value || ""} className="w-full" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              {/* Website Field */}
-              <FormField
-                control={form.control}
-                name="website"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Website (Optional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="https://www.vendor.com" 
-                        {...field} 
-                        value={field.value || ""} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {/* Website Field - Full width on mobile */}
+            <FormField
+              control={form.control}
+              name="website"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Website (Optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="https://www.vendor.com" 
+                      {...field} 
+                      value={field.value || ""} 
+                      className="w-full"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Address Field */}
             <FormField
@@ -290,7 +288,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
                 <FormItem>
                   <FormLabel>Address (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Vendor address" {...field} value={field.value || ""} />
+                    <Input placeholder="Vendor address" {...field} value={field.value || ""} className="w-full" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -311,7 +309,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
                   </FormControl>
                   <div className="space-y-1 leading-none">
                     <FormLabel>Active Vendor</FormLabel>
-                    <FormDescription>
+                    <FormDescription className="text-xs sm:text-sm">
                       Inactive vendors will not appear in select dropdowns for new orders.
                     </FormDescription>
                   </div>
@@ -331,6 +329,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
                       placeholder="Enter any additional notes about this vendor"
                       {...field}
                       value={field.value || ""}
+                      className="w-full min-h-[80px]"
                     />
                   </FormControl>
                   <FormMessage />
@@ -338,16 +337,16 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
               )}
             />
 
-            <DialogFooter>
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0 pt-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                className="gap-1"
+                className="gap-1 w-full sm:w-auto"
               >
                 <X className="h-4 w-4" /> Cancel
               </Button>
-              <Button type="submit" disabled={mutation.isPending} className="gap-1">
+              <Button type="submit" disabled={mutation.isPending} className="gap-1 w-full sm:w-auto">
                 {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {vendorToEdit?.id ? "Update Vendor" : "Create Vendor"}
               </Button>
