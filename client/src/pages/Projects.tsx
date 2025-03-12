@@ -187,8 +187,16 @@ export default function Projects() {
                   New Project
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <ProjectForm onClose={() => setOpen(false)} />
+              <DialogContent className="sm:max-w-lg md:max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] p-4 sm:p-6">
+                <DialogHeader>
+                  <DialogTitle>Create New Project</DialogTitle>
+                  <DialogDescription>
+                    Fill in the details below to create a new project.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="mt-4">
+                  <ProjectForm onClose={() => setOpen(false)} />
+                </div>
               </DialogContent>
             </Dialog>
           </div>

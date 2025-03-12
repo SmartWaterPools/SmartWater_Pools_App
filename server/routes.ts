@@ -684,12 +684,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/projects", async (req: Request, res: Response) => {
     try {
+      console.log("[VALIDATION] Input data:", JSON.stringify(req.body));
       const validation = validateRequest(insertProjectSchema, req.body);
 
       if (!validation.success) {
+        console.error("[VALIDATION] Failed:", validation.error);
         return res.status(400).json({ message: validation.error });
       }
 
+      console.log("[VALIDATION] Processed data:", JSON.stringify(validation.data));
+      
+      // Check if client exists before creating project
+      const clientExists = await storage.getClient(validation.data.clientId);
+      if (!clientExists) {
+        console.error(`[PROJECT CREATION] Client with ID ${validation.data.clientId} not found`);
+        return res.status(400).json({ 
+          message: `Client with ID ${validation.data.clientId} not found`,
+          field: "clientId" 
+        });
+      }
+
+      console.log("[VALIDATION] Validated data:", JSON.stringify(validation.data));
       const project = await storage.createProject(validation.data);
 
       // If technicians are assigned, create the assignments
@@ -707,7 +722,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(project);
     } catch (error) {
-      res.status(500).json({ message: "Failed to create project" });
+      console.error("[PROJECT CREATION] Error:", error);
+      res.status(500).json({ message: "Failed to create project", error: String(error) });
     }
   });
 

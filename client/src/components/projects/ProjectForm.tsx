@@ -201,13 +201,13 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 w-full">
         <FormField
           control={form.control}
           name="clientId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Client</FormLabel>
+              <FormLabel className="text-base">Client</FormLabel>
               <Select
                 disabled={clientsLoading || mutation.isPending}
                 onValueChange={(value) => {
@@ -217,11 +217,11 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
                 value={field.value?.toString()}
               >
                 <FormControl>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a client" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
+                <SelectContent position="popper" className="max-h-[200px]">
                   {clients?.map((client: any) => (
                     <SelectItem key={client.id} value={client.id.toString()}>
                       {client.user?.name || 'Unknown Client'}
@@ -316,12 +316,13 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 z-50" align="start" sideOffset={4} side="bottom">
                     <Calendar
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
                       initialFocus
+                      className="rounded-md border"
                     />
                   </PopoverContent>
                 </Popover>
@@ -355,12 +356,13 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
                       </Button>
                     </FormControl>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 z-50" align="start" sideOffset={4} side="bottom">
                     <Calendar
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
                       initialFocus
+                      className="rounded-md border"
                       disabled={(date) => {
                         // Disable dates before start date
                         const startDate = form.getValues("startDate");
@@ -451,7 +453,7 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
           )}
         />
         
-        <div className="flex justify-end gap-2 pt-2">
+        <div className="flex justify-end gap-2 pt-4">
           <Button
             type="button"
             variant="outline"
