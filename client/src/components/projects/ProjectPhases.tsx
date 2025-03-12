@@ -5,6 +5,7 @@ import { getTemplateByKey, getTemplateOptions, PhaseTemplate } from "@/lib/phase
 import { format } from "date-fns";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -145,6 +146,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [phaseToDelete, setPhaseToDelete] = useState<ProjectPhase | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [replaceExistingPhases, setReplaceExistingPhases] = useState(false);
 
   // Fetch project phases
   const { data: phases = [], isLoading, isError, error } = useQuery<ProjectPhase[]>({
@@ -385,16 +387,85 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
     addPhaseMutation.mutate(values);
   }
   
+  // Mutation for deleting all existing phases in a project
+  const deleteAllPhasesMutation = useMutation({
+    mutationFn: async () => {
+      // First get all existing phases
+      const existingPhases = await makeRequest<ProjectPhase[]>({
+        url: `/api/projects/${projectId}/phases`,
+        method: "GET"
+      });
+      
+      // Delete each phase in sequence
+      for (const phase of existingPhases) {
+        await makeRequest<any>({
+          url: `/api/project-phases/${phase.id}`,
+          method: "DELETE"
+        });
+      }
+      
+      return true;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Phases Removed",
+        description: "Existing phases have been removed",
+      });
+      // No need to invalidate query here as the template application will do that
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to remove existing phases",
+        variant: "destructive",
+      });
+      console.error("Phase deletion failed:", error);
+    },
+  });
+
+  // Mutation for deleting a phase
+  const deletePhaseMutation = useMutation({
+    mutationFn: async (phaseId: number) => {
+      return await makeRequest<boolean>({
+        url: `/api/project-phases/${phaseId}`,
+        method: "DELETE"
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Project phase deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "phases"] });
+      setShowDeleteConfirm(false);
+      setPhaseToDelete(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete project phase",
+        variant: "destructive",
+      });
+      console.error("Phase deletion failed:", error);
+    },
+  });
+
   // Mutation for applying a template (creating multiple phases from a template)
   const applyTemplateMutation = useMutation({
-    mutationFn: async (templateKey: string) => {
+    mutationFn: async ({ templateKey, replace }: { templateKey: string, replace: boolean }) => {
       const template = getTemplateByKey(templateKey);
       
       if (!template) {
         throw new Error("Template not found");
       }
       
-      const currentPhasesCount = Array.isArray(phases) ? phases.length : 0;
+      // If replacing existing phases, delete them first
+      if (replace && phases.length > 0) {
+        await deleteAllPhasesMutation.mutateAsync();
+      }
+      
+      // Get the current phase count (which will be 0 if we deleted them all)
+      const currentPhasesCount = replace ? 0 : (Array.isArray(phases) ? phases.length : 0);
       
       // Create a promise for each phase in the template
       const promises = template.phases.map(async (phaseTemplate, index) => {
@@ -427,7 +498,18 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
       });
       
       // Wait for all phases to be created
-      return await Promise.all(promises);
+      const newPhases = await Promise.all(promises);
+      
+      // If we replaced all phases, set the first one as the current phase
+      if (replace && newPhases.length > 0) {
+        await makeRequest<any>({
+          url: `/api/projects/${projectId}`,
+          method: "PATCH",
+          data: { currentPhase: newPhases[0].id }
+        });
+      }
+      
+      return newPhases;
     },
     onSuccess: () => {
       toast({
@@ -437,6 +519,7 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "phases"] });
       setShowTemplateDialog(false);
       setSelectedTemplate("");
+      setReplaceExistingPhases(false);
     },
     onError: (error) => {
       toast({
@@ -445,42 +528,21 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
         variant: "destructive",
       });
       console.error("Template application failed:", error);
+      setReplaceExistingPhases(false);
     },
   });
   
   // Handle template selection and application
   function applyTemplate() {
     if (selectedTemplate) {
-      applyTemplateMutation.mutate(selectedTemplate);
+      applyTemplateMutation.mutate({ 
+        templateKey: selectedTemplate,
+        replace: replaceExistingPhases
+      });
     }
   }
 
-  // Mutation for deleting a phase
-  const deletePhaseMutation = useMutation({
-    mutationFn: async (phaseId: number) => {
-      return await makeRequest<any>({
-        url: `/api/project-phases/${phaseId}`,
-        method: "DELETE"
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Project phase deleted successfully",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "phases"] });
-      setShowDeleteConfirm(false);
-      setPhaseToDelete(null);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "Failed to delete project phase",
-        variant: "destructive",
-      });
-      console.error("Phase deletion failed:", error);
-    },
-  });
+
 
   // Update project to set current phase
   const updateCurrentPhaseMutation = useMutation({
@@ -1479,6 +1541,31 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                 </SelectContent>
               </Select>
             </div>
+            
+            {phases.length > 0 && (
+              <div className="space-y-2 mt-4">
+                <label className="text-sm font-medium">Existing Phases</label>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="replace-phases" 
+                    checked={replaceExistingPhases}
+                    onCheckedChange={(checked: boolean | "indeterminate") => setReplaceExistingPhases(checked === true)}
+                    disabled={applyTemplateMutation.isPending}
+                  />
+                  <label
+                    htmlFor="replace-phases"
+                    className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Replace existing phases with template
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {replaceExistingPhases 
+                    ? "All existing phases will be deleted and replaced with the template phases." 
+                    : "Template phases will be added after your existing phases."}
+                </p>
+              </div>
+            )}
             
             {selectedTemplate && (
               <div className="bg-muted/20 rounded-lg p-4 mt-4">

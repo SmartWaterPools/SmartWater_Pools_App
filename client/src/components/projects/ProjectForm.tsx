@@ -89,52 +89,48 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
     return await apiRequest<T>(url, method, data);
   };
   
-  // Function to create initial project phases for construction projects
+  // Function to create initial project phase for new projects
+  // Only creates a single "Design & Planning" phase until more phases are added or a template is used
   const createInitialProjectPhases = async (projectId: number) => {
     try {
-      // Define standard construction project phases
-      const constructionPhases = [
-        { name: "Design & Planning", order: 1, status: "planning", percentComplete: 0 },
-        { name: "Permits & Approvals", order: 2, status: "pending", percentComplete: 0 },
-        { name: "Excavation & Site Prep", order: 3, status: "pending", percentComplete: 0 },
-        { name: "Foundation", order: 4, status: "pending", percentComplete: 0 },
-        { name: "Pool Shell Construction", order: 5, status: "pending", percentComplete: 0 },
-        { name: "Plumbing & Electrical", order: 6, status: "pending", percentComplete: 0 },
-        { name: "Decking & Finishes", order: 7, status: "pending", percentComplete: 0 },
-        { name: "Equipment Installation", order: 8, status: "pending", percentComplete: 0 },
-        { name: "Final Inspection", order: 9, status: "pending", percentComplete: 0 },
-      ];
+      // Create only the initial Design & Planning phase
+      const initialPhase = { 
+        name: "Design & Planning", 
+        order: 1, 
+        status: "planning", 
+        percentComplete: 0 
+      };
       
-      // Create each phase in sequence
-      for (const phase of constructionPhases) {
+      // Create the single initial phase
+      const phaseResponse = await makeRequest<any>({
+        url: "/api/project-phases",
+        method: "POST",
+        data: {
+          ...initialPhase,
+          projectId
+        },
+      });
+      
+      // Set the current phase to the newly created phase ID
+      if (phaseResponse && phaseResponse.id) {
         await makeRequest<any>({
-          url: "/api/project-phases",
-          method: "POST",
+          url: `/api/projects/${projectId}`,
+          method: "PATCH",
           data: {
-            ...phase,
-            projectId
+            currentPhase: phaseResponse.id
           },
         });
       }
       
-      // Update the project with the first phase as current phase
-      await makeRequest<any>({
-        url: `/api/projects/${projectId}`,
-        method: "PATCH",
-        data: {
-          currentPhase: "Design & Planning"
-        },
-      });
-      
       toast({
-        title: "Project Phases Created",
-        description: "Initial project phases have been created",
+        title: "Project Created",
+        description: "Project initialized with Design & Planning phase",
       });
     } catch (error) {
-      console.error("Failed to create project phases:", error);
+      console.error("Failed to create initial project phase:", error);
       toast({
         title: "Error",
-        description: "Failed to create project phases",
+        description: "Failed to create initial project phase",
         variant: "destructive",
       });
     }
@@ -177,10 +173,8 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
         description: "Project created successfully",
       });
       
-      // Create initial project phases for construction projects
-      if (form.getValues("projectType") === "construction" || form.getValues("projectType") === "renovation") {
-        createInitialProjectPhases(data.id);
-      }
+      // Create initial "Design & Planning" phase for all new projects
+      createInitialProjectPhases(data.id);
       
       form.reset();
       onClose();
