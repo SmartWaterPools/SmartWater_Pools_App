@@ -243,13 +243,6 @@ export default function Projects() {
                             Details
                           </Button>
                         </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => setSelectedProject(project)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
                       </div>
                     </div>
                   </div>
@@ -372,14 +365,6 @@ export default function Projects() {
                                 Details
                               </Button>
                             </Link>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-8 w-8 text-gray-600"
-                              onClick={() => setSelectedProject(project)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
                           </div>
                         </td>
                       </tr>

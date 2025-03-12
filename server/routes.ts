@@ -633,6 +633,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete("/api/project-phases/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const phase = await storage.getProjectPhase(id);
+
+      if (!phase) {
+        return res.status(404).json({ message: "Project phase not found" });
+      }
+
+      const result = await storage.deleteProjectPhase(id);
+      
+      if (result) {
+        res.status(200).json({ success: true });
+      } else {
+        res.status(500).json({ message: "Failed to delete project phase" });
+      }
+    } catch (error) {
+      console.error("Error deleting project phase:", error);
+      res.status(500).json({ message: "Failed to delete project phase" });
+    }
+  });
+
   // Maintenance routes
   app.get("/api/maintenances", async (_req: Request, res: Response) => {
     try {

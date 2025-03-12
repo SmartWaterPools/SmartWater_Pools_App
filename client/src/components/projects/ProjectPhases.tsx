@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle, BarChart2, FileText } from "lucide-react";
+import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle, BarChart2, FileText, Trash2 } from "lucide-react";
 import { getTemplateByKey, getTemplateOptions, PhaseTemplate } from "@/lib/phaseTemplates";
 import { format } from "date-fns";
 
@@ -143,6 +143,8 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
   const [showAddPhaseDialog, setShowAddPhaseDialog] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [phaseToDelete, setPhaseToDelete] = useState<ProjectPhase | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Fetch project phases
   const { data: phases = [], isLoading, isError, error } = useQuery<ProjectPhase[]>({
@@ -453,6 +455,33 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
     }
   }
 
+  // Mutation for deleting a phase
+  const deletePhaseMutation = useMutation({
+    mutationFn: async (phaseId: number) => {
+      return await makeRequest<any>({
+        url: `/api/project-phases/${phaseId}`,
+        method: "DELETE"
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Project phase deleted successfully",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "phases"] });
+      setShowDeleteConfirm(false);
+      setPhaseToDelete(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to delete project phase",
+        variant: "destructive",
+      });
+      console.error("Phase deletion failed:", error);
+    },
+  });
+
   // Update project to set current phase
   const updateCurrentPhaseMutation = useMutation({
     mutationFn: async (phaseName: string) => {
@@ -637,6 +666,18 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           >
                             <Edit className="w-4 h-4 mr-1" />
                             Edit
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setPhaseToDelete(phase);
+                              setShowDeleteConfirm(true);
+                            }}
+                            className="w-full xs:w-auto text-red-500 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
                           </Button>
                         </div>
                       </div>
@@ -1488,6 +1529,49 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
               disabled={!selectedTemplate || applyTemplateMutation.isPending}
             >
               {applyTemplateMutation.isPending ? "Adding Phases..." : "Apply Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={(open) => !open && setShowDeleteConfirm(false)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Project Phase</DialogTitle>
+          </DialogHeader>
+          <div className="py-3">
+            <p className="mb-2">Are you sure you want to delete this phase?</p>
+            {phaseToDelete && (
+              <div className="p-3 border rounded-md bg-muted/30">
+                <p className="font-medium">{phaseToDelete.name}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {phaseToDelete.description || "No description available"}
+                </p>
+              </div>
+            )}
+            <p className="mt-4 text-sm text-amber-600">
+              <AlertTriangle className="h-4 w-4 inline-block mr-1" />
+              This action cannot be undone. This will permanently delete the phase and all associated data.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setPhaseToDelete(null);
+              }}
+              disabled={deletePhaseMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => phaseToDelete && deletePhaseMutation.mutate(phaseToDelete.id)}
+              disabled={!phaseToDelete || deletePhaseMutation.isPending}
+            >
+              {deletePhaseMutation.isPending ? "Deleting..." : "Delete Phase"}
             </Button>
           </DialogFooter>
         </DialogContent>

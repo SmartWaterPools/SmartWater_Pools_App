@@ -59,6 +59,7 @@ export interface IStorage {
   getProjectPhase(id: number): Promise<ProjectPhase | undefined>;
   createProjectPhase(phase: InsertProjectPhase): Promise<ProjectPhase>;
   updateProjectPhase(id: number, phase: Partial<ProjectPhase>): Promise<ProjectPhase | undefined>;
+  deleteProjectPhase(id: number): Promise<boolean>;
   getProjectPhasesByProjectId(projectId: number): Promise<ProjectPhase[]>;
   
   // Project assignment operations
@@ -534,6 +535,13 @@ export class MemStorage implements IStorage {
     const updatedPhase = { ...phase, ...data };
     this.projectPhases.set(id, updatedPhase);
     return updatedPhase;
+  }
+  
+  async deleteProjectPhase(id: number): Promise<boolean> {
+    const phase = await this.getProjectPhase(id);
+    if (!phase) return false;
+    
+    return this.projectPhases.delete(id);
   }
   
   async getProjectPhasesByProjectId(projectId: number): Promise<ProjectPhase[]> {
@@ -1771,6 +1779,24 @@ export class DatabaseStorage implements IStorage {
       .where(eq(projectPhases.id, id))
       .returning();
     return result || undefined;
+  }
+  
+  async deleteProjectPhase(id: number): Promise<boolean> {
+    try {
+      // First check if the phase exists
+      const phase = await this.getProjectPhase(id);
+      if (!phase) return false;
+      
+      // Delete the phase
+      const result = await db.delete(projectPhases)
+        .where(eq(projectPhases.id, id));
+      
+      // Return true if deletion was successful
+      return true;
+    } catch (error) {
+      console.error("Error deleting project phase:", error);
+      return false;
+    }
   }
   
   async getProjectPhasesByProjectId(projectId: number): Promise<ProjectPhase[]> {
