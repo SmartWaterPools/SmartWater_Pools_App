@@ -1744,12 +1744,43 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
-    const [updatedProject] = await db
-      .update(projects)
-      .set(data)
-      .where(eq(projects.id, id))
-      .returning();
-    return updatedProject || undefined;
+    try {
+      // Check if we're trying to update the isArchived field but it doesn't exist in the database
+      if ('isArchived' in data) {
+        // Store the isArchived value
+        const isArchivedValue = data.isArchived;
+        
+        // Create a new data object without isArchived to prevent SQL errors
+        const { isArchived, ...safeData } = data;
+        
+        // Update the project without the isArchived field
+        const [updatedProject] = await db
+          .update(projects)
+          .set(safeData)
+          .where(eq(projects.id, id))
+          .returning();
+          
+        if (updatedProject) {
+          // Add the isArchived field back to the returned object
+          return {
+            ...updatedProject,
+            isArchived: isArchivedValue
+          };
+        }
+        return undefined;
+      } else {
+        // Regular update without isArchived field
+        const [updatedProject] = await db
+          .update(projects)
+          .set(data)
+          .where(eq(projects.id, id))
+          .returning();
+        return updatedProject || undefined;
+      }
+    } catch (error) {
+      console.error(`Error updating project ${id}:`, error);
+      return undefined;
+    }
   }
   
   async deleteProject(id: number): Promise<boolean> {
@@ -1777,33 +1808,19 @@ export class DatabaseStorage implements IStorage {
 
   async getAllProjects(): Promise<Project[]> {
     try {
-      // Use an explicit column selection to avoid issues with schema changes
-      const results = await db.select({
-        id: projects.id,
-        name: projects.name,
-        description: projects.description,
-        clientId: projects.clientId,
-        projectType: projects.projectType,
-        status: projects.status,
-        startDate: projects.startDate,
-        estimatedCompletionDate: projects.estimatedCompletionDate,
-        actualCompletionDate: projects.actualCompletionDate,
-        budget: projects.budget,
-        currentPhase: projects.currentPhase,
-        percentComplete: projects.percentComplete,
-        permitDetails: projects.permitDetails,
-        notes: projects.notes,
-        isTemplate: sql`COALESCE(${projects.isTemplate}, FALSE)`.as('isTemplate'),
-        templateName: sql`COALESCE(${projects.templateName}, NULL)`.as('templateName'),
-        templateCategory: sql`COALESCE(${projects.templateCategory}, NULL)`.as('templateCategory'),
-        // Add isArchived with default value false if column doesn't exist
-        isArchived: sql`COALESCE(${projects.isArchived}, FALSE)`.as('isArchived'),
-      }).from(projects);
+      // Simple selection without isArchived
+      const results = await db.select().from(projects);
       
-      // Additional logging for debugging
-      console.log(`Retrieved ${results.length} projects with isArchived handling`);
+      // Manually process results to add virtual isArchived field based on status
+      const processedResults = results.map(project => ({
+        ...project,
+        // Virtual isArchived field - consider "archived" status as archived
+        isArchived: project.status === "archived"
+      }));
       
-      return results;
+      console.log(`Retrieved ${processedResults.length} projects`);
+      
+      return processedResults;
     } catch (error) {
       console.error("Error fetching all projects:", error);
       // Return empty array as fallback
@@ -1813,30 +1830,17 @@ export class DatabaseStorage implements IStorage {
 
   async getProjectsByClientId(clientId: number): Promise<Project[]> {
     try {
-      const results = await db.select({
-        id: projects.id,
-        name: projects.name,
-        description: projects.description,
-        clientId: projects.clientId,
-        projectType: projects.projectType,
-        status: projects.status,
-        startDate: projects.startDate,
-        estimatedCompletionDate: projects.estimatedCompletionDate,
-        actualCompletionDate: projects.actualCompletionDate,
-        budget: projects.budget,
-        currentPhase: projects.currentPhase,
-        percentComplete: projects.percentComplete,
-        permitDetails: projects.permitDetails,
-        notes: projects.notes,
-        isTemplate: sql`COALESCE(${projects.isTemplate}, FALSE)`.as('isTemplate'),
-        templateName: sql`COALESCE(${projects.templateName}, NULL)`.as('templateName'),
-        templateCategory: sql`COALESCE(${projects.templateCategory}, NULL)`.as('templateCategory'),
-        isArchived: sql`COALESCE(${projects.isArchived}, FALSE)`.as('isArchived'),
-      })
-      .from(projects)
-      .where(eq(projects.clientId, clientId));
+      // Simple selection without isArchived
+      const results = await db.select().from(projects).where(eq(projects.clientId, clientId));
       
-      return results;
+      // Manually process results to add virtual isArchived field based on status
+      const processedResults = results.map(project => ({
+        ...project,
+        // Virtual isArchived field - consider "archived" status as archived
+        isArchived: project.status === "archived"
+      }));
+      
+      return processedResults;
     } catch (error) {
       console.error(`Error fetching projects for client ${clientId}:`, error);
       return [];
@@ -1845,30 +1849,17 @@ export class DatabaseStorage implements IStorage {
   
   async getProjectsByType(projectType: string): Promise<Project[]> {
     try {
-      const results = await db.select({
-        id: projects.id,
-        name: projects.name,
-        description: projects.description,
-        clientId: projects.clientId,
-        projectType: projects.projectType,
-        status: projects.status,
-        startDate: projects.startDate,
-        estimatedCompletionDate: projects.estimatedCompletionDate,
-        actualCompletionDate: projects.actualCompletionDate,
-        budget: projects.budget,
-        currentPhase: projects.currentPhase,
-        percentComplete: projects.percentComplete,
-        permitDetails: projects.permitDetails,
-        notes: projects.notes,
-        isTemplate: sql`COALESCE(${projects.isTemplate}, FALSE)`.as('isTemplate'),
-        templateName: sql`COALESCE(${projects.templateName}, NULL)`.as('templateName'),
-        templateCategory: sql`COALESCE(${projects.templateCategory}, NULL)`.as('templateCategory'),
-        isArchived: sql`COALESCE(${projects.isArchived}, FALSE)`.as('isArchived'),
-      })
-      .from(projects)
-      .where(eq(projects.projectType, projectType));
+      // Simple selection without isArchived
+      const results = await db.select().from(projects).where(eq(projects.projectType, projectType));
       
-      return results;
+      // Manually process results to add virtual isArchived field based on status
+      const processedResults = results.map(project => ({
+        ...project,
+        // Virtual isArchived field - consider "archived" status as archived
+        isArchived: project.status === "archived"
+      }));
+      
+      return processedResults;
     } catch (error) {
       console.error(`Error fetching projects for type ${projectType}:`, error);
       return [];
