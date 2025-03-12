@@ -32,6 +32,7 @@ export interface ProjectWithDetails {
   budget: number | null;
   assignments: Array<ProjectAssignmentWithTechnician>;
   notes: string | null;
+  isArchived?: boolean;
   // Additional properties used in the UI
   completion: number;
   deadline: string | Date;

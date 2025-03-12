@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -8,23 +8,96 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { ProjectPhases } from "@/components/projects/ProjectPhases";
 import { DocumentGallery } from "@/components/documents";
 import { getStatusClasses, ProjectWithDetails } from "@/lib/types";
-import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus } from "lucide-react";
+import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus, Trash2, Archive } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/types";
 import { Link } from "wouter";
 import { ProjectEditForm } from "@/components/projects/ProjectEditForm";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ProjectDetails() {
   const { id } = useParams();
   const projectId = parseInt(id || "0");
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditingProject, setIsEditingProject] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
   
-  // Parse query parameters
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [_location, setLocation] = useLocation();
   const initialTab = new URLSearchParams(window.location.search).get("tab");
+  
+  // Delete project mutation
+  const deleteMutation = useMutation({
+    mutationFn: () => {
+      return apiRequest<void>(
+        `/api/projects/${projectId}`,
+        'DELETE'
+      );
+    },
+    onSuccess: () => {
+      toast({
+        title: "Project deleted",
+        description: "The project has been permanently deleted",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      // Navigate back to projects list
+      setLocation('/projects');
+    },
+    onError: (error) => {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Archive/Unarchive project mutation
+  const archiveMutation = useMutation({
+    mutationFn: () => {
+      // Toggle the isArchived status
+      return apiRequest<any>(
+        `/api/projects/${projectId}`,
+        'PATCH',
+        { isArchived: !projectData.isArchived }
+      );
+    },
+    onSuccess: () => {
+      toast({
+        title: projectData.isArchived ? "Project unarchived" : "Project archived",
+        description: projectData.isArchived 
+          ? "The project has been removed from the archive" 
+          : "The project has been moved to the archive",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/projects'] });
+      // Refresh the current page to show updated archive status
+      queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId] });
+      setArchiveDialogOpen(false);
+    },
+    onError: (error) => {
+      console.error(`Error ${projectData.isArchived ? 'unarchiving' : 'archiving'} project:`, error);
+      toast({
+        title: "Error",
+        description: `Failed to ${projectData.isArchived ? 'unarchive' : 'archive'} project. Please try again.`,
+        variant: "destructive",
+      });
+    }
+  });
   
   // Use initial tab if provided
   React.useEffect(() => {
@@ -520,9 +593,101 @@ export default function ProjectDetails() {
           <Card>
             <CardHeader>
               <CardTitle>Project Settings</CardTitle>
+              <CardDescription>
+                Manage project settings, archive, or delete this project
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p>Project settings functionality will be implemented here.</p>
+            <CardContent className="space-y-6">
+              {/* General Settings Section */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">General Settings</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border p-3 rounded-md">
+                    <div>
+                      <p className="font-medium">Project Status</p>
+                      <p className="text-sm text-muted-foreground">Change project status</p>
+                    </div>
+                    <Select defaultValue={projectData.status}>
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="planning">Planning</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="on_hold">On Hold</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Archive Project Section */}
+              <div>
+                <h3 className="text-lg font-medium mb-3">{projectData.isArchived ? 'Unarchive Project' : 'Archive Project'}</h3>
+                <div className={`border p-4 rounded-md ${projectData.isArchived ? 'bg-amber-50 border-amber-200' : ''}`}>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      {projectData.isArchived ? (
+                        <>
+                          <p className="font-medium">Unarchive this project</p>
+                          <p className="text-sm text-muted-foreground">
+                            Unarchived projects will be visible in the main projects list again.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium">Archive this project</p>
+                          <p className="text-sm text-muted-foreground">
+                            Archived projects are hidden from the main projects list but can still be accessed. This action can be reversed.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <Button 
+                      variant={projectData.isArchived ? "default" : "outline"} 
+                      className="flex items-center gap-2"
+                      onClick={() => setArchiveDialogOpen(true)}
+                    >
+                      {projectData.isArchived ? (
+                        <>
+                          <Archive className="h-4 w-4" />
+                          Unarchive
+                        </>
+                      ) : (
+                        <>
+                          <Archive className="h-4 w-4" />
+                          Archive
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Delete Project Section */}
+              <div>
+                <h3 className="text-lg font-medium mb-3 text-destructive">Danger Zone</h3>
+                <div className="border border-destructive p-4 rounded-md">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1">
+                      <p className="font-medium">Delete this project</p>
+                      <p className="text-sm text-muted-foreground">
+                        Once deleted, this project and all associated data will be permanently removed. This action cannot be undone.
+                      </p>
+                    </div>
+                    <Button 
+                      variant="destructive" 
+                      className="flex items-center gap-2"
+                      onClick={() => setDeleteDialogOpen(true)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -536,6 +701,104 @@ export default function ProjectDetails() {
           project={projectData}
         />
       )}
+      
+      {/* Archive/Unarchive Project Confirmation Dialog */}
+      <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{projectData.isArchived ? 'Unarchive project' : 'Archive project'}</DialogTitle>
+            <DialogDescription>
+              {projectData.isArchived ? (
+                'Are you sure you want to unarchive this project? It will be visible again in the main project list.'
+              ) : (
+                'Are you sure you want to archive this project? Archived projects will be hidden from the main project list but can still be accessed.'
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <h4 className="font-medium">{projectData.name}</h4>
+            <p className="text-sm text-muted-foreground">{projectData.description || "No description"}</p>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setArchiveDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              className="flex items-center gap-2"
+              onClick={() => archiveMutation.mutate()}
+              disabled={archiveMutation.isPending}
+            >
+              {archiveMutation.isPending ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                  {projectData.isArchived ? 'Unarchiving...' : 'Archiving...'}
+                </>
+              ) : (
+                <>
+                  <Archive className="h-4 w-4" />
+                  {projectData.isArchived ? 'Unarchive Project' : 'Archive Project'}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Project Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to permanently delete this project? 
+              This action cannot be undone and all project data will be lost.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 border border-destructive bg-destructive/5 px-4 rounded-md">
+            <h4 className="font-medium">{projectData.name}</h4>
+            <p className="text-sm text-muted-foreground">{projectData.description || "No description"}</p>
+            
+            <div className="mt-4 text-sm text-destructive">
+              <strong>Warning:</strong> This will also delete:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>All project phases and associated tasks</li>
+                <li>All project documents and files</li>
+                <li>All team assignments</li>
+                <li>All communication records</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              className="flex items-center gap-2"
+              onClick={() => deleteMutation.mutate()}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="h-4 w-4" />
+                  Delete Permanently
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

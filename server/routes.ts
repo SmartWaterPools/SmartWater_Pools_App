@@ -491,29 +491,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      console.log(`[API] GET /api/projects/${id} - Fetching project...`);
+      
       const project = await storage.getProject(id);
+      console.log(`[API] Project fetch result:`, project ? `Found project: ${project.name}` : 'Project not found');
 
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
 
+      console.log(`[API] Fetching client details for client ID ${project.clientId}...`);
       const clientWithUser = await storage.getClientWithUser(project.clientId);
+      console.log(`[API] Client details:`, clientWithUser ? `Found client: ${clientWithUser.user.name}` : 'Client not found');
+      
+      console.log(`[API] Fetching project assignments...`);
       const assignments = await storage.getProjectAssignments(project.id);
+      console.log(`[API] Found ${assignments.length} assignments`);
 
       // Get technician details for each assignment
+      console.log(`[API] Processing technician details for assignments...`);
       const assignmentsWithTechnicians = await Promise.all(
         assignments.map(async (assignment) => {
+          console.log(`[API] Fetching technician ${assignment.technicianId} details...`);
           const technicianWithUser = await storage.getTechnicianWithUser(assignment.technicianId);
           return { ...assignment, technician: technicianWithUser };
         })
       );
 
+      console.log(`[API] Successfully prepared project response data`);
       res.json({
         ...project,
         client: clientWithUser,
         assignments: assignmentsWithTechnicians
       });
     } catch (error) {
+      console.error(`[API] Error fetching project:`, error);
       res.status(500).json({ message: "Failed to fetch project" });
     }
   });

@@ -1721,8 +1721,21 @@ export class DatabaseStorage implements IStorage {
 
   // Project operations
   async getProject(id: number): Promise<Project | undefined> {
-    const [project] = await db.select().from(projects).where(eq(projects.id, id));
-    return project || undefined;
+    try {
+      const [project] = await db.select().from(projects).where(eq(projects.id, id));
+      // Handle case where isArchived might not exist in the database yet
+      if (project && !('isArchived' in project)) {
+        console.log(`Project ${id} retrieved without isArchived field, adding default value`);
+        return {
+          ...project,
+          isArchived: false
+        };
+      }
+      return project || undefined;
+    } catch (error) {
+      console.error(`Error retrieving project ${id}:`, error);
+      throw error;
+    }
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
@@ -1765,7 +1778,7 @@ export class DatabaseStorage implements IStorage {
   async getAllProjects(): Promise<Project[]> {
     try {
       // Use an explicit column selection to avoid issues with schema changes
-      return await db.select({
+      const results = await db.select({
         id: projects.id,
         name: projects.name,
         description: projects.description,
@@ -1783,7 +1796,14 @@ export class DatabaseStorage implements IStorage {
         isTemplate: sql`COALESCE(${projects.isTemplate}, FALSE)`.as('isTemplate'),
         templateName: sql`COALESCE(${projects.templateName}, NULL)`.as('templateName'),
         templateCategory: sql`COALESCE(${projects.templateCategory}, NULL)`.as('templateCategory'),
+        // Add isArchived with default value false if column doesn't exist
+        isArchived: sql`COALESCE(${projects.isArchived}, FALSE)`.as('isArchived'),
       }).from(projects);
+      
+      // Additional logging for debugging
+      console.log(`Retrieved ${results.length} projects with isArchived handling`);
+      
+      return results;
     } catch (error) {
       console.error("Error fetching all projects:", error);
       // Return empty array as fallback
@@ -1792,11 +1812,67 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProjectsByClientId(clientId: number): Promise<Project[]> {
-    return await db.select().from(projects).where(eq(projects.clientId, clientId));
+    try {
+      const results = await db.select({
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        clientId: projects.clientId,
+        projectType: projects.projectType,
+        status: projects.status,
+        startDate: projects.startDate,
+        estimatedCompletionDate: projects.estimatedCompletionDate,
+        actualCompletionDate: projects.actualCompletionDate,
+        budget: projects.budget,
+        currentPhase: projects.currentPhase,
+        percentComplete: projects.percentComplete,
+        permitDetails: projects.permitDetails,
+        notes: projects.notes,
+        isTemplate: sql`COALESCE(${projects.isTemplate}, FALSE)`.as('isTemplate'),
+        templateName: sql`COALESCE(${projects.templateName}, NULL)`.as('templateName'),
+        templateCategory: sql`COALESCE(${projects.templateCategory}, NULL)`.as('templateCategory'),
+        isArchived: sql`COALESCE(${projects.isArchived}, FALSE)`.as('isArchived'),
+      })
+      .from(projects)
+      .where(eq(projects.clientId, clientId));
+      
+      return results;
+    } catch (error) {
+      console.error(`Error fetching projects for client ${clientId}:`, error);
+      return [];
+    }
   }
   
   async getProjectsByType(projectType: string): Promise<Project[]> {
-    return await db.select().from(projects).where(eq(projects.projectType, projectType));
+    try {
+      const results = await db.select({
+        id: projects.id,
+        name: projects.name,
+        description: projects.description,
+        clientId: projects.clientId,
+        projectType: projects.projectType,
+        status: projects.status,
+        startDate: projects.startDate,
+        estimatedCompletionDate: projects.estimatedCompletionDate,
+        actualCompletionDate: projects.actualCompletionDate,
+        budget: projects.budget,
+        currentPhase: projects.currentPhase,
+        percentComplete: projects.percentComplete,
+        permitDetails: projects.permitDetails,
+        notes: projects.notes,
+        isTemplate: sql`COALESCE(${projects.isTemplate}, FALSE)`.as('isTemplate'),
+        templateName: sql`COALESCE(${projects.templateName}, NULL)`.as('templateName'),
+        templateCategory: sql`COALESCE(${projects.templateCategory}, NULL)`.as('templateCategory'),
+        isArchived: sql`COALESCE(${projects.isArchived}, FALSE)`.as('isArchived'),
+      })
+      .from(projects)
+      .where(eq(projects.projectType, projectType));
+      
+      return results;
+    } catch (error) {
+      console.error(`Error fetching projects for type ${projectType}:`, error);
+      return [];
+    }
   }
   
   async getProjectPhase(id: number): Promise<ProjectPhase | undefined> {

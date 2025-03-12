@@ -33,6 +33,8 @@ import { ProjectForm } from "@/components/projects/ProjectForm";
 import { ProjectPhases } from "@/components/projects/ProjectPhases";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { ProjectWithDetails, formatDate, formatCurrency } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogHeader, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -45,6 +47,7 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<ProjectWithDetails | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -98,6 +101,8 @@ export default function Projects() {
 
   const filteredProjects = projects?.filter(project => {
     if (!project) return false;
+    // Filter out archived projects unless showArchived is true
+    if (!showArchived && project.isArchived) return false;
     if (statusFilter !== "all" && project.status !== statusFilter) return false;
     if (searchTerm && project.name && !project.name.toLowerCase().includes(searchTerm.toLowerCase())) return false;
     return true;
@@ -190,6 +195,17 @@ export default function Projects() {
         </div>
       </div>
 
+      <div className="flex items-center justify-end mb-4">
+        <div className="flex items-center space-x-2">
+          <Switch 
+            id="show-archived" 
+            checked={showArchived}
+            onCheckedChange={setShowArchived}
+          />
+          <Label htmlFor="show-archived">Show Archived Projects</Label>
+        </div>
+      </div>
+
       <Tabs defaultValue="grid" className="mb-6">
         <TabsList>
           <TabsTrigger value="grid">Grid View</TabsTrigger>
@@ -227,10 +243,15 @@ export default function Projects() {
               ))
             ) : (
               filteredProjects?.map(project => (
-                <div key={project.id} className="border border-gray-100 rounded-lg overflow-hidden bg-white shadow-sm hover:shadow transition">
-                  <div className={`p-4 ${getBgColorClass(project.status)}`}>
+                <div key={project.id} className={`border rounded-lg overflow-hidden bg-white shadow-sm hover:shadow transition ${project.isArchived ? 'border-amber-200' : 'border-gray-100'}`}>
+                  <div className={`p-4 ${project.isArchived ? 'bg-amber-50' : getBgColorClass(project.status)}`}>
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-foreground font-heading">{project.name}</h3>
+                      <h3 className="text-lg font-semibold text-foreground font-heading">
+                        {project.name}
+                        {project.isArchived && (
+                          <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">Archived</span>
+                        )}
+                      </h3>
                       <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${getStatusClass(project.status)}`}>
                         {project.status.replace('_', ' ').charAt(0).toUpperCase() + project.status.replace('_', ' ').slice(1)}
                       </span>
@@ -363,9 +384,14 @@ export default function Projects() {
                     ))
                   ) : (
                     filteredProjects?.map(project => (
-                      <tr key={project.id} className="hover:bg-gray-50">
+                      <tr key={project.id} className={`hover:bg-gray-50 ${project.isArchived ? 'bg-amber-50' : ''}`}>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-foreground">{project.name}</div>
+                          <div className="text-sm font-medium text-foreground">
+                            {project.name}
+                            {project.isArchived && (
+                              <span className="ml-2 text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">Archived</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">{project.client?.user?.name || 'Unknown Client'}</div>

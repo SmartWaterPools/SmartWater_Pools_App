@@ -114,6 +114,7 @@ export const projects = pgTable("projects", {
   isTemplate: boolean("is_template").default(false), // Mark as a reusable template
   templateName: text("template_name"), // Name for the template if isTemplate is true
   templateCategory: text("template_category"), // For organizing templates
+  isArchived: boolean("is_archived").default(false), // Flag for archived projects
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
