@@ -37,8 +37,23 @@ export function configurePassport(storage: IStorage) {
             return done(null, false, { message: 'Invalid username or password' });
           }
           
-          // Verify password
-          const isValidPassword = await bcrypt.compare(password, user.password);
+          // Check if the stored password is a bcrypt hash
+          let isValidPassword = false;
+          
+          if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+            // Use bcrypt comparison for hashed passwords
+            isValidPassword = await bcrypt.compare(password, user.password);
+          } else {
+            // For plain text passwords (temporary during migration)
+            isValidPassword = password === user.password;
+            
+            // If password is correct, update it to a hashed version
+            if (isValidPassword) {
+              const hashedPassword = await hashPassword(password);
+              await storage.updateUser(user.id, { password: hashedPassword });
+              console.log(`Updated password hash for user: ${user.username}`);
+            }
+          }
           
           if (!isValidPassword) {
             return done(null, false, { message: 'Invalid username or password' });
