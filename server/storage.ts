@@ -1766,88 +1766,144 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProject(insertProject: InsertProject): Promise<Project> {
-    const [project] = await db.insert(projects).values(insertProject).returning();
-    return project;
+    try {
+      // Check if isArchived is in the data and remove it (virtual field)
+      const { isArchived, ...safeData } = insertProject as any;
+      
+      // Use explicit column inserts to avoid issues with schema mismatches
+      // This also ensures we're only inserting fields that actually exist in the database
+      const result = await db.execute(sql`
+        INSERT INTO projects (
+          name, 
+          description, 
+          client_id, 
+          project_type, 
+          start_date, 
+          estimated_completion_date,
+          status,
+          budget,
+          current_phase,
+          percent_complete,
+          permit_details,
+          notes
+        )
+        VALUES (
+          ${safeData.name},
+          ${safeData.description || null},
+          ${safeData.clientId},
+          ${safeData.projectType || 'construction'},
+          ${safeData.startDate},
+          ${safeData.estimatedCompletionDate || null},
+          ${safeData.status || 'planning'},
+          ${safeData.budget || null},
+          ${safeData.currentPhase || null},
+          ${safeData.percentComplete || 0},
+          ${safeData.permitDetails || null},
+          ${safeData.notes || null}
+        )
+        RETURNING 
+          id, 
+          name,
+          description,
+          client_id as "clientId",
+          project_type as "projectType",
+          start_date as "startDate",
+          estimated_completion_date as "estimatedCompletionDate",
+          actual_completion_date as "actualCompletionDate",
+          status,
+          budget,
+          current_phase as "currentPhase",
+          percent_complete as "percentComplete",
+          permit_details as "permitDetails",
+          notes
+      `);
+      
+      // Get the inserted project
+      const project = result.rows[0];
+      
+      // Add virtual isArchived field based on status
+      return {
+        ...project,
+        isArchived: project.status === "archived"
+      };
+    } catch (error) {
+      console.error("[PROJECT CREATION] Error:", error);
+      throw error;
+    }
   }
 
   async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
     try {
-      // Check if we're trying to archive or unarchive a project
+      // Get the current project to know its current status
+      const currentProject = await this.getProject(id);
+      if (!currentProject) {
+        return undefined;
+      }
+      
+      const finalData: Partial<Project> = {...data};
+      
+      // Handle virtual isArchived field
       if ('isArchived' in data) {
-        // Get the current project to know its current status
-        const currentProject = await this.getProject(id);
-        if (!currentProject) {
-          return undefined;
-        }
-        
-        // Create a modified data object without the virtual isArchived field
-        const { isArchived, ...safeData } = data;
+        // Remove isArchived from the data to be saved (it's a virtual field)
+        const { isArchived, ...restData } = finalData as any;
         
         // If isArchived is changing, update the status field accordingly
         if (isArchived !== currentProject.isArchived) {
           // Set status to "archived" if isArchived is true, otherwise keep current status or set to active
-          safeData.status = isArchived === true ? "archived" : (safeData.status || currentProject.status === "archived" ? "active" : currentProject.status);
-          
-          console.log(`Project ${id} archive status changing to ${isArchived}. Setting status to: ${safeData.status}`);
+          restData.status = isArchived === true ? "archived" : (restData.status || currentProject.status === "archived" ? "active" : currentProject.status);
+          console.log(`Project ${id} archive status changing to ${isArchived}. Setting status to: ${restData.status}`);
         }
         
-        // Execute the update with the safe data object
-        const result = await db.execute(sql`
-          UPDATE projects
-          SET ${Object.entries(safeData).map(([key, value]) => {
-            // Convert camelCase to snake_case
-            const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-            return sql`${sql.identifier([snakeKey])} = ${value}`;
-          }).reduce((acc, curr) => sql`${acc}, ${curr}`)}
-          WHERE id = ${id}
-          RETURNING 
-            id, 
-            name,
-            description,
-            client_id as "clientId",
-            project_type as "projectType",
-            start_date as "startDate",
-            estimated_completion_date as "estimatedCompletionDate",
-            actual_completion_date as "actualCompletionDate",
-            status,
-            budget,
-            current_phase as "currentPhase",
-            percent_complete as "percentComplete",
-            permit_details as "permitDetails",
-            notes,
-            is_template as "isTemplate",
-            template_name as "templateName",
-            template_category as "templateCategory"
-        `);
-        
-        if (result.rows.length === 0) {
-          return undefined;
-        }
-        
-        const updatedProject = result.rows[0];
-        
-        // Add virtual isArchived field based on status
-        return {
-          ...updatedProject,
-          isArchived: updatedProject.status === "archived"
-        };
-      } else {
-        // Regular update without isArchived field
-        const [updatedProject] = await db
-          .update(projects)
-          .set(data)
-          .where(eq(projects.id, id))
-          .returning();
-          
-        if (updatedProject) {
-          // Add virtual isArchived field based on status
-          return {
-            ...updatedProject,
-            isArchived: updatedProject.status === "archived"
-          };
-        }
+        // Use the object without the virtual field
+        Object.assign(finalData, restData);
+        delete (finalData as any).isArchived;
+      }
+      
+      // Only proceed if there's something to update
+      if (Object.keys(finalData).length === 0) {
+        return currentProject;
+      }
+      
+      // Use SQL template literals to avoid parameterization issues
+      const updates = Object.entries(finalData).map(([key, value]) => {
+        // Convert camelCase to snake_case
+        const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+        return sql`${sql.identifier([snakeKey])} = ${value}`;
+      });
+      
+      // Build and execute the query
+      const result = await db.execute(sql`
+        UPDATE projects
+        SET ${sql.join(updates, sql`, `)}
+        WHERE id = ${id}
+        RETURNING 
+          id, 
+          name,
+          description,
+          client_id as "clientId",
+          project_type as "projectType",
+          start_date as "startDate",
+          estimated_completion_date as "estimatedCompletionDate",
+          actual_completion_date as "actualCompletionDate",
+          status,
+          budget,
+          current_phase as "currentPhase",
+          percent_complete as "percentComplete",
+          permit_details as "permitDetails",
+          notes
+      `);
+      
+      if (result.rows.length === 0) {
         return undefined;
       }
+      
+      const updatedProject = result.rows[0];
+      
+      // Add virtual isArchived field based on status
+      return {
+        ...updatedProject,
+        isArchived: updatedProject.status === "archived"
+      };
     } catch (error) {
       console.error(`Error updating project ${id}:`, error);
       return undefined;
