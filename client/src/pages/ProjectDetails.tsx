@@ -14,11 +14,13 @@ import { getStatusClasses, ProjectWithDetails } from "@/lib/types";
 import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/types";
 import { Link } from "wouter";
+import { ProjectEditForm } from "@/components/projects/ProjectEditForm";
 
 export default function ProjectDetails() {
   const { id } = useParams();
   const projectId = parseInt(id || "0");
   const [activeTab, setActiveTab] = useState("overview");
+  const [isEditingProject, setIsEditingProject] = useState(false);
   
   // Parse query parameters
   const [_location, setLocation] = useLocation();
@@ -134,10 +136,21 @@ export default function ProjectDetails() {
             </Badge>
           </div>
         </div>
-        <Button className="sm:ml-auto w-full sm:w-auto" onClick={() => window.history.back()}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Projects
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="w-full sm:w-auto flex items-center" 
+            onClick={() => setIsEditingProject(true)}
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Project
+          </Button>
+          <Button className="w-full sm:w-auto" onClick={() => window.history.back()}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Projects
+          </Button>
+        </div>
       </div>
       
       <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
@@ -514,6 +527,15 @@ export default function ProjectDetails() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Project Edit Form */}
+      {project && (
+        <ProjectEditForm
+          open={isEditingProject}
+          onOpenChange={setIsEditingProject}
+          project={projectData}
+        />
+      )}
     </div>
   );
 }
