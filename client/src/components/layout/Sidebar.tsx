@@ -19,18 +19,29 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface SidebarProps {
-  user: {
+  user?: {
     name: string;
     role: string;
   };
 }
 
-export function Sidebar({ user }: SidebarProps) {
+export function Sidebar({ user: propUser }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [location] = useLocation();
   const { addTab } = useTabs(); // Get addTab function from our tab context
+  const { user, logout } = useAuth(); // Get user and logout function from auth context
+  
+  // Use either the prop user (for backward compatibility) or the authenticated user
+  const displayUser = propUser || (user ? {
+    name: user.name || user.username,
+    role: user.role
+  } : {
+    name: "Guest",
+    role: "Not logged in"
+  });
   
   const [isOnDashboard] = useRoute("/");
   const [isOnProjects] = useRoute("/projects");
@@ -148,11 +159,11 @@ export function Sidebar({ user }: SidebarProps) {
           <div className="px-4 mb-6">
             <div className="flex items-center p-2 bg-blue-50 rounded-lg">
               <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-lg">
-                {user.name.charAt(0)}
+                {displayUser.name.charAt(0)}
               </div>
               <div className="ml-3">
-                <p className="text-sm font-medium text-foreground">{user.name}</p>
-                <p className="text-xs text-gray-500">{user.role}</p>
+                <p className="text-sm font-medium text-foreground">{displayUser.name}</p>
+                <p className="text-xs text-gray-500">{displayUser.role}</p>
               </div>
             </div>
           </div>
@@ -160,7 +171,7 @@ export function Sidebar({ user }: SidebarProps) {
         {isCollapsed && (
           <div className="flex justify-center py-4">
             <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-lg">
-              {user.name.charAt(0)}
+              {displayUser.name.charAt(0)}
             </div>
           </div>
         )}
@@ -472,10 +483,13 @@ export function Sidebar({ user }: SidebarProps) {
               Help & Support
             </a>
             
-            <a href="#logout" className="flex items-center py-2 text-sm font-medium text-red-600">
+            <div 
+              onClick={logout}
+              className="flex items-center py-2 text-sm font-medium text-red-600 cursor-pointer"
+            >
               <LogOut className="mr-3 h-5 w-5 text-red-600" />
               Logout
-            </a>
+            </div>
           </div>
         )}
       </div>

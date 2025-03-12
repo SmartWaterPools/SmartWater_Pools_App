@@ -4,11 +4,45 @@ import { setupVite, serveStatic, log } from "./vite";
 import { Scheduler } from "./scheduler";
 import { storage, DatabaseStorage } from "./storage";
 import { HealthMonitor } from "./health-monitor";
+import session from "express-session";
+import { configurePassport } from "./auth";
+import path from "path";
+import pg from "pg";
+const { Pool } = pg;
+import connectPgSimple from "connect-pg-simple";
 
 const app = express();
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Configure session store with PostgreSQL
+const PgSession = connectPgSimple(session);
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Setup session middleware
+app.use(
+  session({
+    store: new PgSession({
+      pool: new Pool({ connectionString: process.env.DATABASE_URL }),
+      tableName: 'session', // Name of the session table
+      createTableIfMissing: true,
+    }),
+    secret: process.env.SESSION_SECRET || 'smart-water-pools-secret',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      secure: isProduction, // Use secure cookies in production
+      httpOnly: true, // Prevent JavaScript access to the cookie
+    },
+  })
+);
+
+// Initialize and configure passport authentication
+const passport = configurePassport(storage);
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use((req, res, next) => {
   const start = Date.now();

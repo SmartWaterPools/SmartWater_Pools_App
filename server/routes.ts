@@ -1,4 +1,4 @@
-import type { Express, Request, Response } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fs, path, rootDir } from "./utils";
@@ -42,6 +42,8 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
+import passport from "passport";
+import { isAuthenticated, isAdmin, hashPassword } from "./auth";
 
 // Helper function to handle validation and respond with appropriate error
 const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boolean; data?: any; error?: string } => {
@@ -84,6 +86,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Serve static files from the root directory
+
+  // Authentication Routes
+  app.post("/api/auth/login", (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate("local", (err: Error, user: any, info: any) => {
+      if (err) {
+        return next(err);
+      }
+      
+      if (!user) {
+        return res.status(401).json({ 
+          success: false, 
+          message: info.message || "Invalid username or password" 
+        });
+      }
+      
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return next(loginErr);
+        }
+        
+        // Don't send password to the client
+        const { password, ...userWithoutPassword } = user;
+        
+        return res.json({ 
+          success: true, 
+          message: "Login successful", 
+          user: userWithoutPassword 
+        });
+      });
+    })(req, res, next);
+  });
+  
+  app.post("/api/auth/logout", (req: Request, res: Response) => {
+    req.logout(function(err) {
+      if (err) { 
+        return res.status(500).json({ success: false, message: "Logout failed" });
+      }
+      res.json({ success: true, message: "Logout successful" });
+    });
+  });
+  
+  app.get("/api/auth/session", (req: Request, res: Response) => {
+    if (req.isAuthenticated()) {
+      // Don't send password to the client
+      const { password, ...userWithoutPassword } = req.user as any;
+      
+      return res.json({ 
+        isAuthenticated: true, 
+        user: userWithoutPassword
+      });
+    }
+    
+    res.json({ isAuthenticated: false });
+  });
+  
+  // User registration endpoint (modified version of the existing user creation endpoint)
+  app.post("/api/auth/register", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertUserSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      // Hash the password before storing it
+      const hashedPassword = await hashPassword(validation.data.password);
+      
+      // Create user with hashed password
+      const user = await storage.createUser({
+        ...validation.data,
+        password: hashedPassword
+      });
+      
+      // Auto-login after registration
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          return res.status(500).json({ message: "Auto-login failed after registration" });
+        }
+        
+        // Don't send password to the client
+        const { password, ...userWithoutPassword } = user;
+        
+        res.status(201).json({ 
+          success: true, 
+          message: "Registration successful", 
+          user: userWithoutPassword 
+        });
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
 
   // Enhanced health check endpoint with detailed diagnostics
   app.get("/api/health", (req: Request, res: Response) => {
@@ -145,9 +239,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
-
-      const user = await storage.createUser(validation.data);
-      res.status(201).json(user);
+      
+      // Hash the password before storing it
+      const hashedPassword = await hashPassword(validation.data.password);
+      
+      // Create user with hashed password
+      const user = await storage.createUser({
+        ...validation.data,
+        password: hashedPassword
+      });
+      
+      // Don't send the password back to the client
+      const { password, ...userWithoutPassword } = user;
+      
+      res.status(201).json(userWithoutPassword);
     } catch (error) {
       res.status(500).json({ message: "Failed to create user" });
     }
