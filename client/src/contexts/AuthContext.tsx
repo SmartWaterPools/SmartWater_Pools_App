@@ -33,20 +33,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [sessionChecked, setSessionChecked] = useState<boolean>(false);
   const { toast } = useToast();
 
   // Check if the user is authenticated on component mount
   useEffect(() => {
-    checkSession();
+    const checkInitialSession = async () => {
+      await checkSession();
+      setSessionChecked(true);
+    };
+    
+    checkInitialSession();
   }, []);
 
   const checkSession = async (): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await apiRequest('/api/auth/session', 'GET');
+      
+      console.log("Checking session...");
+      const response = await fetch('/api/auth/session', {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        }
+      });
+      
+      if (!response.ok) {
+        console.warn(`Session check failed with status: ${response.status}`);
+        setUser(null);
+        setIsAuthenticated(false);
+        return false;
+      }
+      
+      const data = await response.json();
+      console.log("Session response:", data);
 
-      if (response.isAuthenticated && response.user) {
-        setUser(response.user);
+      if (data.isAuthenticated && data.user) {
+        setUser(data.user);
         setIsAuthenticated(true);
         return true;
       } else {
@@ -67,31 +91,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await apiRequest('/api/auth/login', 'POST', { username, password });
+      
+      console.log("Attempting login for user:", username);
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      
+      if (!response.ok) {
+        console.warn(`Login failed with status: ${response.status}`);
+        return false;
+      }
+      
+      const data = await response.json();
+      console.log("Login response:", data);
 
-      if (response.success && response.user) {
-        setUser(response.user);
+      if (data.success && data.user) {
+        setUser(data.user);
         setIsAuthenticated(true);
-        toast({
-          title: 'Login successful',
-          description: 'Welcome back!',
-        });
         return true;
       } else {
-        toast({
-          title: 'Login failed',
-          description: response.message || 'Invalid username or password',
-          variant: 'destructive',
-        });
+        console.warn("Login returned success: false or no user data");
         return false;
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast({
-        title: 'Login error',
-        description: 'Could not connect to the server. Please try again.',
-        variant: 'destructive',
-      });
       return false;
     } finally {
       setIsLoading(false);
@@ -101,19 +130,47 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const logout = async (): Promise<void> => {
     try {
       setIsLoading(true);
-      await apiRequest('/api/auth/logout', 'POST');
+      
+      console.log("Attempting logout");
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        console.warn(`Logout failed with status: ${response.status}`);
+        toast({
+          title: 'Logout error',
+          description: 'Server error during logout. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      const data = await response.json();
+      console.log("Logout response:", data);
 
+      // Clear user data regardless of server response
       setUser(null);
       setIsAuthenticated(false);
+      
       toast({
         title: 'Logout successful',
         description: 'You have been logged out',
       });
     } catch (error) {
       console.error('Logout error:', error);
+      
+      // Clear user data even if there's an error
+      setUser(null);
+      setIsAuthenticated(false);
+      
       toast({
         title: 'Logout error',
-        description: 'Could not complete logout. Please try again.',
+        description: 'Could not communicate with server, but you have been logged out locally.',
         variant: 'destructive',
       });
     } finally {
@@ -124,10 +181,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const register = async (userData: any): Promise<boolean> => {
     try {
       setIsLoading(true);
-      const response = await apiRequest('/api/auth/register', 'POST', userData);
+      
+      console.log("Attempting registration for user:", userData.username);
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+      
+      if (!response.ok) {
+        console.warn(`Registration failed with status: ${response.status}`);
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        toast({
+          title: 'Registration failed',
+          description: errorData.message || 'Could not create account',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
+      const data = await response.json();
+      console.log("Registration response:", data);
 
-      if (response.success && response.user) {
-        setUser(response.user);
+      if (data.success && data.user) {
+        setUser(data.user);
         setIsAuthenticated(true);
         toast({
           title: 'Registration successful',
@@ -137,7 +218,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         toast({
           title: 'Registration failed',
-          description: response.message || 'Could not create account',
+          description: data.message || 'Could not create account',
           variant: 'destructive',
         });
         return false;
@@ -158,7 +239,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const contextValue: AuthContextType = {
     user,
     isAuthenticated,
-    isLoading,
+    isLoading: isLoading || !sessionChecked, // Prevent UI flash by considering loading until session is checked
     login,
     logout,
     register,
