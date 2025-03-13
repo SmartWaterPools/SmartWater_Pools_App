@@ -936,8 +936,322 @@ export type InsertVendor = z.infer<typeof insertVendorSchema>;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
 
+// Warehouse schema for inventory locations
+export const warehouses = pgTable("warehouses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  address: text("address").notNull(),
+  city: text("city").notNull(),
+  state: text("state").notNull(),
+  zipCode: text("zip_code").notNull(),
+  phoneNumber: text("phone_number"),
+  isActive: boolean("is_active").notNull().default(true),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertWarehouseSchema = createInsertSchema(warehouses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Technician Vehicles (Mobile Warehouses)
+export const technicianVehicles = pgTable("technician_vehicles", {
+  id: serial("id").primaryKey(),
+  technicianId: integer("technician_id").references(() => technicians.id).notNull(),
+  name: text("name").notNull(), // e.g., "Service Truck #1"
+  type: text("type").notNull(), // truck, van, etc.
+  make: text("make"),
+  model: text("model"),
+  year: integer("year"),
+  licensePlate: text("license_plate"),
+  vin: text("vin"),
+  status: text("status").notNull().default("active"), // active, maintenance, retired
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertTechnicianVehicleSchema = createInsertSchema(technicianVehicles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Inventory Location Types (Warehouse, Vehicle, etc.)
+export const INVENTORY_LOCATION_TYPES = ['warehouse', 'vehicle', 'client_site'] as const;
+export type InventoryLocationType = typeof INVENTORY_LOCATION_TYPES[number];
+
+// Warehouse Inventory (Items in specific warehouses with quantities)
+export const warehouseInventory = pgTable("warehouse_inventory", {
+  id: serial("id").primaryKey(),
+  warehouseId: integer("warehouse_id").references(() => warehouses.id).notNull(),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id).notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  location: text("location"), // Specific location within warehouse (e.g., "Shelf A1", "Bin 3")
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  minimumStockLevel: integer("minimum_stock_level").default(0),
+  maximumStockLevel: integer("maximum_stock_level"),
+  notes: text("notes"),
+});
+
+export const insertWarehouseInventorySchema = createInsertSchema(warehouseInventory).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+// Vehicle Inventory (Items in technician vehicles)
+export const vehicleInventory = pgTable("vehicle_inventory", {
+  id: serial("id").primaryKey(),
+  vehicleId: integer("vehicle_id").references(() => technicianVehicles.id).notNull(),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id).notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  location: text("location"), // Specific location in vehicle
+  lastUpdated: timestamp("last_updated").notNull().defaultNow(),
+  targetStockLevel: integer("target_stock_level").default(0), // Desired quantity to maintain in vehicle
+  notes: text("notes"),
+});
+
+export const insertVehicleInventorySchema = createInsertSchema(vehicleInventory).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+// Inventory Transfer Types
+export const TRANSFER_TYPES = ['warehouse_to_warehouse', 'warehouse_to_vehicle', 'vehicle_to_warehouse', 'vehicle_to_vehicle', 'warehouse_to_client', 'vehicle_to_client'] as const;
+export type TransferType = typeof TRANSFER_TYPES[number];
+
+// Transfer Status Types
+export const TRANSFER_STATUS = ['pending', 'in_transit', 'completed', 'cancelled'] as const;
+export type TransferStatus = typeof TRANSFER_STATUS[number];
+
+// Inventory Transfers
+export const inventoryTransfers = pgTable("inventory_transfers", {
+  id: serial("id").primaryKey(),
+  transferType: text("transfer_type").notNull(), // One of TRANSFER_TYPES
+  sourceLocationType: text("source_location_type").notNull(), // warehouse, vehicle
+  sourceLocationId: integer("source_location_id").notNull(), // FK to warehouses or technicianVehicles
+  destinationLocationType: text("destination_location_type").notNull(), // warehouse, vehicle, client_site
+  destinationLocationId: integer("destination_location_id").notNull(), // FK to warehouses, technicianVehicles, or clients
+  requestedByUserId: integer("requested_by_user_id").references(() => users.id).notNull(),
+  approvedByUserId: integer("approved_by_user_id").references(() => users.id),
+  requestDate: timestamp("request_date").notNull().defaultNow(),
+  approvalDate: timestamp("approval_date"),
+  scheduledDate: date("scheduled_date"),
+  status: text("status").notNull().default("pending"), // pending, in_transit, completed, cancelled
+  notes: text("notes"),
+  completedDate: timestamp("completed_date"),
+  completedByUserId: integer("completed_by_user_id").references(() => users.id),
+});
+
+export const insertInventoryTransferSchema = createInsertSchema(inventoryTransfers).omit({
+  id: true,
+  requestDate: true,
+  approvalDate: true,
+  completedDate: true,
+});
+
+// Inventory Transfer Items
+export const inventoryTransferItems = pgTable("inventory_transfer_items", {
+  id: serial("id").primaryKey(),
+  transferId: integer("transfer_id").references(() => inventoryTransfers.id).notNull(),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id).notNull(),
+  requestedQuantity: integer("requested_quantity").notNull(),
+  approvedQuantity: integer("approved_quantity"),
+  actualQuantity: integer("actual_quantity"), // What was actually transferred
+  notes: text("notes"),
+});
+
+export const insertInventoryTransferItemSchema = createInsertSchema(inventoryTransferItems).omit({
+  id: true,
+});
+
+// Barcode Types
+export const BARCODE_TYPES = ['qr', 'upc', 'ean', 'code128', 'code39', 'datamatrix'] as const;
+export type BarcodeType = typeof BARCODE_TYPES[number];
+
+// Barcodes for inventory items and locations
+export const barcodes = pgTable("barcodes", {
+  id: serial("id").primaryKey(),
+  barcodeValue: text("barcode_value").notNull().unique(),
+  barcodeType: text("barcode_type").notNull(), // One of BARCODE_TYPES
+  itemType: text("item_type").notNull(), // inventory_item, warehouse, vehicle, etc.
+  itemId: integer("item_id").notNull(), // References the ID of the corresponding item
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  isActive: boolean("is_active").notNull().default(true),
+});
+
+export const insertBarcodeSchema = createInsertSchema(barcodes).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Barcode Scan History
+export const barcodeScanHistory = pgTable("barcode_scan_history", {
+  id: serial("id").primaryKey(),
+  barcodeId: integer("barcode_id").references(() => barcodes.id).notNull(),
+  scannedByUserId: integer("scanned_by_user_id").references(() => users.id).notNull(),
+  scanTime: timestamp("scan_time").notNull().defaultNow(),
+  actionType: text("action_type").notNull(), // inventory_count, transfer, maintenance, etc.
+  actionId: integer("action_id"), // Optional reference to another table (like transfer_id)
+  location: text("location"), // Where the scan occurred
+  notes: text("notes"),
+});
+
+export const insertBarcodeScanHistorySchema = createInsertSchema(barcodeScanHistory).omit({
+  id: true,
+  scanTime: true,
+});
+
+// Inventory Adjustments (for corrections, damages, etc.)
+export const inventoryAdjustments = pgTable("inventory_adjustments", {
+  id: serial("id").primaryKey(),
+  locationType: text("location_type").notNull(), // warehouse, vehicle
+  locationId: integer("location_id").notNull(), // FK to warehouses or vehicles
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id).notNull(),
+  quantityChange: integer("quantity_change").notNull(), // Can be positive or negative
+  reason: text("reason").notNull(), // damage, count correction, loss, expiration, etc.
+  performedByUserId: integer("performed_by_user_id").references(() => users.id).notNull(),
+  adjustmentDate: timestamp("adjustment_date").notNull().defaultNow(),
+  notes: text("notes"),
+  maintenanceId: integer("maintenance_id").references(() => maintenances.id), // If used during a maintenance
+  repairId: integer("repair_id").references(() => repairs.id), // If used during a repair
+});
+
+export const insertInventoryAdjustmentSchema = createInsertSchema(inventoryAdjustments).omit({
+  id: true,
+  adjustmentDate: true,
+});
+
+// Relations
+export const warehousesRelations = relations(warehouses, ({ many }) => ({
+  inventory: many(warehouseInventory),
+}));
+
+export const technicianVehiclesRelations = relations(technicianVehicles, ({ one, many }) => ({
+  technician: one(technicians, {
+    fields: [technicianVehicles.technicianId],
+    references: [technicians.id],
+  }),
+  inventory: many(vehicleInventory),
+}));
+
+export const warehouseInventoryRelations = relations(warehouseInventory, ({ one }) => ({
+  warehouse: one(warehouses, {
+    fields: [warehouseInventory.warehouseId],
+    references: [warehouses.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [warehouseInventory.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+}));
+
+export const vehicleInventoryRelations = relations(vehicleInventory, ({ one }) => ({
+  vehicle: one(technicianVehicles, {
+    fields: [vehicleInventory.vehicleId],
+    references: [technicianVehicles.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [vehicleInventory.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+}));
+
+export const inventoryTransfersRelations = relations(inventoryTransfers, ({ one, many }) => ({
+  requestedBy: one(users, {
+    fields: [inventoryTransfers.requestedByUserId],
+    references: [users.id],
+  }),
+  approvedBy: one(users, {
+    fields: [inventoryTransfers.approvedByUserId],
+    references: [users.id],
+  }),
+  completedBy: one(users, {
+    fields: [inventoryTransfers.completedByUserId],
+    references: [users.id],
+  }),
+  items: many(inventoryTransferItems),
+}));
+
+export const inventoryTransferItemsRelations = relations(inventoryTransferItems, ({ one }) => ({
+  transfer: one(inventoryTransfers, {
+    fields: [inventoryTransferItems.transferId],
+    references: [inventoryTransfers.id],
+  }),
+  inventoryItem: one(inventoryItems, {
+    fields: [inventoryTransferItems.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+}));
+
+export const barcodesRelations = relations(barcodes, ({ many }) => ({
+  scanHistory: many(barcodeScanHistory),
+}));
+
+export const barcodeScanHistoryRelations = relations(barcodeScanHistory, ({ one }) => ({
+  barcode: one(barcodes, {
+    fields: [barcodeScanHistory.barcodeId],
+    references: [barcodes.id],
+  }),
+  scannedBy: one(users, {
+    fields: [barcodeScanHistory.scannedByUserId],
+    references: [users.id],
+  }),
+}));
+
+export const inventoryAdjustmentsRelations = relations(inventoryAdjustments, ({ one }) => ({
+  inventoryItem: one(inventoryItems, {
+    fields: [inventoryAdjustments.inventoryItemId],
+    references: [inventoryItems.id],
+  }),
+  performedBy: one(users, {
+    fields: [inventoryAdjustments.performedByUserId],
+    references: [users.id],
+  }),
+  maintenance: one(maintenances, {
+    fields: [inventoryAdjustments.maintenanceId],
+    references: [maintenances.id],
+  }),
+  repair: one(repairs, {
+    fields: [inventoryAdjustments.repairId],
+    references: [repairs.id],
+  }),
+}));
+
 export type InventoryItem = typeof inventoryItems.$inferSelect;
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+
+export type Warehouse = typeof warehouses.$inferSelect;
+export type InsertWarehouse = z.infer<typeof insertWarehouseSchema>;
+
+export type TechnicianVehicle = typeof technicianVehicles.$inferSelect;
+export type InsertTechnicianVehicle = z.infer<typeof insertTechnicianVehicleSchema>;
+
+export type WarehouseInventory = typeof warehouseInventory.$inferSelect;
+export type InsertWarehouseInventory = z.infer<typeof insertWarehouseInventorySchema>;
+
+export type VehicleInventory = typeof vehicleInventory.$inferSelect;
+export type InsertVehicleInventory = z.infer<typeof insertVehicleInventorySchema>;
+
+export type InventoryTransfer = typeof inventoryTransfers.$inferSelect;
+export type InsertInventoryTransfer = z.infer<typeof insertInventoryTransferSchema>;
+
+export type InventoryTransferItem = typeof inventoryTransferItems.$inferSelect;
+export type InsertInventoryTransferItem = z.infer<typeof insertInventoryTransferItemSchema>;
+
+export type Barcode = typeof barcodes.$inferSelect;
+export type InsertBarcode = z.infer<typeof insertBarcodeSchema>;
+
+export type BarcodeScanHistory = typeof barcodeScanHistory.$inferSelect;
+export type InsertBarcodeScanHistory = z.infer<typeof insertBarcodeScanHistorySchema>;
+
+export type InventoryAdjustment = typeof inventoryAdjustments.$inferSelect;
+export type InsertInventoryAdjustment = z.infer<typeof insertInventoryAdjustmentSchema>;
 
 // Route Management Schema
 export const ROUTE_TYPES = ['residential', 'commercial', 'mixed'] as const;

@@ -17,9 +17,22 @@ import {
   WaterReading, InsertWaterReading,
   Route, InsertRoute,
   RouteAssignment, InsertRouteAssignment,
+  InventoryItem, InsertInventoryItem,
+  Warehouse, InsertWarehouse,
+  TechnicianVehicle, InsertTechnicianVehicle,
+  WarehouseInventory, InsertWarehouseInventory,
+  VehicleInventory, InsertVehicleInventory,
+  InventoryTransfer, InsertInventoryTransfer,
+  InventoryTransferItem, InsertInventoryTransferItem,
+  Barcode, InsertBarcode,
+  BarcodeScanHistory, InsertBarcodeScanHistory,
+  InventoryAdjustment, InsertInventoryAdjustment,
+  TransferType, TransferStatus, BarcodeType,
   users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
-  communicationProviders, chemicalUsage, waterReadings, routes, routeAssignments
+  communicationProviders, chemicalUsage, waterReadings, routes, routeAssignments,
+  warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
+  inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems
 } from "@shared/schema";
 import { and, eq, desc, gte, lte, sql, asc } from "drizzle-orm";
 import { db } from "./db";
@@ -222,6 +235,84 @@ export interface IStorage {
   getAllInventoryItems(): Promise<InventoryItem[]>;
   getInventoryItemsByCategory(category: string): Promise<InventoryItem[]>;
   getLowStockItems(): Promise<InventoryItem[]>;
+  
+  // Warehouse operations
+  getWarehouse(id: number): Promise<Warehouse | undefined>;
+  createWarehouse(warehouse: InsertWarehouse): Promise<Warehouse>;
+  updateWarehouse(id: number, warehouse: Partial<Warehouse>): Promise<Warehouse | undefined>;
+  deleteWarehouse(id: number): Promise<boolean>;
+  getAllWarehouses(): Promise<Warehouse[]>;
+  getActiveWarehouses(): Promise<Warehouse[]>;
+  
+  // Technician Vehicle operations
+  getTechnicianVehicle(id: number): Promise<TechnicianVehicle | undefined>;
+  getTechnicianVehiclesByTechnicianId(technicianId: number): Promise<TechnicianVehicle[]>;
+  createTechnicianVehicle(vehicle: InsertTechnicianVehicle): Promise<TechnicianVehicle>;
+  updateTechnicianVehicle(id: number, vehicle: Partial<TechnicianVehicle>): Promise<TechnicianVehicle | undefined>;
+  deleteTechnicianVehicle(id: number): Promise<boolean>;
+  getAllTechnicianVehicles(): Promise<TechnicianVehicle[]>;
+  getActiveTechnicianVehicles(): Promise<TechnicianVehicle[]>;
+  
+  // Warehouse Inventory operations
+  getWarehouseInventory(warehouseId: number, itemId: number): Promise<WarehouseInventory | undefined>;
+  createWarehouseInventory(inventory: InsertWarehouseInventory): Promise<WarehouseInventory>;
+  updateWarehouseInventory(id: number, inventory: Partial<WarehouseInventory>): Promise<WarehouseInventory | undefined>;
+  deleteWarehouseInventory(id: number): Promise<boolean>;
+  getWarehouseInventoryByWarehouseId(warehouseId: number): Promise<WarehouseInventory[]>;
+  getWarehouseInventoryByItemId(itemId: number): Promise<WarehouseInventory[]>;
+  getLowWarehouseInventory(): Promise<WarehouseInventory[]>;
+  
+  // Vehicle Inventory operations
+  getVehicleInventory(vehicleId: number, itemId: number): Promise<VehicleInventory | undefined>;
+  createVehicleInventory(inventory: InsertVehicleInventory): Promise<VehicleInventory>;
+  updateVehicleInventory(id: number, inventory: Partial<VehicleInventory>): Promise<VehicleInventory | undefined>;
+  deleteVehicleInventory(id: number): Promise<boolean>;
+  getVehicleInventoryByVehicleId(vehicleId: number): Promise<VehicleInventory[]>;
+  getVehicleInventoryByItemId(itemId: number): Promise<VehicleInventory[]>;
+  getLowVehicleInventory(): Promise<VehicleInventory[]>;
+  
+  // Inventory Transfer operations
+  getInventoryTransfer(id: number): Promise<InventoryTransfer | undefined>;
+  createInventoryTransfer(transfer: InsertInventoryTransfer): Promise<InventoryTransfer>;
+  updateInventoryTransfer(id: number, transfer: Partial<InventoryTransfer>): Promise<InventoryTransfer | undefined>;
+  getInventoryTransfersByStatus(status: TransferStatus): Promise<InventoryTransfer[]>;
+  getInventoryTransfersByType(type: TransferType): Promise<InventoryTransfer[]>;
+  getInventoryTransfersByUserId(userId: number): Promise<InventoryTransfer[]>;
+  getInventoryTransfersByDate(startDate: Date, endDate: Date): Promise<InventoryTransfer[]>;
+  completeInventoryTransfer(id: number, userId: number): Promise<InventoryTransfer | undefined>;
+  cancelInventoryTransfer(id: number): Promise<InventoryTransfer | undefined>;
+  
+  // Inventory Transfer Item operations
+  getInventoryTransferItem(id: number): Promise<InventoryTransferItem | undefined>;
+  createInventoryTransferItem(item: InsertInventoryTransferItem): Promise<InventoryTransferItem>;
+  updateInventoryTransferItem(id: number, item: Partial<InventoryTransferItem>): Promise<InventoryTransferItem | undefined>;
+  getInventoryTransferItemsByTransferId(transferId: number): Promise<InventoryTransferItem[]>;
+  getInventoryTransferItemsByItemId(itemId: number): Promise<InventoryTransferItem[]>;
+  
+  // Barcode operations
+  getBarcode(id: number): Promise<Barcode | undefined>;
+  getBarcodeByValue(barcodeValue: string): Promise<Barcode | undefined>;
+  createBarcode(barcode: InsertBarcode): Promise<Barcode>;
+  updateBarcode(id: number, barcode: Partial<Barcode>): Promise<Barcode | undefined>;
+  deleteBarcode(id: number): Promise<boolean>;
+  getActiveBarcodesForItem(itemType: string, itemId: number): Promise<Barcode[]>;
+  
+  // Barcode Scan History operations
+  createBarcodeScan(scan: InsertBarcodeScanHistory): Promise<BarcodeScanHistory>;
+  getBarcodeScanHistory(id: number): Promise<BarcodeScanHistory | undefined>;
+  getBarcodeScansByBarcodeId(barcodeId: number): Promise<BarcodeScanHistory[]>;
+  getBarcodeScansByUserId(userId: number): Promise<BarcodeScanHistory[]>;
+  getBarcodeScansByActionType(actionType: string): Promise<BarcodeScanHistory[]>;
+  getBarcodeScansByDate(startDate: Date, endDate: Date): Promise<BarcodeScanHistory[]>;
+  
+  // Inventory Adjustment operations
+  getInventoryAdjustment(id: number): Promise<InventoryAdjustment | undefined>;
+  createInventoryAdjustment(adjustment: InsertInventoryAdjustment): Promise<InventoryAdjustment>;
+  getInventoryAdjustmentsByItemId(itemId: number): Promise<InventoryAdjustment[]>;
+  getInventoryAdjustmentsByLocationId(locationType: string, locationId: number): Promise<InventoryAdjustment[]>;
+  getInventoryAdjustmentsByUserId(userId: number): Promise<InventoryAdjustment[]>;
+  getInventoryAdjustmentsByReason(reason: string): Promise<InventoryAdjustment[]>;
+  getInventoryAdjustmentsByDate(startDate: Date, endDate: Date): Promise<InventoryAdjustment[]>;
 }
 
 // In-memory storage implementation
@@ -237,6 +328,16 @@ export class MemStorage implements IStorage {
   private invoices: Map<number, Invoice>;
   private poolEquipment: Map<number, PoolEquipment>;
   private poolImages: Map<number, PoolImage>;
+  private inventoryItems: Map<number, InventoryItem>;
+  private warehouses: Map<number, Warehouse>;
+  private technicianVehicles: Map<number, TechnicianVehicle>;
+  private warehouseInventory: Map<number, WarehouseInventory>;
+  private vehicleInventory: Map<number, VehicleInventory>;
+  private inventoryTransfers: Map<number, InventoryTransfer>;
+  private inventoryTransferItems: Map<number, InventoryTransferItem>;
+  private barcodes: Map<number, Barcode>;
+  private barcodeScanHistory: Map<number, BarcodeScanHistory>;
+  private inventoryAdjustments: Map<number, InventoryAdjustment>;
   private communicationProviders: Map<number, CommunicationProvider>;
   private chemicalUsage: Map<number, ChemicalUsage>;
   private waterReadings: Map<number, WaterReading>;
@@ -264,6 +365,18 @@ export class MemStorage implements IStorage {
   private routeId: number;
   private routeAssignmentId: number;
   
+  // New inventory management IDs
+  private inventoryItemId: number;
+  private warehouseId: number;
+  private technicianVehicleId: number;
+  private warehouseInventoryId: number;
+  private vehicleInventoryId: number;
+  private inventoryTransferId: number;
+  private inventoryTransferItemId: number;
+  private barcodeId: number;
+  private barcodeScanHistoryId: number;
+  private inventoryAdjustmentId: number;
+  
   constructor() {
     this.users = new Map();
     this.clients = new Map();
@@ -284,6 +397,18 @@ export class MemStorage implements IStorage {
     this.routes = new Map();
     this.routeAssignments = new Map();
     
+    // Initialize inventory management maps
+    this.inventoryItems = new Map();
+    this.warehouses = new Map();
+    this.technicianVehicles = new Map();
+    this.warehouseInventory = new Map();
+    this.vehicleInventory = new Map();
+    this.inventoryTransfers = new Map();
+    this.inventoryTransferItems = new Map();
+    this.barcodes = new Map();
+    this.barcodeScanHistory = new Map();
+    this.inventoryAdjustments = new Map();
+    
     this.userId = 1;
     this.clientId = 1;
     this.technicianId = 1;
@@ -303,8 +428,22 @@ export class MemStorage implements IStorage {
     this.routeId = 1;
     this.routeAssignmentId = 1;
     
+    // Initialize inventory management IDs
+    this.inventoryItemId = 1;
+    this.warehouseId = 1;
+    this.technicianVehicleId = 1;
+    this.warehouseInventoryId = 1;
+    this.vehicleInventoryId = 1;
+    this.inventoryTransferId = 1;
+    this.inventoryTransferItemId = 1;
+    this.barcodeId = 1;
+    this.barcodeScanHistoryId = 1;
+    this.inventoryAdjustmentId = 1;
+    
     // Add sample data
     this.initSampleData();
+    // Add sample inventory data
+    this.initSampleInventoryData();
   }
   
   // User operations
@@ -721,6 +860,597 @@ export class MemStorage implements IStorage {
   async getChemicalUsageByType(type: ChemicalType): Promise<ChemicalUsage[]> {
     return Array.from(this.chemicalUsage.values()).filter(
       (usage) => usage.chemicalType === type
+    );
+  }
+  
+  // Inventory Item operations
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    return this.inventoryItems.get(id);
+  }
+  
+  async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    const id = this.inventoryItemId++;
+    const inventoryItem: InventoryItem = {
+      ...item,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.inventoryItems.set(id, inventoryItem);
+    return inventoryItem;
+  }
+  
+  async updateInventoryItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    const existingItem = await this.getInventoryItem(id);
+    if (!existingItem) return undefined;
+    
+    const updatedItem = { ...existingItem, ...item, updatedAt: new Date() };
+    this.inventoryItems.set(id, updatedItem);
+    return updatedItem;
+  }
+  
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    return this.inventoryItems.delete(id);
+  }
+  
+  async getAllInventoryItems(): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values());
+  }
+  
+  async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values()).filter(
+      (item) => item.category === category
+    );
+  }
+  
+  async getLowStockItems(): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values()).filter(
+      (item) => item.currentStock <= item.minStockLevel
+    );
+  }
+  
+  // Warehouse operations
+  async getWarehouse(id: number): Promise<Warehouse | undefined> {
+    return this.warehouses.get(id);
+  }
+  
+  async createWarehouse(warehouse: InsertWarehouse): Promise<Warehouse> {
+    const id = this.warehouseId++;
+    const newWarehouse: Warehouse = {
+      ...warehouse,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.warehouses.set(id, newWarehouse);
+    return newWarehouse;
+  }
+  
+  async updateWarehouse(id: number, data: Partial<Warehouse>): Promise<Warehouse | undefined> {
+    const warehouse = await this.getWarehouse(id);
+    if (!warehouse) return undefined;
+    
+    const updatedWarehouse = { ...warehouse, ...data, updatedAt: new Date() };
+    this.warehouses.set(id, updatedWarehouse);
+    return updatedWarehouse;
+  }
+  
+  async deleteWarehouse(id: number): Promise<boolean> {
+    // Check if there is inventory in this warehouse
+    const inventory = await this.getWarehouseInventoryByWarehouseId(id);
+    if (inventory.length > 0) {
+      // Don't delete if there's still inventory - set to inactive instead
+      const warehouse = await this.getWarehouse(id);
+      if (warehouse) {
+        warehouse.isActive = false;
+        this.warehouses.set(id, warehouse);
+      }
+      return false;
+    }
+    
+    return this.warehouses.delete(id);
+  }
+  
+  async getAllWarehouses(): Promise<Warehouse[]> {
+    return Array.from(this.warehouses.values());
+  }
+  
+  async getActiveWarehouses(): Promise<Warehouse[]> {
+    return Array.from(this.warehouses.values()).filter(
+      (warehouse) => warehouse.isActive
+    );
+  }
+  
+  // Technician Vehicle operations
+  async getTechnicianVehicle(id: number): Promise<TechnicianVehicle | undefined> {
+    return this.technicianVehicles.get(id);
+  }
+  
+  async getTechnicianVehiclesByTechnicianId(technicianId: number): Promise<TechnicianVehicle[]> {
+    return Array.from(this.technicianVehicles.values()).filter(
+      (vehicle) => vehicle.technicianId === technicianId
+    );
+  }
+  
+  async createTechnicianVehicle(vehicle: InsertTechnicianVehicle): Promise<TechnicianVehicle> {
+    const id = this.technicianVehicleId++;
+    const newVehicle: TechnicianVehicle = {
+      ...vehicle,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.technicianVehicles.set(id, newVehicle);
+    return newVehicle;
+  }
+  
+  async updateTechnicianVehicle(id: number, data: Partial<TechnicianVehicle>): Promise<TechnicianVehicle | undefined> {
+    const vehicle = await this.getTechnicianVehicle(id);
+    if (!vehicle) return undefined;
+    
+    const updatedVehicle = { ...vehicle, ...data, updatedAt: new Date() };
+    this.technicianVehicles.set(id, updatedVehicle);
+    return updatedVehicle;
+  }
+  
+  async deleteTechnicianVehicle(id: number): Promise<boolean> {
+    // Check if there is inventory in this vehicle
+    const inventory = await this.getVehicleInventoryByVehicleId(id);
+    if (inventory.length > 0) {
+      // Don't delete if there's still inventory - set to inactive instead
+      const vehicle = await this.getTechnicianVehicle(id);
+      if (vehicle) {
+        vehicle.isActive = false;
+        this.technicianVehicles.set(id, vehicle);
+      }
+      return false;
+    }
+    
+    return this.technicianVehicles.delete(id);
+  }
+  
+  async getAllTechnicianVehicles(): Promise<TechnicianVehicle[]> {
+    return Array.from(this.technicianVehicles.values());
+  }
+  
+  async getActiveTechnicianVehicles(): Promise<TechnicianVehicle[]> {
+    return Array.from(this.technicianVehicles.values()).filter(
+      (vehicle) => vehicle.isActive
+    );
+  }
+  
+  // Warehouse Inventory operations
+  async getWarehouseInventory(warehouseId: number, itemId: number): Promise<WarehouseInventory | undefined> {
+    return Array.from(this.warehouseInventory.values()).find(
+      (inventory) => inventory.warehouseId === warehouseId && inventory.itemId === itemId
+    );
+  }
+  
+  async createWarehouseInventory(inventory: InsertWarehouseInventory): Promise<WarehouseInventory> {
+    const id = this.warehouseInventoryId++;
+    const newInventory: WarehouseInventory = {
+      ...inventory,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.warehouseInventory.set(id, newInventory);
+    return newInventory;
+  }
+  
+  async updateWarehouseInventory(id: number, inventory: Partial<WarehouseInventory>): Promise<WarehouseInventory | undefined> {
+    const existingInventory = await this.warehouseInventory.get(id);
+    if (!existingInventory) return undefined;
+    
+    const updatedInventory = { ...existingInventory, ...inventory, updatedAt: new Date() };
+    this.warehouseInventory.set(id, updatedInventory);
+    return updatedInventory;
+  }
+  
+  async deleteWarehouseInventory(id: number): Promise<boolean> {
+    return this.warehouseInventory.delete(id);
+  }
+  
+  async getWarehouseInventoryByWarehouseId(warehouseId: number): Promise<WarehouseInventory[]> {
+    return Array.from(this.warehouseInventory.values()).filter(
+      (inventory) => inventory.warehouseId === warehouseId
+    );
+  }
+  
+  async getWarehouseInventoryByItemId(itemId: number): Promise<WarehouseInventory[]> {
+    return Array.from(this.warehouseInventory.values()).filter(
+      (inventory) => inventory.itemId === itemId
+    );
+  }
+  
+  async getLowWarehouseInventory(): Promise<WarehouseInventory[]> {
+    return Array.from(this.warehouseInventory.values()).filter(
+      (inventory) => inventory.quantity <= inventory.minQuantity
+    );
+  }
+  
+  // Vehicle Inventory operations
+  async getVehicleInventory(vehicleId: number, itemId: number): Promise<VehicleInventory | undefined> {
+    return Array.from(this.vehicleInventory.values()).find(
+      (inventory) => inventory.vehicleId === vehicleId && inventory.itemId === itemId
+    );
+  }
+  
+  async createVehicleInventory(inventory: InsertVehicleInventory): Promise<VehicleInventory> {
+    const id = this.vehicleInventoryId++;
+    const newInventory: VehicleInventory = {
+      ...inventory,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.vehicleInventory.set(id, newInventory);
+    return newInventory;
+  }
+  
+  async updateVehicleInventory(id: number, inventory: Partial<VehicleInventory>): Promise<VehicleInventory | undefined> {
+    const existingInventory = await this.vehicleInventory.get(id);
+    if (!existingInventory) return undefined;
+    
+    const updatedInventory = { ...existingInventory, ...inventory, updatedAt: new Date() };
+    this.vehicleInventory.set(id, updatedInventory);
+    return updatedInventory;
+  }
+  
+  async deleteVehicleInventory(id: number): Promise<boolean> {
+    return this.vehicleInventory.delete(id);
+  }
+  
+  async getVehicleInventoryByVehicleId(vehicleId: number): Promise<VehicleInventory[]> {
+    return Array.from(this.vehicleInventory.values()).filter(
+      (inventory) => inventory.vehicleId === vehicleId
+    );
+  }
+  
+  async getVehicleInventoryByItemId(itemId: number): Promise<VehicleInventory[]> {
+    return Array.from(this.vehicleInventory.values()).filter(
+      (inventory) => inventory.itemId === itemId
+    );
+  }
+  
+  async getLowVehicleInventory(): Promise<VehicleInventory[]> {
+    return Array.from(this.vehicleInventory.values()).filter(
+      (inventory) => inventory.quantity <= inventory.minQuantity
+    );
+  }
+  
+  // Inventory Transfer operations
+  async getInventoryTransfer(id: number): Promise<InventoryTransfer | undefined> {
+    return this.inventoryTransfers.get(id);
+  }
+  
+  async createInventoryTransfer(transfer: InsertInventoryTransfer): Promise<InventoryTransfer> {
+    const id = this.inventoryTransferId++;
+    const newTransfer: InventoryTransfer = {
+      ...transfer,
+      id,
+      status: transfer.status || 'pending',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      completedAt: null
+    };
+    this.inventoryTransfers.set(id, newTransfer);
+    return newTransfer;
+  }
+  
+  async updateInventoryTransfer(id: number, transfer: Partial<InventoryTransfer>): Promise<InventoryTransfer | undefined> {
+    const existingTransfer = await this.getInventoryTransfer(id);
+    if (!existingTransfer) return undefined;
+    
+    const updatedTransfer = { ...existingTransfer, ...transfer, updatedAt: new Date() };
+    this.inventoryTransfers.set(id, updatedTransfer);
+    return updatedTransfer;
+  }
+  
+  async getInventoryTransfersByStatus(status: TransferStatus): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter(
+      (transfer) => transfer.status === status
+    );
+  }
+  
+  async getInventoryTransfersByType(type: TransferType): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter(
+      (transfer) => transfer.transferType === type
+    );
+  }
+  
+  async getInventoryTransfersByUserId(userId: number): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter(
+      (transfer) => transfer.initiatedBy === userId || transfer.completedBy === userId
+    );
+  }
+  
+  async getInventoryTransfersByDate(startDate: Date, endDate: Date): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter(
+      (transfer) => {
+        const transferDate = new Date(transfer.createdAt);
+        return transferDate >= startDate && transferDate <= endDate;
+      }
+    );
+  }
+  
+  async completeInventoryTransfer(id: number, userId: number): Promise<InventoryTransfer | undefined> {
+    const transfer = await this.getInventoryTransfer(id);
+    if (!transfer) return undefined;
+    
+    const now = new Date();
+    const updatedTransfer = { 
+      ...transfer, 
+      status: 'completed' as TransferStatus,
+      completedBy: userId,
+      completedAt: now,
+      updatedAt: now
+    };
+    this.inventoryTransfers.set(id, updatedTransfer);
+    
+    // Update the source and destination inventory
+    const transferItems = await this.getInventoryTransferItemsByTransferId(id);
+    for (const item of transferItems) {
+      await this.updateInventoryForTransferItem(transfer, item);
+    }
+    
+    return updatedTransfer;
+  }
+  
+  private async updateInventoryForTransferItem(transfer: InventoryTransfer, item: InventoryTransferItem): Promise<void> {
+    const { transferType, sourceId, destinationId } = transfer;
+    const { itemId, quantity } = item;
+    
+    // Subtract from source inventory
+    if (transferType.includes('warehouse_to_')) {
+      // Source is a warehouse
+      const source = await this.getWarehouseInventory(sourceId, itemId);
+      if (source) {
+        const newQuantity = Math.max(0, source.quantity - quantity);
+        await this.updateWarehouseInventory(source.id, { quantity: newQuantity });
+      }
+    } else if (transferType.includes('vehicle_to_')) {
+      // Source is a vehicle
+      const source = await this.getVehicleInventory(sourceId, itemId);
+      if (source) {
+        const newQuantity = Math.max(0, source.quantity - quantity);
+        await this.updateVehicleInventory(source.id, { quantity: newQuantity });
+      }
+    }
+    
+    // Add to destination inventory
+    if (transferType.includes('_to_warehouse')) {
+      // Destination is a warehouse
+      const destination = await this.getWarehouseInventory(destinationId, itemId);
+      if (destination) {
+        // Update existing inventory
+        await this.updateWarehouseInventory(destination.id, { 
+          quantity: destination.quantity + quantity 
+        });
+      } else {
+        // Create new inventory record
+        await this.createWarehouseInventory({
+          warehouseId: destinationId,
+          itemId,
+          quantity,
+          minQuantity: 0,
+          location: ""
+        });
+      }
+    } else if (transferType.includes('_to_vehicle')) {
+      // Destination is a vehicle
+      const destination = await this.getVehicleInventory(destinationId, itemId);
+      if (destination) {
+        // Update existing inventory
+        await this.updateVehicleInventory(destination.id, { 
+          quantity: destination.quantity + quantity 
+        });
+      } else {
+        // Create new inventory record
+        await this.createVehicleInventory({
+          vehicleId: destinationId,
+          itemId,
+          quantity,
+          minQuantity: 0,
+          location: ""
+        });
+      }
+    }
+    // For client transfers, we don't track inventory after it's been transferred to a client
+  }
+  
+  async cancelInventoryTransfer(id: number): Promise<InventoryTransfer | undefined> {
+    const transfer = await this.getInventoryTransfer(id);
+    if (!transfer) return undefined;
+    
+    const updatedTransfer = { 
+      ...transfer, 
+      status: 'cancelled' as TransferStatus,
+      updatedAt: new Date()
+    };
+    this.inventoryTransfers.set(id, updatedTransfer);
+    return updatedTransfer;
+  }
+  
+  // Inventory Transfer Item operations
+  async getInventoryTransferItem(id: number): Promise<InventoryTransferItem | undefined> {
+    return this.inventoryTransferItems.get(id);
+  }
+  
+  async createInventoryTransferItem(item: InsertInventoryTransferItem): Promise<InventoryTransferItem> {
+    const id = this.inventoryTransferItemId++;
+    const newItem: InventoryTransferItem = {
+      ...item,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.inventoryTransferItems.set(id, newItem);
+    return newItem;
+  }
+  
+  async updateInventoryTransferItem(id: number, item: Partial<InventoryTransferItem>): Promise<InventoryTransferItem | undefined> {
+    const existingItem = await this.getInventoryTransferItem(id);
+    if (!existingItem) return undefined;
+    
+    const updatedItem = { ...existingItem, ...item, updatedAt: new Date() };
+    this.inventoryTransferItems.set(id, updatedItem);
+    return updatedItem;
+  }
+  
+  async getInventoryTransferItemsByTransferId(transferId: number): Promise<InventoryTransferItem[]> {
+    return Array.from(this.inventoryTransferItems.values()).filter(
+      (item) => item.transferId === transferId
+    );
+  }
+  
+  async getInventoryTransferItemsByItemId(itemId: number): Promise<InventoryTransferItem[]> {
+    return Array.from(this.inventoryTransferItems.values()).filter(
+      (item) => item.itemId === itemId
+    );
+  }
+  
+  // Barcode operations
+  async getBarcode(id: number): Promise<Barcode | undefined> {
+    return this.barcodes.get(id);
+  }
+  
+  async getBarcodeByValue(barcodeValue: string): Promise<Barcode | undefined> {
+    return Array.from(this.barcodes.values()).find(
+      (barcode) => barcode.barcodeValue === barcodeValue
+    );
+  }
+  
+  async createBarcode(barcode: InsertBarcode): Promise<Barcode> {
+    const id = this.barcodeId++;
+    const newBarcode: Barcode = {
+      ...barcode,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.barcodes.set(id, newBarcode);
+    return newBarcode;
+  }
+  
+  async updateBarcode(id: number, barcode: Partial<Barcode>): Promise<Barcode | undefined> {
+    const existingBarcode = await this.getBarcode(id);
+    if (!existingBarcode) return undefined;
+    
+    const updatedBarcode = { ...existingBarcode, ...barcode, updatedAt: new Date() };
+    this.barcodes.set(id, updatedBarcode);
+    return updatedBarcode;
+  }
+  
+  async deleteBarcode(id: number): Promise<boolean> {
+    return this.barcodes.delete(id);
+  }
+  
+  async getActiveBarcodesForItem(itemType: string, itemId: number): Promise<Barcode[]> {
+    return Array.from(this.barcodes.values()).filter(
+      (barcode) => barcode.itemType === itemType && barcode.itemId === itemId && barcode.isActive
+    );
+  }
+  
+  // Barcode Scan History operations
+  async createBarcodeScan(scan: InsertBarcodeScanHistory): Promise<BarcodeScanHistory> {
+    const id = this.barcodeScanHistoryId++;
+    const newScan: BarcodeScanHistory = {
+      ...scan,
+      id,
+      scannedAt: new Date()
+    };
+    this.barcodeScanHistory.set(id, newScan);
+    return newScan;
+  }
+  
+  async getBarcodeScanHistory(id: number): Promise<BarcodeScanHistory | undefined> {
+    return this.barcodeScanHistory.get(id);
+  }
+  
+  async getBarcodeScansByBarcodeId(barcodeId: number): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter(
+      (scan) => scan.barcodeId === barcodeId
+    );
+  }
+  
+  async getBarcodeScansByUserId(userId: number): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter(
+      (scan) => scan.userId === userId
+    );
+  }
+  
+  async getBarcodeScansByActionType(actionType: string): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter(
+      (scan) => scan.actionType === actionType
+    );
+  }
+  
+  async getBarcodeScansByDate(startDate: Date, endDate: Date): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter(
+      (scan) => scan.scannedAt >= startDate && scan.scannedAt <= endDate
+    );
+  }
+  
+  // Inventory Adjustment operations
+  async getInventoryAdjustment(id: number): Promise<InventoryAdjustment | undefined> {
+    return this.inventoryAdjustments.get(id);
+  }
+  
+  async createInventoryAdjustment(adjustment: InsertInventoryAdjustment): Promise<InventoryAdjustment> {
+    const id = this.inventoryAdjustmentId++;
+    const newAdjustment: InventoryAdjustment = {
+      ...adjustment,
+      id,
+      createdAt: new Date()
+    };
+    this.inventoryAdjustments.set(id, newAdjustment);
+    
+    // Apply the adjustment to the inventory
+    if (adjustment.locationType === 'warehouse') {
+      const inventory = await this.getWarehouseInventory(adjustment.locationId, adjustment.itemId);
+      if (inventory) {
+        const newQuantity = inventory.quantity + adjustment.quantityChange;
+        await this.updateWarehouseInventory(inventory.id, { quantity: newQuantity });
+      }
+    } else if (adjustment.locationType === 'vehicle') {
+      const inventory = await this.getVehicleInventory(adjustment.locationId, adjustment.itemId);
+      if (inventory) {
+        const newQuantity = inventory.quantity + adjustment.quantityChange;
+        await this.updateVehicleInventory(inventory.id, { quantity: newQuantity });
+      }
+    }
+    
+    return newAdjustment;
+  }
+  
+  async getInventoryAdjustmentsByItemId(itemId: number): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.itemId === itemId
+    );
+  }
+  
+  async getInventoryAdjustmentsByLocationId(locationType: string, locationId: number): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.locationType === locationType && adjustment.locationId === locationId
+    );
+  }
+  
+  async getInventoryAdjustmentsByUserId(userId: number): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.userId === userId
+    );
+  }
+  
+  async getInventoryAdjustmentsByReason(reason: string): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.reason === reason
+    );
+  }
+  
+  async getInventoryAdjustmentsByDate(startDate: Date, endDate: Date): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.createdAt >= startDate && adjustment.createdAt <= endDate
     );
   }
   
@@ -1264,6 +1994,337 @@ export class MemStorage implements IStorage {
   }
   
   // Initialize sample data for testing
+  private async initSampleInventoryData() {
+    console.log("Initializing sample inventory data...");
+    
+    // Create sample inventory items
+    const chlorine = await this.createInventoryItem({
+      name: "Liquid Chlorine",
+      description: "Sodium hypochlorite solution for pool disinfection",
+      notes: "Store in cool, dry place away from direct sunlight",
+      category: "chemicals",
+      unit: "gallon",
+      currentStock: 50,
+      minStockLevel: 10,
+      costPerUnit: 4.99,
+      isActive: true,
+      imageUrl: null,
+      supplier: "PoolChem Distributors",
+      sku: "LC-5000",
+      reorderPoint: 15,
+      maxStockLevel: 100,
+      lastOrderDate: null
+    });
+    
+    const tablets = await this.createInventoryItem({
+      name: "Chlorine Tablets",
+      description: "3-inch stabilized chlorine tablets",
+      notes: "Keep container tightly closed",
+      category: "chemicals",
+      unit: "bucket",
+      currentStock: 15,
+      minStockLevel: 5,
+      costPerUnit: 89.99,
+      isActive: true,
+      imageUrl: null,
+      supplier: "PoolChem Distributors",
+      sku: "CT-5025",
+      reorderPoint: 7,
+      maxStockLevel: 25,
+      lastOrderDate: null
+    });
+    
+    const filterCartridge = await this.createInventoryItem({
+      name: "Filter Cartridge",
+      description: "Standard size pool filter cartridge",
+      notes: "Compatible with most major brands",
+      category: "equipment",
+      unit: "piece",
+      currentStock: 30,
+      minStockLevel: 8,
+      costPerUnit: 35.50,
+      isActive: true,
+      imageUrl: null,
+      supplier: "FiltraTech Inc.",
+      sku: "FC-1000",
+      reorderPoint: 10,
+      maxStockLevel: 50,
+      lastOrderDate: null
+    });
+    
+    const pumpMotor = await this.createInventoryItem({
+      name: "Pump Motor",
+      description: "1.5 HP replacement pool pump motor",
+      notes: "Universal mounting bracket included",
+      category: "equipment",
+      unit: "piece",
+      currentStock: 5,
+      minStockLevel: 2,
+      costPerUnit: 245.99,
+      isActive: true,
+      imageUrl: null,
+      supplier: "MotorWorks Supply",
+      sku: "PM-1500",
+      reorderPoint: 3,
+      maxStockLevel: 10,
+      lastOrderDate: null
+    });
+    
+    const testStrips = await this.createInventoryItem({
+      name: "5-Way Test Strips",
+      description: "Test strips for chlorine, pH, alkalinity, hardness, and cyanuric acid",
+      notes: "50 strips per bottle",
+      category: "supplies",
+      unit: "bottle",
+      currentStock: 25,
+      minStockLevel: 5,
+      costPerUnit: 12.99,
+      isActive: true,
+      imageUrl: null,
+      supplier: "AquaTest Labs",
+      sku: "TS-5050",
+      reorderPoint: 8,
+      maxStockLevel: 40,
+      lastOrderDate: null
+    });
+    
+    // Create sample warehouses
+    const mainWarehouse = await this.createWarehouse({
+      name: "Main Distribution Center",
+      address: "1500 Industrial Blvd",
+      city: "Tampa",
+      state: "FL",
+      zipCode: "33602",
+      phoneNumber: "813-555-7890",
+      description: "Primary storage and distribution facility",
+      isActive: true,
+      latitude: 27.9506,
+      longitude: -82.4572
+    });
+    
+    const northWarehouse = await this.createWarehouse({
+      name: "North Tampa Warehouse",
+      address: "8200 North Dale Mabry Hwy",
+      city: "Tampa",
+      state: "FL",
+      zipCode: "33614",
+      phoneNumber: "813-555-2345",
+      description: "Secondary warehouse serving North Tampa region",
+      isActive: true,
+      latitude: 28.0247,
+      longitude: -82.5044
+    });
+    
+    // Create technician vehicles
+    const tech1 = await this.getTechnicianByUserId(2);
+    if (tech1) {
+      const truck1 = await this.createTechnicianVehicle({
+        name: "Service Truck 1",
+        type: "pickup",
+        status: "active",
+        notes: "Regular maintenance performed on 2023-10-15",
+        technicianId: tech1.id,
+        model: "F-150",
+        make: "Ford",
+        year: 2021,
+        licensePlate: "ABC-1234",
+        vin: "1FTFW1ET5DFA38125"
+      });
+      
+      // Add isActive field to TechnicianVehicle
+      await this.updateTechnicianVehicle(truck1.id, {
+        isActive: true,
+      } as any);
+    }
+    
+    const tech2 = await this.getTechnicianByUserId(3);
+    if (tech2) {
+      const truck2 = await this.createTechnicianVehicle({
+        name: "Service Truck 2",
+        type: "van",
+        status: "active",
+        notes: "New tires installed 2023-09-28",
+        technicianId: tech2.id,
+        model: "Sprinter",
+        make: "Mercedes",
+        year: 2022,
+        licensePlate: "XYZ-7890",
+        vin: "WD3PE7CC8G5123456"
+      });
+      
+      // Add isActive field to TechnicianVehicle
+      await this.updateTechnicianVehicle(truck2.id, {
+        isActive: true,
+      } as any);
+    }
+    
+    // Add inventory to warehouses
+    await this.createWarehouseInventory({
+      warehouseId: mainWarehouse.id,
+      inventoryItemId: chlorine.id,
+      quantity: 40,
+      minimumStockLevel: 10,
+      maximumStockLevel: 80,
+      location: "Aisle A, Shelf 1",
+      notes: "Restocked on " + new Date().toLocaleDateString()
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: mainWarehouse.id,
+      inventoryItemId: tablets.id,
+      quantity: 12,
+      minimumStockLevel: 5,
+      maximumStockLevel: 20,
+      location: "Aisle A, Shelf 2",
+      notes: "Restocked on " + new Date().toLocaleDateString()
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: mainWarehouse.id,
+      inventoryItemId: filterCartridge.id,
+      quantity: 25,
+      minimumStockLevel: 8,
+      maximumStockLevel: 40,
+      location: "Aisle B, Shelf 1",
+      notes: "Restocked on " + new Date().toLocaleDateString()
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: northWarehouse.id,
+      inventoryItemId: chlorine.id,
+      quantity: 10,
+      minimumStockLevel: 5,
+      maximumStockLevel: 20,
+      location: "Section 1, Rack 3",
+      notes: "Restocked on " + new Date().toLocaleDateString()
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: northWarehouse.id,
+      inventoryItemId: testStrips.id,
+      quantity: 15,
+      minimumStockLevel: 3,
+      maximumStockLevel: 25,
+      location: "Section 2, Rack 1",
+      notes: "Restocked on " + new Date().toLocaleDateString()
+    });
+    
+    // Add inventory to vehicles
+    if (tech1) {
+      const vehicles = await this.getTechnicianVehiclesByTechnicianId(tech1.id);
+      if (vehicles.length > 0) {
+        await this.createVehicleInventory({
+          vehicleId: vehicles[0].id,
+          inventoryItemId: chlorine.id,
+          quantity: 5,
+          targetStockLevel: 8,
+          location: "Rear Storage, Left Side",
+          notes: "Refilled on " + new Date().toLocaleDateString()
+        });
+        
+        await this.createVehicleInventory({
+          vehicleId: vehicles[0].id,
+          inventoryItemId: testStrips.id,
+          quantity: 3,
+          targetStockLevel: 5,
+          location: "Front Cabinet, Top Drawer",
+          notes: "Refilled on " + new Date().toLocaleDateString()
+        });
+      }
+    }
+    
+    if (tech2) {
+      const vehicles = await this.getTechnicianVehiclesByTechnicianId(tech2.id);
+      if (vehicles.length > 0) {
+        await this.createVehicleInventory({
+          vehicleId: vehicles[0].id,
+          inventoryItemId: tablets.id,
+          quantity: 2,
+          targetStockLevel: 3,
+          location: "Center Storage, Shelf 1",
+          notes: "Refilled on " + new Date().toLocaleDateString()
+        });
+        
+        await this.createVehicleInventory({
+          vehicleId: vehicles[0].id,
+          inventoryItemId: filterCartridge.id,
+          quantity: 3,
+          targetStockLevel: 5,
+          location: "Rear Cabinet, Bottom Shelf",
+          notes: "Refilled on " + new Date().toLocaleDateString()
+        });
+      }
+    }
+    
+    // Create a sample inventory transfer
+    if (tech1) {
+      const vehicles = await this.getTechnicianVehiclesByTechnicianId(tech1.id);
+      if (vehicles.length > 0) {
+        const transfer = await this.createInventoryTransfer({
+          sourceLocationType: "warehouse",
+          sourceLocationId: mainWarehouse.id,
+          destinationLocationType: "vehicle",
+          destinationLocationId: vehicles[0].id,
+          transferType: "warehouse_to_vehicle",
+          initiatedBy: 1, // Admin user ID
+          completedBy: null,
+          status: "pending",
+          scheduledDate: new Date().toISOString().split('T')[0],
+          notes: "Restock service truck before weekly route"
+        } as any);
+        
+        // Add transfer items
+        await this.createInventoryTransferItem({
+          transferId: transfer.id,
+          inventoryItemId: chlorine.id,
+          requestedQuantity: 3,
+          approvedQuantity: 3,
+          actualQuantity: null,
+          notes: "Regular restocking"
+        });
+        
+        await this.createInventoryTransferItem({
+          transferId: transfer.id,
+          inventoryItemId: testStrips.id,
+          requestedQuantity: 2,
+          approvedQuantity: 2,
+          actualQuantity: null,
+          notes: "Running low on test strips"
+        });
+      }
+    }
+    
+    // Create some barcodes
+    await this.createBarcode({
+      barcodeValue: "CL-" + chlorine.id + "-" + Math.floor(Math.random() * 10000),
+      barcodeType: "qr",
+      itemType: "inventory_item",
+      itemId: chlorine.id,
+      isActive: true,
+      createdAt: new Date()
+    } as any);
+    
+    await this.createBarcode({
+      barcodeValue: "TB-" + tablets.id + "-" + Math.floor(Math.random() * 10000),
+      barcodeType: "qr",
+      itemType: "inventory_item",
+      itemId: tablets.id,
+      isActive: true,
+      createdAt: new Date()
+    } as any);
+    
+    await this.createBarcode({
+      barcodeValue: "WH-" + mainWarehouse.id + "-" + Math.floor(Math.random() * 10000),
+      barcodeType: "qr",
+      itemType: "warehouse",
+      itemId: mainWarehouse.id,
+      isActive: true,
+      createdAt: new Date()
+    } as any);
+    
+    console.log("Sample inventory data initialized successfully");
+  }
+  
   private async initSampleData() {
     // Create admin user
     const adminUser = await this.createUser({
@@ -1556,6 +2617,18 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // Initialize ID counters for MemStorage compatibility
+  private inventoryItemId = 1;
+  private warehouseId = 1;
+  private technicianVehicleId = 1;
+  private warehouseInventoryId = 1;
+  private vehicleInventoryId = 1;
+  private inventoryTransferId = 1;
+  private inventoryTransferItemId = 1;
+  private barcodeId = 1;
+  private barcodeScanHistoryId = 1;
+  private inventoryAdjustmentId = 1;
+  
   // User operations
   async getUser(id: number): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
@@ -2928,6 +4001,2287 @@ export class DatabaseStorage implements IStorage {
       ));
       
     return provider || undefined;
+  }
+
+  // Business Module Operations - Stub implementations
+  // Will need to be implemented later as needed
+  async getExpense(id: number): Promise<Expense | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async createExpense(expense: InsertExpense): Promise<Expense> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async updateExpense(id: number, expense: Partial<Expense>): Promise<Expense | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async deleteExpense(id: number): Promise<boolean> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getAllExpenses(): Promise<Expense[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getExpensesByCategory(category: ExpenseCategory): Promise<Expense[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getTimeEntry(id: number): Promise<TimeEntry | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async createTimeEntry(entry: InsertTimeEntry): Promise<TimeEntry> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async updateTimeEntry(id: number, entry: Partial<TimeEntry>): Promise<TimeEntry | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async deleteTimeEntry(id: number): Promise<boolean> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getAllTimeEntries(): Promise<TimeEntry[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getTimeEntriesByUserId(userId: number): Promise<TimeEntry[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getTimeEntriesByDateRange(startDate: Date, endDate: Date): Promise<TimeEntry[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getTimeEntriesByStatus(status: string): Promise<TimeEntry[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getTimeEntriesByProjectId(projectId: number): Promise<TimeEntry[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getFinancialReport(id: number): Promise<FinancialReport | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async createFinancialReport(report: InsertFinancialReport): Promise<FinancialReport> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async updateFinancialReport(id: number, report: Partial<FinancialReport>): Promise<FinancialReport | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async deleteFinancialReport(id: number): Promise<boolean> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getAllFinancialReports(): Promise<FinancialReport[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getFinancialReportsByType(type: ReportType): Promise<FinancialReport[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getVendor(id: number): Promise<Vendor | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async updateVendor(id: number, vendor: Partial<Vendor>): Promise<Vendor | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async deleteVendor(id: number): Promise<boolean> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getAllVendors(): Promise<Vendor[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getVendorsByCategory(category: string): Promise<Vendor[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async createPurchaseOrder(order: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async updatePurchaseOrder(id: number, order: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async deletePurchaseOrder(id: number): Promise<boolean> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getPurchaseOrdersByVendorId(vendorId: number): Promise<PurchaseOrder[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getPurchaseOrdersByStatus(status: string): Promise<PurchaseOrder[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  async getPurchaseOrdersByDateRange(startDate: Date, endDate: Date): Promise<PurchaseOrder[]> {
+    throw new Error("Method not implemented.");
+  }
+  
+  // Get projects by status
+  async getProjectsByStatus(status: string): Promise<Project[]> {
+    try {
+      const result = await db.select().from(projects).where(eq(projects.status, status));
+      return result.map(project => ({
+        ...project,
+        isArchived: project.status === "archived"
+      }));
+    } catch (error) {
+      console.error(`Error retrieving projects by status '${status}':`, error);
+      return [];
+    }
+  }
+  
+  // Get archived projects
+  async getArchivedProjects(): Promise<Project[]> {
+    try {
+      const result = await db.select().from(projects).where(eq(projects.status, "archived"));
+      return result.map(project => ({
+        ...project,
+        isArchived: true
+      }));
+    } catch (error) {
+      console.error("Error retrieving archived projects:", error);
+      return [];
+    }
+  }
+  
+  // Inventory Management System Implementation
+  
+  // Inventory Item operations
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    try {
+      const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+      return item || undefined;
+    } catch (error) {
+      console.error(`Error retrieving inventory item ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createInventoryItem(insertItem: InsertInventoryItem): Promise<InventoryItem> {
+    try {
+      const [item] = await db.insert(inventoryItems).values(insertItem).returning();
+      return item;
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      throw error;
+    }
+  }
+  
+  async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    try {
+      const [updatedItem] = await db
+        .update(inventoryItems)
+        .set({...data, updatedAt: new Date()})
+        .where(eq(inventoryItems.id, id))
+        .returning();
+      return updatedItem || undefined;
+    } catch (error) {
+      console.error(`Error updating inventory item ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    try {
+      const result = await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error(`Error deleting inventory item ${id}:`, error);
+      return false;
+    }
+  }
+  
+  async getAllInventoryItems(): Promise<InventoryItem[]> {
+    try {
+      return await db.select().from(inventoryItems);
+    } catch (error) {
+      console.error("Error retrieving all inventory items:", error);
+      return [];
+    }
+  }
+  
+  async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryItems)
+        .where(eq(inventoryItems.category, category));
+    } catch (error) {
+      console.error(`Error retrieving inventory items with category ${category}:`, error);
+      return [];
+    }
+  }
+  
+  async getLowStockItems(): Promise<InventoryItem[]> {
+    try {
+      // Using raw SQL for more complex query
+      const result = await db.execute(sql`
+        SELECT i.*
+        FROM inventory_items i
+        WHERE i.current_stock < i.min_stock_level AND i.is_active = true
+      `);
+      
+      if (!result.rows) {
+        return [];
+      }
+      
+      return result.rows as InventoryItem[];
+    } catch (error) {
+      console.error("Error retrieving low stock items:", error);
+      return [];
+    }
+  }
+  
+  // Warehouse operations
+  async getWarehouse(id: number): Promise<Warehouse | undefined> {
+    try {
+      const [warehouse] = await db.select().from(warehouses).where(eq(warehouses.id, id));
+      return warehouse || undefined;
+    } catch (error) {
+      console.error(`Error retrieving warehouse ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createWarehouse(insertWarehouse: InsertWarehouse): Promise<Warehouse> {
+    try {
+      const [warehouse] = await db.insert(warehouses).values(insertWarehouse).returning();
+      return warehouse;
+    } catch (error) {
+      console.error("Error creating warehouse:", error);
+      throw error;
+    }
+  }
+  
+  async updateWarehouse(id: number, data: Partial<Warehouse>): Promise<Warehouse | undefined> {
+    try {
+      const [updatedWarehouse] = await db
+        .update(warehouses)
+        .set({...data, updatedAt: new Date()})
+        .where(eq(warehouses.id, id))
+        .returning();
+      return updatedWarehouse || undefined;
+    } catch (error) {
+      console.error(`Error updating warehouse ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async deleteWarehouse(id: number): Promise<boolean> {
+    try {
+      // First check if there are any inventory items in this warehouse
+      const warehouseItems = await db
+        .select()
+        .from(warehouseInventory)
+        .where(eq(warehouseInventory.warehouseId, id));
+      
+      if (warehouseItems.length > 0) {
+        console.error(`Cannot delete warehouse ${id} because it contains inventory items`);
+        return false;
+      }
+      
+      const result = await db.delete(warehouses).where(eq(warehouses.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error(`Error deleting warehouse ${id}:`, error);
+      return false;
+    }
+  }
+  
+  async getAllWarehouses(): Promise<Warehouse[]> {
+    try {
+      return await db.select().from(warehouses);
+    } catch (error) {
+      console.error("Error retrieving all warehouses:", error);
+      return [];
+    }
+  }
+  
+  async getActiveWarehouses(): Promise<Warehouse[]> {
+    try {
+      return await db
+        .select()
+        .from(warehouses)
+        .where(eq(warehouses.isActive, true));
+    } catch (error) {
+      console.error("Error retrieving active warehouses:", error);
+      return [];
+    }
+  }
+  
+  // Technician Vehicle operations
+  async getTechnicianVehicle(id: number): Promise<TechnicianVehicle | undefined> {
+    try {
+      const [vehicle] = await db.select().from(technicianVehicles).where(eq(technicianVehicles.id, id));
+      return vehicle || undefined;
+    } catch (error) {
+      console.error(`Error retrieving technician vehicle ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createTechnicianVehicle(insertVehicle: InsertTechnicianVehicle): Promise<TechnicianVehicle> {
+    try {
+      const [vehicle] = await db.insert(technicianVehicles).values(insertVehicle).returning();
+      return vehicle;
+    } catch (error) {
+      console.error("Error creating technician vehicle:", error);
+      throw error;
+    }
+  }
+  
+  async updateTechnicianVehicle(id: number, data: Partial<TechnicianVehicle>): Promise<TechnicianVehicle | undefined> {
+    try {
+      const [updatedVehicle] = await db
+        .update(technicianVehicles)
+        .set({...data, updatedAt: new Date()})
+        .where(eq(technicianVehicles.id, id))
+        .returning();
+      return updatedVehicle || undefined;
+    } catch (error) {
+      console.error(`Error updating technician vehicle ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async deleteTechnicianVehicle(id: number): Promise<boolean> {
+    try {
+      // First check if there is any inventory in this vehicle
+      const vehicleItems = await db
+        .select()
+        .from(vehicleInventory)
+        .where(eq(vehicleInventory.vehicleId, id));
+      
+      if (vehicleItems.length > 0) {
+        console.error(`Cannot delete vehicle ${id} because it contains inventory items`);
+        return false;
+      }
+      
+      const result = await db.delete(technicianVehicles).where(eq(technicianVehicles.id, id));
+      return result.rowCount !== null && result.rowCount > 0;
+    } catch (error) {
+      console.error(`Error deleting technician vehicle ${id}:`, error);
+      return false;
+    }
+  }
+  
+  async getAllTechnicianVehicles(): Promise<TechnicianVehicle[]> {
+    try {
+      return await db.select().from(technicianVehicles);
+    } catch (error) {
+      console.error("Error retrieving all technician vehicles:", error);
+      return [];
+    }
+  }
+  
+  async getActiveTechnicianVehicles(): Promise<TechnicianVehicle[]> {
+    try {
+      return await db
+        .select()
+        .from(technicianVehicles)
+        .where(eq(technicianVehicles.status, "active"));
+    } catch (error) {
+      console.error("Error retrieving active technician vehicles:", error);
+      return [];
+    }
+  }
+  
+  async getTechnicianVehiclesByTechnicianId(technicianId: number): Promise<TechnicianVehicle[]> {
+    try {
+      return await db
+        .select()
+        .from(technicianVehicles)
+        .where(eq(technicianVehicles.technicianId, technicianId));
+    } catch (error) {
+      console.error(`Error retrieving vehicles for technician ${technicianId}:`, error);
+      return [];
+    }
+  }
+  
+  // Warehouse Inventory operations
+  async getWarehouseInventory(id: number): Promise<WarehouseInventory | undefined> {
+    try {
+      const [inventory] = await db.select().from(warehouseInventory).where(eq(warehouseInventory.id, id));
+      return inventory || undefined;
+    } catch (error) {
+      console.error(`Error retrieving warehouse inventory ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createWarehouseInventory(insertInventory: InsertWarehouseInventory): Promise<WarehouseInventory> {
+    try {
+      const [inventory] = await db.insert(warehouseInventory).values({
+        ...insertInventory,
+        lastUpdated: new Date()
+      }).returning();
+      return inventory;
+    } catch (error) {
+      console.error("Error creating warehouse inventory:", error);
+      throw error;
+    }
+  }
+  
+  async updateWarehouseInventory(id: number, data: Partial<WarehouseInventory>): Promise<WarehouseInventory | undefined> {
+    try {
+      const [updatedInventory] = await db
+        .update(warehouseInventory)
+        .set({
+          ...data,
+          lastUpdated: new Date()
+        })
+        .where(eq(warehouseInventory.id, id))
+        .returning();
+      return updatedInventory || undefined;
+    } catch (error) {
+      console.error(`Error updating warehouse inventory ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async getWarehouseInventoryByWarehouseId(warehouseId: number): Promise<WarehouseInventory[]> {
+    try {
+      return await db
+        .select()
+        .from(warehouseInventory)
+        .where(eq(warehouseInventory.warehouseId, warehouseId));
+    } catch (error) {
+      console.error(`Error retrieving inventory for warehouse ${warehouseId}:`, error);
+      return [];
+    }
+  }
+  
+  async getWarehouseInventoryByItemId(itemId: number): Promise<WarehouseInventory[]> {
+    try {
+      return await db
+        .select()
+        .from(warehouseInventory)
+        .where(eq(warehouseInventory.inventoryItemId, itemId));
+    } catch (error) {
+      console.error(`Error retrieving warehouse inventory for item ${itemId}:`, error);
+      return [];
+    }
+  }
+  
+  async getLowStockWarehouseInventory(): Promise<WarehouseInventory[]> {
+    try {
+      // Using raw SQL for more specific filtering
+      const result = await db.execute(sql`
+        SELECT wi.*
+        FROM warehouse_inventory wi
+        WHERE wi.quantity < wi.minimum_stock_level
+      `);
+      
+      if (!result.rows) {
+        return [];
+      }
+      
+      return result.rows as WarehouseInventory[];
+    } catch (error) {
+      console.error("Error retrieving low stock warehouse inventory:", error);
+      return [];
+    }
+  }
+  
+  // Vehicle Inventory operations
+  async getVehicleInventory(id: number): Promise<VehicleInventory | undefined> {
+    try {
+      const [inventory] = await db.select().from(vehicleInventory).where(eq(vehicleInventory.id, id));
+      return inventory || undefined;
+    } catch (error) {
+      console.error(`Error retrieving vehicle inventory ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createVehicleInventory(insertInventory: InsertVehicleInventory): Promise<VehicleInventory> {
+    try {
+      const [inventory] = await db.insert(vehicleInventory).values({
+        ...insertInventory,
+        lastUpdated: new Date()
+      }).returning();
+      return inventory;
+    } catch (error) {
+      console.error("Error creating vehicle inventory:", error);
+      throw error;
+    }
+  }
+  
+  async updateVehicleInventory(id: number, data: Partial<VehicleInventory>): Promise<VehicleInventory | undefined> {
+    try {
+      const [updatedInventory] = await db
+        .update(vehicleInventory)
+        .set({
+          ...data,
+          lastUpdated: new Date()
+        })
+        .where(eq(vehicleInventory.id, id))
+        .returning();
+      return updatedInventory || undefined;
+    } catch (error) {
+      console.error(`Error updating vehicle inventory ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async getVehicleInventoryByVehicleId(vehicleId: number): Promise<VehicleInventory[]> {
+    try {
+      return await db
+        .select()
+        .from(vehicleInventory)
+        .where(eq(vehicleInventory.vehicleId, vehicleId));
+    } catch (error) {
+      console.error(`Error retrieving inventory for vehicle ${vehicleId}:`, error);
+      return [];
+    }
+  }
+  
+  async getVehicleInventoryByItemId(itemId: number): Promise<VehicleInventory[]> {
+    try {
+      return await db
+        .select()
+        .from(vehicleInventory)
+        .where(eq(vehicleInventory.inventoryItemId, itemId));
+    } catch (error) {
+      console.error(`Error retrieving vehicle inventory for item ${itemId}:`, error);
+      return [];
+    }
+  }
+  
+  async getLowStockVehicleInventory(): Promise<VehicleInventory[]> {
+    try {
+      // Using raw SQL for more specific filtering
+      const result = await db.execute(sql`
+        SELECT vi.*
+        FROM vehicle_inventory vi
+        WHERE vi.quantity < vi.target_stock_level
+      `);
+      
+      if (!result.rows) {
+        return [];
+      }
+      
+      return result.rows as VehicleInventory[];
+    } catch (error) {
+      console.error("Error retrieving low stock vehicle inventory:", error);
+      return [];
+    }
+  }
+  
+  // Inventory Transfer operations
+  async getInventoryTransfer(id: number): Promise<InventoryTransfer | undefined> {
+    try {
+      const [transfer] = await db.select().from(inventoryTransfers).where(eq(inventoryTransfers.id, id));
+      return transfer || undefined;
+    } catch (error) {
+      console.error(`Error retrieving inventory transfer ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createInventoryTransfer(insertTransfer: InsertInventoryTransfer): Promise<InventoryTransfer> {
+    try {
+      // Temporarily store the initiatedByUserId as requestedByUserId
+      const transferData = {
+        ...insertTransfer,
+        requestedByUserId: insertTransfer.requestedByUserId ?? 
+                           (insertTransfer as any).initiatedByUserId ?? 1
+      };
+      
+      delete (transferData as any).initiatedByUserId;
+      
+      // Set default values if not provided
+      if (!transferData.requestDate) {
+        transferData.requestDate = new Date();
+      }
+      
+      const [transfer] = await db.insert(inventoryTransfers).values(transferData).returning();
+      return transfer;
+    } catch (error) {
+      console.error("Error creating inventory transfer:", error);
+      throw error;
+    }
+  }
+  
+  async updateInventoryTransfer(id: number, data: Partial<InventoryTransfer>): Promise<InventoryTransfer | undefined> {
+    try {
+      // If completing the transfer, set the completion date
+      if (data.status === "completed" && !data.completedDate) {
+        data.completedDate = new Date();
+      }
+      
+      const [updatedTransfer] = await db
+        .update(inventoryTransfers)
+        .set(data)
+        .where(eq(inventoryTransfers.id, id))
+        .returning();
+      
+      if (updatedTransfer && updatedTransfer.status === "completed") {
+        // Get all transfer items
+        const transferItems = await this.getInventoryTransferItemsByTransferId(id);
+        
+        // Update inventory in source and destination locations
+        await this.processCompletedTransfer(updatedTransfer, transferItems);
+      }
+      
+      return updatedTransfer || undefined;
+    } catch (error) {
+      console.error(`Error updating inventory transfer ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  private async processCompletedTransfer(
+    transfer: InventoryTransfer,
+    transferItems: InventoryTransferItem[]
+  ): Promise<void> {
+    // Process each item in the transfer
+    for (const item of transferItems) {
+      // Only process items with actual quantities
+      if (!item.actualQuantity) continue;
+      
+      const quantity = item.actualQuantity;
+      const itemId = item.inventoryItemId;
+      
+      // Remove from source
+      if (transfer.sourceLocationType === "warehouse") {
+        // Find warehouse inventory
+        const warehouseInventories = await this.getWarehouseInventoryByWarehouseIdAndItemId(
+          transfer.sourceLocationId,
+          itemId
+        );
+        
+        if (warehouseInventories.length > 0) {
+          const sourceInventory = warehouseInventories[0];
+          // Update quantity (never go below 0)
+          const newQuantity = Math.max(0, sourceInventory.quantity - quantity);
+          await this.updateWarehouseInventory(sourceInventory.id, { quantity: newQuantity });
+        }
+      } else if (transfer.sourceLocationType === "vehicle") {
+        // Find vehicle inventory
+        const vehicleInventories = await this.getVehicleInventoryByVehicleIdAndItemId(
+          transfer.sourceLocationId,
+          itemId
+        );
+        
+        if (vehicleInventories.length > 0) {
+          const sourceInventory = vehicleInventories[0];
+          // Update quantity (never go below 0)
+          const newQuantity = Math.max(0, sourceInventory.quantity - quantity);
+          await this.updateVehicleInventory(sourceInventory.id, { quantity: newQuantity });
+        }
+      }
+      
+      // Add to destination
+      if (transfer.destinationLocationType === "warehouse") {
+        // Find or create warehouse inventory
+        let warehouseInventories = await this.getWarehouseInventoryByWarehouseIdAndItemId(
+          transfer.destinationLocationId,
+          itemId
+        );
+        
+        if (warehouseInventories.length > 0) {
+          const destInventory = warehouseInventories[0];
+          // Update quantity
+          const newQuantity = destInventory.quantity + quantity;
+          await this.updateWarehouseInventory(destInventory.id, { quantity: newQuantity });
+        } else {
+          // Create new inventory entry
+          await this.createWarehouseInventory({
+            warehouseId: transfer.destinationLocationId,
+            inventoryItemId: itemId,
+            quantity: quantity,
+            location: "Transfer receiving area"
+          });
+        }
+      } else if (transfer.destinationLocationType === "vehicle") {
+        // Find or create vehicle inventory
+        let vehicleInventories = await this.getVehicleInventoryByVehicleIdAndItemId(
+          transfer.destinationLocationId,
+          itemId
+        );
+        
+        if (vehicleInventories.length > 0) {
+          const destInventory = vehicleInventories[0];
+          // Update quantity
+          const newQuantity = destInventory.quantity + quantity;
+          await this.updateVehicleInventory(destInventory.id, { quantity: newQuantity });
+        } else {
+          // Create new inventory entry
+          await this.createVehicleInventory({
+            vehicleId: transfer.destinationLocationId,
+            inventoryItemId: itemId,
+            quantity: quantity,
+            location: "Transfer receiving"
+          });
+        }
+      }
+      // For client destination, we don't track inventory
+    }
+  }
+  
+  async getAllInventoryTransfers(): Promise<InventoryTransfer[]> {
+    try {
+      return await db.select().from(inventoryTransfers);
+    } catch (error) {
+      console.error("Error retrieving all inventory transfers:", error);
+      return [];
+    }
+  }
+  
+  async getInventoryTransfersByStatus(status: TransferStatus): Promise<InventoryTransfer[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryTransfers)
+        .where(eq(inventoryTransfers.status, status));
+    } catch (error) {
+      console.error(`Error retrieving inventory transfers with status ${status}:`, error);
+      return [];
+    }
+  }
+  
+  async getInventoryTransfersByType(type: TransferType): Promise<InventoryTransfer[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryTransfers)
+        .where(eq(inventoryTransfers.transferType, type));
+    } catch (error) {
+      console.error(`Error retrieving inventory transfers with type ${type}:`, error);
+      return [];
+    }
+  }
+  
+  async getInventoryTransfersByDate(startDate: Date, endDate: Date): Promise<InventoryTransfer[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryTransfers)
+        .where(
+          and(
+            gte(inventoryTransfers.requestDate, startDate),
+            lte(inventoryTransfers.requestDate, endDate)
+          )
+        );
+    } catch (error) {
+      console.error(`Error retrieving inventory transfers by date range:`, error);
+      return [];
+    }
+  }
+  
+  // Inventory Transfer Item operations
+  async getInventoryTransferItem(id: number): Promise<InventoryTransferItem | undefined> {
+    try {
+      const [item] = await db.select().from(inventoryTransferItems).where(eq(inventoryTransferItems.id, id));
+      return item || undefined;
+    } catch (error) {
+      console.error(`Error retrieving inventory transfer item ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createInventoryTransferItem(insertItem: InsertInventoryTransferItem): Promise<InventoryTransferItem> {
+    try {
+      const [item] = await db.insert(inventoryTransferItems).values(insertItem).returning();
+      return item;
+    } catch (error) {
+      console.error("Error creating inventory transfer item:", error);
+      throw error;
+    }
+  }
+  
+  async updateInventoryTransferItem(id: number, data: Partial<InventoryTransferItem>): Promise<InventoryTransferItem | undefined> {
+    try {
+      const [updatedItem] = await db
+        .update(inventoryTransferItems)
+        .set(data)
+        .where(eq(inventoryTransferItems.id, id))
+        .returning();
+      return updatedItem || undefined;
+    } catch (error) {
+      console.error(`Error updating inventory transfer item ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async getInventoryTransferItemsByTransferId(transferId: number): Promise<InventoryTransferItem[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryTransferItems)
+        .where(eq(inventoryTransferItems.transferId, transferId));
+    } catch (error) {
+      console.error(`Error retrieving items for transfer ${transferId}:`, error);
+      return [];
+    }
+  }
+  
+  // Helper methods for inventory operations
+  async getWarehouseInventoryByWarehouseIdAndItemId(warehouseId: number, itemId: number): Promise<WarehouseInventory[]> {
+    try {
+      return await db
+        .select()
+        .from(warehouseInventory)
+        .where(
+          and(
+            eq(warehouseInventory.warehouseId, warehouseId),
+            eq(warehouseInventory.inventoryItemId, itemId)
+          )
+        );
+    } catch (error) {
+      console.error(`Error retrieving warehouse inventory for warehouse ${warehouseId} and item ${itemId}:`, error);
+      return [];
+    }
+  }
+  
+  async getVehicleInventoryByVehicleIdAndItemId(vehicleId: number, itemId: number): Promise<VehicleInventory[]> {
+    try {
+      return await db
+        .select()
+        .from(vehicleInventory)
+        .where(
+          and(
+            eq(vehicleInventory.vehicleId, vehicleId),
+            eq(vehicleInventory.inventoryItemId, itemId)
+          )
+        );
+    } catch (error) {
+      console.error(`Error retrieving vehicle inventory for vehicle ${vehicleId} and item ${itemId}:`, error);
+      return [];
+    }
+  }
+  
+  // Barcode operations
+  async getBarcode(id: number): Promise<Barcode | undefined> {
+    try {
+      const [barcode] = await db.select().from(barcodes).where(eq(barcodes.id, id));
+      return barcode || undefined;
+    } catch (error) {
+      console.error(`Error retrieving barcode ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async getBarcodeByValue(value: string): Promise<Barcode | undefined> {
+    try {
+      const [barcode] = await db.select().from(barcodes).where(eq(barcodes.barcodeValue, value));
+      return barcode || undefined;
+    } catch (error) {
+      console.error(`Error retrieving barcode with value ${value}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createBarcode(insertBarcode: InsertBarcode): Promise<Barcode> {
+    try {
+      const [barcode] = await db.insert(barcodes).values(insertBarcode).returning();
+      return barcode;
+    } catch (error) {
+      console.error("Error creating barcode:", error);
+      throw error;
+    }
+  }
+  
+  async updateBarcode(id: number, data: Partial<Barcode>): Promise<Barcode | undefined> {
+    try {
+      const [updatedBarcode] = await db
+        .update(barcodes)
+        .set(data)
+        .where(eq(barcodes.id, id))
+        .returning();
+      return updatedBarcode || undefined;
+    } catch (error) {
+      console.error(`Error updating barcode ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async getAllBarcodes(): Promise<Barcode[]> {
+    try {
+      return await db.select().from(barcodes);
+    } catch (error) {
+      console.error("Error retrieving all barcodes:", error);
+      return [];
+    }
+  }
+  
+  async getBarcodesByType(type: BarcodeType): Promise<Barcode[]> {
+    try {
+      return await db
+        .select()
+        .from(barcodes)
+        .where(eq(barcodes.barcodeType, type));
+    } catch (error) {
+      console.error(`Error retrieving barcodes with type ${type}:`, error);
+      return [];
+    }
+  }
+  
+  async getBarcodesByItemType(itemType: string): Promise<Barcode[]> {
+    try {
+      return await db
+        .select()
+        .from(barcodes)
+        .where(eq(barcodes.itemType, itemType));
+    } catch (error) {
+      console.error(`Error retrieving barcodes with item type ${itemType}:`, error);
+      return [];
+    }
+  }
+  
+  // Barcode Scan History operations
+  async getBarcodeScan(id: number): Promise<BarcodeScanHistory | undefined> {
+    try {
+      const [scan] = await db.select().from(barcodeScanHistory).where(eq(barcodeScanHistory.id, id));
+      return scan || undefined;
+    } catch (error) {
+      console.error(`Error retrieving barcode scan ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createBarcodeScan(insertScan: InsertBarcodeScanHistory): Promise<BarcodeScanHistory> {
+    try {
+      const [scan] = await db.insert(barcodeScanHistory).values({
+        ...insertScan,
+        scanTime: new Date()
+      }).returning();
+      return scan;
+    } catch (error) {
+      console.error("Error creating barcode scan:", error);
+      throw error;
+    }
+  }
+  
+  async getBarcodeScansByBarcodeId(barcodeId: number): Promise<BarcodeScanHistory[]> {
+    try {
+      return await db
+        .select()
+        .from(barcodeScanHistory)
+        .where(eq(barcodeScanHistory.barcodeId, barcodeId))
+        .orderBy(desc(barcodeScanHistory.scanTime));
+    } catch (error) {
+      console.error(`Error retrieving scans for barcode ${barcodeId}:`, error);
+      return [];
+    }
+  }
+  
+  async getBarcodeScansByUserId(userId: number): Promise<BarcodeScanHistory[]> {
+    try {
+      return await db
+        .select()
+        .from(barcodeScanHistory)
+        .where(eq(barcodeScanHistory.scannedByUserId, userId))
+        .orderBy(desc(barcodeScanHistory.scanTime));
+    } catch (error) {
+      console.error(`Error retrieving scans by user ${userId}:`, error);
+      return [];
+    }
+  }
+  
+  async getBarcodeScansByDate(startDate: Date, endDate: Date): Promise<BarcodeScanHistory[]> {
+    try {
+      return await db
+        .select()
+        .from(barcodeScanHistory)
+        .where(
+          and(
+            gte(barcodeScanHistory.scanTime, startDate),
+            lte(barcodeScanHistory.scanTime, endDate)
+          )
+        )
+        .orderBy(desc(barcodeScanHistory.scanTime));
+    } catch (error) {
+      console.error(`Error retrieving barcode scans by date range:`, error);
+      return [];
+    }
+  }
+  
+  // Inventory Adjustment operations
+  async getInventoryAdjustment(id: number): Promise<InventoryAdjustment | undefined> {
+    try {
+      const [adjustment] = await db.select().from(inventoryAdjustments).where(eq(inventoryAdjustments.id, id));
+      return adjustment || undefined;
+    } catch (error) {
+      console.error(`Error retrieving inventory adjustment ${id}:`, error);
+      return undefined;
+    }
+  }
+  
+  async createInventoryAdjustment(insertAdjustment: InsertInventoryAdjustment): Promise<InventoryAdjustment> {
+    try {
+      // Ensure the inventory is updated first
+      await this.updateInventoryForAdjustment(
+        insertAdjustment.inventoryItemId,
+        insertAdjustment.locationType,
+        insertAdjustment.locationId,
+        insertAdjustment.quantityChange
+      );
+      
+      // Then record the adjustment
+      const [adjustment] = await db.insert(inventoryAdjustments).values({
+        ...insertAdjustment,
+        adjustmentDate: new Date()
+      }).returning();
+      
+      return adjustment;
+    } catch (error) {
+      console.error("Error creating inventory adjustment:", error);
+      throw error;
+    }
+  }
+  
+  private async updateInventoryForAdjustment(
+    itemId: number, 
+    locationType: string, 
+    locationId: number, 
+    quantityChange: number
+  ): Promise<boolean> {
+    try {
+      if (locationType === "warehouse") {
+        // Find warehouse inventory
+        const warehouseInventories = await this.getWarehouseInventoryByWarehouseIdAndItemId(locationId, itemId);
+        
+        if (warehouseInventories.length > 0) {
+          const inventory = warehouseInventories[0];
+          // Update quantity (never go below 0)
+          const newQuantity = Math.max(0, inventory.quantity + quantityChange);
+          await this.updateWarehouseInventory(inventory.id, { quantity: newQuantity });
+          return true;
+        } else if (quantityChange > 0) {
+          // Create new inventory entry for positive adjustments
+          await this.createWarehouseInventory({
+            warehouseId: locationId,
+            inventoryItemId: itemId,
+            quantity: quantityChange,
+            location: "Adjustment addition"
+          });
+          return true;
+        }
+      } else if (locationType === "vehicle") {
+        // Find vehicle inventory
+        const vehicleInventories = await this.getVehicleInventoryByVehicleIdAndItemId(locationId, itemId);
+        
+        if (vehicleInventories.length > 0) {
+          const inventory = vehicleInventories[0];
+          // Update quantity (never go below 0)
+          const newQuantity = Math.max(0, inventory.quantity + quantityChange);
+          await this.updateVehicleInventory(inventory.id, { quantity: newQuantity });
+          return true;
+        } else if (quantityChange > 0) {
+          // Create new inventory entry for positive adjustments
+          await this.createVehicleInventory({
+            vehicleId: locationId,
+            inventoryItemId: itemId,
+            quantity: quantityChange,
+            location: "Adjustment addition"
+          });
+          return true;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error(`Error updating inventory for adjustment:`, error);
+      return false;
+    }
+  }
+  
+  async getAllInventoryAdjustments(): Promise<InventoryAdjustment[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryAdjustments)
+        .orderBy(desc(inventoryAdjustments.adjustmentDate));
+    } catch (error) {
+      console.error("Error retrieving all inventory adjustments:", error);
+      return [];
+    }
+  }
+  
+  async getInventoryAdjustmentsByItemId(itemId: number): Promise<InventoryAdjustment[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryAdjustments)
+        .where(eq(inventoryAdjustments.inventoryItemId, itemId))
+        .orderBy(desc(inventoryAdjustments.adjustmentDate));
+    } catch (error) {
+      console.error(`Error retrieving adjustments for item ${itemId}:`, error);
+      return [];
+    }
+  }
+  
+  async getInventoryAdjustmentsByLocation(locationType: string, locationId: number): Promise<InventoryAdjustment[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryAdjustments)
+        .where(
+          and(
+            eq(inventoryAdjustments.locationType, locationType),
+            eq(inventoryAdjustments.locationId, locationId)
+          )
+        )
+        .orderBy(desc(inventoryAdjustments.adjustmentDate));
+    } catch (error) {
+      console.error(`Error retrieving adjustments for location type ${locationType} id ${locationId}:`, error);
+      return [];
+    }
+  }
+  
+  async getInventoryAdjustmentsByDate(startDate: Date, endDate: Date): Promise<InventoryAdjustment[]> {
+    try {
+      return await db
+        .select()
+        .from(inventoryAdjustments)
+        .where(
+          and(
+            gte(inventoryAdjustments.adjustmentDate, startDate),
+            lte(inventoryAdjustments.adjustmentDate, endDate)
+          )
+        )
+        .orderBy(desc(inventoryAdjustments.adjustmentDate));
+    } catch (error) {
+      console.error(`Error retrieving inventory adjustments by date range:`, error);
+      return [];
+    }
+  }
+
+  // Sample inventory data initialization
+  async initSampleInventoryData() {
+    // Create sample warehouses
+    await this.createWarehouse({
+      name: "Main Warehouse",
+      address: "123 Storage Blvd",
+      city: "Phoenix",
+      state: "AZ",
+      zipCode: "85001",
+      latitude: 33.4484,
+      longitude: -112.0740,
+      description: "Primary storage facility",
+      phoneNumber: "602-555-7890"
+    });
+    
+    await this.createWarehouse({
+      name: "East Valley Warehouse",
+      address: "456 Inventory Lane",
+      city: "Scottsdale",
+      state: "AZ",
+      zipCode: "85251",
+      latitude: 33.4942,
+      longitude: -111.9261,
+      description: "Secondary storage facility",
+      phoneNumber: "480-555-1234"
+    });
+    
+    // Create sample vehicles
+    await this.createTechnicianVehicle({
+      name: "Service Truck #1",
+      type: "truck",
+      technicianId: 1,
+      status: "active",
+      make: "Ford",
+      model: "F-150",
+      year: 2021,
+      licensePlate: "ABC123",
+      vin: "1FTFW1ET2DFA52087"
+    });
+    
+    await this.createTechnicianVehicle({
+      name: "Service Truck #2",
+      type: "truck",
+      technicianId: 2,
+      status: "active",
+      make: "Chevrolet",
+      model: "Silverado",
+      year: 2022,
+      licensePlate: "XYZ789",
+      vin: "3GCUKREC8JG176439"
+    });
+    
+    // Create sample inventory items
+    await this.createInventoryItem({
+      name: "Liquid Chlorine",
+      category: "chemicals",
+      unit: "gallon",
+      costPerUnit: 4.99,
+      description: "Sodium hypochlorite solution for pool sanitation",
+      minStockLevel: 20,
+      maxStockLevel: 100,
+      reorderPoint: 30,
+      reorderQuantity: 50
+    });
+    
+    await this.createInventoryItem({
+      name: "Muriatic Acid",
+      category: "chemicals",
+      unit: "gallon",
+      costPerUnit: 6.99,
+      description: "pH decreaser for pool water",
+      minStockLevel: 15,
+      maxStockLevel: 60,
+      reorderPoint: 20,
+      reorderQuantity: 30
+    });
+    
+    await this.createInventoryItem({
+      name: "Cartridge Filter",
+      category: "equipment",
+      unit: "piece",
+      costPerUnit: 69.99,
+      description: "Standard size pool filter cartridge",
+      minStockLevel: 5,
+      maxStockLevel: 20,
+      reorderPoint: 8,
+      reorderQuantity: 12
+    });
+    
+    await this.createInventoryItem({
+      name: "Variable Speed Pump",
+      category: "equipment",
+      unit: "piece",
+      costPerUnit: 799.99,
+      description: "Energy efficient variable speed pool pump",
+      minStockLevel: 2,
+      maxStockLevel: 8,
+      reorderPoint: 3,
+      reorderQuantity: 5
+    });
+    
+    await this.createInventoryItem({
+      name: "Leaf Skimmer Net",
+      category: "tools",
+      unit: "piece",
+      costPerUnit: 24.99,
+      description: "Heavy duty leaf skimmer with telescoping pole",
+      minStockLevel: 10,
+      maxStockLevel: 30,
+      reorderPoint: 12,
+      reorderQuantity: 20
+    });
+    
+    // Add inventory to warehouses
+    await this.createWarehouseInventory({
+      warehouseId: 1,
+      inventoryItemId: 1,  // Chlorine
+      quantity: 45,
+      location: "Chemical storage area A1",
+      minimumStockLevel: 20,
+      maximumStockLevel: 100
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: 1,
+      inventoryItemId: 2,  // Muriatic acid
+      quantity: 30,
+      location: "Chemical storage area A2",
+      minimumStockLevel: 15,
+      maximumStockLevel: 60
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: 1,
+      inventoryItemId: 3,  // Filter
+      quantity: 12,
+      location: "Equipment shelf B3",
+      minimumStockLevel: 5,
+      maximumStockLevel: 20
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: 2,
+      inventoryItemId: 1,  // Chlorine
+      quantity: 25,
+      location: "Chemical storage area C1",
+      minimumStockLevel: 15,
+      maximumStockLevel: 60
+    });
+    
+    await this.createWarehouseInventory({
+      warehouseId: 2,
+      inventoryItemId: 4,  // Pump
+      quantity: 4,
+      location: "Equipment area D2",
+      minimumStockLevel: 2,
+      maximumStockLevel: 8
+    });
+    
+    // Add inventory to vehicles
+    await this.createVehicleInventory({
+      vehicleId: 1,
+      inventoryItemId: 1,  // Chlorine
+      quantity: 8,
+      location: "Rear storage compartment",
+      targetStockLevel: 10
+    });
+    
+    await this.createVehicleInventory({
+      vehicleId: 1,
+      inventoryItemId: 2,  // Muriatic acid
+      quantity: 5,
+      location: "Rear storage compartment",
+      targetStockLevel: 6
+    });
+    
+    await this.createVehicleInventory({
+      vehicleId: 1,
+      inventoryItemId: 5,  // Leaf net
+      quantity: 3,
+      location: "Side compartment",
+      targetStockLevel: 4
+    });
+    
+    await this.createVehicleInventory({
+      vehicleId: 2,
+      inventoryItemId: 1,  // Chlorine
+      quantity: 10,
+      location: "Rear storage compartment",
+      targetStockLevel: 10
+    });
+    
+    await this.createVehicleInventory({
+      vehicleId: 2,
+      inventoryItemId: 3,  // Filter
+      quantity: 2,
+      location: "Side compartment",
+      targetStockLevel: 3
+    });
+    
+    // Create sample barcodes
+    await this.createBarcode({
+      barcodeValue: "CHL-12345",
+      barcodeType: "qr", 
+      itemType: "inventory",
+      itemId: 1  // Chlorine
+    });
+    
+    await this.createBarcode({
+      barcodeValue: "MUR-54321",
+      barcodeType: "qr",
+      itemType: "inventory", 
+      itemId: 2  // Muriatic acid
+    });
+    
+    await this.createBarcode({
+      barcodeValue: "FLT-98765",
+      barcodeType: "qr",
+      itemType: "inventory",
+      itemId: 3  // Filter
+    });
+    
+    // Create a sample inventory transfer
+    const transfer = await this.createInventoryTransfer({
+      transferType: "warehouse_to_vehicle",
+      sourceLocationType: "warehouse",
+      sourceLocationId: 1,
+      destinationLocationType: "vehicle",
+      destinationLocationId: 1,
+      initiatedByUserId: 1,
+      scheduledDate: new Date().toISOString(),
+      status: "pending"
+    });
+    
+    await this.createInventoryTransferItem({
+      transferId: 1,
+      inventoryItemId: 1,  // Chlorine
+      requestedQuantity: 5,
+      notes: "Weekly restock"
+    });
+    
+    await this.createInventoryTransferItem({
+      transferId: 1,
+      inventoryItemId: 2,  // Muriatic acid
+      requestedQuantity: 3,
+      notes: "Weekly restock"
+    });
+    
+    // Add a completed transfer as example
+    const completedTransfer = await this.createInventoryTransfer({
+      transferType: "warehouse_to_warehouse",
+      sourceLocationType: "warehouse",
+      sourceLocationId: 1,
+      destinationLocationType: "warehouse",
+      destinationLocationId: 2,
+      initiatedByUserId: 1,
+      status: "completed",
+      scheduledDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days ago
+      completionDate: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(), // 6 days ago
+      completedByUserId: 1
+    });
+    
+    await this.createInventoryTransferItem({
+      transferId: 2,
+      inventoryItemId: 3,  // Filter
+      requestedQuantity: 5,
+      approvedQuantity: 5,
+      actualQuantity: 5
+    });
+    
+    // Create some inventory adjustments
+    await this.createInventoryAdjustment({
+      reason: "damaged",
+      inventoryItemId: 1,  // Chlorine
+      locationType: "warehouse",
+      locationId: 1,
+      quantityChange: -2,
+      performedByUserId: 1,
+      notes: "Container damaged during handling"
+    });
+    
+    await this.createInventoryAdjustment({
+      reason: "count_correction",
+      inventoryItemId: 3,  // Filter
+      locationType: "warehouse",
+      locationId: 1,
+      quantityChange: 1,
+      performedByUserId: 1,
+      notes: "Inventory count correction after audit"
+    });
+    
+    // Create some barcode scans
+    await this.createBarcodeScan({
+      barcodeId: 1,
+      scannedByUserId: 1,
+      actionType: "inventory_check",
+      location: "Warehouse 1, Bay A"
+    });
+    
+    await this.createBarcodeScan({
+      barcodeId: 2,
+      scannedByUserId: 2,
+      actionType: "check_out",
+      location: "Warehouse 1"
+    });
+  }
+
+  // Inventory Item operations
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    return this.inventoryItems.get(id);
+  }
+
+  async createInventoryItem(insertItem: InsertInventoryItem): Promise<InventoryItem> {
+    const id = this.inventoryItemId++;
+    // Ensure required fields have proper default values
+    const item: InventoryItem = { 
+      ...insertItem, 
+      id,
+      description: insertItem.description ?? null,
+      notes: insertItem.notes ?? null,
+      imageUrl: insertItem.imageUrl ?? null,
+      isActive: insertItem.isActive !== undefined ? insertItem.isActive : true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      minStockLevel: insertItem.minStockLevel ?? null,
+      maxStockLevel: insertItem.maxStockLevel ?? null,
+      reorderPoint: insertItem.reorderPoint ?? null,
+      reorderQuantity: insertItem.reorderQuantity ?? null,
+      lastOrderDate: insertItem.lastOrderDate ?? null
+    };
+    this.inventoryItems.set(id, item);
+    return item;
+  }
+
+  async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    const item = await this.getInventoryItem(id);
+    if (!item) return undefined;
+    
+    const updatedItem = { ...item, ...data, updatedAt: new Date() };
+    this.inventoryItems.set(id, updatedItem);
+    return updatedItem;
+  }
+
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    const item = await this.getInventoryItem(id);
+    if (!item) return false;
+    
+    return this.inventoryItems.delete(id);
+  }
+
+  async getAllInventoryItems(): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values());
+  }
+
+  async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values()).filter(
+      (item) => item.category === category
+    );
+  }
+
+  async getLowStockItems(): Promise<InventoryItem[]> {
+    // Get all items with warehouse and vehicle inventory
+    const allItems = await this.getAllInventoryItems();
+    const results: InventoryItem[] = [];
+    
+    for (const item of allItems) {
+      // Get warehouse inventory for this item
+      const warehouseInventories = await this.getWarehouseInventoryByItemId(item.id);
+      const vehicleInventories = await this.getVehicleInventoryByItemId(item.id);
+      
+      // Calculate total quantity across all warehouses and vehicles
+      const totalWarehouseQuantity = warehouseInventories.reduce((sum, inv) => sum + inv.quantity, 0);
+      const totalVehicleQuantity = vehicleInventories.reduce((sum, inv) => sum + inv.quantity, 0);
+      const totalQuantity = totalWarehouseQuantity + totalVehicleQuantity;
+      
+      // If item has a reorder point and total quantity is below that, add to results
+      if (item.reorderPoint !== null && totalQuantity <= item.reorderPoint) {
+        results.push(item);
+      }
+    }
+    
+    return results;
+  }
+
+  // Warehouse operations
+  async getWarehouse(id: number): Promise<Warehouse | undefined> {
+    return this.warehouses.get(id);
+  }
+
+  async createWarehouse(insertWarehouse: InsertWarehouse): Promise<Warehouse> {
+    const id = this.warehouseId++;
+    // Ensure required fields have proper default values
+    const warehouse: Warehouse = { 
+      ...insertWarehouse, 
+      id,
+      latitude: insertWarehouse.latitude ?? null,
+      longitude: insertWarehouse.longitude ?? null,
+      description: insertWarehouse.description ?? null,
+      isActive: insertWarehouse.isActive !== undefined ? insertWarehouse.isActive : true,
+      phoneNumber: insertWarehouse.phoneNumber ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.warehouses.set(id, warehouse);
+    return warehouse;
+  }
+
+  async updateWarehouse(id: number, data: Partial<Warehouse>): Promise<Warehouse | undefined> {
+    const warehouse = await this.getWarehouse(id);
+    if (!warehouse) return undefined;
+    
+    const updatedWarehouse = { ...warehouse, ...data, updatedAt: new Date() };
+    this.warehouses.set(id, updatedWarehouse);
+    return updatedWarehouse;
+  }
+
+  async deleteWarehouse(id: number): Promise<boolean> {
+    const warehouse = await this.getWarehouse(id);
+    if (!warehouse) return false;
+    
+    // Delete all warehouse inventory associated with this warehouse
+    const inventories = await this.getWarehouseInventoryByWarehouseId(id);
+    for (const inventory of inventories) {
+      await this.deleteWarehouseInventory(inventory.id);
+    }
+    
+    return this.warehouses.delete(id);
+  }
+
+  async getAllWarehouses(): Promise<Warehouse[]> {
+    return Array.from(this.warehouses.values());
+  }
+
+  async getActiveWarehouses(): Promise<Warehouse[]> {
+    return Array.from(this.warehouses.values()).filter(
+      (warehouse) => warehouse.isActive
+    );
+  }
+
+  // Technician Vehicle operations
+  async getTechnicianVehicle(id: number): Promise<TechnicianVehicle | undefined> {
+    return this.technicianVehicles.get(id);
+  }
+
+  async getTechnicianVehiclesByTechnicianId(technicianId: number): Promise<TechnicianVehicle[]> {
+    return Array.from(this.technicianVehicles.values()).filter(
+      (vehicle) => vehicle.technicianId === technicianId
+    );
+  }
+
+  async createTechnicianVehicle(insertVehicle: InsertTechnicianVehicle): Promise<TechnicianVehicle> {
+    const id = this.technicianVehicleId++;
+    // Ensure required fields have proper default values
+    const vehicle: TechnicianVehicle = { 
+      ...insertVehicle, 
+      id,
+      status: insertVehicle.status ?? "active",
+      notes: insertVehicle.notes ?? null,
+      model: insertVehicle.model ?? null,
+      make: insertVehicle.make ?? null,
+      year: insertVehicle.year ?? null,
+      licensePlate: insertVehicle.licensePlate ?? null,
+      vin: insertVehicle.vin ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.technicianVehicles.set(id, vehicle);
+    return vehicle;
+  }
+
+  async updateTechnicianVehicle(id: number, data: Partial<TechnicianVehicle>): Promise<TechnicianVehicle | undefined> {
+    const vehicle = await this.getTechnicianVehicle(id);
+    if (!vehicle) return undefined;
+    
+    const updatedVehicle = { ...vehicle, ...data, updatedAt: new Date() };
+    this.technicianVehicles.set(id, updatedVehicle);
+    return updatedVehicle;
+  }
+
+  async deleteTechnicianVehicle(id: number): Promise<boolean> {
+    const vehicle = await this.getTechnicianVehicle(id);
+    if (!vehicle) return false;
+    
+    // Delete all vehicle inventory associated with this vehicle
+    const inventories = await this.getVehicleInventoryByVehicleId(id);
+    for (const inventory of inventories) {
+      await this.deleteVehicleInventory(inventory.id);
+    }
+    
+    return this.technicianVehicles.delete(id);
+  }
+
+  async getAllTechnicianVehicles(): Promise<TechnicianVehicle[]> {
+    return Array.from(this.technicianVehicles.values());
+  }
+
+  async getActiveTechnicianVehicles(): Promise<TechnicianVehicle[]> {
+    return Array.from(this.technicianVehicles.values()).filter(
+      (vehicle) => vehicle.status === "active"
+    );
+  }
+
+  // Warehouse Inventory operations
+  async getWarehouseInventory(id: number): Promise<WarehouseInventory | undefined> {
+    return this.warehouseInventory.get(id);
+  }
+
+  async createWarehouseInventory(insertInventory: InsertWarehouseInventory): Promise<WarehouseInventory> {
+    const id = this.warehouseInventoryId++;
+    // Ensure required fields have proper default values
+    const inventory: WarehouseInventory = { 
+      ...insertInventory, 
+      id,
+      notes: insertInventory.notes ?? null,
+      location: insertInventory.location ?? null,
+      quantity: insertInventory.quantity ?? 0,
+      minimumStockLevel: insertInventory.minimumStockLevel ?? null,
+      maximumStockLevel: insertInventory.maximumStockLevel ?? null,
+      lastUpdated: new Date()
+    };
+    this.warehouseInventory.set(id, inventory);
+    
+    // Update the inventory item's last updated date
+    const item = await this.getInventoryItem(insertInventory.inventoryItemId);
+    if (item) {
+      await this.updateInventoryItem(item.id, { updatedAt: new Date() });
+    }
+    
+    return inventory;
+  }
+
+  async updateWarehouseInventory(id: number, data: Partial<WarehouseInventory>): Promise<WarehouseInventory | undefined> {
+    const inventory = await this.getWarehouseInventory(id);
+    if (!inventory) return undefined;
+    
+    const updatedInventory = { ...inventory, ...data, lastUpdated: new Date() };
+    this.warehouseInventory.set(id, updatedInventory);
+    
+    // Update the inventory item's last updated date
+    const item = await this.getInventoryItem(inventory.inventoryItemId);
+    if (item) {
+      await this.updateInventoryItem(item.id, { updatedAt: new Date() });
+    }
+    
+    return updatedInventory;
+  }
+
+  async deleteWarehouseInventory(id: number): Promise<boolean> {
+    const inventory = await this.getWarehouseInventory(id);
+    if (!inventory) return false;
+    
+    return this.warehouseInventory.delete(id);
+  }
+
+  async getWarehouseInventoryByWarehouseId(warehouseId: number): Promise<WarehouseInventory[]> {
+    return Array.from(this.warehouseInventory.values()).filter(
+      (inventory) => inventory.warehouseId === warehouseId
+    );
+  }
+
+  async getWarehouseInventoryByItemId(itemId: number): Promise<WarehouseInventory[]> {
+    return Array.from(this.warehouseInventory.values()).filter(
+      (inventory) => inventory.inventoryItemId === itemId
+    );
+  }
+
+  async getLowWarehouseInventory(): Promise<WarehouseInventory[]> {
+    return Array.from(this.warehouseInventory.values()).filter(
+      (inventory) => {
+        if (inventory.minimumStockLevel === null) return false;
+        return inventory.quantity <= inventory.minimumStockLevel;
+      }
+    );
+  }
+
+  // Vehicle Inventory operations
+  async getVehicleInventory(id: number): Promise<VehicleInventory | undefined> {
+    return this.vehicleInventory.get(id);
+  }
+
+  async createVehicleInventory(insertInventory: InsertVehicleInventory): Promise<VehicleInventory> {
+    const id = this.vehicleInventoryId++;
+    // Ensure required fields have proper default values
+    const inventory: VehicleInventory = { 
+      ...insertInventory, 
+      id,
+      notes: insertInventory.notes ?? null,
+      location: insertInventory.location ?? null,
+      quantity: insertInventory.quantity ?? 0,
+      targetStockLevel: insertInventory.targetStockLevel ?? null,
+      lastUpdated: new Date()
+    };
+    this.vehicleInventory.set(id, inventory);
+    
+    // Update the inventory item's last updated date
+    const item = await this.getInventoryItem(insertInventory.inventoryItemId);
+    if (item) {
+      await this.updateInventoryItem(item.id, { updatedAt: new Date() });
+    }
+    
+    return inventory;
+  }
+
+  async updateVehicleInventory(id: number, data: Partial<VehicleInventory>): Promise<VehicleInventory | undefined> {
+    const inventory = await this.getVehicleInventory(id);
+    if (!inventory) return undefined;
+    
+    const updatedInventory = { ...inventory, ...data, lastUpdated: new Date() };
+    this.vehicleInventory.set(id, updatedInventory);
+    
+    // Update the inventory item's last updated date
+    const item = await this.getInventoryItem(inventory.inventoryItemId);
+    if (item) {
+      await this.updateInventoryItem(item.id, { updatedAt: new Date() });
+    }
+    
+    return updatedInventory;
+  }
+
+  async deleteVehicleInventory(id: number): Promise<boolean> {
+    const inventory = await this.getVehicleInventory(id);
+    if (!inventory) return false;
+    
+    return this.vehicleInventory.delete(id);
+  }
+
+  async getVehicleInventoryByVehicleId(vehicleId: number): Promise<VehicleInventory[]> {
+    return Array.from(this.vehicleInventory.values()).filter(
+      (inventory) => inventory.vehicleId === vehicleId
+    );
+  }
+
+  async getVehicleInventoryByItemId(itemId: number): Promise<VehicleInventory[]> {
+    return Array.from(this.vehicleInventory.values()).filter(
+      (inventory) => inventory.inventoryItemId === itemId
+    );
+  }
+
+  async getLowVehicleInventory(): Promise<VehicleInventory[]> {
+    return Array.from(this.vehicleInventory.values()).filter(
+      (inventory) => {
+        if (inventory.targetStockLevel === null) return false;
+        return inventory.quantity < inventory.targetStockLevel;
+      }
+    );
+  }
+
+  // Inventory Transfer operations
+  async getInventoryTransfer(id: number): Promise<InventoryTransfer | undefined> {
+    return this.inventoryTransfers.get(id);
+  }
+
+  async createInventoryTransfer(insertTransfer: InsertInventoryTransfer): Promise<InventoryTransfer> {
+    const id = this.inventoryTransferId++;
+    const transfer: InventoryTransfer = { 
+      ...insertTransfer, 
+      id,
+      status: insertTransfer.status ?? "pending",
+      notes: insertTransfer.notes ?? null,
+      scheduledDate: insertTransfer.scheduledDate ?? null,
+      completionDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      completedByUserId: null
+    };
+    this.inventoryTransfers.set(id, transfer);
+    return transfer;
+  }
+
+  async updateInventoryTransfer(id: number, data: Partial<InventoryTransfer>): Promise<InventoryTransfer | undefined> {
+    const transfer = await this.getInventoryTransfer(id);
+    if (!transfer) return undefined;
+    
+    const updatedTransfer = { ...transfer, ...data, updatedAt: new Date() };
+    this.inventoryTransfers.set(id, updatedTransfer);
+    return updatedTransfer;
+  }
+
+  async getAllInventoryTransfers(): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values());
+  }
+
+  async getInventoryTransfersByStatus(status: TransferStatus): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter(
+      (transfer) => transfer.status === status
+    );
+  }
+
+  async getInventoryTransfersByType(type: TransferType): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter(
+      (transfer) => transfer.transferType === type
+    );
+  }
+
+  async getInventoryTransfersByUserId(userId: number): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter(
+      (transfer) => transfer.initiatedByUserId === userId || transfer.completedByUserId === userId
+    );
+  }
+
+  async getInventoryTransfersByDate(startDate: Date, endDate: Date): Promise<InventoryTransfer[]> {
+    return Array.from(this.inventoryTransfers.values()).filter((transfer) => {
+      const transferDate = transfer.completionDate 
+        ? new Date(transfer.completionDate) 
+        : transfer.scheduledDate 
+          ? new Date(transfer.scheduledDate)
+          : new Date(transfer.createdAt);
+          
+      return transferDate >= startDate && transferDate <= endDate;
+    });
+  }
+
+  async completeInventoryTransfer(id: number, userId: number): Promise<InventoryTransfer | undefined> {
+    const transfer = await this.getInventoryTransfer(id);
+    if (!transfer || transfer.status !== "in_transit") return undefined;
+    
+    // Get all transfer items
+    const transferItems = await this.getInventoryTransferItemsByTransferId(id);
+    
+    // Process the transfer based on the transfer type
+    for (const item of transferItems) {
+      if (!item.actualQuantity) continue; // Skip if no actual quantity
+      
+      const transferType = transfer.transferType;
+      
+      if (transferType === "warehouse_to_warehouse") {
+        // Decrease quantity in source warehouse
+        const sourceInventories = await this.getWarehouseInventoryByWarehouseId(transfer.sourceLocationId);
+        const sourceInventory = sourceInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (sourceInventory) {
+          await this.updateWarehouseInventory(sourceInventory.id, {
+            quantity: Math.max(0, sourceInventory.quantity - item.actualQuantity)
+          });
+        }
+        
+        // Increase quantity in destination warehouse
+        const destInventories = await this.getWarehouseInventoryByWarehouseId(transfer.destinationLocationId);
+        const destInventory = destInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (destInventory) {
+          await this.updateWarehouseInventory(destInventory.id, {
+            quantity: destInventory.quantity + item.actualQuantity
+          });
+        } else {
+          // Create new inventory entry
+          await this.createWarehouseInventory({
+            warehouseId: transfer.destinationLocationId,
+            inventoryItemId: item.inventoryItemId,
+            quantity: item.actualQuantity
+          });
+        }
+      } else if (transferType === "warehouse_to_vehicle") {
+        // Decrease quantity in source warehouse
+        const sourceInventories = await this.getWarehouseInventoryByWarehouseId(transfer.sourceLocationId);
+        const sourceInventory = sourceInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (sourceInventory) {
+          await this.updateWarehouseInventory(sourceInventory.id, {
+            quantity: Math.max(0, sourceInventory.quantity - item.actualQuantity)
+          });
+        }
+        
+        // Increase quantity in destination vehicle
+        const destInventories = await this.getVehicleInventoryByVehicleId(transfer.destinationLocationId);
+        const destInventory = destInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (destInventory) {
+          await this.updateVehicleInventory(destInventory.id, {
+            quantity: destInventory.quantity + item.actualQuantity
+          });
+        } else {
+          // Create new inventory entry
+          await this.createVehicleInventory({
+            vehicleId: transfer.destinationLocationId,
+            inventoryItemId: item.inventoryItemId,
+            quantity: item.actualQuantity
+          });
+        }
+      } else if (transferType === "vehicle_to_warehouse") {
+        // Decrease quantity in source vehicle
+        const sourceInventories = await this.getVehicleInventoryByVehicleId(transfer.sourceLocationId);
+        const sourceInventory = sourceInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (sourceInventory) {
+          await this.updateVehicleInventory(sourceInventory.id, {
+            quantity: Math.max(0, sourceInventory.quantity - item.actualQuantity)
+          });
+        }
+        
+        // Increase quantity in destination warehouse
+        const destInventories = await this.getWarehouseInventoryByWarehouseId(transfer.destinationLocationId);
+        const destInventory = destInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (destInventory) {
+          await this.updateWarehouseInventory(destInventory.id, {
+            quantity: destInventory.quantity + item.actualQuantity
+          });
+        } else {
+          // Create new inventory entry
+          await this.createWarehouseInventory({
+            warehouseId: transfer.destinationLocationId,
+            inventoryItemId: item.inventoryItemId,
+            quantity: item.actualQuantity
+          });
+        }
+      } else if (transferType === "vehicle_to_vehicle") {
+        // Decrease quantity in source vehicle
+        const sourceInventories = await this.getVehicleInventoryByVehicleId(transfer.sourceLocationId);
+        const sourceInventory = sourceInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (sourceInventory) {
+          await this.updateVehicleInventory(sourceInventory.id, {
+            quantity: Math.max(0, sourceInventory.quantity - item.actualQuantity)
+          });
+        }
+        
+        // Increase quantity in destination vehicle
+        const destInventories = await this.getVehicleInventoryByVehicleId(transfer.destinationLocationId);
+        const destInventory = destInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (destInventory) {
+          await this.updateVehicleInventory(destInventory.id, {
+            quantity: destInventory.quantity + item.actualQuantity
+          });
+        } else {
+          // Create new inventory entry
+          await this.createVehicleInventory({
+            vehicleId: transfer.destinationLocationId,
+            inventoryItemId: item.inventoryItemId,
+            quantity: item.actualQuantity
+          });
+        }
+      }
+      // warehouse_to_client and vehicle_to_client don't require increasing destination inventory
+      else if (transferType === "warehouse_to_client") {
+        // Decrease quantity in source warehouse
+        const sourceInventories = await this.getWarehouseInventoryByWarehouseId(transfer.sourceLocationId);
+        const sourceInventory = sourceInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (sourceInventory) {
+          await this.updateWarehouseInventory(sourceInventory.id, {
+            quantity: Math.max(0, sourceInventory.quantity - item.actualQuantity)
+          });
+        }
+      } else if (transferType === "vehicle_to_client") {
+        // Decrease quantity in source vehicle
+        const sourceInventories = await this.getVehicleInventoryByVehicleId(transfer.sourceLocationId);
+        const sourceInventory = sourceInventories.find(inv => inv.inventoryItemId === item.inventoryItemId);
+        
+        if (sourceInventory) {
+          await this.updateVehicleInventory(sourceInventory.id, {
+            quantity: Math.max(0, sourceInventory.quantity - item.actualQuantity)
+          });
+        }
+      }
+    }
+    
+    // Update transfer status to completed
+    const updatedTransfer = await this.updateInventoryTransfer(id, {
+      status: "completed",
+      completionDate: new Date().toISOString(),
+      completedByUserId: userId
+    });
+    
+    return updatedTransfer;
+  }
+
+  async cancelInventoryTransfer(id: number): Promise<InventoryTransfer | undefined> {
+    const transfer = await this.getInventoryTransfer(id);
+    if (!transfer || transfer.status === "completed") return undefined;
+    
+    const updatedTransfer = await this.updateInventoryTransfer(id, {
+      status: "cancelled"
+    });
+    
+    return updatedTransfer;
+  }
+
+  // Inventory Transfer Item operations
+  async getInventoryTransferItem(id: number): Promise<InventoryTransferItem | undefined> {
+    return this.inventoryTransferItems.get(id);
+  }
+
+  async createInventoryTransferItem(insertItem: InsertInventoryTransferItem): Promise<InventoryTransferItem> {
+    const id = this.inventoryTransferItemId++;
+    const item: InventoryTransferItem = { 
+      ...insertItem, 
+      id,
+      notes: insertItem.notes ?? null,
+      approvedQuantity: insertItem.approvedQuantity ?? null,
+      actualQuantity: insertItem.actualQuantity ?? null
+    };
+    this.inventoryTransferItems.set(id, item);
+    return item;
+  }
+
+  async updateInventoryTransferItem(id: number, data: Partial<InventoryTransferItem>): Promise<InventoryTransferItem | undefined> {
+    const item = await this.getInventoryTransferItem(id);
+    if (!item) return undefined;
+    
+    const updatedItem = { ...item, ...data };
+    this.inventoryTransferItems.set(id, updatedItem);
+    return updatedItem;
+  }
+
+  async getInventoryTransferItemsByTransferId(transferId: number): Promise<InventoryTransferItem[]> {
+    return Array.from(this.inventoryTransferItems.values()).filter(
+      (item) => item.transferId === transferId
+    );
+  }
+
+  async getInventoryTransferItemsByItemId(itemId: number): Promise<InventoryTransferItem[]> {
+    return Array.from(this.inventoryTransferItems.values()).filter(
+      (item) => item.inventoryItemId === itemId
+    );
+  }
+
+  // Barcode operations
+  async getBarcode(id: number): Promise<Barcode | undefined> {
+    return this.barcodes.get(id);
+  }
+
+  async getBarcodeByValue(barcodeValue: string): Promise<Barcode | undefined> {
+    return Array.from(this.barcodes.values()).find(
+      (barcode) => barcode.barcodeValue === barcodeValue
+    );
+  }
+
+  async createBarcode(insertBarcode: InsertBarcode): Promise<Barcode> {
+    const id = this.barcodeId++;
+    const barcode: Barcode = { 
+      ...insertBarcode, 
+      id,
+      isActive: true,
+      createdAt: new Date()
+    };
+    this.barcodes.set(id, barcode);
+    return barcode;
+  }
+
+  async updateBarcode(id: number, data: Partial<Barcode>): Promise<Barcode | undefined> {
+    const barcode = await this.getBarcode(id);
+    if (!barcode) return undefined;
+    
+    const updatedBarcode = { ...barcode, ...data };
+    this.barcodes.set(id, updatedBarcode);
+    return updatedBarcode;
+  }
+
+  async deleteBarcode(id: number): Promise<boolean> {
+    const barcode = await this.getBarcode(id);
+    if (!barcode) return false;
+    
+    return this.barcodes.delete(id);
+  }
+
+  async getActiveBarcodesForItem(itemType: string, itemId: number): Promise<Barcode[]> {
+    return Array.from(this.barcodes.values()).filter(
+      (barcode) => barcode.itemType === itemType && barcode.itemId === itemId && barcode.isActive
+    );
+  }
+
+  // Barcode Scan History operations
+  async createBarcodeScan(insertScan: InsertBarcodeScanHistory): Promise<BarcodeScanHistory> {
+    const id = this.barcodeScanHistoryId++;
+    const scan: BarcodeScanHistory = { 
+      ...insertScan, 
+      id,
+      notes: insertScan.notes ?? null,
+      location: insertScan.location ?? null,
+      actionId: insertScan.actionId ?? null,
+      scanTime: new Date()
+    };
+    this.barcodeScanHistory.set(id, scan);
+    return scan;
+  }
+
+  async getBarcodeScanHistory(id: number): Promise<BarcodeScanHistory | undefined> {
+    return this.barcodeScanHistory.get(id);
+  }
+
+  async getBarcodeScansByBarcodeId(barcodeId: number): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter(
+      (scan) => scan.barcodeId === barcodeId
+    );
+  }
+
+  async getBarcodeScansByUserId(userId: number): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter(
+      (scan) => scan.scannedByUserId === userId
+    );
+  }
+
+  async getBarcodeScansByActionType(actionType: string): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter(
+      (scan) => scan.actionType === actionType
+    );
+  }
+
+  async getBarcodeScansByDate(startDate: Date, endDate: Date): Promise<BarcodeScanHistory[]> {
+    return Array.from(this.barcodeScanHistory.values()).filter((scan) => {
+      const scanTime = new Date(scan.scanTime);
+      return scanTime >= startDate && scanTime <= endDate;
+    });
+  }
+
+  // Inventory Adjustment operations
+  async getInventoryAdjustment(id: number): Promise<InventoryAdjustment | undefined> {
+    return this.inventoryAdjustments.get(id);
+  }
+
+  async createInventoryAdjustment(insertAdjustment: InsertInventoryAdjustment): Promise<InventoryAdjustment> {
+    const id = this.inventoryAdjustmentId++;
+    const adjustment: InventoryAdjustment = { 
+      ...insertAdjustment, 
+      id,
+      notes: insertAdjustment.notes ?? null,
+      maintenanceId: insertAdjustment.maintenanceId ?? null,
+      repairId: insertAdjustment.repairId ?? null,
+      adjustmentDate: new Date()
+    };
+    this.inventoryAdjustments.set(id, adjustment);
+    
+    // Update inventory based on adjustment type
+    const itemId = adjustment.inventoryItemId;
+    const locationId = adjustment.locationId;
+    const locationType = adjustment.locationType;
+    const quantityChange = adjustment.quantityChange;
+    
+    if (locationType === "warehouse") {
+      const warehouseInventories = await this.getWarehouseInventoryByWarehouseId(locationId);
+      const warehouseInventory = warehouseInventories.find(inv => inv.inventoryItemId === itemId);
+      
+      if (warehouseInventory) {
+        await this.updateWarehouseInventory(warehouseInventory.id, {
+          quantity: Math.max(0, warehouseInventory.quantity + quantityChange)
+        });
+      } else if (quantityChange > 0) {
+        // Only create a new inventory if the quantity change is positive
+        await this.createWarehouseInventory({
+          warehouseId: locationId,
+          inventoryItemId: itemId,
+          quantity: quantityChange
+        });
+      }
+    } else if (locationType === "vehicle") {
+      const vehicleInventories = await this.getVehicleInventoryByVehicleId(locationId);
+      const vehicleInventory = vehicleInventories.find(inv => inv.inventoryItemId === itemId);
+      
+      if (vehicleInventory) {
+        await this.updateVehicleInventory(vehicleInventory.id, {
+          quantity: Math.max(0, vehicleInventory.quantity + quantityChange)
+        });
+      } else if (quantityChange > 0) {
+        // Only create a new inventory if the quantity change is positive
+        await this.createVehicleInventory({
+          vehicleId: locationId,
+          inventoryItemId: itemId,
+          quantity: quantityChange
+        });
+      }
+    }
+    
+    return adjustment;
+  }
+
+  async getInventoryAdjustmentsByItemId(itemId: number): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.inventoryItemId === itemId
+    );
+  }
+
+  async getInventoryAdjustmentsByLocationId(locationType: string, locationId: number): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.locationType === locationType && adjustment.locationId === locationId
+    );
+  }
+
+  async getInventoryAdjustmentsByUserId(userId: number): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.performedByUserId === userId
+    );
+  }
+
+  async getInventoryAdjustmentsByReason(reason: string): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter(
+      (adjustment) => adjustment.reason === reason
+    );
+  }
+
+  async getInventoryAdjustmentsByDate(startDate: Date, endDate: Date): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values()).filter((adjustment) => {
+      const adjustmentDate = new Date(adjustment.adjustmentDate);
+      return adjustmentDate >= startDate && adjustmentDate <= endDate;
+    });
+  }
+
+  async getAllInventoryAdjustments(): Promise<InventoryAdjustment[]> {
+    return Array.from(this.inventoryAdjustments.values());
   }
 }
 

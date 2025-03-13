@@ -38,7 +38,23 @@ import {
   insertInventoryItemSchema,
   EXPENSE_CATEGORIES,
   ExpenseCategory,
-  REPORT_TYPES
+  REPORT_TYPES,
+  // Inventory Management schemas
+  insertWarehouseSchema,
+  insertTechnicianVehicleSchema,
+  insertWarehouseInventorySchema,
+  insertVehicleInventorySchema,
+  insertInventoryTransferSchema,
+  insertInventoryTransferItemSchema,
+  insertBarcodeSchema,
+  insertBarcodeScanHistorySchema,
+  insertInventoryAdjustmentSchema,
+  INVENTORY_LOCATION_TYPES,
+  TRANSFER_TYPES,
+  TRANSFER_STATUS,
+  BARCODE_TYPES,
+  TransferStatus,
+  TransferType
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -2957,11 +2973,913 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/business/inventory/:id", async (req: Request, res: Response) => {
     try {
-      // Just return success for now
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const result = await storage.deleteInventoryItem(id);
+      
+      if (!result) {
+        return res.status(404).json({ message: "Inventory item not found or could not be deleted" });
+      }
+      
       res.status(204).send();
     } catch (error) {
       console.error("Error deleting inventory item:", error);
       res.status(500).json({ message: "Failed to delete inventory item" });
+    }
+  });
+
+  // ==== INVENTORY MANAGEMENT SYSTEM ====
+  
+  // === Inventory Items ===
+  app.get("/api/inventory/items", async (_req: Request, res: Response) => {
+    try {
+      const inventoryItems = await storage.getAllInventoryItems();
+      res.json(inventoryItems);
+    } catch (error) {
+      console.error("Error fetching inventory items:", error);
+      res.status(500).json({ message: "Failed to fetch inventory items" });
+    }
+  });
+
+  app.get("/api/inventory/items/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const inventoryItem = await storage.getInventoryItem(id);
+      
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      res.json(inventoryItem);
+    } catch (error) {
+      console.error(`Error fetching inventory item ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to fetch inventory item" });
+    }
+  });
+
+  app.get("/api/inventory/items/category/:category", async (req: Request, res: Response) => {
+    try {
+      const { category } = req.params;
+      const inventoryItems = await storage.getInventoryItemsByCategory(category);
+      res.json(inventoryItems);
+    } catch (error) {
+      console.error(`Error fetching inventory items with category ${req.params.category}:`, error);
+      res.status(500).json({ message: "Failed to fetch inventory items by category" });
+    }
+  });
+
+  app.get("/api/inventory/items/low-stock", async (_req: Request, res: Response) => {
+    try {
+      const inventoryItems = await storage.getLowStockItems();
+      res.json(inventoryItems);
+    } catch (error) {
+      console.error("Error fetching low stock inventory items:", error);
+      res.status(500).json({ message: "Failed to fetch low stock inventory items" });
+    }
+  });
+
+  app.post("/api/inventory/items", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertInventoryItemSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newInventoryItem = await storage.createInventoryItem(validation.data);
+      res.status(201).json(newInventoryItem);
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      res.status(500).json({ message: "Failed to create inventory item" });
+    }
+  });
+
+  app.patch("/api/inventory/items/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      // Check if item exists
+      const existingItem = await storage.getInventoryItem(id);
+      if (!existingItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      const updatedItem = await storage.updateInventoryItem(id, req.body);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error(`Error updating inventory item ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update inventory item" });
+    }
+  });
+
+  app.delete("/api/inventory/items/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const result = await storage.deleteInventoryItem(id);
+      
+      if (!result) {
+        return res.status(404).json({ message: "Inventory item not found or could not be deleted" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting inventory item ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to delete inventory item" });
+    }
+  });
+
+  // === Warehouses ===
+  app.get("/api/inventory/warehouses", async (_req: Request, res: Response) => {
+    try {
+      const warehouses = await storage.getAllWarehouses();
+      res.json(warehouses);
+    } catch (error) {
+      console.error("Error fetching warehouses:", error);
+      res.status(500).json({ message: "Failed to fetch warehouses" });
+    }
+  });
+
+  app.get("/api/inventory/warehouses/active", async (_req: Request, res: Response) => {
+    try {
+      const warehouses = await storage.getActiveWarehouses();
+      res.json(warehouses);
+    } catch (error) {
+      console.error("Error fetching active warehouses:", error);
+      res.status(500).json({ message: "Failed to fetch active warehouses" });
+    }
+  });
+
+  app.get("/api/inventory/warehouses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const warehouse = await storage.getWarehouse(id);
+      
+      if (!warehouse) {
+        return res.status(404).json({ message: "Warehouse not found" });
+      }
+      
+      res.json(warehouse);
+    } catch (error) {
+      console.error(`Error fetching warehouse ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to fetch warehouse" });
+    }
+  });
+
+  app.post("/api/inventory/warehouses", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertWarehouseSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newWarehouse = await storage.createWarehouse(validation.data);
+      res.status(201).json(newWarehouse);
+    } catch (error) {
+      console.error("Error creating warehouse:", error);
+      res.status(500).json({ message: "Failed to create warehouse" });
+    }
+  });
+
+  app.patch("/api/inventory/warehouses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      // Check if warehouse exists
+      const existingWarehouse = await storage.getWarehouse(id);
+      if (!existingWarehouse) {
+        return res.status(404).json({ message: "Warehouse not found" });
+      }
+      
+      const updatedWarehouse = await storage.updateWarehouse(id, req.body);
+      res.json(updatedWarehouse);
+    } catch (error) {
+      console.error(`Error updating warehouse ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update warehouse" });
+    }
+  });
+
+  app.delete("/api/inventory/warehouses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const result = await storage.deleteWarehouse(id);
+      
+      if (!result) {
+        return res.status(404).json({ 
+          message: "Warehouse not found or could not be deleted. Make sure it has no inventory."
+        });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting warehouse ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to delete warehouse" });
+    }
+  });
+
+  // === Technician Vehicles ===
+  app.get("/api/inventory/vehicles", async (_req: Request, res: Response) => {
+    try {
+      const vehicles = await storage.getAllTechnicianVehicles();
+      res.json(vehicles);
+    } catch (error) {
+      console.error("Error fetching technician vehicles:", error);
+      res.status(500).json({ message: "Failed to fetch technician vehicles" });
+    }
+  });
+
+  app.get("/api/inventory/vehicles/active", async (_req: Request, res: Response) => {
+    try {
+      const vehicles = await storage.getActiveTechnicianVehicles();
+      res.json(vehicles);
+    } catch (error) {
+      console.error("Error fetching active technician vehicles:", error);
+      res.status(500).json({ message: "Failed to fetch active technician vehicles" });
+    }
+  });
+
+  app.get("/api/inventory/vehicles/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const vehicle = await storage.getTechnicianVehicle(id);
+      
+      if (!vehicle) {
+        return res.status(404).json({ message: "Technician vehicle not found" });
+      }
+      
+      res.json(vehicle);
+    } catch (error) {
+      console.error(`Error fetching technician vehicle ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to fetch technician vehicle" });
+    }
+  });
+
+  app.get("/api/inventory/technician/:technicianId/vehicles", async (req: Request, res: Response) => {
+    try {
+      const technicianId = parseInt(req.params.technicianId);
+      if (isNaN(technicianId)) {
+        return res.status(400).json({ message: "Invalid technician ID format" });
+      }
+      
+      const vehicles = await storage.getTechnicianVehiclesByTechnicianId(technicianId);
+      res.json(vehicles);
+    } catch (error) {
+      console.error(`Error fetching vehicles for technician ${req.params.technicianId}:`, error);
+      res.status(500).json({ message: "Failed to fetch technician vehicles" });
+    }
+  });
+
+  app.post("/api/inventory/vehicles", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertTechnicianVehicleSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newVehicle = await storage.createTechnicianVehicle(validation.data);
+      res.status(201).json(newVehicle);
+    } catch (error) {
+      console.error("Error creating technician vehicle:", error);
+      res.status(500).json({ message: "Failed to create technician vehicle" });
+    }
+  });
+
+  app.patch("/api/inventory/vehicles/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      // Check if vehicle exists
+      const existingVehicle = await storage.getTechnicianVehicle(id);
+      if (!existingVehicle) {
+        return res.status(404).json({ message: "Technician vehicle not found" });
+      }
+      
+      const updatedVehicle = await storage.updateTechnicianVehicle(id, req.body);
+      res.json(updatedVehicle);
+    } catch (error) {
+      console.error(`Error updating technician vehicle ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update technician vehicle" });
+    }
+  });
+
+  app.delete("/api/inventory/vehicles/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const result = await storage.deleteTechnicianVehicle(id);
+      
+      if (!result) {
+        return res.status(404).json({ 
+          message: "Technician vehicle not found or could not be deleted. Make sure it has no inventory."
+        });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting technician vehicle ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to delete technician vehicle" });
+    }
+  });
+
+  // === Warehouse Inventory ===
+  app.get("/api/inventory/warehouse-inventory", async (_req: Request, res: Response) => {
+    try {
+      // Build a more complete response by joining with warehouse and item data
+      const warehouseItems = [];
+      
+      // Get all warehouses
+      const warehouses = await storage.getAllWarehouses();
+      
+      // For each warehouse, get its inventory
+      for (const warehouse of warehouses) {
+        const inventoryItems = await storage.getWarehouseInventoryByWarehouseId(warehouse.id);
+        
+        // For each inventory item, get the full item details
+        for (const inventory of inventoryItems) {
+          const item = await storage.getInventoryItem(inventory.inventoryItemId);
+          if (item) {
+            warehouseItems.push({
+              ...inventory,
+              warehouse: {
+                id: warehouse.id,
+                name: warehouse.name,
+                address: warehouse.address,
+                city: warehouse.city,
+                state: warehouse.state
+              },
+              item: {
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                unit: item.unit
+              }
+            });
+          }
+        }
+      }
+      
+      res.json(warehouseItems);
+    } catch (error) {
+      console.error("Error fetching warehouse inventory:", error);
+      res.status(500).json({ message: "Failed to fetch warehouse inventory" });
+    }
+  });
+
+  app.get("/api/inventory/warehouse/:warehouseId/inventory", async (req: Request, res: Response) => {
+    try {
+      const warehouseId = parseInt(req.params.warehouseId);
+      if (isNaN(warehouseId)) {
+        return res.status(400).json({ message: "Invalid warehouse ID format" });
+      }
+      
+      const inventory = await storage.getWarehouseInventoryByWarehouseId(warehouseId);
+      
+      // Get detailed item information for each inventory item
+      const detailedInventory = await Promise.all(
+        inventory.map(async (inv) => {
+          const item = await storage.getInventoryItem(inv.inventoryItemId);
+          return {
+            ...inv,
+            item: item || { name: "Unknown Item" }
+          };
+        })
+      );
+      
+      res.json(detailedInventory);
+    } catch (error) {
+      console.error(`Error fetching inventory for warehouse ${req.params.warehouseId}:`, error);
+      res.status(500).json({ message: "Failed to fetch warehouse inventory" });
+    }
+  });
+
+  app.post("/api/inventory/warehouse-inventory", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertWarehouseInventorySchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newInventory = await storage.createWarehouseInventory(validation.data);
+      res.status(201).json(newInventory);
+    } catch (error) {
+      console.error("Error creating warehouse inventory:", error);
+      res.status(500).json({ message: "Failed to create warehouse inventory" });
+    }
+  });
+
+  app.patch("/api/inventory/warehouse-inventory/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const updatedInventory = await storage.updateWarehouseInventory(id, req.body);
+      if (!updatedInventory) {
+        return res.status(404).json({ message: "Warehouse inventory not found" });
+      }
+      
+      res.json(updatedInventory);
+    } catch (error) {
+      console.error(`Error updating warehouse inventory ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update warehouse inventory" });
+    }
+  });
+
+  // === Vehicle Inventory ===
+  app.get("/api/inventory/vehicle-inventory", async (_req: Request, res: Response) => {
+    try {
+      // Build a more complete response by joining with vehicle and item data
+      const vehicleItems = [];
+      
+      // Get all vehicles
+      const vehicles = await storage.getAllTechnicianVehicles();
+      
+      // For each vehicle, get its inventory
+      for (const vehicle of vehicles) {
+        const inventoryItems = await storage.getVehicleInventoryByVehicleId(vehicle.id);
+        
+        // For each inventory item, get the full item details
+        for (const inventory of inventoryItems) {
+          const item = await storage.getInventoryItem(inventory.inventoryItemId);
+          if (item) {
+            vehicleItems.push({
+              ...inventory,
+              vehicle: {
+                id: vehicle.id,
+                name: vehicle.name,
+                make: vehicle.make,
+                model: vehicle.model,
+                licensePlate: vehicle.licensePlate
+              },
+              item: {
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                unit: item.unit
+              }
+            });
+          }
+        }
+      }
+      
+      res.json(vehicleItems);
+    } catch (error) {
+      console.error("Error fetching vehicle inventory:", error);
+      res.status(500).json({ message: "Failed to fetch vehicle inventory" });
+    }
+  });
+
+  app.get("/api/inventory/vehicle/:vehicleId/inventory", async (req: Request, res: Response) => {
+    try {
+      const vehicleId = parseInt(req.params.vehicleId);
+      if (isNaN(vehicleId)) {
+        return res.status(400).json({ message: "Invalid vehicle ID format" });
+      }
+      
+      const inventory = await storage.getVehicleInventoryByVehicleId(vehicleId);
+      
+      // Get detailed item information for each inventory item
+      const detailedInventory = await Promise.all(
+        inventory.map(async (inv) => {
+          const item = await storage.getInventoryItem(inv.inventoryItemId);
+          return {
+            ...inv,
+            item: item || { name: "Unknown Item" }
+          };
+        })
+      );
+      
+      res.json(detailedInventory);
+    } catch (error) {
+      console.error(`Error fetching inventory for vehicle ${req.params.vehicleId}:`, error);
+      res.status(500).json({ message: "Failed to fetch vehicle inventory" });
+    }
+  });
+
+  app.post("/api/inventory/vehicle-inventory", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertVehicleInventorySchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newInventory = await storage.createVehicleInventory(validation.data);
+      res.status(201).json(newInventory);
+    } catch (error) {
+      console.error("Error creating vehicle inventory:", error);
+      res.status(500).json({ message: "Failed to create vehicle inventory" });
+    }
+  });
+
+  app.patch("/api/inventory/vehicle-inventory/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const updatedInventory = await storage.updateVehicleInventory(id, req.body);
+      if (!updatedInventory) {
+        return res.status(404).json({ message: "Vehicle inventory not found" });
+      }
+      
+      res.json(updatedInventory);
+    } catch (error) {
+      console.error(`Error updating vehicle inventory ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update vehicle inventory" });
+    }
+  });
+
+  // === Inventory Transfers ===
+  app.get("/api/inventory/transfers", async (_req: Request, res: Response) => {
+    try {
+      const transfers = await storage.getAllInventoryTransfers();
+      res.json(transfers);
+    } catch (error) {
+      console.error("Error fetching inventory transfers:", error);
+      res.status(500).json({ message: "Failed to fetch inventory transfers" });
+    }
+  });
+
+  app.get("/api/inventory/transfers/status/:status", async (req: Request, res: Response) => {
+    try {
+      const { status } = req.params;
+      const validStatuses = ['pending', 'in_transit', 'completed', 'cancelled'];
+      
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: "Invalid transfer status",
+          validStatuses
+        });
+      }
+      
+      const transfers = await storage.getInventoryTransfersByStatus(status as TransferStatus);
+      res.json(transfers);
+    } catch (error) {
+      console.error(`Error fetching transfers with status ${req.params.status}:`, error);
+      res.status(500).json({ message: "Failed to fetch transfers by status" });
+    }
+  });
+
+  app.get("/api/inventory/transfers/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const transfer = await storage.getInventoryTransfer(id);
+      if (!transfer) {
+        return res.status(404).json({ message: "Inventory transfer not found" });
+      }
+      
+      // Get the transfer items
+      const items = await storage.getInventoryTransferItemsByTransferId(id);
+      
+      // Build a detailed response with source and destination info
+      let sourceInfo = null;
+      let destinationInfo = null;
+      
+      if (transfer.sourceLocationType === 'warehouse') {
+        const warehouse = await storage.getWarehouse(transfer.sourceLocationId);
+        sourceInfo = {
+          type: 'warehouse',
+          ...warehouse
+        };
+      } else if (transfer.sourceLocationType === 'vehicle') {
+        const vehicle = await storage.getTechnicianVehicle(transfer.sourceLocationId);
+        sourceInfo = {
+          type: 'vehicle',
+          ...vehicle
+        };
+      }
+      
+      if (transfer.destinationLocationType === 'warehouse') {
+        const warehouse = await storage.getWarehouse(transfer.destinationLocationId);
+        destinationInfo = {
+          type: 'warehouse',
+          ...warehouse
+        };
+      } else if (transfer.destinationLocationType === 'vehicle') {
+        const vehicle = await storage.getTechnicianVehicle(transfer.destinationLocationId);
+        destinationInfo = {
+          type: 'vehicle',
+          ...vehicle
+        };
+      } else if (transfer.destinationLocationType === 'client_site') {
+        const client = await storage.getClient(transfer.destinationLocationId);
+        destinationInfo = {
+          type: 'client_site',
+          ...client
+        };
+      }
+      
+      // Get item details for each transfer item
+      const detailedItems = await Promise.all(
+        items.map(async (item) => {
+          const inventoryItem = await storage.getInventoryItem(item.inventoryItemId);
+          return {
+            ...item,
+            item: inventoryItem
+          };
+        })
+      );
+      
+      res.json({
+        ...transfer,
+        source: sourceInfo,
+        destination: destinationInfo,
+        items: detailedItems
+      });
+    } catch (error) {
+      console.error(`Error fetching inventory transfer ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to fetch inventory transfer" });
+    }
+  });
+
+  app.post("/api/inventory/transfers", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertInventoryTransferSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newTransfer = await storage.createInventoryTransfer(validation.data);
+      res.status(201).json(newTransfer);
+    } catch (error) {
+      console.error("Error creating inventory transfer:", error);
+      res.status(500).json({ message: "Failed to create inventory transfer" });
+    }
+  });
+
+  app.post("/api/inventory/transfers/:transferId/items", async (req: Request, res: Response) => {
+    try {
+      const transferId = parseInt(req.params.transferId);
+      if (isNaN(transferId)) {
+        return res.status(400).json({ message: "Invalid transfer ID format" });
+      }
+      
+      const transfer = await storage.getInventoryTransfer(transferId);
+      if (!transfer) {
+        return res.status(404).json({ message: "Inventory transfer not found" });
+      }
+      
+      // Only allow adding items to pending transfers
+      if (transfer.status !== 'pending') {
+        return res.status(400).json({ 
+          message: `Cannot add items to a transfer with status '${transfer.status}'. Transfer must be in 'pending' status.`
+        });
+      }
+      
+      // Add the transfer ID to the item data
+      const itemData = {
+        ...req.body,
+        transferId
+      };
+      
+      const validation = validateRequest(insertInventoryTransferItemSchema, itemData);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newItem = await storage.createInventoryTransferItem(validation.data);
+      res.status(201).json(newItem);
+    } catch (error) {
+      console.error(`Error adding item to transfer ${req.params.transferId}:`, error);
+      res.status(500).json({ message: "Failed to add item to transfer" });
+    }
+  });
+
+  app.patch("/api/inventory/transfers/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const transfer = await storage.getInventoryTransfer(id);
+      if (!transfer) {
+        return res.status(404).json({ message: "Inventory transfer not found" });
+      }
+      
+      // Special handling for status changes to 'completed'
+      if (req.body.status === 'completed' && transfer.status !== 'completed') {
+        console.log(`Processing inventory transfer ${id} to completed status`);
+      }
+      
+      const updatedTransfer = await storage.updateInventoryTransfer(id, req.body);
+      res.json(updatedTransfer);
+    } catch (error) {
+      console.error(`Error updating inventory transfer ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update inventory transfer" });
+    }
+  });
+
+  app.patch("/api/inventory/transfer-items/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const item = await storage.getInventoryTransferItem(id);
+      if (!item) {
+        return res.status(404).json({ message: "Inventory transfer item not found" });
+      }
+      
+      // Check that the parent transfer is in an editable state
+      const transfer = await storage.getInventoryTransfer(item.transferId);
+      if (!transfer) {
+        return res.status(404).json({ message: "Parent inventory transfer not found" });
+      }
+      
+      if (transfer.status === 'completed' || transfer.status === 'cancelled') {
+        return res.status(400).json({ 
+          message: `Cannot modify items in a transfer with status '${transfer.status}'`
+        });
+      }
+      
+      const updatedItem = await storage.updateInventoryTransferItem(id, req.body);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error(`Error updating inventory transfer item ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to update inventory transfer item" });
+    }
+  });
+
+  // === Barcodes ===
+  app.get("/api/inventory/barcodes", async (_req: Request, res: Response) => {
+    try {
+      const barcodes = await storage.getAllBarcodes();
+      res.json(barcodes);
+    } catch (error) {
+      console.error("Error fetching barcodes:", error);
+      res.status(500).json({ message: "Failed to fetch barcodes" });
+    }
+  });
+
+  app.get("/api/inventory/barcodes/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID format" });
+      }
+      
+      const barcode = await storage.getBarcode(id);
+      if (!barcode) {
+        return res.status(404).json({ message: "Barcode not found" });
+      }
+      
+      res.json(barcode);
+    } catch (error) {
+      console.error(`Error fetching barcode ${req.params.id}:`, error);
+      res.status(500).json({ message: "Failed to fetch barcode" });
+    }
+  });
+
+  app.get("/api/inventory/barcodes/value/:value", async (req: Request, res: Response) => {
+    try {
+      const { value } = req.params;
+      const barcode = await storage.getBarcodeByValue(value);
+      
+      if (!barcode) {
+        return res.status(404).json({ message: "Barcode not found" });
+      }
+      
+      res.json(barcode);
+    } catch (error) {
+      console.error(`Error fetching barcode with value ${req.params.value}:`, error);
+      res.status(500).json({ message: "Failed to fetch barcode by value" });
+    }
+  });
+
+  app.post("/api/inventory/barcodes", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertBarcodeSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newBarcode = await storage.createBarcode(validation.data);
+      res.status(201).json(newBarcode);
+    } catch (error) {
+      console.error("Error creating barcode:", error);
+      res.status(500).json({ message: "Failed to create barcode" });
+    }
+  });
+
+  app.post("/api/inventory/barcode-scans", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertBarcodeScanHistorySchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newScan = await storage.createBarcodeScan(validation.data);
+      res.status(201).json(newScan);
+    } catch (error) {
+      console.error("Error creating barcode scan:", error);
+      res.status(500).json({ message: "Failed to create barcode scan" });
+    }
+  });
+
+  app.get("/api/inventory/barcode-scans/barcode/:barcodeId", async (req: Request, res: Response) => {
+    try {
+      const barcodeId = parseInt(req.params.barcodeId);
+      if (isNaN(barcodeId)) {
+        return res.status(400).json({ message: "Invalid barcode ID format" });
+      }
+      
+      const scans = await storage.getBarcodeScansByBarcodeId(barcodeId);
+      res.json(scans);
+    } catch (error) {
+      console.error(`Error fetching barcode scans for barcode ${req.params.barcodeId}:`, error);
+      res.status(500).json({ message: "Failed to fetch barcode scans" });
+    }
+  });
+
+  // === Inventory Adjustments ===
+  app.get("/api/inventory/adjustments", async (_req: Request, res: Response) => {
+    try {
+      const adjustments = await storage.getAllInventoryAdjustments();
+      res.json(adjustments);
+    } catch (error) {
+      console.error("Error fetching inventory adjustments:", error);
+      res.status(500).json({ message: "Failed to fetch inventory adjustments" });
+    }
+  });
+
+  app.post("/api/inventory/adjustments", async (req: Request, res: Response) => {
+    try {
+      const validation = validateRequest(insertInventoryAdjustmentSchema, req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+      
+      const newAdjustment = await storage.createInventoryAdjustment(validation.data);
+      res.status(201).json(newAdjustment);
+    } catch (error) {
+      console.error("Error creating inventory adjustment:", error);
+      res.status(500).json({ message: "Failed to create inventory adjustment" });
+    }
+  });
+
+  app.get("/api/inventory/adjustments/item/:itemId", async (req: Request, res: Response) => {
+    try {
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "Invalid item ID format" });
+      }
+      
+      const adjustments = await storage.getInventoryAdjustmentsByItemId(itemId);
+      res.json(adjustments);
+    } catch (error) {
+      console.error(`Error fetching adjustments for item ${req.params.itemId}:`, error);
+      res.status(500).json({ message: "Failed to fetch inventory adjustments for item" });
     }
   });
 
@@ -3438,6 +4356,614 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: "Failed to reschedule incomplete maintenance appointments",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  /**
+   * Inventory Management System API Routes
+   */
+
+  // Inventory Items API
+  app.get("/api/inventory/items", async (_req: Request, res: Response) => {
+    try {
+      const items = await storage.getAllInventoryItems();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching inventory items:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch inventory items",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/items/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const item = await storage.getInventoryItem(id);
+      
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      res.json(item);
+    } catch (error) {
+      console.error(`Error fetching inventory item ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch inventory item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/items", async (req: Request, res: Response) => {
+    try {
+      const newItem = await storage.createInventoryItem(req.body);
+      res.status(201).json(newItem);
+    } catch (error) {
+      console.error("Error creating inventory item:", error);
+      res.status(500).json({ 
+        message: "Failed to create inventory item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/inventory/items/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedItem = await storage.updateInventoryItem(id, req.body);
+      
+      if (!updatedItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      res.json(updatedItem);
+    } catch (error) {
+      console.error(`Error updating inventory item ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to update inventory item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/inventory/items/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteInventoryItem(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting inventory item ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to delete inventory item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/items/low-stock", async (_req: Request, res: Response) => {
+    try {
+      const items = await storage.getLowStockItems();
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching low stock items:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch low stock items",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Warehouse API
+  app.get("/api/inventory/warehouses", async (_req: Request, res: Response) => {
+    try {
+      const warehouses = await storage.getAllWarehouses();
+      res.json(warehouses);
+    } catch (error) {
+      console.error("Error fetching warehouses:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch warehouses",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/warehouses/active", async (_req: Request, res: Response) => {
+    try {
+      const warehouses = await storage.getActiveWarehouses();
+      res.json(warehouses);
+    } catch (error) {
+      console.error("Error fetching active warehouses:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch active warehouses",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/warehouses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const warehouse = await storage.getWarehouse(id);
+      
+      if (!warehouse) {
+        return res.status(404).json({ message: "Warehouse not found" });
+      }
+      
+      res.json(warehouse);
+    } catch (error) {
+      console.error(`Error fetching warehouse ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch warehouse",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/warehouses", async (req: Request, res: Response) => {
+    try {
+      const newWarehouse = await storage.createWarehouse(req.body);
+      res.status(201).json(newWarehouse);
+    } catch (error) {
+      console.error("Error creating warehouse:", error);
+      res.status(500).json({ 
+        message: "Failed to create warehouse",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/inventory/warehouses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedWarehouse = await storage.updateWarehouse(id, req.body);
+      
+      if (!updatedWarehouse) {
+        return res.status(404).json({ message: "Warehouse not found" });
+      }
+      
+      res.json(updatedWarehouse);
+    } catch (error) {
+      console.error(`Error updating warehouse ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to update warehouse",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/inventory/warehouses/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteWarehouse(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Warehouse not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting warehouse ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to delete warehouse",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Warehouse Inventory API
+  app.get("/api/inventory/warehouse-inventory/:warehouseId", async (req: Request, res: Response) => {
+    try {
+      const warehouseId = parseInt(req.params.warehouseId);
+      const inventory = await storage.getWarehouseInventoryByWarehouseId(warehouseId);
+      res.json(inventory);
+    } catch (error) {
+      console.error(`Error fetching inventory for warehouse ${req.params.warehouseId}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch warehouse inventory",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/warehouse-inventory", async (req: Request, res: Response) => {
+    try {
+      const newInventory = await storage.createWarehouseInventory(req.body);
+      res.status(201).json(newInventory);
+    } catch (error) {
+      console.error("Error creating warehouse inventory:", error);
+      res.status(500).json({ 
+        message: "Failed to create warehouse inventory",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/inventory/warehouse-inventory/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedInventory = await storage.updateWarehouseInventory(id, req.body);
+      
+      if (!updatedInventory) {
+        return res.status(404).json({ message: "Warehouse inventory not found" });
+      }
+      
+      res.json(updatedInventory);
+    } catch (error) {
+      console.error(`Error updating warehouse inventory ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to update warehouse inventory",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Technician Vehicle API
+  app.get("/api/inventory/vehicles", async (_req: Request, res: Response) => {
+    try {
+      const vehicles = await storage.getAllTechnicianVehicles();
+      res.json(vehicles);
+    } catch (error) {
+      console.error("Error fetching technician vehicles:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch technician vehicles",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/vehicles/active", async (_req: Request, res: Response) => {
+    try {
+      const vehicles = await storage.getActiveTechnicianVehicles();
+      res.json(vehicles);
+    } catch (error) {
+      console.error("Error fetching active technician vehicles:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch active technician vehicles",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/vehicles/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const vehicle = await storage.getTechnicianVehicle(id);
+      
+      if (!vehicle) {
+        return res.status(404).json({ message: "Technician vehicle not found" });
+      }
+      
+      res.json(vehicle);
+    } catch (error) {
+      console.error(`Error fetching technician vehicle ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch technician vehicle",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/technicians/:technicianId/vehicles", async (req: Request, res: Response) => {
+    try {
+      const technicianId = parseInt(req.params.technicianId);
+      const vehicles = await storage.getTechnicianVehiclesByTechnicianId(technicianId);
+      res.json(vehicles);
+    } catch (error) {
+      console.error(`Error fetching vehicles for technician ${req.params.technicianId}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch technician vehicles",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/vehicles", async (req: Request, res: Response) => {
+    try {
+      const newVehicle = await storage.createTechnicianVehicle(req.body);
+      res.status(201).json(newVehicle);
+    } catch (error) {
+      console.error("Error creating technician vehicle:", error);
+      res.status(500).json({ 
+        message: "Failed to create technician vehicle",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/inventory/vehicles/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedVehicle = await storage.updateTechnicianVehicle(id, req.body);
+      
+      if (!updatedVehicle) {
+        return res.status(404).json({ message: "Technician vehicle not found" });
+      }
+      
+      res.json(updatedVehicle);
+    } catch (error) {
+      console.error(`Error updating technician vehicle ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to update technician vehicle",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.delete("/api/inventory/vehicles/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteTechnicianVehicle(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Technician vehicle not found" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error(`Error deleting technician vehicle ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to delete technician vehicle",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Vehicle Inventory API
+  app.get("/api/inventory/vehicle-inventory/:vehicleId", async (req: Request, res: Response) => {
+    try {
+      const vehicleId = parseInt(req.params.vehicleId);
+      const inventory = await storage.getVehicleInventoryByVehicleId(vehicleId);
+      res.json(inventory);
+    } catch (error) {
+      console.error(`Error fetching inventory for vehicle ${req.params.vehicleId}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch vehicle inventory",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/vehicle-inventory", async (req: Request, res: Response) => {
+    try {
+      const newInventory = await storage.createVehicleInventory(req.body);
+      res.status(201).json(newInventory);
+    } catch (error) {
+      console.error("Error creating vehicle inventory:", error);
+      res.status(500).json({ 
+        message: "Failed to create vehicle inventory",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/inventory/vehicle-inventory/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedInventory = await storage.updateVehicleInventory(id, req.body);
+      
+      if (!updatedInventory) {
+        return res.status(404).json({ message: "Vehicle inventory not found" });
+      }
+      
+      res.json(updatedInventory);
+    } catch (error) {
+      console.error(`Error updating vehicle inventory ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to update vehicle inventory",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Inventory Transfer API
+  app.get("/api/inventory/transfers", async (_req: Request, res: Response) => {
+    try {
+      const transfers = await storage.getAllInventoryTransfers();
+      res.json(transfers);
+    } catch (error) {
+      console.error("Error fetching inventory transfers:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch inventory transfers",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/transfers/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const transfer = await storage.getInventoryTransfer(id);
+      
+      if (!transfer) {
+        return res.status(404).json({ message: "Inventory transfer not found" });
+      }
+      
+      res.json(transfer);
+    } catch (error) {
+      console.error(`Error fetching inventory transfer ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch inventory transfer",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/transfers/:id/items", async (req: Request, res: Response) => {
+    try {
+      const transferId = parseInt(req.params.id);
+      const items = await storage.getInventoryTransferItemsByTransferId(transferId);
+      res.json(items);
+    } catch (error) {
+      console.error(`Error fetching items for transfer ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch transfer items",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/transfers", async (req: Request, res: Response) => {
+    try {
+      const newTransfer = await storage.createInventoryTransfer(req.body);
+      res.status(201).json(newTransfer);
+    } catch (error) {
+      console.error("Error creating inventory transfer:", error);
+      res.status(500).json({ 
+        message: "Failed to create inventory transfer",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/transfers/:id/items", async (req: Request, res: Response) => {
+    try {
+      const transferId = parseInt(req.params.id);
+      const itemData = { ...req.body, transferId };
+      const newItem = await storage.createInventoryTransferItem(itemData);
+      res.status(201).json(newItem);
+    } catch (error) {
+      console.error(`Error adding item to transfer ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to add transfer item",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.patch("/api/inventory/transfers/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updatedTransfer = await storage.updateInventoryTransfer(id, req.body);
+      
+      if (!updatedTransfer) {
+        return res.status(404).json({ message: "Inventory transfer not found" });
+      }
+      
+      res.json(updatedTransfer);
+    } catch (error) {
+      console.error(`Error updating inventory transfer ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to update inventory transfer",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/transfers/:id/complete", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+      
+      const completedTransfer = await storage.completeInventoryTransfer(id, userId);
+      
+      if (!completedTransfer) {
+        return res.status(404).json({ message: "Inventory transfer not found" });
+      }
+      
+      res.json(completedTransfer);
+    } catch (error) {
+      console.error(`Error completing inventory transfer ${req.params.id}:`, error);
+      res.status(500).json({ 
+        message: "Failed to complete inventory transfer",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Inventory Adjustment API
+  app.post("/api/inventory/adjustments", async (req: Request, res: Response) => {
+    try {
+      const newAdjustment = await storage.createInventoryAdjustment(req.body);
+      res.status(201).json(newAdjustment);
+    } catch (error) {
+      console.error("Error creating inventory adjustment:", error);
+      res.status(500).json({ 
+        message: "Failed to create inventory adjustment",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/adjustments", async (_req: Request, res: Response) => {
+    try {
+      const adjustments = await storage.getAllInventoryAdjustments();
+      res.json(adjustments);
+    } catch (error) {
+      console.error("Error fetching inventory adjustments:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch inventory adjustments",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/adjustments/item/:itemId", async (req: Request, res: Response) => {
+    try {
+      const itemId = parseInt(req.params.itemId);
+      const adjustments = await storage.getInventoryAdjustmentsByItemId(itemId);
+      res.json(adjustments);
+    } catch (error) {
+      console.error(`Error fetching adjustments for item ${req.params.itemId}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch item adjustments",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  // Barcode API
+  app.post("/api/inventory/barcodes", async (req: Request, res: Response) => {
+    try {
+      const newBarcode = await storage.createBarcode(req.body);
+      res.status(201).json(newBarcode);
+    } catch (error) {
+      console.error("Error creating barcode:", error);
+      res.status(500).json({ 
+        message: "Failed to create barcode",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.get("/api/inventory/barcodes/value/:value", async (req: Request, res: Response) => {
+    try {
+      const barcode = await storage.getBarcodeByValue(req.params.value);
+      
+      if (!barcode) {
+        return res.status(404).json({ message: "Barcode not found" });
+      }
+      
+      res.json(barcode);
+    } catch (error) {
+      console.error(`Error fetching barcode ${req.params.value}:`, error);
+      res.status(500).json({ 
+        message: "Failed to fetch barcode",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/inventory/barcodes/scan", async (req: Request, res: Response) => {
+    try {
+      const scanHistory = await storage.createBarcodeScanHistory(req.body);
+      res.status(201).json(scanHistory);
+    } catch (error) {
+      console.error("Error recording barcode scan:", error);
+      res.status(500).json({ 
+        message: "Failed to record barcode scan",
         error: error instanceof Error ? error.message : String(error)
       });
     }
