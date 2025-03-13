@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Switch, Route, Link } from "wouter";
+import { useState, useEffect } from "react";
+import { Switch, Route, Link, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "./components/layout/Sidebar";
@@ -40,6 +40,12 @@ import NotFound from "./pages/not-found";
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [location] = useLocation();
+  
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location]);
   
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
@@ -48,13 +54,18 @@ function App() {
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
   };
+
+  // Log application startup for debugging
+  useEffect(() => {
+    console.log("Checking session...");
+  }, []);
   
   return (
     <QueryClientProvider client={queryClient}>
       <GoogleMapsProvider>
         <AuthProvider>
           <TabProvider>
-            <div className="flex h-screen overflow-hidden">
+            <div className="flex h-screen overflow-hidden bg-background">
               <Switch>
                 {/* Public routes */}
                 <Route path="/login">
@@ -70,14 +81,16 @@ function App() {
                 {/* Protected routes */}
                 <Route>
                   <ProtectedRoute>
-                    {/* Sidebar */}
-                    <Sidebar />
+                    {/* Desktop Sidebar - hidden on mobile */}
+                    <div className="hidden md:block">
+                      <Sidebar />
+                    </div>
                   
                     {/* Mobile menu (off-canvas) */}
                     <MobileSidebar isOpen={mobileMenuOpen} onClose={closeMobileMenu} />
                     
                     {/* Main content area */}
-                    <div className="flex flex-col flex-1 overflow-hidden">
+                    <div className="flex flex-col flex-1 w-full overflow-hidden">
                       {/* App Header */}
                       <Header toggleMobileMenu={toggleMobileMenu} />
                       
