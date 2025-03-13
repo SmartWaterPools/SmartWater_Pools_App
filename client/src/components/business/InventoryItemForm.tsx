@@ -177,8 +177,8 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw]">
+        <DialogHeader className="px-2 sm:px-4">
           <DialogTitle>
             {itemToEdit?.id ? "Edit Inventory Item" : "Add Inventory Item"}
           </DialogTitle>
@@ -189,34 +189,34 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 px-1 sm:px-3">
             {/* Item Name Field */}
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Item Name</FormLabel>
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm font-medium">Item Name</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter item name" {...field} />
+                    <Input placeholder="Enter item name" {...field} className="text-base" />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* SKU Field */}
               <FormField
                 control={form.control}
                 name="sku"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>SKU</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm font-medium">SKU</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter SKU" {...field} />
+                      <Input placeholder="Enter SKU" {...field} className="text-base" />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -226,14 +226,14 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                 control={form.control}
                 name="category"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Category</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm font-medium">Category</FormLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
                       <FormControl>
-                        <SelectTrigger>
+                        <SelectTrigger className="text-base">
                           <SelectValue placeholder="Select a category" />
                         </SelectTrigger>
                       </FormControl>
@@ -245,7 +245,7 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -256,36 +256,40 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
               control={form.control}
               name="description"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description (Optional)</FormLabel>
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm font-medium">Description (Optional)</FormLabel>
                   <FormControl>
                     <Textarea 
                       placeholder="Enter item description" 
                       {...field} 
                       value={field.value || ""}
+                      className="text-base resize-none min-h-[60px]"
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Quantity Field */}
               <FormField
                 control={form.control}
                 name="quantity"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Current Quantity</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm font-medium">Current Quantity</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
                         min="0"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         {...field}
+                        className="text-base"
                       />
                     </FormControl>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
@@ -295,131 +299,145 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                 control={form.control}
                 name="minQuantity"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Minimum Quantity</FormLabel>
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm font-medium">Minimum Quantity</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
                         min="0"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         {...field}
+                        className="text-base"
                       />
                     </FormControl>
-                    <FormDescription>
+                    <FormDescription className="text-xs">
                       Alert when below this level
                     </FormDescription>
-                    <FormMessage />
+                    <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
+            </div>
+            
+            {/* Unit Price Field */}
+            <FormField
+              control={form.control}
+              name="unitPrice"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm font-medium">Unit Price ($)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      inputMode="decimal"
+                      placeholder="0.00"
+                      {...field}
+                      className="text-base"
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
 
-              {/* Unit Price Field */}
-              <FormField
-                control={form.control}
-                name="unitPrice"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Unit Price ($)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        {...field}
+            {/* Storage Location Field */}
+            <FormField
+              control={form.control}
+              name="location"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm font-medium">Storage Location (Optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      placeholder="Where is this item stored?" 
+                      {...field} 
+                      value={field.value || ""} 
+                      className="text-base"
+                    />
+                  </FormControl>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
+
+            {/* Last Restock Date Field */}
+            <FormField
+              control={form.control}
+              name="lastRestockDate"
+              render={({ field }) => (
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm font-medium">Last Restock Date (Optional)</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full px-3 h-10 text-left font-normal text-base",
+                            !field.value && "text-muted-foreground"
+                          )}
+                        >
+                          {field.value ? (
+                            format(field.value, "PPP")
+                          ) : (
+                            <span>Pick a date</span>
+                          )}
+                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value || undefined}
+                        onSelect={field.onChange}
+                        initialFocus
+                        className="rounded-md border"
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Location Field */}
-              <FormField
-                control={form.control}
-                name="location"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Storage Location (Optional)</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Where is this item stored?" {...field} value={field.value || ""} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Last Restock Date Field */}
-              <FormField
-                control={form.control}
-                name="lastRestockDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Last Restock Date (Optional)</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-full pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(field.value, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value || undefined}
-                          onSelect={field.onChange}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
 
             {/* Notes Field */}
             <FormField
               control={form.control}
               name="notes"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Notes (Optional)</FormLabel>
+                <FormItem className="space-y-1">
+                  <FormLabel className="text-sm font-medium">Notes (Optional)</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Enter any additional notes about this item"
                       {...field}
                       value={field.value || ""}
+                      className="text-base resize-none min-h-[60px]"
                     />
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
 
-            <DialogFooter>
+            <DialogFooter className="pt-2 sm:pt-4 flex flex-col sm:flex-row gap-2 sm:gap-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={handleClose}
-                className="gap-1"
+                className="w-full sm:w-auto gap-1 text-sm"
               >
                 <X className="h-4 w-4" /> Cancel
               </Button>
-              <Button type="submit" disabled={mutation.isPending} className="gap-1">
+              <Button 
+                type="submit" 
+                disabled={mutation.isPending} 
+                className="w-full sm:w-auto gap-1 text-sm"
+              >
                 {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 {itemToEdit?.id ? "Update Item" : "Create Item"}
               </Button>

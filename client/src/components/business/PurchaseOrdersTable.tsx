@@ -25,16 +25,21 @@ import { formatDate } from "@/lib/types";
 // Define the purchase order interface
 interface PurchaseOrder {
   id: number;
-  orderNumber: string;
+  orderNumber?: string;
   vendorId: number;
-  vendorName: string;
+  vendorName?: string;
   orderDate: string;
-  expectedDeliveryDate: string | null;
-  receivedDate: string | null;
-  status: 'draft' | 'pending' | 'approved' | 'shipped' | 'received' | 'cancelled';
+  expectedDeliveryDate?: string | null;
+  deliveryDate?: string | null;
+  receivedDate?: string | null;
+  status: string;
   totalAmount: number;
-  paymentStatus: 'unpaid' | 'partial' | 'paid';
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | null;
   notes: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  orderedBy?: number;
+  items?: string;
 }
 
 interface PurchaseOrdersTableProps {
@@ -216,12 +221,18 @@ export default function PurchaseOrdersTable({
                   </TableCell>
                   <TableCell>{formatAmount(order.totalAmount)}</TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={getPaymentStatusColor(order.paymentStatus)}
-                    >
-                      {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
-                    </Badge>
+                    {order.paymentStatus ? (
+                      <Badge
+                        variant="outline"
+                        className={getPaymentStatusColor(order.paymentStatus)}
+                      >
+                        {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="bg-gray-100 text-gray-800">
+                        Not Set
+                      </Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>
