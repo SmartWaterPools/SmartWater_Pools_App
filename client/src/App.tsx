@@ -31,6 +31,7 @@ import ServiceReport from "./pages/ServiceReport";
 import ServiceReportPage from "./pages/ServiceReportPage";
 import Communications from "./pages/Communications";
 import Business from "./pages/Business";
+import InventoryTransfers from "./pages/InventoryTransfers";
 import Settings from "./pages/Settings";
 import ApiKeyDebug from "./pages/ApiKeyDebug";
 import Login from "./pages/Login";
@@ -134,6 +135,7 @@ function App() {
                           <Route path="/service-report-page/:id" component={ServiceReportPage} />
                           <Route path="/communications" component={Communications} />
                           <Route path="/business" component={Business} />
+                          <Route path="/inventory/transfers" component={InventoryTransfers} />
                           <Route path="/settings" component={Settings} />
                           <Route path="/api-key-debug" component={ApiKeyDebug} />
                           

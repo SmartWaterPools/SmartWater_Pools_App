@@ -430,10 +430,22 @@ export default function Business() {
         <TabsContent value="inventory" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl sm:text-2xl font-bold">Inventory</h2>
-            <Button onClick={() => setShowInventoryForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
-              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden xs:inline">Add</span> Item
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
+                onClick={() => window.location.href = "/inventory/transfers"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 sm:h-4 sm:w-4">
+                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                </svg>
+                <span className="hidden xs:inline">Inventory</span> Transfers
+              </Button>
+              <Button onClick={() => setShowInventoryForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="hidden xs:inline">Add</span> Item
+              </Button>
+            </div>
           </div>
           {showInventoryForm && (
             <InventoryItemForm

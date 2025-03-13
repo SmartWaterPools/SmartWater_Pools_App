@@ -72,11 +72,11 @@ export function TechnicianList({ technicians, isLoading, onTechnicianSelect }: T
             <div className="h-16 w-16 rounded-full bg-primary text-white flex items-center justify-center text-xl flex-shrink-0">
               {technician.user.name.charAt(0)}
             </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold">{technician.user.name}</h3>
-              <p className="text-sm text-gray-500">{technician.specialization}</p>
+            <div className="ml-4 min-w-0 flex-1">
+              <h3 className="text-lg font-semibold truncate">{technician.user.name}</h3>
+              <p className="text-sm text-gray-500 truncate">{technician.specialization}</p>
               <div className="flex items-center mt-1">
-                <div className="flex">
+                <div className="flex flex-shrink-0">
                   {[1, 2, 3, 4, 5].map((rating) => (
                     <Star
                       key={rating}
@@ -92,19 +92,19 @@ export function TechnicianList({ technicians, isLoading, onTechnicianSelect }: T
           <div className="mt-4 pt-4 border-t border-gray-100">
             <div className="space-y-2 mb-4">
               <div className="flex items-center text-sm">
-                <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                <span>{technician.user.email}</span>
+                <Mail className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                <span className="truncate">{technician.user.email}</span>
               </div>
               {technician.user.phone && (
                 <div className="flex items-center text-sm">
-                  <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                  <span>{technician.user.phone}</span>
+                  <Phone className="h-4 w-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <span className="truncate">{technician.user.phone}</span>
                 </div>
               )}
               {technician.user.address && (
                 <div className="flex items-start text-sm">
-                  <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                  <span>{technician.user.address}</span>
+                  <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+                  <span className="truncate">{technician.user.address}</span>
                 </div>
               )}
             </div>
