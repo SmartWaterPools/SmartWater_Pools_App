@@ -245,6 +245,27 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     }
   }, [location, getTabByPath, addTab, activeTabId, navigateToTab]);
   
+  // Listen for custom addTab events
+  useEffect(() => {
+    const handleAddTabEvent = (event: CustomEvent) => {
+      if (event.detail) {
+        const { path, title, icon } = event.detail;
+        if (path) {
+          const tabId = addTab(path, title, true);
+          navigateToTab(tabId);
+        }
+      }
+    };
+    
+    // Add the event listener to the window
+    window.addEventListener('addTab', handleAddTabEvent as EventListener);
+    
+    // Clean up the event listener when the component unmounts
+    return () => {
+      window.removeEventListener('addTab', handleAddTabEvent as EventListener);
+    };
+  }, [addTab, navigateToTab]);
+  
   // Extract client ID for client-related pages to update tab titles
   const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
   const clientEditMatch = location.match(/^\/clients\/(\d+)\/edit$/);

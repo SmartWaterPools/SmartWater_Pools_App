@@ -4755,7 +4755,8 @@ export class DatabaseStorage implements IStorage {
   
   async getAllInventoryTransfers(): Promise<InventoryTransfer[]> {
     try {
-      return await db.select().from(inventoryTransfers);
+      const transfers = await db.select().from(inventoryTransfers);
+      return transfers;
     } catch (error) {
       console.error("Error retrieving all inventory transfers:", error);
       return [];
@@ -4764,10 +4765,11 @@ export class DatabaseStorage implements IStorage {
   
   async getInventoryTransfersByStatus(status: TransferStatus): Promise<InventoryTransfer[]> {
     try {
-      return await db
+      const transfers = await db
         .select()
         .from(inventoryTransfers)
         .where(eq(inventoryTransfers.status, status));
+      return transfers;
     } catch (error) {
       console.error(`Error retrieving inventory transfers with status ${status}:`, error);
       return [];
@@ -4776,10 +4778,11 @@ export class DatabaseStorage implements IStorage {
   
   async getInventoryTransfersByType(type: TransferType): Promise<InventoryTransfer[]> {
     try {
-      return await db
+      const transfers = await db
         .select()
         .from(inventoryTransfers)
         .where(eq(inventoryTransfers.transferType, type));
+      return transfers;
     } catch (error) {
       console.error(`Error retrieving inventory transfers with type ${type}:`, error);
       return [];
@@ -4788,7 +4791,7 @@ export class DatabaseStorage implements IStorage {
   
   async getInventoryTransfersByDate(startDate: Date, endDate: Date): Promise<InventoryTransfer[]> {
     try {
-      return await db
+      const transfers = await db
         .select()
         .from(inventoryTransfers)
         .where(
@@ -4797,6 +4800,7 @@ export class DatabaseStorage implements IStorage {
             lte(inventoryTransfers.requestDate, endDate)
           )
         );
+      return transfers;
     } catch (error) {
       console.error(`Error retrieving inventory transfers by date range:`, error);
       return [];
@@ -4840,10 +4844,11 @@ export class DatabaseStorage implements IStorage {
   
   async getInventoryTransferItemsByTransferId(transferId: number): Promise<InventoryTransferItem[]> {
     try {
-      return await db
+      const items = await db
         .select()
         .from(inventoryTransferItems)
         .where(eq(inventoryTransferItems.transferId, transferId));
+      return items;
     } catch (error) {
       console.error(`Error retrieving items for transfer ${transferId}:`, error);
       return [];
@@ -4853,7 +4858,7 @@ export class DatabaseStorage implements IStorage {
   // Helper methods for inventory operations
   async getWarehouseInventoryByWarehouseIdAndItemId(warehouseId: number, itemId: number): Promise<WarehouseInventory[]> {
     try {
-      return await db
+      const inventory = await db
         .select()
         .from(warehouseInventory)
         .where(
@@ -4862,6 +4867,7 @@ export class DatabaseStorage implements IStorage {
             eq(warehouseInventory.inventoryItemId, itemId)
           )
         );
+      return inventory;
     } catch (error) {
       console.error(`Error retrieving warehouse inventory for warehouse ${warehouseId} and item ${itemId}:`, error);
       return [];
@@ -4870,7 +4876,7 @@ export class DatabaseStorage implements IStorage {
   
   async getVehicleInventoryByVehicleIdAndItemId(vehicleId: number, itemId: number): Promise<VehicleInventory[]> {
     try {
-      return await db
+      const inventory = await db
         .select()
         .from(vehicleInventory)
         .where(
@@ -4879,6 +4885,7 @@ export class DatabaseStorage implements IStorage {
             eq(vehicleInventory.inventoryItemId, itemId)
           )
         );
+      return inventory;
     } catch (error) {
       console.error(`Error retrieving vehicle inventory for vehicle ${vehicleId} and item ${itemId}:`, error);
       return [];
@@ -4932,7 +4939,8 @@ export class DatabaseStorage implements IStorage {
   
   async getAllBarcodes(): Promise<Barcode[]> {
     try {
-      return await db.select().from(barcodes);
+      const allBarcodes = await db.select().from(barcodes);
+      return allBarcodes;
     } catch (error) {
       console.error("Error retrieving all barcodes:", error);
       return [];
@@ -4941,10 +4949,11 @@ export class DatabaseStorage implements IStorage {
   
   async getBarcodesByType(type: BarcodeType): Promise<Barcode[]> {
     try {
-      return await db
+      const typedBarcodes = await db
         .select()
         .from(barcodes)
         .where(eq(barcodes.barcodeType, type));
+      return typedBarcodes;
     } catch (error) {
       console.error(`Error retrieving barcodes with type ${type}:`, error);
       return [];
@@ -4953,10 +4962,11 @@ export class DatabaseStorage implements IStorage {
   
   async getBarcodesByItemType(itemType: string): Promise<Barcode[]> {
     try {
-      return await db
+      const itemTypeBarcodes = await db
         .select()
         .from(barcodes)
         .where(eq(barcodes.itemType, itemType));
+      return itemTypeBarcodes;
     } catch (error) {
       console.error(`Error retrieving barcodes with item type ${itemType}:`, error);
       return [];
@@ -4989,11 +4999,12 @@ export class DatabaseStorage implements IStorage {
   
   async getBarcodeScansByBarcodeId(barcodeId: number): Promise<BarcodeScanHistory[]> {
     try {
-      return await db
+      const barcodeScans = await db
         .select()
         .from(barcodeScanHistory)
         .where(eq(barcodeScanHistory.barcodeId, barcodeId))
         .orderBy(desc(barcodeScanHistory.scanTime));
+      return barcodeScans;
     } catch (error) {
       console.error(`Error retrieving scans for barcode ${barcodeId}:`, error);
       return [];
@@ -5002,11 +5013,12 @@ export class DatabaseStorage implements IStorage {
   
   async getBarcodeScansByUserId(userId: number): Promise<BarcodeScanHistory[]> {
     try {
-      return await db
+      const userScans = await db
         .select()
         .from(barcodeScanHistory)
         .where(eq(barcodeScanHistory.scannedByUserId, userId))
         .orderBy(desc(barcodeScanHistory.scanTime));
+      return userScans;
     } catch (error) {
       console.error(`Error retrieving scans by user ${userId}:`, error);
       return [];
@@ -5015,7 +5027,7 @@ export class DatabaseStorage implements IStorage {
   
   async getBarcodeScansByDate(startDate: Date, endDate: Date): Promise<BarcodeScanHistory[]> {
     try {
-      return await db
+      const dateRangeScans = await db
         .select()
         .from(barcodeScanHistory)
         .where(
@@ -5025,6 +5037,7 @@ export class DatabaseStorage implements IStorage {
           )
         )
         .orderBy(desc(barcodeScanHistory.scanTime));
+      return dateRangeScans;
     } catch (error) {
       console.error(`Error retrieving barcode scans by date range:`, error);
       return [];
@@ -5123,10 +5136,11 @@ export class DatabaseStorage implements IStorage {
   
   async getAllInventoryAdjustments(): Promise<InventoryAdjustment[]> {
     try {
-      return await db
+      const allAdjustments = await db
         .select()
         .from(inventoryAdjustments)
         .orderBy(desc(inventoryAdjustments.adjustmentDate));
+      return allAdjustments;
     } catch (error) {
       console.error("Error retrieving all inventory adjustments:", error);
       return [];
@@ -5135,11 +5149,12 @@ export class DatabaseStorage implements IStorage {
   
   async getInventoryAdjustmentsByItemId(itemId: number): Promise<InventoryAdjustment[]> {
     try {
-      return await db
+      const itemAdjustments = await db
         .select()
         .from(inventoryAdjustments)
         .where(eq(inventoryAdjustments.inventoryItemId, itemId))
         .orderBy(desc(inventoryAdjustments.adjustmentDate));
+      return itemAdjustments;
     } catch (error) {
       console.error(`Error retrieving adjustments for item ${itemId}:`, error);
       return [];
@@ -5148,7 +5163,7 @@ export class DatabaseStorage implements IStorage {
   
   async getInventoryAdjustmentsByLocation(locationType: string, locationId: number): Promise<InventoryAdjustment[]> {
     try {
-      return await db
+      const locationAdjustments = await db
         .select()
         .from(inventoryAdjustments)
         .where(
@@ -5158,6 +5173,7 @@ export class DatabaseStorage implements IStorage {
           )
         )
         .orderBy(desc(inventoryAdjustments.adjustmentDate));
+      return locationAdjustments;
     } catch (error) {
       console.error(`Error retrieving adjustments for location type ${locationType} id ${locationId}:`, error);
       return [];
@@ -5166,7 +5182,7 @@ export class DatabaseStorage implements IStorage {
   
   async getInventoryAdjustmentsByDate(startDate: Date, endDate: Date): Promise<InventoryAdjustment[]> {
     try {
-      return await db
+      const dateRangeAdjustments = await db
         .select()
         .from(inventoryAdjustments)
         .where(
@@ -5176,6 +5192,7 @@ export class DatabaseStorage implements IStorage {
           )
         )
         .orderBy(desc(inventoryAdjustments.adjustmentDate));
+      return dateRangeAdjustments;
     } catch (error) {
       console.error(`Error retrieving inventory adjustments by date range:`, error);
       return [];

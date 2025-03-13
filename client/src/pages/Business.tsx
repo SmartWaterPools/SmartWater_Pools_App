@@ -434,7 +434,17 @@ export default function Business() {
               <Button 
                 variant="outline" 
                 className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
-                onClick={() => window.location.href = "/inventory/transfers"}
+                onClick={() => {
+                  // Use the TabManager API to add a new tab without replacing existing ones
+                  const event = new CustomEvent('addTab', {
+                    detail: {
+                      path: '/inventory/transfers',
+                      title: 'Inventory Transfers',
+                      icon: 'transfer'
+                    }
+                  });
+                  window.dispatchEvent(event);
+                }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 sm:h-4 sm:w-4">
                   <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
