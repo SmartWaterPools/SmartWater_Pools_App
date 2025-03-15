@@ -7,7 +7,7 @@ import { Helmet } from "react-helmet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Barcode, Info, Cpu, Zap } from "lucide-react";
+import { Barcode, RefreshCw, Info, Cpu, Zap } from "lucide-react";
 import { SCANDIT_LICENSE_KEY } from "@/config/scandit";
 
 export default function BarcodeDemo() {
@@ -16,6 +16,7 @@ export default function BarcodeDemo() {
   const [showScanner, setShowScanner] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [scannerType, setScannerType] = useState<'html5' | 'scandit' | 'sparkscan'>('html5');
+  const [fallbackToHtml5, setFallbackToHtml5] = useState<boolean>(false);
 
   const handleScan = (result: string, source: string = scannerType) => {
     console.log("Barcode scanned:", result, "from", source);
@@ -26,11 +27,69 @@ export default function BarcodeDemo() {
 
   const handleError = (error: string) => {
     setErrorMessage(error);
+    
+    // Check if this is a Scandit initialization error that should trigger fallback
+    if ((scannerType === 'scandit' || scannerType === 'sparkscan')) {
+      // More exhaustive list of error conditions that should trigger fallback
+      const fallbackTriggers = [
+        "initialization failed",
+        "barcode configuration issue", 
+        "license key issue",
+        "undefined is not an object",
+        "Camera error", 
+        "Failed to start camera",
+        "timed out",
+        "null is not an object",
+        "permission",
+        "not available",
+        "TypeError",
+        "Cannot read",
+        "is not a function",
+        "Failed to initialize",
+        "no camera",
+        "No camera"
+      ];
+      
+      // Check if any trigger phrases are in the error message
+      const shouldFallback = fallbackTriggers.some(trigger => error.includes(trigger));
+      
+      if (shouldFallback) {
+        console.log("Scandit scanner error detected, falling back to HTML5 scanner");
+        console.log("Error that triggered fallback:", error);
+        
+        // Determine the specific reason for better user feedback
+        let fallbackReason = "configuration issue";
+        
+        if (error.match(/camera|Camera|video|webcam|permission|timed out/i)) {
+          fallbackReason = "camera access issue";
+        } else if (error.match(/license|key|authorization|authenticated/i)) {
+          fallbackReason = "license key issue";
+        } else if (error.match(/TypeError|null|undefined|not an object|cannot read/i)) {
+          fallbackReason = "initialization error";
+        }
+        
+        // Set fallback flag to true immediately
+        setFallbackToHtml5(true);
+        
+        // Use setTimeout to ensure UI updates first, then switch scanner type
+        setTimeout(() => {
+          setScannerType('html5');
+          setErrorMessage(`Scandit scanner failed due to ${fallbackReason}. Automatically switched to HTML5 scanner.`);
+          
+          // Log for debugging
+          console.log(`Switched to HTML5 scanner due to: ${fallbackReason}`);
+        }, 500);
+      }
+    }
   };
 
   const toggleScanner = () => {
     setShowScanner(prev => !prev);
     setErrorMessage(null);
+    // Reset fallback state when closing scanner
+    if (showScanner) {
+      setFallbackToHtml5(false);
+    }
   };
 
   return (
@@ -194,20 +253,30 @@ export default function BarcodeDemo() {
         {showScanner && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
-              {scannerType === 'html5' ? (
+              {/* Handle case where we're showing HTML5 scanner, either by user choice or fallback */}
+              {(scannerType === 'html5' || fallbackToHtml5) ? (
                 <HTML5QRCodeScanner
                   onScan={(result) => handleScan(result, 'html5')}
                   onError={handleError}
                   onClose={toggleScanner}
                   showClose={true}
-                  title="HTML5 Barcode Scanner"
+                  title={(fallbackToHtml5 && scannerType !== 'html5') ? 
+                    "HTML5 Scanner (Fallback)" : 
+                    "HTML5 Barcode Scanner"
+                  }
+                  description={fallbackToHtml5 ? 
+                    "Automatically switched to HTML5 scanner due to issues with Scandit" : 
+                    undefined
+                  }
                 />
               ) : scannerType === 'scandit' ? (
                 <ScanditBarcodeScanner
                   onScan={(result) => handleScan(result, 'scandit')}
                   onError={handleError}
                   onClose={toggleScanner}
+                  showClose={true}
                   title="Scandit Barcode Scanner"
+                  description="Professional-grade barcode scanning"
                   licenseKey={SCANDIT_LICENSE_KEY}
                 />
               ) : (
@@ -215,11 +284,30 @@ export default function BarcodeDemo() {
                   onScan={(result) => handleScan(result, 'sparkscan')}
                   onError={handleError}
                   onClose={toggleScanner}
+                  showClose={true}
                   title="Scandit SparkScan"
+                  description="Enterprise-grade scanning experience"
                   licenseKey={SCANDIT_LICENSE_KEY}
                 />
               )}
             </div>
+          </div>
+        )}
+        
+        {/* Show a floating action button to switch to HTML5 scanner when using Scandit */}
+        {showScanner && !fallbackToHtml5 && scannerType !== 'html5' && (
+          <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[60]">
+            <Button
+              onClick={() => {
+                setFallbackToHtml5(true);
+                setScannerType('html5');
+              }}
+              variant="secondary"
+              className="shadow-lg"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Switch to HTML5 Scanner
+            </Button>
           </div>
         )}
       </div>

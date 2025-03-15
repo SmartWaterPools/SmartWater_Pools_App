@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, X, RotateCw, Smartphone, Barcode } from "lucide-react";
+import { Camera, X, RefreshCw, Smartphone, Barcode } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { SCANDIT_LICENSE_KEY, SUPPORTED_SYMBOLOGIES } from "@/config/scandit";
@@ -58,30 +58,45 @@ export function ScanditBarcodeScanner({
 
   // Start and control scanner functionality
   const initializeScanner = async () => {
+    // Log the environment - useful for debugging
+    console.log("Environment check:", {
+      hasScanditKey: !!licenseKey,
+      keyLength: licenseKey?.length || 0,
+      envKeyExists: !!import.meta.env.VITE_SCANDIT_LICENSE_KEY,
+      isBrowser: typeof window !== 'undefined',
+      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'
+    });
+
     if (!licenseKey) {
-      setError("Missing Scandit license key");
-      if (onError) onError("Missing Scandit license key");
+      const errorMsg = "Missing Scandit license key. Please check environment variables.";
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
       return;
     }
 
     // Scandit packages are now installed, so we can use them
     try {
+      console.log("Initializing Scandit with license key:", licenseKey.substring(0, 10) + "...");
+      
       // Create data capture context with the license key
       // The TypeScript definitions may not match the actual API
       // We'll try various methods to instantiate the DataCaptureContext
       try {
         // First try using the constructor directly
         dataCaptureContextRef.current = new (DataCaptureContext as any)(licenseKey);
+        console.log("Successfully initialized DataCaptureContext with constructor");
       } catch (err) {
-        console.log("Direct constructor failed, trying alternative methods");
+        console.log("Direct constructor failed, trying alternative methods:", err);
         
         // Try with a static create method if available
         if (typeof (DataCaptureContext as any).create === 'function') {
           dataCaptureContextRef.current = (DataCaptureContext as any).create(licenseKey);
+          console.log("Successfully initialized DataCaptureContext with create() method");
         }
         // Try with forLicenseKey static method if available
         else if (typeof (DataCaptureContext as any).forLicenseKey === 'function') {
           dataCaptureContextRef.current = (DataCaptureContext as any).forLicenseKey(licenseKey);
+          console.log("Successfully initialized DataCaptureContext with forLicenseKey() method");
         }
         // As a last resort, create a wrapper around the context
         else {
@@ -92,50 +107,44 @@ export function ScanditBarcodeScanner({
       // Create settings for barcode capture
       const settings = new BarcodeCaptureSettings();
       
-      // Enable barcode symbologies based on our configuration
-      // Map our config strings to Scandit Symbology enum values
-      // Create a map of string to symbology value
-      // Use string indexing to avoid TypeScript errors due to API differences
-      const symbologyMap: {[key: string]: any} = {};
-      
-      // Safely map symbologies - checking if they exist first
-      // This handles potential differences between Scandit versions
-      symbologyMap['code128'] = Symbology.Code128;
-      symbologyMap['code39'] = Symbology.Code39;
-      symbologyMap['code93'] = Symbology.Code93;
-      symbologyMap['ean13'] = Symbology.EAN13UPCA;
-      symbologyMap['ean8'] = Symbology.EAN8;
-      symbologyMap['upca'] = Symbology.EAN13UPCA;
-      symbologyMap['upce'] = Symbology.UPCE;
-      symbologyMap['datamatrix'] = Symbology.DataMatrix;
-      symbologyMap['qr'] = Symbology.QR;
-      symbologyMap['pdf417'] = Symbology.PDF417;
-      
-      // Safely handle Interleaved2of5/ITF - try different possible names
-      if ('Interleaved2of5' in Symbology) {
-        symbologyMap['interleaved2of5'] = (Symbology as any).Interleaved2of5;
-        symbologyMap['itf'] = (Symbology as any).Interleaved2of5;
-      } else if ('ITF' in Symbology) {
-        symbologyMap['interleaved2of5'] = (Symbology as any).ITF;
-        symbologyMap['itf'] = (Symbology as any).ITF;
-      } else {
-        // Fall back to using a number value if needed - common value for ITF
-        symbologyMap['interleaved2of5'] = 4; // Typical value for ITF
-        symbologyMap['itf'] = 4; // Typical value for ITF
+      // Instead of trying to map symbologies, enable a fixed set of common ones
+      // This approach is more resistant to API differences between versions
+      try {
+        // Enable the most common 1D/2D symbologies directly
+        // The specific enum values might differ between versions, so we use try/catch
+        try { settings.enableSymbology(Symbology.EAN13UPCA, true); } catch (e) { console.log("EAN13UPCA not available"); }
+        try { settings.enableSymbology(Symbology.EAN8, true); } catch (e) { console.log("EAN8 not available"); }
+        try { settings.enableSymbology(Symbology.UPCE, true); } catch (e) { console.log("UPCE not available"); }
+        try { settings.enableSymbology(Symbology.Code128, true); } catch (e) { console.log("Code128 not available"); }
+        try { settings.enableSymbology(Symbology.Code39, true); } catch (e) { console.log("Code39 not available"); }
+        try { settings.enableSymbology(Symbology.DataMatrix, true); } catch (e) { console.log("DataMatrix not available"); }
+        try { settings.enableSymbology(Symbology.QR, true); } catch (e) { console.log("QR not available"); }
+        
+        // Additional symbologies - may not be available in all Scandit versions
+        if (Symbology.hasOwnProperty('PDF417') || typeof Symbology.PDF417 !== 'undefined') {
+          try { settings.enableSymbology(Symbology.PDF417, true); } catch (e) { console.log("PDF417 not available"); }
+        }
+        
+        // Try both possible names for Interleaved 2 of 5
+        if (Symbology.hasOwnProperty('Interleaved2of5') || typeof (Symbology as any).Interleaved2of5 !== 'undefined') {
+          try { settings.enableSymbology((Symbology as any).Interleaved2of5, true); } catch (e) { console.log("Interleaved2of5 not available"); }
+        } else if (Symbology.hasOwnProperty('ITF') || typeof (Symbology as any).ITF !== 'undefined') {
+          try { settings.enableSymbology((Symbology as any).ITF, true); } catch (e) { console.log("ITF not available"); }
+        }
+        
+        // Enable Code93 if available
+        if (Symbology.hasOwnProperty('Code93') || typeof Symbology.Code93 !== 'undefined') {
+          try { settings.enableSymbology(Symbology.Code93, true); } catch (e) { console.log("Code93 not available"); }
+        }
+      } catch (err) {
+        console.error("Error while enabling symbologies:", err);
+        // If enabling individual symbologies fails, try enabling all symbologies
+        try {
+          settings.enableSymbologies(Object.values(Symbology).filter(s => typeof s === 'number'));
+        } catch (fallbackErr) {
+          console.error("Failed to enable all symbologies:", fallbackErr);
+        }
       }
-      
-      // Convert our string config values to Scandit Symbology enum values
-      const symbologies = SUPPORTED_SYMBOLOGIES
-        .map(sym => symbologyMap[sym])
-        .filter(sym => sym !== undefined);
-      
-      symbologies.forEach(symbology => {
-        settings.enableSymbology(symbology, true);
-        // Use any type to handle API differences
-        const symbologySettings = settings.settingsForSymbology(symbology);
-        // TypeScript definitions might be outdated, use any casting
-        (symbologySettings as any).setActive?.(true);
-      });
 
       // Create barcode capture and set settings
       barcodeCaptureRef.current = BarcodeCapture.forContext(dataCaptureContextRef.current, settings);
@@ -191,28 +200,177 @@ export function ScanditBarcodeScanner({
       }
     } catch (err: any) {
       console.error("Error initializing Scandit scanner:", err);
-      setError(`Scandit initialization failed: ${err.message || "Unknown error"}`);
-      if (onError) onError(err.message || "Unknown error");
+      
+      // Determine what kind of error occurred for better user feedback
+      let errorMessage: string;
+      
+      if (!err) {
+        errorMessage = "Scandit initialization failed. Please try again later.";
+      } else if (err.message && (
+          err.message.includes("undefined is not an object") || 
+          err.message.includes("symbology")
+        )) {
+        // The specific error we're seeing in the screenshots
+        errorMessage = "Scandit barcode configuration issue. Using HTML5 scanner as fallback.";
+        
+        // If there's an onClose handler, call it to allow switching to HTML5 scanner
+        if (onClose) {
+          setTimeout(onClose, 3000);
+        }
+      } else if (err.message && err.message.includes("license")) {
+        errorMessage = "Scandit license key issue. Please verify your license key.";
+      } else if (err.message && err.message.includes("camera")) {
+        errorMessage = "Camera access failed. Please check your camera permissions.";
+      } else {
+        errorMessage = `Scandit initialization failed: ${err.message || "Unknown error"}`;
+      }
+      
+      setError(errorMessage);
+      if (onError) onError(errorMessage);
     }
   };
 
-  const startScanning = () => {
-    if (barcodeCaptureRef.current && dataCaptureContextRef.current) {
-      barcodeCaptureRef.current.setEnabled(true);
-      const camera = dataCaptureContextRef.current.getFrameSource();
-      if (camera) {
-        camera.switchToDesiredState(FrameSourceState.On)
-          .then(() => {
-            setIsScanning(true);
-            setError(null);
-          })
-          .catch((err: any) => {
-            setError(`Failed to start camera: ${err.message || "Unknown error"}`);
-            if (onError) onError(err.message || "Unknown error");
-          });
+  const startScanning = async () => {
+    try {
+      console.log("Starting Scandit scanner...");
+      
+      // First, check if we have camera permission
+      const permissionStatus = await checkCameraPermission();
+      
+      if (!permissionStatus) {
+        const errorMsg = "Camera permission denied. Please grant access in your browser settings.";
+        console.error(errorMsg);
+        setError(errorMsg);
+        if (onError) onError(errorMsg);
+        return;
       }
-    } else {
-      setError("Scanner not properly initialized");
+      
+      // Check scanner initialization
+      if (!barcodeCaptureRef.current || !dataCaptureContextRef.current) {
+        console.error("Scanner not properly initialized, attempting re-initialization");
+        
+        // Try to re-initialize the scanner
+        await initializeScanner();
+        
+        // Check again after re-initialization
+        if (!barcodeCaptureRef.current || !dataCaptureContextRef.current) {
+          const errorMsg = "Scanner failed to initialize. Please try switching to HTML5 scanner.";
+          setError(errorMsg);
+          if (onError) onError(errorMsg);
+          return;
+        }
+      }
+      
+      // Enable barcode capture
+      console.log("Enabling barcode capture...");
+      barcodeCaptureRef.current.setEnabled(true);
+      
+      // Get camera
+      const camera = dataCaptureContextRef.current.getFrameSource();
+      
+      if (!camera) {
+        const errorMsg = "No camera available from Scandit";
+        console.error(errorMsg);
+        setError(errorMsg);
+        if (onError) onError(errorMsg);
+        return;
+      }
+      
+      try {
+        console.log("Starting camera...");
+        
+        // Set a timeout to prevent hanging on camera initialization
+        const cameraPromise = camera.switchToDesiredState(FrameSourceState.On);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Camera initialization timed out after 6 seconds")), 6000)
+        );
+        
+        // Also add a log for successful camera activation
+        const loggingPromise = cameraPromise.then(() => {
+          console.log("Camera activated successfully!");
+          return cameraPromise;
+        });
+        
+        // Race with timeout
+        await Promise.race([loggingPromise, timeoutPromise]);
+        
+        console.log("Camera started successfully");
+        setIsScanning(true);
+        setError(null);
+        
+        // Get camera position information
+        try {
+          setCameraInfo(camera.position || "Active camera");
+        } catch (infoErr) {
+          console.log("Unable to get camera position info:", infoErr);
+          setCameraInfo("Camera active");
+        }
+      } catch (err: any) {
+        console.error("Camera activation error:", err);
+        
+        // More descriptive error based on the error message
+        let errorMsg = "Failed to start camera";
+        if (err.message) {
+          if (err.message.includes("timed out")) {
+            errorMsg = "Camera initialization timed out. Please try the HTML5 scanner instead.";
+          } else if (err.message.includes("permission")) {
+            errorMsg = "Camera permission denied. Please check your browser settings.";
+          } else if (err.message.includes("not found") || err.message.includes("not available")) {
+            errorMsg = "Camera not found or not available on this device.";
+          } else {
+            errorMsg = `Failed to start camera: ${err.message}`;
+          }
+        }
+        
+        setError(errorMsg);
+        if (onError) onError(errorMsg);
+      }
+    } catch (err: any) {
+      console.error("Critical error in startScanning:", err);
+      const errorMsg = `Camera error: ${err.message || "Unknown error"}`;
+      setError(errorMsg);
+      if (onError) onError(errorMsg);
+    }
+  };
+  
+  // Helper function to check camera permission
+  const checkCameraPermission = async (): Promise<boolean> => {
+    try {
+      // Check if navigator.permissions is available (modern browsers)
+      if (navigator.permissions && navigator.permissions.query) {
+        const result = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        if (result.state === 'granted') {
+          return true;
+        } else if (result.state === 'prompt') {
+          // We need to request permission
+          try {
+            // Request camera access to trigger the permission prompt
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            // If we get here, permission was granted
+            // Clean up the stream we just created
+            stream.getTracks().forEach(track => track.stop());
+            return true;
+          } catch (e) {
+            return false;
+          }
+        } else {
+          // Permission denied
+          return false;
+        }
+      } else {
+        // Fallback for browsers without permissions API
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          // Clean up the stream we just created
+          stream.getTracks().forEach(track => track.stop());
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+    } catch (e) {
+      console.error("Error checking camera permission:", e);
+      return false;
     }
   };
 
@@ -236,25 +394,57 @@ export function ScanditBarcodeScanner({
 
   // Initialize the scanner on component mount
   useEffect(() => {
+    console.log("ScanditBarcodeScanner component mounted");
     initializeScanner();
 
     return () => {
-      // Clean up resources when component unmounts
-      if (barcodeCaptureRef.current) {
-        barcodeCaptureRef.current.setEnabled(false);
-      }
+      console.log("ScanditBarcodeScanner component unmounting - cleaning up resources");
       
-      if (dataCaptureContextRef.current) {
-        const camera = dataCaptureContextRef.current.getFrameSource();
-        if (camera) {
-          // Using Promise.resolve to handle potential API differences
-          Promise.resolve(camera.switchToDesiredState(FrameSourceState.Off))
-            .catch(err => console.error("Error stopping camera during cleanup:", err));
+      try {
+        // Clean up resources when component unmounts
+        if (barcodeCaptureRef.current) {
+          console.log("Disabling barcode capture");
+          barcodeCaptureRef.current.setEnabled(false);
+          
+          // Try to remove listeners
+          try {
+            if (typeof barcodeCaptureRef.current.removeAllListeners === 'function') {
+              barcodeCaptureRef.current.removeAllListeners();
+            }
+          } catch (listenerErr) {
+            console.log("Error removing barcode listeners:", listenerErr);
+          }
         }
-        // Some versions might not have dispose method
-        if (typeof dataCaptureContextRef.current.dispose === 'function') {
-          dataCaptureContextRef.current.dispose();
+        
+        if (dataCaptureContextRef.current) {
+          const camera = dataCaptureContextRef.current.getFrameSource();
+          if (camera) {
+            console.log("Stopping camera during cleanup");
+            // Using Promise.resolve to handle potential API differences
+            Promise.resolve(camera.switchToDesiredState(FrameSourceState.Off))
+              .catch(err => console.error("Error stopping camera during cleanup:", err));
+          }
+          
+          // If there's a view, disconnect it
+          if (dataCaptureViewRef.current) {
+            try {
+              console.log("Disconnecting data capture view");
+              if (typeof dataCaptureViewRef.current.disconnectFromElement === 'function') {
+                dataCaptureViewRef.current.disconnectFromElement();
+              }
+            } catch (viewErr) {
+              console.log("Error disconnecting view:", viewErr);
+            }
+          }
+          
+          // Some versions might not have dispose method
+          if (typeof dataCaptureContextRef.current.dispose === 'function') {
+            console.log("Disposing data capture context");
+            dataCaptureContextRef.current.dispose();
+          }
         }
+      } catch (cleanupErr) {
+        console.error("Error during Scandit scanner cleanup:", cleanupErr);
       }
     };
   }, []);
@@ -292,8 +482,20 @@ export function ScanditBarcodeScanner({
           </div>
           
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="relative">
               <AlertDescription>{error}</AlertDescription>
+              <Button 
+                onClick={() => {
+                  setError(null);
+                  setTimeout(() => initializeScanner(), 500);
+                }}
+                size="sm" 
+                className="mt-2"
+                variant="outline"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry Scanner Initialization
+              </Button>
             </Alert>
           )}
           
