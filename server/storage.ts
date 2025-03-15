@@ -34,7 +34,7 @@ import {
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
   inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems
 } from "@shared/schema";
-import { and, eq, desc, gte, lte, sql, asc } from "drizzle-orm";
+import { and, eq, desc, gte, lte, sql, asc, isNotNull, lt, or } from "drizzle-orm";
 import { db } from "./db";
 
 export interface IStorage {
@@ -1160,9 +1160,21 @@ export class MemStorage implements IStorage {
   }
   
   async getInventoryTransfersByUserId(userId: number): Promise<InventoryTransfer[]> {
-    return Array.from(this.inventoryTransfers.values()).filter(
-      (transfer) => transfer.initiatedBy === userId || transfer.completedBy === userId
-    );
+    try {
+      const transfers = await db
+        .select()
+        .from(inventoryTransfers)
+        .where(
+          or(
+            eq(inventoryTransfers.requestedByUserId, userId),
+            eq(inventoryTransfers.completedByUserId, userId)
+          )
+        );
+      return transfers;
+    } catch (error) {
+      console.error(`Error retrieving inventory transfers for user ${userId}:`, error);
+      return [];
+    }
   }
   
   async getInventoryTransfersByDate(startDate: Date, endDate: Date): Promise<InventoryTransfer[]> {
@@ -1175,26 +1187,184 @@ export class MemStorage implements IStorage {
   }
   
   async completeInventoryTransfer(id: number, userId: number): Promise<InventoryTransfer | undefined> {
-    const transfer = await this.getInventoryTransfer(id);
-    if (!transfer) return undefined;
-    
-    const now = new Date();
-    const updatedTransfer = { 
-      ...transfer, 
-      status: 'completed' as TransferStatus,
-      completedBy: userId,
-      completedAt: now,
-      updatedAt: now
-    };
-    this.inventoryTransfers.set(id, updatedTransfer);
-    
-    // Update the source and destination inventory
-    const transferItems = await this.getInventoryTransferItemsByTransferId(id);
-    for (const item of transferItems) {
-      await this.updateInventoryForTransferItem(transfer, item);
+    try {
+      // Get the transfer
+      const transfer = await this.getInventoryTransfer(id);
+      if (!transfer || transfer.status !== "in_transit") return undefined;
+      
+      const now = new Date();
+      
+      // Update the transfer status to completed
+      const [updatedTransfer] = await db
+        .update(inventoryTransfers)
+        .set({
+          status: "completed" as TransferStatus,
+          completedByUserId: userId,
+          completedDate: now
+        })
+        .where(eq(inventoryTransfers.id, id))
+        .returning();
+      
+      if (!updatedTransfer) return undefined;
+      
+      // Get all transfer items
+      const transferItems = await db
+        .select()
+        .from(inventoryTransferItems)
+        .where(eq(inventoryTransferItems.transferId, id));
+      
+      // Process the transfer items to update inventory
+      for (const item of transferItems) {
+        if (!item.actualQuantity) continue; // Skip if no actual quantity
+        
+        const { sourceLocationType, sourceLocationId, destinationLocationType, destinationLocationId } = transfer;
+        const { inventoryItemId, actualQuantity } = item;
+        
+        // Subtract from source inventory
+        if (sourceLocationType === 'warehouse') {
+          // Source is a warehouse
+          const sourceInventory = await db
+            .select()
+            .from(warehouseInventory)
+            .where(
+              and(
+                eq(warehouseInventory.warehouseId, sourceLocationId),
+                eq(warehouseInventory.inventoryItemId, inventoryItemId)
+              )
+            )
+            .limit(1);
+            
+          if (sourceInventory.length > 0) {
+            const newQuantity = Math.max(0, sourceInventory[0].quantity - actualQuantity);
+            await db
+              .update(warehouseInventory)
+              .set({ 
+                quantity: newQuantity,
+                lastUpdated: now
+              })
+              .where(eq(warehouseInventory.id, sourceInventory[0].id));
+          }
+        } else if (sourceLocationType === 'vehicle') {
+          // Source is a vehicle
+          const sourceInventory = await db
+            .select()
+            .from(vehicleInventory)
+            .where(
+              and(
+                eq(vehicleInventory.vehicleId, sourceLocationId),
+                eq(vehicleInventory.inventoryItemId, inventoryItemId)
+              )
+            )
+            .limit(1);
+            
+          if (sourceInventory.length > 0) {
+            const newQuantity = Math.max(0, sourceInventory[0].quantity - actualQuantity);
+            await db
+              .update(vehicleInventory)
+              .set({ 
+                quantity: newQuantity,
+                lastUpdated: now
+              })
+              .where(eq(vehicleInventory.id, sourceInventory[0].id));
+          }
+        }
+        
+        // Add to destination inventory
+        if (destinationLocationType === 'warehouse') {
+          // Destination is a warehouse
+          const destinationInventory = await db
+            .select()
+            .from(warehouseInventory)
+            .where(
+              and(
+                eq(warehouseInventory.warehouseId, destinationLocationId),
+                eq(warehouseInventory.inventoryItemId, inventoryItemId)
+              )
+            )
+            .limit(1);
+            
+          if (destinationInventory.length > 0) {
+            // Update existing inventory
+            await db
+              .update(warehouseInventory)
+              .set({ 
+                quantity: destinationInventory[0].quantity + actualQuantity,
+                lastUpdated: now
+              })
+              .where(eq(warehouseInventory.id, destinationInventory[0].id));
+          } else {
+            // Create new inventory record
+            await db
+              .insert(warehouseInventory)
+              .values({
+                warehouseId: destinationLocationId,
+                inventoryItemId: inventoryItemId,
+                quantity: actualQuantity,
+                minimumStockLevel: 0,
+                maximumStockLevel: null,
+                lastUpdated: now,
+                location: null,
+                notes: null
+              });
+          }
+        } else if (destinationLocationType === 'vehicle') {
+          // Destination is a vehicle
+          const destinationInventory = await db
+            .select()
+            .from(vehicleInventory)
+            .where(
+              and(
+                eq(vehicleInventory.vehicleId, destinationLocationId),
+                eq(vehicleInventory.inventoryItemId, inventoryItemId)
+              )
+            )
+            .limit(1);
+            
+          if (destinationInventory.length > 0) {
+            // Update existing inventory
+            await db
+              .update(vehicleInventory)
+              .set({ 
+                quantity: destinationInventory[0].quantity + actualQuantity,
+                lastUpdated: now
+              })
+              .where(eq(vehicleInventory.id, destinationInventory[0].id));
+          } else {
+            // Create new inventory record
+            await db
+              .insert(vehicleInventory)
+              .values({
+                vehicleId: destinationLocationId,
+                inventoryItemId: inventoryItemId,
+                quantity: actualQuantity,
+                targetStockLevel: null,
+                lastUpdated: now,
+                location: null,
+                notes: null
+              });
+          }
+        }
+        // For client transfers, we don't track inventory after it's been transferred to a client
+      }
+      
+      // Create barcode scan history for this completion
+      await db
+        .insert(barcodeScanHistory)
+        .values({
+          barcodeId: null, // Not associated with a specific barcode
+          scannedByUserId: userId,
+          scanTime: now,
+          actionType: 'transfer_complete',
+          actionId: id,
+          location: null,
+          notes: `Completed inventory transfer #${id}`
+        });
+      
+      return updatedTransfer;
+    } catch (error) {
+      console.error(`Error completing inventory transfer ${id}:`, error);
+      return undefined;
     }
-    
-    return updatedTransfer;
   }
   
   private async updateInventoryForTransferItem(transfer: InventoryTransfer, item: InventoryTransferItem): Promise<void> {
@@ -4398,6 +4568,7 @@ export class DatabaseStorage implements IStorage {
     }
   }
   
+  /* Database implementation of getAllTechnicianVehicles is commented out to avoid duplication
   async getAllTechnicianVehicles(): Promise<TechnicianVehicle[]> {
     try {
       return await db.select().from(technicianVehicles);
@@ -4406,6 +4577,7 @@ export class DatabaseStorage implements IStorage {
       return [];
     }
   }
+  */
   
   async getActiveTechnicianVehicles(): Promise<TechnicianVehicle[]> {
     try {
@@ -4614,20 +4786,17 @@ export class DatabaseStorage implements IStorage {
   
   async createInventoryTransfer(insertTransfer: InsertInventoryTransfer): Promise<InventoryTransfer> {
     try {
-      // Temporarily store the initiatedByUserId as requestedByUserId
+      // Handle backward compatibility with initiatedByUserId
       const transferData = {
         ...insertTransfer,
         requestedByUserId: insertTransfer.requestedByUserId ?? 
                            (insertTransfer as any).initiatedByUserId ?? 1
       };
       
+      // Remove any non-schema fields
       delete (transferData as any).initiatedByUserId;
       
-      // Set default values if not provided
-      if (!transferData.requestDate) {
-        transferData.requestDate = new Date();
-      }
-      
+      // Insert the transfer and return the created record
       const [transfer] = await db.insert(inventoryTransfers).values(transferData).returning();
       return transfer;
     } catch (error) {
@@ -5550,13 +5719,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllInventoryItems(): Promise<InventoryItem[]> {
-    return Array.from(this.inventoryItems.values());
+    try {
+      return await db.select().from(inventoryItems);
+    } catch (error) {
+      console.error("Error retrieving all inventory items:", error);
+      return [];
+    }
   }
 
   async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
-    return Array.from(this.inventoryItems.values()).filter(
-      (item) => item.category === category
-    );
+    try {
+      return await db
+        .select()
+        .from(inventoryItems)
+        .where(eq(inventoryItems.category, category));
+    } catch (error) {
+      console.error(`Error retrieving inventory items for category ${category}:`, error);
+      return [];
+    }
   }
 
   async getLowStockItems(): Promise<InventoryItem[]> {
@@ -5629,13 +5809,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllWarehouses(): Promise<Warehouse[]> {
-    return Array.from(this.warehouses.values());
+    try {
+      return await db.select().from(warehouses);
+    } catch (error) {
+      console.error("Error retrieving all warehouses:", error);
+      return [];
+    }
   }
 
   async getActiveWarehouses(): Promise<Warehouse[]> {
-    return Array.from(this.warehouses.values()).filter(
-      (warehouse) => warehouse.isActive
-    );
+    try {
+      return await db
+        .select()
+        .from(warehouses)
+        .where(eq(warehouses.isActive, true));
+    } catch (error) {
+      console.error("Error retrieving active warehouses:", error);
+      return [];
+    }
   }
 
   // Technician Vehicle operations
@@ -5692,13 +5883,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllTechnicianVehicles(): Promise<TechnicianVehicle[]> {
-    return Array.from(this.technicianVehicles.values());
+    try {
+      return await db.select().from(technicianVehicles);
+    } catch (error) {
+      console.error("Error retrieving all technician vehicles:", error);
+      return [];
+    }
   }
 
   async getActiveTechnicianVehicles(): Promise<TechnicianVehicle[]> {
-    return Array.from(this.technicianVehicles.values()).filter(
-      (vehicle) => vehicle.status === "active"
-    );
+    try {
+      return await db
+        .select()
+        .from(technicianVehicles)
+        .where(eq(technicianVehicles.status, "active"));
+    } catch (error) {
+      console.error("Error retrieving active technician vehicles:", error);
+      return [];
+    }
   }
 
   // Warehouse Inventory operations
@@ -5754,96 +5956,173 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWarehouseInventoryByWarehouseId(warehouseId: number): Promise<WarehouseInventory[]> {
-    return Array.from(this.warehouseInventory.values()).filter(
-      (inventory) => inventory.warehouseId === warehouseId
-    );
+    try {
+      return await db
+        .select()
+        .from(warehouseInventory)
+        .where(eq(warehouseInventory.warehouseId, warehouseId));
+    } catch (error) {
+      console.error("Error retrieving warehouse inventory by warehouse ID:", error);
+      return [];
+    }
   }
 
   async getWarehouseInventoryByItemId(itemId: number): Promise<WarehouseInventory[]> {
-    return Array.from(this.warehouseInventory.values()).filter(
-      (inventory) => inventory.inventoryItemId === itemId
-    );
+    try {
+      return await db
+        .select()
+        .from(warehouseInventory)
+        .where(eq(warehouseInventory.inventoryItemId, itemId));
+    } catch (error) {
+      console.error("Error retrieving warehouse inventory by item ID:", error);
+      return [];
+    }
   }
 
   async getLowWarehouseInventory(): Promise<WarehouseInventory[]> {
-    return Array.from(this.warehouseInventory.values()).filter(
-      (inventory) => {
-        if (inventory.minimumStockLevel === null) return false;
-        return inventory.quantity <= inventory.minimumStockLevel;
-      }
-    );
+    try {
+      return await db
+        .select()
+        .from(warehouseInventory)
+        .where(
+          sql`${warehouseInventory.minimumStockLevel} IS NOT NULL AND ${warehouseInventory.quantity} <= ${warehouseInventory.minimumStockLevel}`
+        );
+    } catch (error) {
+      console.error("Error retrieving low warehouse inventory:", error);
+      return [];
+    }
   }
 
   // Vehicle Inventory operations
   async getVehicleInventory(id: number): Promise<VehicleInventory | undefined> {
-    return this.vehicleInventory.get(id);
+    try {
+      const results = await db
+        .select()
+        .from(vehicleInventory)
+        .where(eq(vehicleInventory.id, id));
+      return results[0];
+    } catch (error) {
+      console.error("Error retrieving vehicle inventory:", error);
+      return undefined;
+    }
   }
 
   async createVehicleInventory(insertInventory: InsertVehicleInventory): Promise<VehicleInventory> {
-    const id = this.vehicleInventoryId++;
-    // Ensure required fields have proper default values
-    const inventory: VehicleInventory = { 
-      ...insertInventory, 
-      id,
-      notes: insertInventory.notes ?? null,
-      location: insertInventory.location ?? null,
-      quantity: insertInventory.quantity ?? 0,
-      targetStockLevel: insertInventory.targetStockLevel ?? null,
-      lastUpdated: new Date()
-    };
-    this.vehicleInventory.set(id, inventory);
-    
-    // Update the inventory item's last updated date
-    const item = await this.getInventoryItem(insertInventory.inventoryItemId);
-    if (item) {
-      await this.updateInventoryItem(item.id, { updatedAt: new Date() });
+    try {
+      // Ensure required fields have proper default values
+      const preparedInventory = {
+        ...insertInventory,
+        notes: insertInventory.notes ?? null,
+        location: insertInventory.location ?? null,
+        quantity: insertInventory.quantity ?? 0,
+        targetStockLevel: insertInventory.targetStockLevel ?? null,
+        lastUpdated: new Date()
+      };
+      
+      const result = await db
+        .insert(vehicleInventory)
+        .values(preparedInventory)
+        .returning();
+      
+      const createdInventory = result[0];
+      
+      // Update the inventory item's last updated date
+      await db
+        .update(inventoryItems)
+        .set({ updatedAt: new Date() })
+        .where(eq(inventoryItems.id, insertInventory.inventoryItemId));
+      
+      return createdInventory;
+    } catch (error) {
+      console.error("Error creating vehicle inventory:", error);
+      throw error;
     }
-    
-    return inventory;
   }
 
   async updateVehicleInventory(id: number, data: Partial<VehicleInventory>): Promise<VehicleInventory | undefined> {
-    const inventory = await this.getVehicleInventory(id);
-    if (!inventory) return undefined;
-    
-    const updatedInventory = { ...inventory, ...data, lastUpdated: new Date() };
-    this.vehicleInventory.set(id, updatedInventory);
-    
-    // Update the inventory item's last updated date
-    const item = await this.getInventoryItem(inventory.inventoryItemId);
-    if (item) {
-      await this.updateInventoryItem(item.id, { updatedAt: new Date() });
+    try {
+      const inventory = await this.getVehicleInventory(id);
+      if (!inventory) return undefined;
+      
+      // Make sure to include lastUpdated in the update
+      const updateData = { ...data, lastUpdated: new Date() };
+      
+      const result = await db
+        .update(vehicleInventory)
+        .set(updateData)
+        .where(eq(vehicleInventory.id, id))
+        .returning();
+      
+      if (result.length === 0) return undefined;
+      
+      // Update the inventory item's last updated date
+      await db
+        .update(inventoryItems)
+        .set({ updatedAt: new Date() })
+        .where(eq(inventoryItems.id, inventory.inventoryItemId));
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating vehicle inventory:", error);
+      return undefined;
     }
-    
-    return updatedInventory;
   }
 
   async deleteVehicleInventory(id: number): Promise<boolean> {
-    const inventory = await this.getVehicleInventory(id);
-    if (!inventory) return false;
-    
-    return this.vehicleInventory.delete(id);
+    try {
+      const inventory = await this.getVehicleInventory(id);
+      if (!inventory) return false;
+      
+      const result = await db
+        .delete(vehicleInventory)
+        .where(eq(vehicleInventory.id, id));
+      
+      return true;
+    } catch (error) {
+      console.error("Error deleting vehicle inventory:", error);
+      return false;
+    }
   }
 
   async getVehicleInventoryByVehicleId(vehicleId: number): Promise<VehicleInventory[]> {
-    return Array.from(this.vehicleInventory.values()).filter(
-      (inventory) => inventory.vehicleId === vehicleId
-    );
+    try {
+      return await db
+        .select()
+        .from(vehicleInventory)
+        .where(eq(vehicleInventory.vehicleId, vehicleId));
+    } catch (error) {
+      console.error("Error retrieving vehicle inventory by vehicle ID:", error);
+      return [];
+    }
   }
 
   async getVehicleInventoryByItemId(itemId: number): Promise<VehicleInventory[]> {
-    return Array.from(this.vehicleInventory.values()).filter(
-      (inventory) => inventory.inventoryItemId === itemId
-    );
+    try {
+      return await db
+        .select()
+        .from(vehicleInventory)
+        .where(eq(vehicleInventory.inventoryItemId, itemId));
+    } catch (error) {
+      console.error("Error retrieving vehicle inventory by item ID:", error);
+      return [];
+    }
   }
 
   async getLowVehicleInventory(): Promise<VehicleInventory[]> {
-    return Array.from(this.vehicleInventory.values()).filter(
-      (inventory) => {
-        if (inventory.targetStockLevel === null) return false;
-        return inventory.quantity < inventory.targetStockLevel;
-      }
-    );
+    try {
+      return await db
+        .select()
+        .from(vehicleInventory)
+        .where(
+          and(
+            isNotNull(vehicleInventory.targetStockLevel),
+            lt(vehicleInventory.quantity, vehicleInventory.targetStockLevel)
+          )
+        );
+    } catch (error) {
+      console.error("Error retrieving low vehicle inventory:", error);
+      return [];
+    }
   }
 
   // Inventory Transfer operations

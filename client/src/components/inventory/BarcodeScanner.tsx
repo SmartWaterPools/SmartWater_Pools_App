@@ -47,35 +47,7 @@ export function BarcodeScanner({
     "codabar"
   ];
 
-  useEffect(() => {
-    // Initialize the scanner
-    scannerRef.current = new Html5Qrcode(scannerDivId);
-
-    // Get available cameras
-    Html5Qrcode.getCameras()
-      .then(devices => {
-        if (devices && devices.length > 0) {
-          setCameras(devices);
-          // Select the first camera if none is provided
-          if (!selectedCamera) {
-            setSelectedCamera(devices[0].id);
-          }
-        }
-      })
-      .catch(err => {
-        setError("Camera access error: " + err.message);
-        if (onError) onError(err.message);
-      });
-
-    // Cleanup on unmount
-    return () => {
-      if (scannerRef.current && scannerRef.current.isScanning) {
-        scannerRef.current.stop()
-          .catch(err => console.error("Error stopping scanner:", err));
-      }
-    };
-  }, []);
-
+  // Function to start scanning with the currently selected camera
   const startScanning = () => {
     if (!selectedCamera || !scannerRef.current) return;
     
@@ -139,6 +111,83 @@ export function BarcodeScanner({
     }
   };
 
+  // Auto-start camera on component mount
+  useEffect(() => {
+    // Initialize the scanner
+    scannerRef.current = new Html5Qrcode(scannerDivId);
+
+    // Get available cameras
+    Html5Qrcode.getCameras()
+      .then(devices => {
+        if (devices && devices.length > 0) {
+          setCameras(devices);
+          // Select the first camera if none is provided
+          const cameraToUse = cameraId || devices[0].id;
+          setSelectedCamera(cameraToUse);
+          
+          // Start scanning automatically with the selected camera
+          if (scannerRef.current) {
+            const config = {
+              fps,
+              formatsToSupport: barcodeFormats,
+              experimentalFeatures: {
+                useBarCodeDetectorIfSupported: true
+              }
+            };
+            
+            scannerRef.current.start(
+              { deviceId: cameraToUse },
+              config,
+              (decodedText) => {
+                setLastScanned(decodedText);
+                onScan(decodedText);
+              },
+              (errorMessage) => {
+                console.debug("Barcode scan error:", errorMessage);
+              }
+            )
+            .then(() => {
+              setIsScanning(true);
+            })
+            .catch(err => {
+              console.error("Failed to start scanner:", err.message);
+              setError("Camera error: " + err.message);
+              if (onError) onError(err.message);
+            });
+          }
+        }
+      })
+      .catch(err => {
+        setError("Camera access error: " + err.message);
+        if (onError) onError(err.message);
+      });
+
+    // Cleanup on unmount
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop()
+          .catch(err => console.error("Error stopping scanner:", err));
+      }
+    };
+  }, []);
+
+  // If selected camera changes, restart scanning with the new camera
+  useEffect(() => {
+    if (!selectedCamera || !scannerRef.current) return;
+    
+    // If already scanning, stop first
+    if (isScanning) {
+      scannerRef.current.stop()
+        .then(() => {
+          startScanning();
+        })
+        .catch(err => {
+          console.error("Error stopping scanner:", err);
+          setIsScanning(false);
+        });
+    }
+  }, [selectedCamera]);
+
   return (
     <Card className="w-full max-w-md mx-auto">
       <CardHeader className="pb-2">
@@ -194,7 +243,7 @@ export function BarcodeScanner({
       <CardFooter className="flex gap-2 pt-0">
         {!isScanning ? (
           <Button 
-            onClick={startScanning} 
+            onClick={() => startScanning()} 
             className="flex-1 gap-1"
             disabled={!selectedCamera}
           >
@@ -203,7 +252,7 @@ export function BarcodeScanner({
           </Button>
         ) : (
           <Button 
-            onClick={stopScanning} 
+            onClick={() => stopScanning()} 
             variant="outline" 
             className="flex-1 gap-1"
           >
@@ -214,7 +263,7 @@ export function BarcodeScanner({
         
         {cameras.length > 1 && (
           <Button 
-            onClick={switchCamera}
+            onClick={() => switchCamera()}
             variant="outline"
             className="gap-1"
             title="Switch camera"
