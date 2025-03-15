@@ -34,6 +34,7 @@ import Business from "./pages/Business";
 import InventoryTransfers from "./pages/InventoryTransfers";
 import Settings from "./pages/Settings";
 import ApiKeyDebug from "./pages/ApiKeyDebug";
+import BarcodeDemo from "./pages/BarcodeDemo";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Unauthorized from "./pages/Unauthorized";
@@ -136,6 +137,7 @@ function App() {
                           <Route path="/communications" component={Communications} />
                           <Route path="/business" component={Business} />
                           <Route path="/inventory/transfers" component={InventoryTransfers} />
+                          <Route path="/inventory/barcode-demo" component={BarcodeDemo} />
                           <Route path="/settings" component={Settings} />
                           <Route path="/api-key-debug" component={ApiKeyDebug} />
                           
