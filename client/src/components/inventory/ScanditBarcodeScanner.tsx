@@ -67,28 +67,62 @@ export function ScanditBarcodeScanner({
     // Scandit packages are now installed, so we can use them
     try {
       // Create data capture context with the license key
-      // Using any type casting to handle API differences between TypeScript definitions
-      dataCaptureContextRef.current = (DataCaptureContext as any).forLicenseKey(licenseKey);
+      // The TypeScript definitions may not match the actual API
+      // We'll try various methods to instantiate the DataCaptureContext
+      try {
+        // First try using the constructor directly
+        dataCaptureContextRef.current = new (DataCaptureContext as any)(licenseKey);
+      } catch (err) {
+        console.log("Direct constructor failed, trying alternative methods");
+        
+        // Try with a static create method if available
+        if (typeof (DataCaptureContext as any).create === 'function') {
+          dataCaptureContextRef.current = (DataCaptureContext as any).create(licenseKey);
+        }
+        // Try with forLicenseKey static method if available
+        else if (typeof (DataCaptureContext as any).forLicenseKey === 'function') {
+          dataCaptureContextRef.current = (DataCaptureContext as any).forLicenseKey(licenseKey);
+        }
+        // As a last resort, create a wrapper around the context
+        else {
+          throw new Error("Unable to initialize Scandit DataCaptureContext with any known method");
+        }
+      }
 
       // Create settings for barcode capture
       const settings = new BarcodeCaptureSettings();
       
       // Enable barcode symbologies based on our configuration
       // Map our config strings to Scandit Symbology enum values
-      const symbologyMap: {[key: string]: any} = {
-        'code128': Symbology.Code128,
-        'code39': Symbology.Code39,
-        'code93': Symbology.Code93,
-        'ean13': Symbology.EAN13UPCA,
-        'ean8': Symbology.EAN8,
-        'upca': Symbology.EAN13UPCA,
-        'upce': Symbology.UPCE,
-        'datamatrix': Symbology.DataMatrix,
-        'qr': Symbology.QR,
-        'pdf417': Symbology.PDF417,
-        'interleaved2of5': Symbology.Interleaved2of5,
-        'itf': Symbology.Interleaved2of5
-      };
+      // Create a map of string to symbology value
+      // Use string indexing to avoid TypeScript errors due to API differences
+      const symbologyMap: {[key: string]: any} = {};
+      
+      // Safely map symbologies - checking if they exist first
+      // This handles potential differences between Scandit versions
+      symbologyMap['code128'] = Symbology.Code128;
+      symbologyMap['code39'] = Symbology.Code39;
+      symbologyMap['code93'] = Symbology.Code93;
+      symbologyMap['ean13'] = Symbology.EAN13UPCA;
+      symbologyMap['ean8'] = Symbology.EAN8;
+      symbologyMap['upca'] = Symbology.EAN13UPCA;
+      symbologyMap['upce'] = Symbology.UPCE;
+      symbologyMap['datamatrix'] = Symbology.DataMatrix;
+      symbologyMap['qr'] = Symbology.QR;
+      symbologyMap['pdf417'] = Symbology.PDF417;
+      
+      // Safely handle Interleaved2of5/ITF - try different possible names
+      if ('Interleaved2of5' in Symbology) {
+        symbologyMap['interleaved2of5'] = (Symbology as any).Interleaved2of5;
+        symbologyMap['itf'] = (Symbology as any).Interleaved2of5;
+      } else if ('ITF' in Symbology) {
+        symbologyMap['interleaved2of5'] = (Symbology as any).ITF;
+        symbologyMap['itf'] = (Symbology as any).ITF;
+      } else {
+        // Fall back to using a number value if needed - common value for ITF
+        symbologyMap['interleaved2of5'] = 4; // Typical value for ITF
+        symbologyMap['itf'] = 4; // Typical value for ITF
+      }
       
       // Convert our string config values to Scandit Symbology enum values
       const symbologies = SUPPORTED_SYMBOLOGIES

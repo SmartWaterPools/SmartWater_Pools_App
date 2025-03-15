@@ -3,7 +3,7 @@ import { Html5Qrcode } from "html5-qrcode";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Barcode, Camera, X, Smartphone } from "lucide-react";
+import { Barcode, Camera, X, Smartphone, RefreshCw } from "lucide-react";
 
 interface HTML5QRCodeScannerProps {
   onScan: (data: string) => void;
@@ -36,7 +36,12 @@ export function HTML5QRCodeScanner({
     try {
       // Clean up existing scanner if it exists
       if (scannerRef.current) {
-        await scannerRef.current.stop();
+        try {
+          await scannerRef.current.stop();
+        } catch (stopErr) {
+          // Ignore "Cannot stop, scanner is not running or paused" errors
+          console.log("Ignoring stop error:", stopErr);
+        }
         scannerRef.current = null;
       }
       
@@ -65,8 +70,24 @@ export function HTML5QRCodeScanner({
       }
     } catch (err: any) {
       console.error("Error initializing HTML5 QR scanner:", err);
-      setError(`Scanner initialization failed: ${err.message || "Unknown error"}`);
-      if (onError) onError(err.message || "Unknown error");
+      
+      // Handle different error types with better user messages
+      if (!err) {
+        setError("Scanner initialization failed. Please try again later.");
+        if (onError) onError("Scanner initialization failed. Please try again later.");
+      } else if (err.message && err.message.includes("not allowed")) {
+        setError("Camera access denied. Please allow camera access in your browser settings and try again.");
+        if (onError) onError("Camera access denied. Please allow camera access in your browser settings and try again.");
+      } else if (err.name === "NotFoundError" || (err.message && err.message.includes("not found"))) {
+        setError("Camera not found. Please make sure your device has a working camera.");
+        if (onError) onError("Camera not found. Please make sure your device has a working camera.");
+      } else if (err.name === "NotReadableError" || (err.message && err.message.includes("not readable"))) {
+        setError("Camera is busy or not available. Please close other apps that might be using your camera.");
+        if (onError) onError("Camera is busy or not available. Please close other apps that might be using your camera.");
+      } else {
+        setError(`Scanner initialization failed: ${err.message || "Unknown error"}`);
+        if (onError) onError(err.message || "Unknown error");
+      }
     }
   };
 
@@ -105,8 +126,27 @@ export function HTML5QRCodeScanner({
       setError(null);
     } catch (err: any) {
       console.error("Error starting scanner:", err);
-      setError(`Failed to start scanner: ${err.message || "Unknown error"}`);
-      if (onError) onError(err.message || "Unknown error");
+      
+      // Handle different error types
+      if (!err) {
+        setError("Failed to start scanner. Please try again.");
+        if (onError) onError("Failed to start scanner. Please try again.");
+      } else if (err.message && (err.message.includes("not allowed") || err.message.includes("permission"))) {
+        setError("Camera access denied. Please grant camera permission in your browser settings and try again.");
+        if (onError) onError("Camera access denied. Please grant camera permission in your browser settings and try again.");
+      } else if (err.name === "NotFoundError" || (err.message && err.message.includes("not found"))) {
+        setError("Camera not found. Please make sure your device has a working camera.");
+        if (onError) onError("Camera not found. Please make sure your device has a working camera.");
+      } else if (err.name === "NotReadableError" || (err.message && err.message.includes("not readable"))) {
+        setError("Camera is busy or not available. Please close other apps that might be using your camera.");
+        if (onError) onError("Camera is busy or not available. Please close other apps that might be using your camera.");
+      } else if (err.name === "AbortError" || (err.message && err.message.includes("abort"))) {
+        setError("Camera access was interrupted. Please try again.");
+        if (onError) onError("Camera access was interrupted. Please try again.");
+      } else {
+        setError(`Failed to start scanner: ${err.message || "Unknown error"}`);
+        if (onError) onError(err.message || "Unknown error");
+      }
     }
   };
 
@@ -128,10 +168,21 @@ export function HTML5QRCodeScanner({
 
     return () => {
       // Clean up resources
-      if (scannerRef.current && isScanning) {
-        scannerRef.current.stop().catch(e => 
-          console.error("Error stopping scanner during cleanup:", e)
-        );
+      if (scannerRef.current) {
+        try {
+          // Using the sync version here since we're in cleanup
+          if (isScanning) {
+            scannerRef.current.stop().catch(e => {
+              // Ignore specific errors that occur when scanner isn't running
+              if (!e.message?.includes("not running")) {
+                console.error("Error stopping scanner during cleanup:", e);
+              }
+            });
+          }
+        } catch (e) {
+          // Fallback error handling
+          console.error("Error in cleanup:", e);
+        }
       }
     };
   }, []);
@@ -169,8 +220,22 @@ export function HTML5QRCodeScanner({
           </div>
           
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="relative">
               <AlertDescription>{error}</AlertDescription>
+              <Button 
+                onClick={() => {
+                  setError(null);
+                  setTimeout(() => initializeScanner(), 500);
+                }}
+                size="sm" 
+                className="mt-2"
+                variant="outline"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                {error.includes("camera access") 
+                  ? "Retry Camera Access" 
+                  : "Retry Scanner Initialization"}
+              </Button>
             </Alert>
           )}
           
