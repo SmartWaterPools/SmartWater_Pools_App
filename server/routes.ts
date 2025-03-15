@@ -712,9 +712,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const projects = await storage.getAllProjects();
       
       // Filter out archived projects unless explicitly requested
-      const filteredProjects = includeArchived 
+      let filteredProjects = includeArchived 
         ? projects 
         : projects.filter(project => !project.isArchived);
+      
+      // Check if user is authenticated and limit projects to their organization
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Filter projects to only include those from the user's organization
+        // We need to get client information to check the organization
+        const projectsInOrg = [];
+        
+        for (const project of filteredProjects) {
+          const clientWithUser = await storage.getClientWithUser(project.clientId);
+          if (clientWithUser && clientWithUser.user.organizationId === reqUser.organizationId) {
+            projectsInOrg.push(project);
+          }
+        }
+        
+        filteredProjects = projectsInOrg;
+        console.log(`Filtered ${projects.length} projects to ${filteredProjects.length} projects for organization ${reqUser.organizationId}`);
+      }
         
       console.log(`Retrieved ${projects.length} total projects, returning ${filteredProjects.length} ${includeArchived ? 'including' : 'excluding'} archived`);
 
@@ -798,6 +816,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientWithUser = await storage.getClientWithUser(project.clientId);
       console.log(`[API] Client details:`, clientWithUser ? `Found client: ${clientWithUser.user.name}` : 'Client not found');
       
+      // Check if user is authenticated and has permission to view this project
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser && clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access project from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this project" });
+        }
+      }
+      
       console.log(`[API] Fetching project assignments...`);
       const assignments = await storage.getProjectAssignments(project.id);
       console.log(`[API] Found ${assignments.length} assignments`);
@@ -877,10 +906,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(project.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Project client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to update this project
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to update project from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this project" });
+        }
+      }
 
       const updatedProject = await storage.updateProject(id, req.body);
       res.json(updatedProject);
     } catch (error) {
+      console.error("Error updating project:", error);
       res.status(500).json({ message: "Failed to update project" });
     }
   });
@@ -892,6 +939,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
+      }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(project.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Project client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to delete this project
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to delete project from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to delete this project" });
+        }
       }
 
       const result = await storage.deleteProject(id);
@@ -918,6 +982,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validation.error });
       }
       
+      // Get the project to check organization boundaries
+      const project = await storage.getProject(validation.data.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(project.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Project client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to create a phase for this project
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to create a project phase for project in organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to create a phase for this project" });
+        }
+      }
+      
       console.log("[PROJECT PHASE API] - Validation passed, data:", JSON.stringify(validation.data));
 
       const phase = await storage.createProjectPhase(validation.data);
@@ -937,9 +1024,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!phase) {
         return res.status(404).json({ message: "Project phase not found" });
       }
+      
+      // Get the project to check organization boundaries
+      const project = await storage.getProject(phase.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found for this phase" });
+      }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(project.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Project client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to view this phase
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to access project phase from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this project phase" });
+        }
+      }
 
       res.json(phase);
     } catch (error) {
+      console.error("Error fetching project phase:", error);
       res.status(500).json({ message: "Failed to fetch project phase" });
     }
   });
@@ -952,10 +1063,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(project.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Project client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to view this project's phases
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to access phases for project from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access phases for this project" });
+        }
+      }
 
       const phases = await storage.getProjectPhasesByProjectId(projectId);
       res.json(phases);
     } catch (error) {
+      console.error("Error fetching project phases:", error);
       res.status(500).json({ message: "Failed to fetch project phases" });
     }
   });
@@ -968,10 +1097,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!phase) {
         return res.status(404).json({ message: "Project phase not found" });
       }
+      
+      // Get the project to check organization boundaries
+      const project = await storage.getProject(phase.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found for this phase" });
+      }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(project.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Project client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to update this phase
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to update project phase from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this project phase" });
+        }
+      }
 
       const updatedPhase = await storage.updateProjectPhase(id, req.body);
       res.json(updatedPhase);
     } catch (error) {
+      console.error("Error updating project phase:", error);
       res.status(500).json({ message: "Failed to update project phase" });
     }
   });
@@ -983,6 +1136,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!phase) {
         return res.status(404).json({ message: "Project phase not found" });
+      }
+      
+      // Get the project to check organization boundaries
+      const project = await storage.getProject(phase.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found for this phase" });
+      }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(project.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Project client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to delete this phase
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to delete project phase from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to delete this project phase" });
+        }
       }
 
       const result = await storage.deleteProjectPhase(id);
@@ -999,9 +1175,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Maintenance routes
-  app.get("/api/maintenances", async (_req: Request, res: Response) => {
+  app.get("/api/maintenances", async (req: Request, res: Response) => {
     try {
-      const maintenances = await storage.getAllMaintenances();
+      // Check user's organization for filtering
+      const reqUser = req.user as any;
+      let maintenances = await storage.getAllMaintenances();
+      
+      // Filter by organization if user is not a system_admin
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        console.log(`[API] Filtering maintenances for organization ${reqUser.organizationId}`);
+        
+        // We need to find only maintenances for clients in this organization
+        // First, gather all details and then filter
+        const maintenancesWithClientInfo = await Promise.all(
+          maintenances.map(async (maintenance) => {
+            const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+            return { maintenance, clientWithUser };
+          })
+        );
+        
+        // Filter to only include maintenances for clients in the user's organization
+        const filteredMaintItems = maintenancesWithClientInfo.filter(item => 
+          item.clientWithUser && 
+          item.clientWithUser.user && 
+          item.clientWithUser.user.organizationId === reqUser.organizationId
+        );
+        
+        // Extract just the maintenance objects from the filtered list
+        maintenances = filteredMaintItems.map(item => item.maintenance);
+        
+        console.log(`[API] After organization filtering: ${maintenances.length} records`);
+      } else {
+        console.log(`[API] No organization filtering applied, returning all ${maintenances.length} records`);
+      }
       
       // Debug logging to understand data discrepancy
       console.log(`[API] getAllMaintenances returned ${maintenances.length} records`);
@@ -1039,6 +1245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[API] Returning ${maintenancesWithDetails.length} maintenances with details`);
       res.json(maintenancesWithDetails);
     } catch (error) {
+      console.error("Error fetching maintenances:", error);
       res.status(500).json({ message: "Failed to fetch maintenances" });
     }
   });
@@ -1048,10 +1255,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const days = parseInt(req.query.days as string) || 7;
       const clientId = req.query.clientId ? parseInt(req.query.clientId as string) : undefined;
       
+      // Check user's organization for filtering
+      const reqUser = req.user as any;
+      
       // If clientId is provided, get maintenances for that client
       let upcomingMaintenances;
       if (clientId) {
         console.log(`[API] Getting upcoming maintenances for client ${clientId} within ${days} days`);
+        
+        // Check if client belongs to user's organization if not system_admin
+        if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+          const clientWithUser = await storage.getClientWithUser(clientId);
+          if (!clientWithUser || clientWithUser.user.organizationId !== reqUser.organizationId) {
+            console.log(`User from organization ${reqUser.organizationId} attempted to access client from another organization`);
+            return res.status(403).json({ message: "You don't have permission to access this client's maintenances" });
+          }
+        }
+        
         upcomingMaintenances = await storage.getMaintenancesByClientId(clientId);
         
         // Filter to only include future maintenances
@@ -1070,6 +1290,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         upcomingMaintenances = await storage.getUpcomingMaintenances(days);
+        
+        // If user is not a system_admin, we need to filter by organization
+        if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+          console.log(`[API] Filtering upcoming maintenances for organization ${reqUser.organizationId}`);
+          
+          // We need to find only maintenances for clients in this organization
+          // First, gather all details and then filter
+          const maintenancesWithClientInfo = await Promise.all(
+            upcomingMaintenances.map(async (maintenance) => {
+              const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+              return { maintenance, clientWithUser };
+            })
+          );
+          
+          // Filter to only include maintenances for clients in the user's organization
+          const filteredMaintItems = maintenancesWithClientInfo.filter(item => 
+            item.clientWithUser && 
+            item.clientWithUser.user && 
+            item.clientWithUser.user.organizationId === reqUser.organizationId
+          );
+          
+          // Extract just the maintenance objects from the filtered list
+          upcomingMaintenances = filteredMaintItems.map(item => item.maintenance);
+          
+          console.log(`[API] After organization filtering: ${upcomingMaintenances.length} upcoming maintenances`);
+        }
       }
 
       // Fetch additional data for each maintenance
@@ -1107,6 +1353,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to view this maintenance
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to access maintenance from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this maintenance" });
+        }
+      }
+      
       let technicianWithUser = null;
 
       if (maintenance.technicianId) {
@@ -1119,6 +1380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         technician: technicianWithUser
       });
     } catch (error) {
+      console.error("Error fetching maintenance:", error);
       res.status(500).json({ message: "Failed to fetch maintenance" });
     }
   });
@@ -1130,10 +1392,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(validation.data.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to create maintenance for this client
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to create maintenance for client from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to create maintenance for this client" });
+        }
+      }
 
       const maintenance = await storage.createMaintenance(validation.data);
       res.status(201).json(maintenance);
     } catch (error) {
+      console.error("Error creating maintenance:", error);
       res.status(500).json({ message: "Failed to create maintenance" });
     }
   });
@@ -1146,18 +1426,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!maintenance) {
         return res.status(404).json({ message: "Maintenance not found" });
       }
+      
+      // Get client information to check organization
+      const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to update this maintenance
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to update maintenance from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this maintenance" });
+        }
+      }
 
       const updatedMaintenance = await storage.updateMaintenance(id, req.body);
       res.json(updatedMaintenance);
     } catch (error) {
+      console.error("Error updating maintenance:", error);
       res.status(500).json({ message: "Failed to update maintenance" });
     }
   });
 
   // Repair routes
-  app.get("/api/repairs", async (_req: Request, res: Response) => {
+  app.get("/api/repairs", async (req: Request, res: Response) => {
     try {
-      const repairs = await storage.getAllRepairs();
+      // Check user's organization for filtering
+      const reqUser = req.user as any;
+      let repairs = await storage.getAllRepairs();
+      
+      // Filter by organization if user is not a system_admin
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        console.log(`[API] Filtering repairs for organization ${reqUser.organizationId}`);
+        
+        // We need to find only repairs for clients in this organization
+        // First, gather all details and then filter
+        const repairsWithClientInfo = await Promise.all(
+          repairs.map(async (repair) => {
+            const clientWithUser = await storage.getClientWithUser(repair.clientId);
+            return { repair, clientWithUser };
+          })
+        );
+        
+        // Filter to only include repairs for clients in the user's organization
+        const filteredRepairItems = repairsWithClientInfo.filter(item => 
+          item.clientWithUser && 
+          item.clientWithUser.user && 
+          item.clientWithUser.user.organizationId === reqUser.organizationId
+        );
+        
+        // Extract just the repair objects from the filtered list
+        repairs = filteredRepairItems.map(item => item.repair);
+        
+        console.log(`[API] After organization filtering: ${repairs.length} records`);
+      } else {
+        console.log(`[API] No organization filtering applied, returning all ${repairs.length} repairs`);
+      }
 
       // Fetch additional data for each repair
       const repairsWithDetails = await Promise.all(
@@ -1179,6 +1507,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(repairsWithDetails);
     } catch (error) {
+      console.error("Error fetching repairs:", error);
       res.status(500).json({ message: "Failed to fetch repairs" });
     }
   });
@@ -1186,7 +1515,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/repairs/recent", async (req: Request, res: Response) => {
     try {
       const count = parseInt(req.query.count as string) || 5;
-      const recentRepairs = await storage.getRecentRepairs(count);
+      let recentRepairs = await storage.getRecentRepairs(count);
+      
+      // Check user's organization for filtering
+      const reqUser = req.user as any;
+      
+      // Filter by organization if user is not a system_admin
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        console.log(`[API] Filtering recent repairs for organization ${reqUser.organizationId}`);
+        
+        // We need to find only repairs for clients in this organization
+        // First, gather all details and then filter
+        const repairsWithClientInfo = await Promise.all(
+          recentRepairs.map(async (repair) => {
+            const clientWithUser = await storage.getClientWithUser(repair.clientId);
+            return { repair, clientWithUser };
+          })
+        );
+        
+        // Filter to only include repairs for clients in the user's organization
+        const filteredRepairItems = repairsWithClientInfo.filter(item => 
+          item.clientWithUser && 
+          item.clientWithUser.user && 
+          item.clientWithUser.user.organizationId === reqUser.organizationId
+        );
+        
+        // Extract just the repair objects from the filtered list
+        recentRepairs = filteredRepairItems.map(item => item.repair);
+        
+        console.log(`[API] After organization filtering: ${recentRepairs.length} recent repairs`);
+      } else {
+        console.log(`[API] No organization filtering applied, returning all ${recentRepairs.length} recent repairs`);
+      }
 
       // Fetch additional data for each repair
       const repairsWithDetails = await Promise.all(
@@ -1208,6 +1568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(repairsWithDetails);
     } catch (error) {
+      console.error("Error fetching recent repairs:", error);
       res.status(500).json({ message: "Failed to fetch recent repairs" });
     }
   });
@@ -1222,6 +1583,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const clientWithUser = await storage.getClientWithUser(repair.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to view this repair
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to access repair from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this repair" });
+        }
+      }
+      
       let technicianWithUser = null;
 
       if (repair.technicianId) {
@@ -1234,6 +1610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         technician: technicianWithUser
       });
     } catch (error) {
+      console.error("Error fetching repair:", error);
       res.status(500).json({ message: "Failed to fetch repair" });
     }
   });
@@ -1245,10 +1622,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
+      
+      // Check if the user has permission to create a repair for this client
+      const clientId = validation.data.clientId;
+      const client = await storage.getClientWithUser(clientId);
+      
+      if (!client) {
+        return res.status(404).json({ message: "Client not found" });
+      }
+      
+      // Verify organization access
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If user is not a system_admin, check organization membership
+        if (reqUser.role !== 'system_admin' && 
+            client.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to create repair for client from organization ${client.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to create a repair for this client" });
+        }
+      }
 
       const repair = await storage.createRepair(validation.data);
       res.status(201).json(repair);
     } catch (error) {
+      console.error("Error creating repair:", error);
       res.status(500).json({ message: "Failed to create repair" });
     }
   });
@@ -1261,19 +1658,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!repair) {
         return res.status(404).json({ message: "Repair not found" });
       }
+      
+      // Check if user has permission to update this repair
+      const clientWithUser = await storage.getClientWithUser(repair.clientId);
+      if (!clientWithUser) {
+        return res.status(404).json({ message: "Client information not found" });
+      }
+      
+      // Check if user is authenticated and has permission to update this repair
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to update repair from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this repair" });
+        }
+      }
 
       const updatedRepair = await storage.updateRepair(id, req.body);
       res.json(updatedRepair);
     } catch (error) {
+      console.error("Error updating repair:", error);
       res.status(500).json({ message: "Failed to update repair" });
     }
   });
 
   // Invoice routes
-  app.get("/api/invoices", async (_req: Request, res: Response) => {
+  app.get("/api/invoices", async (req: Request, res: Response) => {
     try {
       const invoices = await storage.getAllInvoices();
 
+      // Check user's organization for filtering
+      const reqUser = req.user as any;
+      
       // Fetch additional data for each invoice
       const invoicesWithDetails = await Promise.all(
         invoices.map(async (invoice) => {
@@ -1285,9 +1703,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
         })
       );
+      
+      // Filter by organization if user is not a system_admin
+      let filteredInvoices = invoicesWithDetails;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        console.log(`[API] Filtering invoices for organization ${reqUser.organizationId}`);
+        
+        // Filter to only include invoices for clients in the user's organization
+        filteredInvoices = invoicesWithDetails.filter(invoice => 
+          invoice.client && 
+          invoice.client.user && 
+          invoice.client.user.organizationId === reqUser.organizationId
+        );
+        
+        console.log(`[API] After organization filtering: ${filteredInvoices.length} of ${invoicesWithDetails.length} invoices`);
+      } else {
+        console.log(`[API] No organization filtering applied, returning all ${invoicesWithDetails.length} invoices`);
+      }
 
-      res.json(invoicesWithDetails);
+      res.json(filteredInvoices);
     } catch (error) {
+      console.error("Error fetching invoices:", error);
       res.status(500).json({ message: "Failed to fetch invoices" });
     }
   });
@@ -1302,12 +1738,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const clientWithUser = await storage.getClientWithUser(invoice.clientId);
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the invoice belongs to a client in the user's organization
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access invoice from organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this invoice" });
+        }
+      }
 
       res.json({
         ...invoice,
         client: clientWithUser
       });
     } catch (error) {
+      console.error("Error fetching invoice:", error);
       res.status(500).json({ message: "Failed to fetch invoice" });
     }
   });
@@ -1319,10 +1767,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      
+      // First, check if the client belongs to user's organization
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        const clientId = validation.data.clientId;
+        const clientWithUser = await storage.getClientWithUser(clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to create invoice for client from organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to create an invoice for this client" });
+        }
+      }
 
       const invoice = await storage.createInvoice(validation.data);
       res.status(201).json(invoice);
     } catch (error) {
+      console.error("Error creating invoice:", error);
       res.status(500).json({ message: "Failed to create invoice" });
     }
   });
@@ -1335,10 +1799,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the invoice belongs to a client in the user's organization
+        const clientWithUser = await storage.getClientWithUser(invoice.clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to update invoice from organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this invoice" });
+        }
+      }
 
       const updatedInvoice = await storage.updateInvoice(id, req.body);
       res.json(updatedInvoice);
     } catch (error) {
+      console.error("Error updating invoice:", error);
       res.status(500).json({ message: "Failed to update invoice" });
     }
   });
@@ -1405,6 +1883,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(clientId)) {
         return res.status(400).json({ message: "Invalid client ID" });
       }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the client belongs to user's organization
+        const clientWithUser = await storage.getClientWithUser(clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access equipment from client in organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this client's equipment" });
+        }
+      }
 
       const equipment = await storage.getPoolEquipmentByClientId(clientId);
       res.json(equipment);
@@ -1419,6 +1910,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.id);
       if (isNaN(clientId)) {
         return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the client belongs to user's organization
+        const clientWithUser = await storage.getClientWithUser(clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to create equipment for client in organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to add equipment for this client" });
+        }
       }
 
       const equipmentData = insertPoolEquipmentSchema.parse({
@@ -1447,12 +1951,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid equipment ID" });
       }
-
-      const updatedEquipment = await storage.updatePoolEquipment(id, req.body);
-      if (!updatedEquipment) {
+      
+      // Get equipment to check existence and access
+      const equipment = await storage.getPoolEquipment(id);
+      if (!equipment) {
         return res.status(404).json({ message: "Equipment not found" });
       }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the equipment belongs to a client in the user's organization
+        const clientWithUser = await storage.getClientWithUser(equipment.clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to update equipment for client in organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this equipment" });
+        }
+      }
 
+      const updatedEquipment = await storage.updatePoolEquipment(id, req.body);
       res.json(updatedEquipment);
     } catch (error) {
       console.error("Error updating pool equipment:", error);
@@ -1466,6 +1985,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.id);
       if (isNaN(clientId)) {
         return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the client belongs to user's organization
+        const clientWithUser = await storage.getClientWithUser(clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access images from client in organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this client's images" });
+        }
       }
 
       const images = await storage.getPoolImagesByClientId(clientId);
@@ -1481,6 +2013,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.id);
       if (isNaN(clientId)) {
         return res.status(400).json({ message: "Invalid client ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the client belongs to user's organization
+        const clientWithUser = await storage.getClientWithUser(clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to create an image for client in organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to add images for this client" });
+        }
       }
 
       const imageData = insertPoolImageSchema.parse({
@@ -1668,6 +2213,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validation.error });
       }
       
+      // Check organization security for maintenance-related water readings
+      if (validation.data.maintenanceId) {
+        const reqUser = req.user as any;
+        if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+          // Get the maintenance record to find the client
+          const maintenance = await storage.getMaintenance(validation.data.maintenanceId);
+          
+          if (maintenance) {
+            // Check if the client belongs to user's organization
+            const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+            
+            if (!clientWithUser || !clientWithUser.user || 
+                clientWithUser.user.organizationId !== reqUser.organizationId) {
+              console.log(`[API] User from organization ${reqUser.organizationId} attempted to add water readings for client in organization ${clientWithUser?.user?.organizationId}`);
+              return res.status(403).json({ message: "You don't have permission to add water readings for this maintenance record" });
+            }
+          } else {
+            return res.status(404).json({ message: "Maintenance record not found" });
+          }
+        }
+      }
+      
       const waterReading = await storage.createWaterReading(validation.data);
       res.status(201).json(waterReading);
     } catch (error) {
@@ -1682,6 +2249,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (isNaN(maintenanceId)) {
         return res.status(400).json({ message: "Invalid maintenance ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Get the maintenance record first to check organization boundaries
+        const maintenance = await storage.getMaintenance(maintenanceId);
+        
+        if (!maintenance) {
+          return res.status(404).json({ message: "Maintenance record not found" });
+        }
+        
+        // Get the client to check organization
+        const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access water readings for maintenance in organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access water readings for this maintenance" });
+        }
       }
       
       const waterReadings = await storage.getWaterReadingsByMaintenanceId(maintenanceId);
@@ -1700,6 +2287,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid client ID" });
       }
       
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the client belongs to user's organization
+        const clientWithUser = await storage.getClientWithUser(clientId);
+        
+        if (!clientWithUser || !clientWithUser.user || 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access water readings from client in organization ${clientWithUser?.user?.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this client's water readings" });
+        }
+      }
+      
       const waterReading = await storage.getLatestWaterReadingByClientId(clientId);
       
       if (!waterReading) {
@@ -1714,10 +2314,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Communication Provider endpoints
-  app.get("/api/communication-providers", async (_req: Request, res: Response) => {
+  app.get("/api/communication-providers", async (req: Request, res: Response) => {
     try {
-      const providers = await storage.getAllCommunicationProviders();
-      res.status(200).json(providers);
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Filter providers by organization
+        const providers = await storage.getAllCommunicationProviders();
+        // Only return providers associated with this organization
+        const filteredProviders = providers.filter(provider => 
+          provider.organizationId === reqUser.organizationId
+        );
+        res.status(200).json(filteredProviders);
+      } else if (reqUser && reqUser.role === 'system_admin') {
+        // System admins can see all providers
+        const providers = await storage.getAllCommunicationProviders();
+        res.status(200).json(providers);
+      } else {
+        // No user or invalid permissions
+        res.status(403).json({ message: "Unauthorized access to communication providers" });
+      }
     } catch (error) {
       console.error("Error fetching communication providers:", error);
       res.status(500).json({ message: "Failed to fetch communication providers" });
@@ -1734,6 +2350,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const provider = await storage.getCommunicationProvider(id);
       if (!provider) {
         return res.status(404).json({ message: "Communication provider not found" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Only allow access to providers in the user's organization
+        if (provider.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access provider from organization ${provider.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this communication provider" });
+        }
       }
       
       res.status(200).json(provider);
@@ -1753,9 +2379,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Get provider and check organization boundaries
       const provider = await storage.getCommunicationProviderByType(type);
       if (!provider) {
         return res.status(404).json({ message: `No ${type} provider found` });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Only allow access to providers in the user's organization
+        if (provider.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access provider from organization ${provider.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this communication provider" });
+        }
       }
       
       res.status(200).json(provider);
@@ -1780,6 +2417,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: `No default ${type} provider found` });
       }
       
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Only allow access to providers in the user's organization
+        if (provider.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access provider from organization ${provider.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this communication provider" });
+        }
+      }
+      
       res.status(200).json(provider);
     } catch (error) {
       console.error("Error fetching default communication provider:", error);
@@ -1794,6 +2441,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
+      }
+      
+      // Assign the provider to the user's organization
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Add organization ID to the data
+        validation.data.organizationId = reqUser.organizationId;
+      } else if (reqUser && reqUser.role === 'system_admin' && req.body.organizationId) {
+        // System admin can specify an organization ID
+        validation.data.organizationId = req.body.organizationId;
+      } else if (!validation.data.organizationId) {
+        // Default to organization 1 if none provided and no user context
+        validation.data.organizationId = 1;
+        console.log('No organization context available, defaulting to organization ID 1');
       }
       
       const newProvider = await storage.createCommunicationProvider(validation.data);
@@ -1817,6 +2478,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Communication provider not found" });
       }
       
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Only allow access to providers in the user's organization
+        if (provider.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to update provider from organization ${provider.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this communication provider" });
+        }
+      }
+      
       // No need to validate the full schema for a partial update
       // But we should ensure type is valid if included
       if (req.body.type && !COMMUNICATION_PROVIDER_TYPES.includes(req.body.type)) {
@@ -1824,6 +2495,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Invalid provider type", 
           validTypes: COMMUNICATION_PROVIDER_TYPES 
         });
+      }
+      
+      // Prevent changing organization unless the user is a system admin
+      if (req.body.organizationId !== undefined) {
+        if (reqUser && reqUser.role !== 'system_admin') {
+          // Remove organizationId from the update data
+          delete req.body.organizationId;
+          console.log('[API] Non-system admin attempted to change provider organization ID - field removed from update');
+        }
       }
       
       const updatedProvider = await storage.updateCommunicationProvider(id, req.body);
@@ -1840,6 +2520,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid provider ID" });
+      }
+      
+      // First get the existing provider to check organization permissions
+      const provider = await storage.getCommunicationProvider(id);
+      if (!provider) {
+        return res.status(404).json({ message: "Communication provider not found" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Only allow access to providers in the user's organization
+        if (provider.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to delete provider from organization ${provider.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to delete this communication provider" });
+        }
       }
       
       const success = await storage.deleteCommunicationProvider(id);
@@ -1862,9 +2558,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
    * 
    * This is distinct from API routing/HTTP routes which define the server endpoints.
    */
-  app.get("/api/service-routes", async (_req: Request, res: Response) => {
+  app.get("/api/service-routes", async (req: Request, res: Response) => {
     try {
-      const routes = await storage.getAllRoutes();
+      let routes = await storage.getAllRoutes();
+      
+      // Apply organization filtering
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Filter routes to only show the user's organization
+        routes = routes.filter(route => route.organizationId === reqUser.organizationId);
+        console.log(`[API] Filtered service routes to organization ${reqUser.organizationId}, found ${routes.length} routes`);
+      } else if (reqUser && reqUser.role === 'system_admin') {
+        // System admin can see all routes across organizations
+        console.log(`[API] System admin retrieving all service routes, found ${routes.length} routes`);
+      } else {
+        // Not authenticated - return forbidden
+        return res.status(403).json({ message: "Authentication required to access service routes" });
+      }
       
       // Fetch assignments for each route
       const routesWithAssignments = await Promise.all(
@@ -1926,6 +2636,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Route not found" });
       }
       
+      // Apply organization security check
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Only allow access to routes in the user's organization
+        if (route.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access route from organization ${route.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this route" });
+        }
+      } else if (!reqUser) {
+        // Not authenticated - return forbidden
+        return res.status(403).json({ message: "Authentication required to access route details" });
+      }
+      
       res.json(route);
     } catch (error) {
       console.error("Error fetching route:", error);
@@ -1935,13 +2658,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/routes", async (req: Request, res: Response) => {
     try {
-      const validation = validateRequest(insertRouteSchema, req.body);
+      // Apply organization security check
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to create routes" });
+      }
       
+      const validation = validateRequest(insertRouteSchema, req.body);
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
       }
       
-      const route = await storage.createRoute(validation.data);
+      // Add organization ID to route data for multi-tenant security
+      let routeData = validation.data;
+      if (reqUser.organizationId) {
+        routeData = {
+          ...routeData,
+          organizationId: reqUser.organizationId
+        };
+        console.log(`[API] Creating new route for organization ${reqUser.organizationId}`);
+      } else if (reqUser.role === 'system_admin') {
+        // For system admins, allow the organization to be specified in the request
+        // but only if it's explicitly provided
+        if (!routeData.organizationId) {
+          return res.status(400).json({ 
+            message: "System administrators must specify an organization ID when creating routes" 
+          });
+        }
+        console.log(`[API] System admin creating route for organization ${routeData.organizationId}`);
+      }
+      
+      const route = await storage.createRoute(routeData);
       res.status(201).json(route);
     } catch (error) {
       console.error("Error creating route:", error);
