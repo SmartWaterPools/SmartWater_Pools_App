@@ -300,9 +300,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Client routes
-  app.get("/api/clients", async (_req: Request, res: Response) => {
+  app.get("/api/clients", async (req: Request, res: Response) => {
     try {
-      const clients = await storage.getAllClients();
+      // Check if user is authenticated and get their organization ID
+      const user = req.user as any;
+      let clients;
+      
+      // If user is authenticated and has an organization ID
+      if (user && user.organizationId) {
+        // If user is system_admin, they can see all clients
+        if (user.role === 'system_admin') {
+          clients = await storage.getAllClients();
+          console.log(`System admin retrieved ${clients.length} clients`);
+        } else {
+          // Otherwise, filter by organization ID
+          clients = await storage.getClientsByOrganizationId(user.organizationId);
+          console.log(`Retrieved ${clients.length} clients for organization ${user.organizationId}`);
+        }
+      } else {
+        // If no user or no organization ID, return all clients (fallback for testing)
+        clients = await storage.getAllClients();
+        console.log(`Retrieved ${clients.length} clients (no organization filter applied)`);
+      }
 
       // Fetch the associated user for each client
       const clientsWithUsers = await Promise.all(
@@ -314,6 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(clientsWithUsers);
     } catch (error) {
+      console.error("Error fetching clients:", error);
       res.status(500).json({ message: "Failed to fetch clients" });
     }
   });
@@ -334,6 +354,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientWithUser) {
         console.log(`Client with ID ${id} not found or user data missing`);
         return res.status(404).json({ message: "Client not found" });
+      }
+
+      // Check if user is authenticated and has permission to view this client
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the client belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            clientWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to access client from organization ${clientWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this client" });
+        }
       }
 
       // Combine the client and user into a single object with the user property
@@ -374,6 +405,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!client) {
         console.log(`[CLIENT UPDATE API] Client with ID ${id} not found`);
         return res.status(404).json({ message: "Client not found", clientId: id });
+      }
+
+      // Check if the user can update this client based on organization
+      const user = await storage.getUser(client.userId);
+      if (!user) {
+        console.log(`[CLIENT UPDATE API] Associated user not found for client ${id}`);
+        return res.status(404).json({ message: "Client user information not found" });
+      }
+
+      // Check if user is authenticated and has permission to update this client
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If user is not a system_admin, check if client belongs to user's organization
+        if (reqUser.role !== 'system_admin' && 
+            user.organizationId !== reqUser.organizationId) {
+          console.log(`[CLIENT UPDATE API] User from organization ${reqUser.organizationId} attempted to update client from organization ${user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this client" });
+        }
       }
 
       console.log(`[CLIENT UPDATE API] Found existing client:`, JSON.stringify(client));
@@ -490,13 +539,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/clients", async (req: Request, res: Response) => {
     try {
-      // First create the user
-      const userValidation = validateRequest(insertUserSchema, req.body.user);
+      // Check if user has permission to create clients
+      const reqUser = req.user as any;
+      
+      // First create the user with the same organization as the current user
+      const userData = { ...req.body.user };
+      
+      // Set organization ID based on the authenticated user
+      if (reqUser && reqUser.organizationId) {
+        userData.organizationId = reqUser.organizationId;
+      } else if (reqUser && reqUser.role === 'system_admin') {
+        // If system admin, they can specify which organization to create the client in
+        if (req.body.organizationId) {
+          userData.organizationId = req.body.organizationId;
+        } else {
+          // Default to the first organization if none specified
+          const organizations = await storage.getAllOrganizations();
+          if (organizations.length > 0) {
+            userData.organizationId = organizations[0].id;
+          }
+        }
+      } else {
+        return res.status(403).json({ message: "You don't have permission to create clients" });
+      }
 
+      // Validate user data
+      const userValidation = validateRequest(insertUserSchema, userData);
       if (!userValidation.success) {
         return res.status(400).json({ message: userValidation.error });
       }
 
+      console.log(`Creating new user with organization ID: ${userData.organizationId}`);
       const user = await storage.createUser(userValidation.data);
 
       // Then create the client with the user ID
@@ -511,25 +584,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({ client, user });
     } catch (error) {
+      console.error("Error creating client:", error);
       res.status(500).json({ message: "Failed to create client" });
     }
   });
 
   // Technician routes
-  app.get("/api/technicians", async (_req: Request, res: Response) => {
+  app.get("/api/technicians", async (req: Request, res: Response) => {
     try {
+      // Get all technicians and then apply organization filter
       const technicians = await storage.getAllTechnicians();
-
+      const reqUser = req.user as any;
+      
       // Fetch the associated user for each technician
-      const techniciansWithUsers = await Promise.all(
+      let techniciansWithUsers = await Promise.all(
         technicians.map(async (technician) => {
           const user = await storage.getUser(technician.userId);
           return { ...technician, user };
         })
       );
+      
+      // Filter by organization if not a system admin
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        console.log(`Filtering technicians by organization ID: ${reqUser.organizationId}`);
+        techniciansWithUsers = techniciansWithUsers.filter(
+          tech => tech.user && tech.user.organizationId === reqUser.organizationId
+        );
+      }
 
       res.json(techniciansWithUsers);
     } catch (error) {
+      console.error("Error fetching technicians:", error);
       res.status(500).json({ message: "Failed to fetch technicians" });
     }
   });
@@ -543,21 +628,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Technician not found" });
       }
 
+      // Check if user is authenticated and has permission to view this technician
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId) {
+        // If the user is not a system_admin, check if the technician belongs to their organization
+        if (reqUser.role !== 'system_admin' && 
+            technicianWithUser.user.organizationId !== reqUser.organizationId) {
+          console.log(`User from organization ${reqUser.organizationId} attempted to access technician from organization ${technicianWithUser.user.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this technician" });
+        }
+      }
+
       res.json(technicianWithUser);
     } catch (error) {
+      console.error("Error fetching technician:", error);
       res.status(500).json({ message: "Failed to fetch technician" });
     }
   });
 
   app.post("/api/technicians", async (req: Request, res: Response) => {
     try {
-      // First create the user
-      const userValidation = validateRequest(insertUserSchema, req.body.user);
+      // Check if user has permission to create technicians
+      const reqUser = req.user as any;
+      
+      // First create the user with the same organization as the current user
+      const userData = { ...req.body.user };
+      
+      // Set organization ID based on the authenticated user
+      if (reqUser && reqUser.organizationId) {
+        userData.organizationId = reqUser.organizationId;
+      } else if (reqUser && reqUser.role === 'system_admin') {
+        // If system admin, they can specify which organization to create the technician in
+        if (req.body.organizationId) {
+          userData.organizationId = req.body.organizationId;
+        } else {
+          // Default to the first organization if none specified
+          const organizations = await storage.getAllOrganizations();
+          if (organizations.length > 0) {
+            userData.organizationId = organizations[0].id;
+          }
+        }
+      } else {
+        return res.status(403).json({ message: "You don't have permission to create technicians" });
+      }
 
+      // Set default role to technician if not specified
+      if (!userData.role) {
+        userData.role = 'technician';
+      }
+
+      const userValidation = validateRequest(insertUserSchema, userData);
       if (!userValidation.success) {
         return res.status(400).json({ message: userValidation.error });
       }
 
+      console.log(`Creating new technician user with organization ID: ${userData.organizationId}`);
       const user = await storage.createUser(userValidation.data);
 
       // Then create the technician with the user ID
@@ -572,6 +697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({ technician, user });
     } catch (error) {
+      console.error("Error creating technician:", error);
       res.status(500).json({ message: "Failed to create technician" });
     }
   });

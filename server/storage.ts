@@ -35,7 +35,7 @@ import {
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
   inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems
 } from "@shared/schema";
-import { and, eq, desc, gte, lte, sql, asc, isNotNull, lt, or } from "drizzle-orm";
+import { and, eq, desc, gte, lte, sql, asc, isNotNull, lt, or, inArray } from "drizzle-orm";
 import { db } from "./db";
 
 export interface IStorage {
@@ -60,6 +60,7 @@ export interface IStorage {
   createClient(client: InsertClient): Promise<Client>;
   updateClient(id: number, client: Partial<Client>): Promise<Client | undefined>;
   getAllClients(): Promise<Client[]>;
+  getClientsByOrganizationId(organizationId: number): Promise<Client[]>;
   getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined>;
   
   // Technician operations
@@ -459,6 +460,59 @@ export class MemStorage implements IStorage {
     this.initSampleInventoryData();
   }
   
+  // Organization operations
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    return this.organizations.get(id);
+  }
+  
+  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+    return Array.from(this.organizations.values()).find(
+      (org) => org.slug === slug
+    );
+  }
+  
+  async createOrganization(insertOrg: Partial<InsertOrganization>): Promise<Organization> {
+    const id = this.organizationId++;
+    const organization: Organization = {
+      ...insertOrg as any,
+      id,
+      name: insertOrg.name || "",
+      slug: insertOrg.slug || "",
+      address: insertOrg.address || null,
+      city: insertOrg.city || null,
+      state: insertOrg.state || null,
+      zipCode: insertOrg.zipCode || null,
+      phone: insertOrg.phone || null,
+      email: insertOrg.email || null,
+      website: insertOrg.website || null,
+      logo: insertOrg.logo || null,
+      active: insertOrg.active !== undefined ? insertOrg.active : true,
+      isSystemAdmin: insertOrg.isSystemAdmin !== undefined ? insertOrg.isSystemAdmin : false,
+      createdAt: new Date()
+    };
+    this.organizations.set(id, organization);
+    return organization;
+  }
+  
+  async updateOrganization(id: number, data: Partial<Organization>): Promise<Organization | undefined> {
+    const organization = await this.getOrganization(id);
+    if (!organization) return undefined;
+    
+    const updatedOrg = { ...organization, ...data };
+    this.organizations.set(id, updatedOrg);
+    return updatedOrg;
+  }
+  
+  async getAllOrganizations(): Promise<Organization[]> {
+    return Array.from(this.organizations.values());
+  }
+  
+  async getUsersByOrganizationId(organizationId: number): Promise<User[]> {
+    return Array.from(this.users.values()).filter(
+      (user) => user.organizationId === organizationId
+    );
+  }
+  
   // User operations
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
@@ -533,6 +587,20 @@ export class MemStorage implements IStorage {
   
   async getAllClients(): Promise<Client[]> {
     return Array.from(this.clients.values());
+  }
+  
+  async getClientsByOrganizationId(organizationId: number): Promise<Client[]> {
+    // First get all users from the organization
+    const orgUsers = Array.from(this.users.values()).filter(user => user.organizationId === organizationId);
+    
+    // Then get all clients associated with those users
+    const userIds = orgUsers.map(user => user.id);
+    
+    if (userIds.length === 0) {
+      return []; // No users in this organization
+    }
+    
+    return Array.from(this.clients.values()).filter(client => userIds.includes(client.userId));
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
@@ -2509,26 +2577,105 @@ export class MemStorage implements IStorage {
   }
   
   private async initSampleData() {
-    // Create admin user
+    // Create organizations
+    const smartwaterOrg = await this.createOrganization({
+      name: "SmartWater Pools",
+      slug: "smartwater",
+      address: "500 Main Street",
+      city: "Orlando",
+      state: "FL",
+      zipCode: "32801",
+      phone: "407-555-1000",
+      email: "info@smartwaterpools.com",
+      website: "https://smartwaterpools.com",
+      logo: "/logo-smartwater.png",
+      isSystemAdmin: true
+    });
+    
+    const jalopiOrg = await this.createOrganization({
+      name: "Jalopi Pool and Spa",
+      slug: "jalopi",
+      address: "123 Pool Avenue",
+      city: "Tampa",
+      state: "FL",
+      zipCode: "33601",
+      phone: "813-555-2000",
+      email: "info@jalopipools.com",
+      website: "https://jalopipools.com",
+      logo: "/logo-jalopi.png"
+    });
+    
+    const vermontOrg = await this.createOrganization({
+      name: "Vermont Pool Co",
+      slug: "vermont",
+      address: "45 Green Mountain Road",
+      city: "Burlington",
+      state: "VT",
+      zipCode: "05401",
+      phone: "802-555-3000",
+      email: "info@vermontpoolco.com",
+      website: "https://vermontpoolco.com",
+      logo: "/logo-vermont.png"
+    });
+    
+    // Create system admin user for SmartWater
     const adminUser = await this.createUser({
       username: "admin",
       password: "admin123",
       name: "Alex Johnson",
-      email: "alex@smartwater.com",
-      role: "admin",
+      email: "alex@smartwaterpools.com",
+      role: "system_admin",
       phone: "555-123-4567",
-      address: "123 Admin St"
+      address: "123 Admin St",
+      organizationId: smartwaterOrg.id
     });
     
-    // Create technicians
+    // Create special admin account with tenant access capabilities
+    const travisUser = await this.createUser({
+      username: "travis",
+      password: "travis123",
+      name: "Travis DeRisi",
+      email: "travis@smartwaterpools.com",
+      role: "system_admin",
+      phone: "555-987-6543",
+      address: "789 Developer Lane",
+      organizationId: smartwaterOrg.id
+    });
+    
+    // Create Jalopi org admin
+    const jalopiAdminUser = await this.createUser({
+      username: "jalopi_admin",
+      password: "admin123",
+      name: "Maria Rodriguez",
+      email: "maria@jalopipools.com",
+      role: "org_admin",
+      phone: "555-222-3333",
+      address: "456 Jalopi HQ",
+      organizationId: jalopiOrg.id
+    });
+    
+    // Create Vermont org admin
+    const vermontAdminUser = await this.createUser({
+      username: "vermont_admin",
+      password: "admin123",
+      name: "Jake Burlington",
+      email: "jake@vermontpoolco.com",
+      role: "org_admin",
+      phone: "555-444-5555",
+      address: "789 Vermont Drive",
+      organizationId: vermontOrg.id
+    });
+    
+    // Create technicians for Jalopi Pool and Spa
     const tech1User = await this.createUser({
       username: "tech1",
       password: "tech123",
       name: "Michael Torres",
-      email: "michael@smartwater.com",
+      email: "michael@jalopipools.com",
       role: "technician",
       phone: "555-234-5678",
-      address: "456 Tech Ave"
+      address: "456 Tech Ave",
+      organizationId: jalopiOrg.id
     });
     
     const tech1 = await this.createTechnician({
@@ -2541,10 +2688,11 @@ export class MemStorage implements IStorage {
       username: "tech2",
       password: "tech123",
       name: "Sarah Kim",
-      email: "sarah@smartwater.com",
+      email: "sarah@vermontpoolco.com",
       role: "technician",
       phone: "555-345-6789",
-      address: "789 Tech Blvd"
+      address: "789 Tech Blvd",
+      organizationId: vermontOrg.id
     });
     
     const tech2 = await this.createTechnician({
@@ -2557,10 +2705,11 @@ export class MemStorage implements IStorage {
       username: "tech3",
       password: "tech123",
       name: "David Chen",
-      email: "david@smartwater.com",
+      email: "david@smartwaterpools.com",
       role: "technician",
       phone: "555-456-7890",
-      address: "101 Tech Rd"
+      address: "101 Tech Rd",
+      organizationId: smartwaterOrg.id
     });
     
     const tech3 = await this.createTechnician({
@@ -2577,13 +2726,16 @@ export class MemStorage implements IStorage {
       email: "morrison@email.com",
       role: "client",
       phone: "555-567-8901",
-      address: "123 Lake Dr"
+      address: "123 Lake Dr",
+      organizationId: jalopiOrg.id
     });
     
     const client1 = await this.createClient({
       userId: client1User.id,
       companyName: null,
-      contractType: "Residential"
+      contractType: "residential",
+      latitude: 27.9506, 
+      longitude: -82.4572  // Tampa, FL coordinates
     });
     
     const client2User = await this.createUser({
@@ -2593,13 +2745,16 @@ export class MemStorage implements IStorage {
       email: "info@sunsetheights.com",
       role: "client",
       phone: "555-678-9012",
-      address: "456 Hillside Ave"
+      address: "456 Hillside Ave",
+      organizationId: jalopiOrg.id
     });
     
     const client2 = await this.createClient({
       userId: client2User.id,
       companyName: "Sunset Heights Resort",
-      contractType: "Commercial"
+      contractType: "commercial",
+      latitude: 28.0395, 
+      longitude: -82.4946  // Tampa Bay area coordinates
     });
     
     const client3User = await this.createUser({
@@ -2609,13 +2764,16 @@ export class MemStorage implements IStorage {
       email: "jensen@email.com",
       role: "client",
       phone: "555-789-0123",
-      address: "789 River Rd"
+      address: "789 River Rd",
+      organizationId: vermontOrg.id
     });
     
     const client3 = await this.createClient({
       userId: client3User.id,
       companyName: null,
-      contractType: "Residential"
+      contractType: "residential",
+      latitude: 44.4759, 
+      longitude: -73.2121  // Burlington, VT coordinates
     });
     
     const client4User = await this.createUser({
@@ -2625,13 +2783,16 @@ export class MemStorage implements IStorage {
       email: "thompson@email.com",
       role: "client",
       phone: "555-890-1234",
-      address: "321 Oak St"
+      address: "321 Oak St",
+      organizationId: vermontOrg.id
     });
     
     const client4 = await this.createClient({
       userId: client4User.id,
       companyName: null,
-      contractType: "Residential"
+      contractType: "residential",
+      latitude: 44.4605, 
+      longitude: -73.2144  // Burlington, VT area coordinates
     });
     
     const client5User = await this.createUser({
@@ -2641,13 +2802,16 @@ export class MemStorage implements IStorage {
       email: "info@lakeside.com",
       role: "client",
       phone: "555-901-2345",
-      address: "654 Lake Ave"
+      address: "654 Lake Ave",
+      organizationId: jalopiOrg.id
     });
     
     const client5 = await this.createClient({
       userId: client5User.id,
       companyName: "Lakeside Community HOA",
-      contractType: "Commercial"
+      contractType: "commercial",
+      latitude: 27.9742, 
+      longitude: -82.5330  // Tampa, FL area coordinates (different location)
     });
     
     // Create projects
@@ -2941,6 +3105,20 @@ export class DatabaseStorage implements IStorage {
 
   async getAllClients(): Promise<Client[]> {
     return await db.select().from(clients);
+  }
+  
+  async getClientsByOrganizationId(organizationId: number): Promise<Client[]> {
+    // First get all users from the organization
+    const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
+    
+    // Then get all clients associated with those users
+    const userIds = orgUsers.map(user => user.id);
+    
+    if (userIds.length === 0) {
+      return []; // No users in this organization
+    }
+    
+    return await db.select().from(clients).where(inArray(clients.userId, userIds));
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
