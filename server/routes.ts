@@ -59,7 +59,7 @@ import {
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import passport from "passport";
-import { isAuthenticated, isAdmin, hashPassword } from "./auth";
+import { isAuthenticated, isAdmin, isSystemAdmin, hashPassword } from "./auth";
 
 // Helper function to handle validation and respond with appropriate error
 const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boolean; data?: any; error?: string } => {
@@ -4966,6 +4966,123 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to record barcode scan",
         error: error instanceof Error ? error.message : String(error)
       });
+    }
+  });
+
+  // Organization Management Routes
+  app.get("/api/organizations", async (_req: Request, res: Response) => {
+    try {
+      const organizations = await storage.getAllOrganizations();
+      res.json(organizations);
+    } catch (error) {
+      console.error("[API] Error fetching organizations:", error);
+      res.status(500).json({ message: "Failed to fetch organizations" });
+    }
+  });
+
+  app.get("/api/organizations/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid organization ID" });
+      }
+
+      const organization = await storage.getOrganization(id);
+      if (!organization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      res.json(organization);
+    } catch (error) {
+      console.error("[API] Error fetching organization:", error);
+      res.status(500).json({ message: "Failed to fetch organization" });
+    }
+  });
+
+  app.post("/api/organizations", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const insertOrganizationSchema = z.object({
+        name: z.string().min(2, "Name must be at least 2 characters"),
+        slug: z.string().min(2, "Slug must be at least 2 characters")
+          .regex(/^[a-z0-9-]+$/, "Slug must contain only lowercase letters, numbers, and hyphens"),
+        address: z.string().optional(),
+        city: z.string().optional(),
+        state: z.string().optional(),
+        zipCode: z.string().optional(),
+        phone: z.string().optional(),
+        email: z.string().email("Invalid email address").optional().or(z.literal("")),
+        website: z.string().url("Invalid website URL").optional().or(z.literal("")),
+        logo: z.string().optional(),
+        active: z.boolean().default(true),
+        isSystemAdmin: z.boolean().default(false)
+      });
+
+      const validation = validateRequest(insertOrganizationSchema, req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+
+      const organization = await storage.createOrganization(validation.data);
+      res.status(201).json(organization);
+    } catch (error) {
+      console.error("[API] Error creating organization:", error);
+      res.status(500).json({ message: "Failed to create organization" });
+    }
+  });
+
+  app.patch("/api/organizations/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid organization ID" });
+      }
+
+      const updateOrganizationSchema = z.object({
+        name: z.string().min(2, "Name must be at least 2 characters").optional(),
+        slug: z.string().min(2, "Slug must be at least 2 characters")
+          .regex(/^[a-z0-9-]+$/, "Slug must contain only lowercase letters, numbers, and hyphens")
+          .optional(),
+        address: z.string().optional().nullable(),
+        city: z.string().optional().nullable(),
+        state: z.string().optional().nullable(),
+        zipCode: z.string().optional().nullable(),
+        phone: z.string().optional().nullable(),
+        email: z.string().email("Invalid email address").optional().nullable(),
+        website: z.string().url("Invalid website URL").optional().nullable(),
+        logo: z.string().optional().nullable(),
+        active: z.boolean().optional(),
+        isSystemAdmin: z.boolean().optional()
+      });
+
+      const validation = validateRequest(updateOrganizationSchema, req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error });
+      }
+
+      const updatedOrganization = await storage.updateOrganization(id, validation.data);
+      if (!updatedOrganization) {
+        return res.status(404).json({ message: "Organization not found" });
+      }
+
+      res.json(updatedOrganization);
+    } catch (error) {
+      console.error("[API] Error updating organization:", error);
+      res.status(500).json({ message: "Failed to update organization" });
+    }
+  });
+
+  app.get("/api/organizations/:id/users", isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid organization ID" });
+      }
+
+      const users = await storage.getUsersByOrganizationId(id);
+      res.json(users);
+    } catch (error) {
+      console.error("[API] Error fetching organization users:", error);
+      res.status(500).json({ message: "Failed to fetch organization users" });
     }
   });
 

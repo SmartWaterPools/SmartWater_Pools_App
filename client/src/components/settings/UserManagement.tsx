@@ -51,8 +51,9 @@ const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email address"),
-  role: z.enum(["admin", "manager", "technician", "client"]),
+  role: z.enum(["system_admin", "org_admin", "manager", "technician", "client", "office_staff"]),
   active: z.boolean().default(true),
+  organizationId: z.number().min(1, "Organization is required"),
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
@@ -125,6 +126,7 @@ export function UserManagement() {
       email: "",
       role: "technician",
       active: true,
+      organizationId: 1, // Default to SmartWater Pools (Main)
       password: "",
       confirmPassword: "",
     },
@@ -146,8 +148,9 @@ export function UserManagement() {
       username: user.username,
       name: user.name,
       email: user.email || "",
-      role: user.role as "admin" | "manager" | "technician" | "client",
+      role: user.role as "system_admin" | "org_admin" | "manager" | "office_staff" | "technician" | "client",
       active: user.active,
+      organizationId: user.organizationId || 1, // Default to org ID 1 if not set
     });
     setOpen(true);
   };
@@ -176,10 +179,14 @@ export function UserManagement() {
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
-      case "admin":
+      case "system_admin":
         return "bg-red-100 text-red-800";
+      case "org_admin":
+        return "bg-orange-100 text-orange-800";
       case "manager":
         return "bg-purple-100 text-purple-800";
+      case "office_staff":
+        return "bg-amber-100 text-amber-800";
       case "technician":
         return "bg-blue-100 text-blue-800";
       case "client":
@@ -279,14 +286,45 @@ export function UserManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="admin">Administrator</SelectItem>
+                            <SelectItem value="system_admin">System Admin</SelectItem>
+                            <SelectItem value="org_admin">Organization Admin</SelectItem>
                             <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="office_staff">Office Staff</SelectItem>
                             <SelectItem value="technician">Technician</SelectItem>
                             <SelectItem value="client">Client</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormDescription>
                           User's role determines their permissions
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="organizationId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Organization</FormLabel>
+                        <Select
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          value={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an organization" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="1">SmartWater Pools (Main)</SelectItem>
+                            <SelectItem value="2">Pacific Pool Services</SelectItem>
+                            <SelectItem value="3">Desert Oasis Pools</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Organization the user belongs to
                         </FormDescription>
                         <FormMessage />
                       </FormItem>

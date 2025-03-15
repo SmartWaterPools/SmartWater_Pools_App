@@ -3,6 +3,29 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Organization schema
+export const organizations = pgTable("organizations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  slug: text("slug").notNull().unique(), // For URL-friendly identifiers
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  logo: text("logo"), // URL to logo
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  isSystemAdmin: boolean("is_system_admin").default(false), // If true, this is the SmartWater organization
+});
+
+export const insertOrganizationSchema = createInsertSchema(organizations).omit({
+  id: true,
+  createdAt: true,
+});
+
 // User schema
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -10,10 +33,11 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name").notNull(),
   email: text("email").notNull(),
-  role: text("role").notNull().default("client"), // admin, manager, technician, client
+  role: text("role").notNull().default("client"), // system_admin, org_admin, manager, technician, client, office_staff
   phone: text("phone"),
   address: text("address"),
   active: boolean("active").notNull().default(true),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -426,9 +450,18 @@ export const insertCommunicationProviderSchema = createInsertSchema(communicatio
 });
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+// Organization relations
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  users: many(users)
+}));
+
+export const usersRelations = relations(users, ({ many, one }) => ({
   clients: many(clients),
-  technicians: many(technicians)
+  technicians: many(technicians),
+  organization: one(organizations, {
+    fields: [users.organizationId],
+    references: [organizations.id]
+  })
 }));
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
@@ -612,6 +645,9 @@ export const projectAssignmentsRelationsExtended = relations(projectAssignments,
 }));
 
 // Type definitions
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
+
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 

@@ -88,13 +88,29 @@ export function isAuthenticated(req: any, res: any, next: any) {
 
 // Middleware to check if user has admin role
 export function isAdmin(req: any, res: any, next: any) {
-  if (req.isAuthenticated() && req.user.role === 'admin') {
+  if (req.isAuthenticated() && 
+      (req.user.role === 'admin' || req.user.role === 'system_admin' || req.user.role === 'org_admin')) {
     return next();
   }
   
   // If request expects JSON, return 403 status
   if (req.xhr || req.path.startsWith('/api/')) {
     return res.status(403).json({ message: 'Admin access required' });
+  }
+  
+  // For regular requests, redirect to unauthorized page
+  res.redirect('/unauthorized');
+}
+
+// Middleware to check if user has system admin role
+export function isSystemAdmin(req: any, res: any, next: any) {
+  if (req.isAuthenticated() && (req.user.role === 'system_admin' || req.user.role === 'admin')) {
+    return next();
+  }
+  
+  // If request expects JSON, return 403 status
+  if (req.xhr || req.path.startsWith('/api/')) {
+    return res.status(403).json({ message: 'System Admin access required' });
   }
   
   // For regular requests, redirect to unauthorized page

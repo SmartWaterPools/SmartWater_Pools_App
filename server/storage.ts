@@ -1,4 +1,5 @@
 import {
+  Organization, InsertOrganization,
   User, InsertUser,
   Client, InsertClient, 
   Technician, InsertTechnician,
@@ -28,7 +29,7 @@ import {
   BarcodeScanHistory, InsertBarcodeScanHistory,
   InventoryAdjustment, InsertInventoryAdjustment,
   TransferType, TransferStatus, BarcodeType,
-  users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
+  organizations, users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
   communicationProviders, chemicalUsage, waterReadings, routes, routeAssignments,
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
@@ -38,12 +39,20 @@ import { and, eq, desc, gte, lte, sql, asc, isNotNull, lt, or } from "drizzle-or
 import { db } from "./db";
 
 export interface IStorage {
+  // Organization operations
+  getOrganization(id: number): Promise<Organization | undefined>;
+  getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
+  createOrganization(organization: Partial<InsertOrganization>): Promise<Organization>;
+  updateOrganization(id: number, organization: Partial<Organization>): Promise<Organization | undefined>;
+  getAllOrganizations(): Promise<Organization[]>;
+  
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
+  getUsersByOrganizationId(organizationId: number): Promise<User[]>;
   
   // Client operations
   getClient(id: number): Promise<Client | undefined>;
@@ -317,6 +326,7 @@ export interface IStorage {
 
 // In-memory storage implementation
 export class MemStorage implements IStorage {
+  private organizations: Map<number, Organization>;
   private users: Map<number, User>;
   private clients: Map<number, Client>;
   private technicians: Map<number, Technician>;
@@ -344,6 +354,7 @@ export class MemStorage implements IStorage {
   private routes: Map<number, Route>;
   private routeAssignments: Map<number, RouteAssignment>;
   
+  private organizationId: number;
   private userId: number;
   private clientId: number;
   private technicianId: number;
@@ -378,6 +389,7 @@ export class MemStorage implements IStorage {
   private inventoryAdjustmentId: number;
   
   constructor() {
+    this.organizations = new Map();
     this.users = new Map();
     this.clients = new Map();
     this.technicians = new Map();
@@ -409,6 +421,7 @@ export class MemStorage implements IStorage {
     this.barcodeScanHistory = new Map();
     this.inventoryAdjustments = new Map();
     
+    this.organizationId = 1;
     this.userId = 1;
     this.clientId = 1;
     this.technicianId = 1;
@@ -2798,6 +2811,88 @@ export class DatabaseStorage implements IStorage {
   private barcodeId = 1;
   private barcodeScanHistoryId = 1;
   private inventoryAdjustmentId = 1;
+
+  // Organization operations
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    try {
+      const result = await db.select().from(organizations).where(eq(organizations.id, id));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting organization:", error);
+      return undefined;
+    }
+  }
+
+  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+    try {
+      const result = await db.select().from(organizations).where(eq(organizations.slug, slug));
+      return result[0];
+    } catch (error) {
+      console.error("Error getting organization by slug:", error);
+      return undefined;
+    }
+  }
+
+  async createOrganization(organization: Partial<InsertOrganization>): Promise<Organization> {
+    try {
+      const result = await db.insert(organizations).values({
+        name: organization.name || "",
+        slug: organization.slug || "",
+        address: organization.address,
+        city: organization.city,
+        state: organization.state,
+        zipCode: organization.zipCode,
+        phone: organization.phone,
+        email: organization.email,
+        website: organization.website,
+        logo: organization.logo,
+        active: organization.active !== undefined ? organization.active : true,
+        isSystemAdmin: organization.isSystemAdmin !== undefined ? organization.isSystemAdmin : false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }).returning();
+
+      return result[0];
+    } catch (error) {
+      console.error("Error creating organization:", error);
+      throw error;
+    }
+  }
+
+  async updateOrganization(id: number, organization: Partial<Organization>): Promise<Organization | undefined> {
+    try {
+      const updateFields: Partial<Organization> = { ...organization, updatedAt: new Date() };
+      const result = await db.update(organizations)
+        .set(updateFields)
+        .where(eq(organizations.id, id))
+        .returning();
+      
+      return result[0];
+    } catch (error) {
+      console.error("Error updating organization:", error);
+      return undefined;
+    }
+  }
+
+  async getAllOrganizations(): Promise<Organization[]> {
+    try {
+      return await db.select().from(organizations).orderBy(organizations.name);
+    } catch (error) {
+      console.error("Error getting all organizations:", error);
+      return [];
+    }
+  }
+
+  async getUsersByOrganizationId(organizationId: number): Promise<User[]> {
+    try {
+      return await db.select().from(users)
+        .where(eq(users.organizationId, organizationId))
+        .orderBy(users.name);
+    } catch (error) {
+      console.error("Error getting users by organization ID:", error);
+      return [];
+    }
+  }
   
   // User operations
   async getUser(id: number): Promise<User | undefined> {
