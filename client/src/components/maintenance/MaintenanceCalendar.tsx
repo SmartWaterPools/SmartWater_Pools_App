@@ -29,7 +29,8 @@ import {
   XCircle,
   Loader2,
   FileText,
-  ClipboardList
+  ClipboardList,
+  BarChart2
 } from "lucide-react";
 import { MaintenanceWithDetails } from "../../lib/types";
 import { getStatusClasses } from "../../lib/types";
@@ -599,6 +600,14 @@ export function MaintenanceCalendar({
                             >
                               <FileText className="h-4 w-4 mr-2" />
                               SmartWater Style Report
+                            </DropdownMenuItem>
+
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => navigate(`/maintenance-report/${maintenance.id}`)}
+                            >
+                              <BarChart2 className="h-4 w-4 mr-2" />
+                              Maintenance Report
                             </DropdownMenuItem>
                             
                             <DropdownMenuSeparator />

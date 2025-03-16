@@ -1,582 +1,276 @@
-import { useState, useEffect } from "react";
-import { useParams, useLocation } from "wouter";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { format } from "date-fns";
-import {
-  ArrowLeft,
-  Loader2,
-  AlertCircle,
-  Beaker,
-  FileText,
-  Clock,
-  DollarSign,
-  AlertTriangle,
-  Camera,
-  Edit,
-  Trash2,
-  PenTool,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
-import { MaintenanceWithDetails } from "@/lib/types";
-import { apiRequest } from "@/lib/queryClient";
-import { MaintenanceReport, WaterReading } from "../../../shared/schema";
-import { MaintenanceReportForm } from "@/components/maintenance/MaintenanceReportForm";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import React, { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import MaintenanceReportForm from '@/components/maintenance/MaintenanceReportForm';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ChevronLeft, Home, User, Calendar, MapPin, Phone, SquareUser, Clock, Mail, Wrench, Route } from 'lucide-react';
+import { format } from 'date-fns';
 
 export default function MaintenanceReportPage() {
   const { id } = useParams<{ id: string }>();
-  const [, navigate] = useLocation();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("details");
-
-  // Fetch maintenance data
-  const { data: maintenance, isLoading: maintenanceLoading } = useQuery<MaintenanceWithDetails>({
-    queryKey: [`/api/maintenances/${id}`],
-    enabled: !!id,
-  });
-
-  // Fetch maintenance reports for this maintenance
-  const { data: reports, isLoading: reportsLoading } = useQuery<MaintenanceReport[]>({
-    queryKey: [`/api/maintenance-reports/maintenance/${id}`],
-    enabled: !!id,
-  });
-
-  // If there's a report, fetch its water reading data
-  const activeReport = reports && reports.length > 0 ? reports[0] : null;
+  const maintenanceId = parseInt(id || '0', 10);
+  const navigate = useNavigate();
   
-  const { data: waterReading } = useQuery<WaterReading>({
-    queryKey: [`/api/water-readings/${activeReport?.waterReadingId}`],
-    enabled: !!activeReport?.waterReadingId,
+  // Fetch maintenance details with client and technician info
+  const { data: maintenance, isLoading: isLoadingMaintenance } = useQuery({
+    queryKey: ['/api/maintenances', maintenanceId],
+    queryFn: () => apiRequest(`/api/maintenances/${maintenanceId}`),
+    enabled: !!maintenanceId,
   });
-
-  const isLoading = maintenanceLoading || reportsLoading;
-
-  // Delete report mutation
-  const deleteReportMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeReport) return null;
-      return await apiRequest(`/api/maintenance-reports/${activeReport.id}`, 'DELETE');
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/maintenance-reports/maintenance/${id}`] });
-      toast({
-        title: "Report deleted",
-        description: "The maintenance report has been deleted successfully.",
-      });
-      setDeleteDialogOpen(false);
-      // If no more reports, update maintenance status
-      if (reports && reports.length <= 1) {
-        apiRequest(`/api/maintenances/${id}`, 'PATCH', { 
-          status: "in_progress",
-          completionDate: null
-        });
-      }
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: "There was an error deleting the report. Please try again.",
-        variant: "destructive",
-      });
+  
+  // Format date for display
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'Not scheduled';
+    
+    try {
+      return format(new Date(dateString), 'PPP');
+    } catch (e) {
+      return 'Invalid date';
     }
-  });
-
-  // Handle delete confirmation
-  const handleDeleteReport = () => {
-    deleteReportMutation.mutate();
   };
-
-  if (isLoading) {
-    return (
-      <div className="container py-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!maintenance) {
-    return (
-      <div className="container py-6">
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            Could not load maintenance data. Please try again or go back to the maintenance page.
-          </AlertDescription>
-        </Alert>
-        <div className="mt-4">
-          <Button onClick={() => navigate("/maintenance")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Maintenance
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
+  
+  // Format time for display
+  const formatTime = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+    
+    try {
+      return format(new Date(dateString), 'p');
+    } catch (e) {
+      return '';
+    }
+  };
+  
   return (
-    <div className="container py-6">
-      <div className="mb-6">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => navigate("/maintenance")}
-          className="mb-4"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Maintenance
-        </Button>
-        
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Maintenance Report</h1>
-            <p className="text-muted-foreground">Service details for maintenance visit</p>
-          </div>
+    <div className="container py-6 max-w-5xl">
+      <div className="flex flex-col gap-6">
+        {/* Header with breadcrumb nav */}
+        <div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-2"
+            onClick={() => navigate(-1)}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" />
+            Back
+          </Button>
           
-          {!activeReport && (
-            <MaintenanceReportForm
-              open={editModalOpen}
-              onOpenChange={setEditModalOpen}
-              maintenance={maintenance}
-              onSuccess={() => {
-                queryClient.invalidateQueries({ queryKey: [`/api/maintenance-reports/maintenance/${id}`] });
-              }}
-            />
-          )}
-          
-          <div className="flex gap-2">
-            {activeReport ? (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditModalOpen(true)}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Report
-                </Button>
-                
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteDialogOpen(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </Button>
-                
-                {/* Edit Report Modal */}
-                <MaintenanceReportForm
-                  open={editModalOpen}
-                  onOpenChange={setEditModalOpen}
-                  maintenance={maintenance}
-                  existingReport={activeReport}
-                  onSuccess={() => {
-                    queryClient.invalidateQueries({ queryKey: [`/api/maintenance-reports/maintenance/${id}`] });
-                  }}
-                />
-                
-                {/* Delete Confirmation Dialog */}
-                <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Delete Maintenance Report</DialogTitle>
-                      <DialogDescription>
-                        Are you sure you want to delete this maintenance report? This action cannot be undone.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button variant="destructive" onClick={handleDeleteReport}>
-                        Delete Report
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </>
-            ) : (
-              <Button 
-                onClick={() => setEditModalOpen(true)} 
-                className="ml-auto"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Create Report
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Maintenance Report</h1>
+              {isLoadingMaintenance ? (
+                <Skeleton className="h-5 w-60 mt-1" />
+              ) : (
+                <p className="text-muted-foreground">
+                  {maintenance ? (
+                    <>
+                      Maintenance ID: {maintenance.id} • 
+                      {maintenance.status === 'completed' ? (
+                        <span className="text-green-600 font-medium ml-1">Completed</span>
+                      ) : maintenance.status === 'in_progress' ? (
+                        <span className="text-amber-600 font-medium ml-1">In Progress</span>
+                      ) : (
+                        <span className="text-gray-600 font-medium ml-1">Scheduled</span>
+                      )}
+                    </>
+                  ) : (
+                    'Maintenance not found'
+                  )}
+                </p>
+              )}
+            </div>
+            
+            <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => navigate('/maintenance')}>
+                <Calendar className="h-4 w-4 mr-1" />
+                Maintenance Calendar
               </Button>
-            )}
+              <Button size="sm" variant="outline" onClick={() => navigate('/')}>
+                <Home className="h-4 w-4 mr-1" />
+                Dashboard
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          {activeReport ? (
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Service Report</CardTitle>
-                  <Badge variant={activeReport ? "default" : "outline"}>
-                    {activeReport ? "Completed" : "Pending"}
-                  </Badge>
-                </div>
-                <CardDescription>
-                  {activeReport 
-                    ? `Completed on ${format(new Date(activeReport.completionDate), "PPP")}`
-                    : "This maintenance visit doesn't have a completed report yet"
-                  }
-                </CardDescription>
-              </CardHeader>
+        
+        {/* Info Panel */}
+        {isLoadingMaintenance ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="rounded-lg border p-4">
+              <Skeleton className="h-5 w-32 mb-3" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+            <div className="rounded-lg border p-4">
+              <Skeleton className="h-5 w-32 mb-3" />
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          </div>
+        ) : maintenance ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Client Info */}
+            <div className="rounded-lg border p-4">
+              <h2 className="font-semibold text-sm text-muted-foreground mb-3">CLIENT INFORMATION</h2>
               
-              <CardContent>
-                <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="details">Details</TabsTrigger>
-                    <TabsTrigger value="readings">Readings</TabsTrigger>
-                    <TabsTrigger value="photos">Photos</TabsTrigger>
-                    <TabsTrigger value="signatures">Signatures</TabsTrigger>
-                  </TabsList>
-                  
-                  {/* Details Tab */}
-                  <TabsContent value="details" className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Completion Date</h3>
-                        <p>{format(new Date(activeReport.completionDate), "PPP")}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">Pool Condition</h3>
-                        <p className="capitalize">{activeReport.condition || "Not specified"}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                          <Clock className="h-4 w-4 inline mr-1" />
-                          Labor Time
-                        </h3>
-                        <p>
-                          {activeReport.laborTimeMinutes 
-                            ? `${Math.floor(activeReport.laborTimeMinutes / 60)}h ${activeReport.laborTimeMinutes % 60}m` 
-                            : "Not specified"}
-                        </p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium text-muted-foreground mb-2">
-                          <DollarSign className="h-4 w-4 inline mr-1" />
-                          Chemical Cost
-                        </h3>
-                        <p>
-                          {activeReport.chemicalCost 
-                            ? `$${(activeReport.chemicalCost / 100).toFixed(2)}` 
-                            : "Not specified"}
-                        </p>
-                      </div>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2">
+                  <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">
+                      {maintenance.client?.user?.name || 'Unknown Client'}
                     </div>
-                    
-                    <Separator />
-                    
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Tasks Completed</h3>
-                      {activeReport.tasksCompleted && activeReport.tasksCompleted.length > 0 ? (
-                        <ul className="list-disc list-inside space-y-1">
-                          {activeReport.tasksCompleted.map((task, index) => (
-                            <li key={index}>{task}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-muted-foreground">No tasks recorded</p>
+                    {maintenance.client?.companyName && (
+                      <div className="text-sm text-muted-foreground">
+                        {maintenance.client.companyName}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {maintenance.client?.user?.email && (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <a href={`mailto:${maintenance.client.user.email}`} className="text-sm hover:underline">
+                      {maintenance.client.user.email}
+                    </a>
+                  </div>
+                )}
+                
+                {maintenance.client?.user?.phone && (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <a href={`tel:${maintenance.client.user.phone}`} className="text-sm hover:underline">
+                      {maintenance.client.user.phone}
+                    </a>
+                  </div>
+                )}
+                
+                {maintenance.client && (
+                  <div className="flex items-start gap-2">
+                    <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                    <div className="text-sm">
+                      {maintenance.client.address && (
+                        <div>{maintenance.client.address}</div>
+                      )}
+                      {maintenance.client.city && (
+                        <div>
+                          {maintenance.client.city}
+                          {maintenance.client.state ? `, ${maintenance.client.state}` : ''}
+                          {maintenance.client.zipCode ? ` ${maintenance.client.zipCode}` : ''}
+                        </div>
                       )}
                     </div>
-                    
-                    <Separator />
-                    
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground mb-2">Notes</h3>
-                      <p className="whitespace-pre-wrap">
-                        {activeReport.notes || "No notes recorded"}
-                      </p>
-                    </div>
-                    
-                    {activeReport.equipmentIssues && (
-                      <>
-                        <Separator />
-                        <div>
-                          <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center">
-                            <AlertTriangle className="h-4 w-4 mr-1 text-amber-500" />
-                            Equipment Issues
-                          </h3>
-                          <p className="whitespace-pre-wrap">{activeReport.equipmentIssues}</p>
-                        </div>
-                      </>
-                    )}
-                    
-                    {activeReport.recommendedServices && (
-                      <>
-                        <Separator />
-                        <div>
-                          <h3 className="text-sm font-medium text-muted-foreground mb-2 flex items-center">
-                            <FileText className="h-4 w-4 mr-1 text-blue-500" />
-                            Recommended Services
-                          </h3>
-                          <p className="whitespace-pre-wrap">{activeReport.recommendedServices}</p>
-                        </div>
-                      </>
-                    )}
-                  </TabsContent>
-                  
-                  {/* Readings Tab */}
-                  <TabsContent value="readings" className="space-y-4">
-                    {waterReading ? (
-                      <div className="space-y-4">
-                        <div className="flex items-center">
-                          <Beaker className="h-5 w-5 mr-2 text-blue-500" />
-                          <h3 className="text-sm font-medium">Water Chemistry Readings</h3>
-                        </div>
-                        
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                          <div className="p-3 border rounded-md">
-                            <div className="text-xs text-muted-foreground">pH</div>
-                            <div className="text-xl font-semibold">
-                              {waterReading.phLevel ? (waterReading.phLevel / 10).toFixed(1) : "N/A"}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">Ideal: 7.2-7.8</div>
-                          </div>
-                          
-                          <div className="p-3 border rounded-md">
-                            <div className="text-xs text-muted-foreground">Chlorine (ppm)</div>
-                            <div className="text-xl font-semibold">
-                              {waterReading.chlorineLevel ? (waterReading.chlorineLevel / 10).toFixed(1) : "N/A"}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">Ideal: 1.0-3.0</div>
-                          </div>
-                          
-                          <div className="p-3 border rounded-md">
-                            <div className="text-xs text-muted-foreground">Alkalinity (ppm)</div>
-                            <div className="text-xl font-semibold">
-                              {waterReading.alkalinity || "N/A"}
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-1">Ideal: 80-120</div>
-                          </div>
-                          
-                          {waterReading.cyanuricAcid && (
-                            <div className="p-3 border rounded-md">
-                              <div className="text-xs text-muted-foreground">Cyanuric Acid (ppm)</div>
-                              <div className="text-xl font-semibold">{waterReading.cyanuricAcid}</div>
-                              <div className="text-xs text-muted-foreground mt-1">Ideal: 30-50</div>
-                            </div>
-                          )}
-                          
-                          {waterReading.calciumHardness && (
-                            <div className="p-3 border rounded-md">
-                              <div className="text-xs text-muted-foreground">Calcium Hardness (ppm)</div>
-                              <div className="text-xl font-semibold">{waterReading.calciumHardness}</div>
-                              <div className="text-xs text-muted-foreground mt-1">Ideal: 200-400</div>
-                            </div>
-                          )}
-                          
-                          {waterReading.totalDissolvedSolids && (
-                            <div className="p-3 border rounded-md">
-                              <div className="text-xs text-muted-foreground">TDS (ppm)</div>
-                              <div className="text-xl font-semibold">{waterReading.totalDissolvedSolids}</div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-8 text-center border border-dashed rounded-md">
-                        <Beaker className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-muted-foreground">No water readings recorded for this service</p>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  {/* Photos Tab */}
-                  <TabsContent value="photos" className="space-y-4">
-                    {activeReport.photos && activeReport.photos.length > 0 ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                        {activeReport.photos.map((photo, index) => (
-                          <div key={index} className="relative aspect-square">
-                            <img
-                              src={photo}
-                              alt={`Service photo ${index + 1}`}
-                              className="w-full h-full object-cover rounded-md"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="p-8 text-center border border-dashed rounded-md">
-                        <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-muted-foreground">No photos taken for this service</p>
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  {/* Signatures Tab */}
-                  <TabsContent value="signatures" className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium">Client Signature</h3>
-                        {activeReport.clientSignature ? (
-                          <div className="border rounded-md p-4">
-                            <img
-                              src={activeReport.clientSignature}
-                              alt="Client signature"
-                              className="max-h-40 mx-auto"
-                            />
-                          </div>
-                        ) : (
-                          <div className="p-8 text-center border border-dashed rounded-md">
-                            <PenTool className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                            <p className="text-muted-foreground">No client signature</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <h3 className="text-sm font-medium">Technician Signature</h3>
-                        {activeReport.technicianSignature ? (
-                          <div className="border rounded-md p-4">
-                            <img
-                              src={activeReport.technicianSignature}
-                              alt="Technician signature"
-                              className="max-h-40 mx-auto"
-                            />
-                          </div>
-                        ) : (
-                          <div className="p-8 text-center border border-dashed rounded-md">
-                            <PenTool className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
-                            <p className="text-muted-foreground">No technician signature</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>Service Report</CardTitle>
-                  <Badge variant="outline">Pending</Badge>
-                </div>
-                <CardDescription>
-                  This maintenance visit doesn't have a completed report yet
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-medium mb-2">No Report Available</h3>
-                  <p className="text-muted-foreground mb-6">
-                    There is no maintenance report for this service visit yet.
-                    Create a report to record service details, water chemistry readings, and more.
-                  </p>
-                  <Button onClick={() => setEditModalOpen(true)}>
-                    Create Service Report
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-        
-        <div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Information</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Client</h3>
-                <p>{maintenance.client.user.name}</p>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Address</h3>
-                <p>{maintenance.client.address || "No address"}</p>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Scheduled Date</h3>
-                <p>{format(new Date(maintenance.scheduleDate), "PPP")}</p>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Status</h3>
-                <Badge
-                  variant={
-                    maintenance.status === "completed" 
-                      ? "default" 
-                      : maintenance.status === "in_progress" 
-                        ? "secondary" 
-                        : "outline"
-                  }
-                >
-                  {maintenance.status.replace("_", " ")}
-                </Badge>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Service Type</h3>
-                <p className="capitalize">
-                  {maintenance.type.replace(/_/g, " ")}
-                </p>
-              </div>
-              
-              <Separator />
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground mb-1">Technician</h3>
-                <p>
-                  {maintenance.technician 
-                    ? maintenance.technician.user.name 
-                    : "Unassigned"}
-                </p>
-              </div>
-              
-              {maintenance.notes && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-1">Service Notes</h3>
-                    <p className="whitespace-pre-wrap">{maintenance.notes}</p>
                   </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                )}
+                
+                {maintenance.client && (
+                  <div className="flex flex-col gap-1 mt-2 pt-2 border-t">
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Pool Type</span>
+                      <span className="text-xs font-medium">{maintenance.client.poolType || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Pool Size</span>
+                      <span className="text-xs font-medium">{maintenance.client.poolSize || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Filter Type</span>
+                      <span className="text-xs font-medium">{maintenance.client.filterType || 'Not specified'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-muted-foreground">Contract Type</span>
+                      <span className="text-xs font-medium capitalize">{maintenance.client.contractType || 'Not specified'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Maintenance Info */}
+            <div className="rounded-lg border p-4">
+              <h2 className="font-semibold text-sm text-muted-foreground mb-3">SERVICE INFORMATION</h2>
+              
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="font-medium">{formatDate(maintenance.scheduleDate)}</span>
+                    {maintenance.scheduleDate && (
+                      <span className="text-sm text-muted-foreground ml-1">
+                        {formatTime(maintenance.scheduleDate)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-2">
+                  <SquareUser className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <div>
+                    <div className="font-medium">
+                      {maintenance.technician?.user?.name || 'Not Assigned'}
+                    </div>
+                    {maintenance.technician?.user?.phone && (
+                      <a href={`tel:${maintenance.technician.user.phone}`} className="text-sm text-muted-foreground hover:underline">
+                        {maintenance.technician.user.phone}
+                      </a>
+                    )}
+                  </div>
+                </div>
+                
+                {maintenance.type && (
+                  <div className="flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-muted-foreground" />
+                    <div className="font-medium capitalize">{maintenance.type} Service</div>
+                  </div>
+                )}
+                
+                {maintenance.routeName && (
+                  <div className="flex items-center gap-2">
+                    <Route className="h-4 w-4 text-muted-foreground" />
+                    <div className="text-sm">Route: {maintenance.routeName}</div>
+                  </div>
+                )}
+                
+                {maintenance.notes && (
+                  <div className="mt-2 pt-2 border-t">
+                    <div className="text-xs text-muted-foreground mb-1">Notes</div>
+                    <div className="text-sm">{maintenance.notes}</div>
+                  </div>
+                )}
+                
+                {maintenance.completionDate && (
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <div className="text-xs text-muted-foreground">Completed</div>
+                      <div className="text-sm font-medium">{formatDate(maintenance.completionDate)} {formatTime(maintenance.completionDate)}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border p-6 text-center">
+            <h2 className="font-semibold text-lg mb-2">Maintenance Not Found</h2>
+            <p className="text-muted-foreground mb-4">The maintenance record you're looking for doesn't exist or you may not have permission to view it.</p>
+            <Button onClick={() => navigate('/maintenance')}>
+              Return to Maintenance List
+            </Button>
+          </div>
+        )}
+        
+        {/* Report Form */}
+        {maintenance && <MaintenanceReportForm />}
       </div>
     </div>
   );

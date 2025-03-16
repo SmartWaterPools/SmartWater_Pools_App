@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex, doublePrecision, jsonb } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -407,9 +407,12 @@ export const maintenanceReports = pgTable("maintenance_reports", {
   completionDate: timestamp("completion_date").notNull(),
   waterReadingId: integer("water_reading_id").references(() => waterReadings.id),
   tasksCompleted: text("tasks_completed").array(), // Array of completed tasks
+  taskPhotos: text("task_photos"), // JSON string mapping task ID to photo URLs
+  beforePhotos: text("before_photos").array(), // Array of before service photo URLs
+  afterPhotos: text("after_photos").array(), // Array of after service photo URLs
   condition: text("condition"), // Overall pool condition (excellent, good, fair, poor)
   notes: text("notes"), // Technician notes
-  photos: text("photos").array(), // Array of photo URLs
+  photos: text("photos").array(), // Array of general photo URLs
   technicianId: integer("technician_id").references(() => technicians.id).notNull(),
   clientSignature: text("client_signature"), // URL to client signature image
   technicianSignature: text("technician_signature"), // URL to technician signature image
@@ -435,6 +438,10 @@ export const serviceTemplates = pgTable("service_templates", {
   description: text("description"),
   isDefault: boolean("is_default").default(false),
   checklistItems: text("checklist_items").array(), // Array of standard checklist items
+  checklistConfig: text("checklist_config"), // Configuration for each checklist item (photo required, etc.)
+  requireBeforePhotos: boolean("require_before_photos").default(false),
+  requireAfterPhotos: boolean("require_after_photos").default(false),
+  workflowSteps: text("workflow_steps"), // Ordered workflow steps
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
