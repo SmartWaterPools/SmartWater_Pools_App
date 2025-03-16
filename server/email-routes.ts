@@ -426,22 +426,21 @@ router.get('/providers', isAuthenticated, isAdmin, async (_req: Request, res: Re
  * Test API endpoint (no authentication required)
  * GET /api/email/email-test
  */
-router.get('/email-test', (_req: Request, res: Response) => {
+router.get('/email-test', async (_req: Request, res: Response) => {
   // Check if nodemailer and googleapis are available
   let nodemailerAvailable = false;
   let googleapisAvailable = false;
   
+  // Use dynamic imports to check for package availability
   try {
-    // Try to require nodemailer
-    require('nodemailer');
+    await import('nodemailer');
     nodemailerAvailable = true;
   } catch (error) {
     console.log('Nodemailer is not available');
   }
   
   try {
-    // Try to require googleapis
-    require('googleapis');
+    await import('googleapis');
     googleapisAvailable = true;
   } catch (error) {
     console.log('Googleapis is not available');
