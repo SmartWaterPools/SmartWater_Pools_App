@@ -29,6 +29,7 @@ import ClientPortal from "./pages/ClientPortal";
 import PoolWizardPage from "./pages/PoolWizardPage";
 import ServiceReport from "./pages/ServiceReport";
 import ServiceReportPage from "./pages/ServiceReportPage";
+import MaintenanceReportPage from "./pages/MaintenanceReportPage";
 import Communications from "./pages/Communications";
 import Business from "./pages/Business";
 import InventoryTransfers from "./pages/InventoryTransfers";
@@ -146,6 +147,7 @@ function App() {
                           <Route path="/client-portal" component={ClientPortal} />
                           <Route path="/service-report/:id" component={ServiceReport} />
                           <Route path="/service-report-page/:id" component={ServiceReportPage} />
+                          <Route path="/maintenance-report/:id" component={MaintenanceReportPage} />
                           <Route path="/communications" component={Communications} />
                           <Route path="/business" component={Business} />
                           <Route path="/inventory/transfers" component={InventoryTransfers} />

@@ -135,6 +135,13 @@ export interface IStorage {
   createWaterReading(reading: InsertWaterReading): Promise<WaterReading>;
   getWaterReadingsByMaintenanceId(maintenanceId: number): Promise<WaterReading[]>;
   getLatestWaterReadingByClientId(clientId: number): Promise<WaterReading | undefined>;
+
+  // Maintenance Report operations
+  getMaintenanceReport(id: number): Promise<MaintenanceReport | undefined>;
+  getMaintenanceReportsByMaintenanceId(maintenanceId: number): Promise<MaintenanceReport[]>;
+  createMaintenanceReport(report: InsertMaintenanceReport): Promise<MaintenanceReport>;
+  updateMaintenanceReport(id: number, report: Partial<MaintenanceReport>): Promise<MaintenanceReport | undefined>;
+  deleteMaintenanceReport(id: number): Promise<boolean>;
   
   // Repair operations
   getRepair(id: number): Promise<Repair | undefined>;
@@ -373,6 +380,8 @@ export class MemStorage implements IStorage {
   private serviceTemplateId: number;
   private projectDocuments: Map<number, ProjectDocumentation>;
   private projectDocumentId: number;
+  private maintenanceReports: Map<number, MaintenanceReport>;
+  private maintenanceReportId: number;
   private communicationProviderId: number;
   private chemicalUsageId: number;
   private waterReadingId: number;
@@ -406,6 +415,7 @@ export class MemStorage implements IStorage {
     this.poolImages = new Map();
     this.serviceTemplates = new Map();
     this.projectDocuments = new Map();
+    this.maintenanceReports = new Map();
     this.communicationProviders = new Map();
     this.chemicalUsage = new Map();
     this.waterReadings = new Map();
@@ -438,6 +448,7 @@ export class MemStorage implements IStorage {
     this.poolImageId = 1;
     this.serviceTemplateId = 1;
     this.projectDocumentId = 1;
+    this.maintenanceReportId = 1;
     this.communicationProviderId = 1;
     this.chemicalUsageId = 1;
     this.waterReadingId = 1;
@@ -1755,6 +1766,51 @@ export class MemStorage implements IStorage {
     return clientWaterReadings.sort((a, b) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     })[0];
+  }
+
+  // Maintenance Report operations
+  async getMaintenanceReport(id: number): Promise<MaintenanceReport | undefined> {
+    return this.maintenanceReports.get(id);
+  }
+
+  async getMaintenanceReportsByMaintenanceId(maintenanceId: number): Promise<MaintenanceReport[]> {
+    return Array.from(this.maintenanceReports.values()).filter(
+      report => report.maintenanceId === maintenanceId
+    );
+  }
+
+  async createMaintenanceReport(report: InsertMaintenanceReport): Promise<MaintenanceReport> {
+    const id = this.maintenanceReportId++;
+    const newReport: MaintenanceReport = {
+      ...report,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.maintenanceReports.set(id, newReport);
+    return newReport;
+  }
+
+  async updateMaintenanceReport(id: number, report: Partial<MaintenanceReport>): Promise<MaintenanceReport | undefined> {
+    const existingReport = this.maintenanceReports.get(id);
+    if (!existingReport) {
+      return undefined;
+    }
+
+    const updatedReport: MaintenanceReport = {
+      ...existingReport,
+      ...report,
+      updatedAt: new Date()
+    };
+    this.maintenanceReports.set(id, updatedReport);
+    return updatedReport;
+  }
+
+  async deleteMaintenanceReport(id: number): Promise<boolean> {
+    if (!this.maintenanceReports.has(id)) {
+      return false;
+    }
+    return this.maintenanceReports.delete(id);
   }
   
   // Repair operations
@@ -3918,6 +3974,60 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     return latestReading || undefined;
+  }
+
+  // Maintenance Report operations
+  async getMaintenanceReport(id: number): Promise<MaintenanceReport | undefined> {
+    const [report] = await db
+      .select()
+      .from(maintenanceReports)
+      .where(eq(maintenanceReports.id, id))
+      .limit(1);
+    
+    return report;
+  }
+
+  async getMaintenanceReportsByMaintenanceId(maintenanceId: number): Promise<MaintenanceReport[]> {
+    return db
+      .select()
+      .from(maintenanceReports)
+      .where(eq(maintenanceReports.maintenanceId, maintenanceId))
+      .orderBy(desc(maintenanceReports.createdAt));
+  }
+
+  async createMaintenanceReport(report: InsertMaintenanceReport): Promise<MaintenanceReport> {
+    const [newReport] = await db
+      .insert(maintenanceReports)
+      .values(report)
+      .returning();
+    
+    return newReport;
+  }
+
+  async updateMaintenanceReport(id: number, report: Partial<MaintenanceReport>): Promise<MaintenanceReport | undefined> {
+    const [updatedReport] = await db
+      .update(maintenanceReports)
+      .set({ 
+        ...report,
+        updatedAt: new Date()
+      })
+      .where(eq(maintenanceReports.id, id))
+      .returning();
+    
+    return updatedReport;
+  }
+
+  async deleteMaintenanceReport(id: number): Promise<boolean> {
+    try {
+      await db
+        .delete(maintenanceReports)
+        .where(eq(maintenanceReports.id, id));
+      
+      return true;
+    } catch (error) {
+      console.error("Failed to delete maintenance report:", error);
+      return false;
+    }
   }
 
   // Repair operations

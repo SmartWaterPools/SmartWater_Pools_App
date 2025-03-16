@@ -2336,6 +2336,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Maintenance Report Routes
+  app.get("/api/maintenance-reports/:id", async (req: Request, res: Response) => {
+    try {
+      const reportId = parseInt(req.params.id);
+      
+      if (isNaN(reportId)) {
+        return res.status(400).json({ message: "Invalid report ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // This would require joining reports to maintenances to clients to verify organization
+        // For simplicity, we'll implement basic access check
+        const report = await storage.getMaintenanceReport(reportId);
+        if (report) {
+          const maintenance = await storage.getMaintenance(report.maintenanceId);
+          if (maintenance) {
+            const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+            
+            if (!clientWithUser || !clientWithUser.user || 
+                clientWithUser.user.organizationId !== reqUser.organizationId) {
+              console.log(`[API] User from organization ${reqUser.organizationId} attempted to access maintenance report from client in organization ${clientWithUser?.user?.organizationId}`);
+              return res.status(403).json({ message: "You don't have permission to access this maintenance report" });
+            }
+          }
+        }
+      }
+      
+      const report = await storage.getMaintenanceReport(reportId);
+      
+      if (!report) {
+        return res.status(404).json({ message: "Maintenance report not found" });
+      }
+      
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching maintenance report:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance report" });
+    }
+  });
+
+  app.get("/api/maintenance-reports/maintenance/:maintenanceId", async (req: Request, res: Response) => {
+    try {
+      const maintenanceId = parseInt(req.params.maintenanceId);
+      
+      if (isNaN(maintenanceId)) {
+        return res.status(400).json({ message: "Invalid maintenance ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the maintenance belongs to user's organization
+        const maintenance = await storage.getMaintenance(maintenanceId);
+        if (maintenance) {
+          const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+          
+          if (!clientWithUser || !clientWithUser.user || 
+              clientWithUser.user.organizationId !== reqUser.organizationId) {
+            console.log(`[API] User from organization ${reqUser.organizationId} attempted to access maintenance reports from client in organization ${clientWithUser?.user?.organizationId}`);
+            return res.status(403).json({ message: "You don't have permission to access these maintenance reports" });
+          }
+        }
+      }
+      
+      const reports = await storage.getMaintenanceReportsByMaintenanceId(maintenanceId);
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching maintenance reports:", error);
+      res.status(500).json({ message: "Failed to fetch maintenance reports" });
+    }
+  });
+
+  app.post("/api/maintenance-reports", async (req: Request, res: Response) => {
+    try {
+      const reportData = req.body;
+      
+      // Basic validation
+      if (!reportData.maintenanceId) {
+        return res.status(400).json({ message: "Maintenance ID is required" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the maintenance belongs to user's organization
+        const maintenance = await storage.getMaintenance(reportData.maintenanceId);
+        if (maintenance) {
+          const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+          
+          if (!clientWithUser || !clientWithUser.user || 
+              clientWithUser.user.organizationId !== reqUser.organizationId) {
+            console.log(`[API] User from organization ${reqUser.organizationId} attempted to create maintenance report for client in organization ${clientWithUser?.user?.organizationId}`);
+            return res.status(403).json({ message: "You don't have permission to create a maintenance report for this client" });
+          }
+        }
+      }
+      
+      const report = await storage.createMaintenanceReport(reportData);
+      res.status(201).json(report);
+    } catch (error) {
+      console.error("Error creating maintenance report:", error);
+      res.status(500).json({ message: "Failed to create maintenance report" });
+    }
+  });
+
+  app.patch("/api/maintenance-reports/:id", async (req: Request, res: Response) => {
+    try {
+      const reportId = parseInt(req.params.id);
+      const reportData = req.body;
+      
+      if (isNaN(reportId)) {
+        return res.status(400).json({ message: "Invalid report ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the report belongs to user's organization
+        const existingReport = await storage.getMaintenanceReport(reportId);
+        if (existingReport) {
+          const maintenance = await storage.getMaintenance(existingReport.maintenanceId);
+          if (maintenance) {
+            const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+            
+            if (!clientWithUser || !clientWithUser.user || 
+                clientWithUser.user.organizationId !== reqUser.organizationId) {
+              console.log(`[API] User from organization ${reqUser.organizationId} attempted to update maintenance report for client in organization ${clientWithUser?.user?.organizationId}`);
+              return res.status(403).json({ message: "You don't have permission to update this maintenance report" });
+            }
+          }
+        }
+      }
+      
+      const updatedReport = await storage.updateMaintenanceReport(reportId, reportData);
+      
+      if (!updatedReport) {
+        return res.status(404).json({ message: "Maintenance report not found" });
+      }
+      
+      res.json(updatedReport);
+    } catch (error) {
+      console.error("Error updating maintenance report:", error);
+      res.status(500).json({ message: "Failed to update maintenance report" });
+    }
+  });
+
+  app.delete("/api/maintenance-reports/:id", async (req: Request, res: Response) => {
+    try {
+      const reportId = parseInt(req.params.id);
+      
+      if (isNaN(reportId)) {
+        return res.status(400).json({ message: "Invalid report ID" });
+      }
+      
+      // Check organization security
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Check if the report belongs to user's organization
+        const existingReport = await storage.getMaintenanceReport(reportId);
+        if (existingReport) {
+          const maintenance = await storage.getMaintenance(existingReport.maintenanceId);
+          if (maintenance) {
+            const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+            
+            if (!clientWithUser || !clientWithUser.user || 
+                clientWithUser.user.organizationId !== reqUser.organizationId) {
+              console.log(`[API] User from organization ${reqUser.organizationId} attempted to delete maintenance report for client in organization ${clientWithUser?.user?.organizationId}`);
+              return res.status(403).json({ message: "You don't have permission to delete this maintenance report" });
+            }
+          }
+        }
+      }
+      
+      const success = await storage.deleteMaintenanceReport(reportId);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Maintenance report not found or could not be deleted" });
+      }
+      
+      res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting maintenance report:", error);
+      res.status(500).json({ message: "Failed to delete maintenance report" });
+    }
+  });
+
   // Communication Provider endpoints
   app.get("/api/communication-providers", async (req: Request, res: Response) => {
     try {

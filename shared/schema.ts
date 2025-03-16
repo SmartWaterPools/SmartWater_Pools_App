@@ -400,6 +400,33 @@ export const insertWaterReadingsSchema = createInsertSchema(waterReadings).omit(
   createdAt: true,
 });
 
+// Maintenance reports schema for comprehensive service logging
+export const maintenanceReports = pgTable("maintenance_reports", {
+  id: serial("id").primaryKey(),
+  maintenanceId: integer("maintenance_id").references(() => maintenances.id).notNull(),
+  completionDate: timestamp("completion_date").notNull(),
+  waterReadingId: integer("water_reading_id").references(() => waterReadings.id),
+  tasksCompleted: text("tasks_completed").array(), // Array of completed tasks
+  condition: text("condition"), // Overall pool condition (excellent, good, fair, poor)
+  notes: text("notes"), // Technician notes
+  photos: text("photos").array(), // Array of photo URLs
+  technicianId: integer("technician_id").references(() => technicians.id).notNull(),
+  clientSignature: text("client_signature"), // URL to client signature image
+  technicianSignature: text("technician_signature"), // URL to technician signature image
+  laborTimeMinutes: integer("labor_time_minutes"), // Time spent on service
+  chemicalCost: integer("chemical_cost"), // Cost of chemicals used in cents
+  equipmentIssues: text("equipment_issues"), // Equipment issues identified
+  recommendedServices: text("recommended_services"), // Recommended follow-up services
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertMaintenanceReportSchema = createInsertSchema(maintenanceReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Service templates schema for global service checklists
 export const serviceTemplates = pgTable("service_templates", {
   id: serial("id").primaryKey(),
@@ -528,6 +555,23 @@ export const maintenancesRelations = relations(maintenances, ({ one, many }) => 
   }),
   chemicalUsages: many(chemicalUsage),
   waterReadings: many(waterReadings),
+  maintenanceReports: many(maintenanceReports),
+}));
+
+// Maintenance report relations
+export const maintenanceReportsRelations = relations(maintenanceReports, ({ one }) => ({
+  maintenance: one(maintenances, {
+    fields: [maintenanceReports.maintenanceId],
+    references: [maintenances.id],
+  }),
+  waterReading: one(waterReadings, {
+    fields: [maintenanceReports.waterReadingId],
+    references: [waterReadings.id],
+  }),
+  technician: one(technicians, {
+    fields: [maintenanceReports.technicianId],
+    references: [technicians.id],
+  }),
 }));
 
 export const repairsRelations = relations(repairs, ({ one }) => ({
@@ -696,6 +740,9 @@ export type InsertChemicalUsage = z.infer<typeof insertChemicalUsageSchema>;
 
 export type WaterReading = typeof waterReadings.$inferSelect;
 export type InsertWaterReading = z.infer<typeof insertWaterReadingsSchema>;
+
+export type MaintenanceReport = typeof maintenanceReports.$inferSelect;
+export type InsertMaintenanceReport = z.infer<typeof insertMaintenanceReportSchema>;
 
 export type ServiceTemplate = typeof serviceTemplates.$inferSelect;
 export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
