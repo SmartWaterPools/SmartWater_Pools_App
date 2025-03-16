@@ -30,7 +30,7 @@ export const insertOrganizationSchema = createInsertSchema(organizations).omit({
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"),  // Can be null for OAuth users
   name: text("name").notNull(),
   email: text("email").notNull(),
   role: text("role").notNull().default("client"), // system_admin, org_admin, manager, technician, client, office_staff
@@ -38,6 +38,9 @@ export const users = pgTable("users", {
   address: text("address"),
   active: boolean("active").notNull().default(true),
   organizationId: integer("organization_id").references(() => organizations.id).notNull(),
+  googleId: text("google_id").unique(), // Google OAuth ID
+  photoUrl: text("photo_url"), // User's profile photo from Google
+  authProvider: text("auth_provider").default("local"), // 'local', 'google', etc.
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

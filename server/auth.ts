@@ -1,5 +1,6 @@
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import bcrypt from 'bcrypt';
 import { User } from '@shared/schema';
 import { IStorage } from './storage';
@@ -40,10 +41,10 @@ export function configurePassport(storage: IStorage) {
           // Check if the stored password is a bcrypt hash
           let isValidPassword = false;
           
-          if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+          if (user.password && (user.password.startsWith('$2b$') || user.password.startsWith('$2a$'))) {
             // Use bcrypt comparison for hashed passwords
             isValidPassword = await bcrypt.compare(password, user.password);
-          } else {
+          } else if (user.password) {
             // For plain text passwords (temporary during migration)
             isValidPassword = password === user.password;
             
@@ -53,6 +54,9 @@ export function configurePassport(storage: IStorage) {
               await storage.updateUser(user.id, { password: hashedPassword });
               console.log(`Updated password hash for user: ${user.username}`);
             }
+          } else {
+            // No password set (OAuth user)
+            isValidPassword = false;
           }
           
           if (!isValidPassword) {
@@ -67,6 +71,85 @@ export function configurePassport(storage: IStorage) {
       }
     )
   );
+  
+  // Configure Google OAuth strategy
+  const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+  const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+  const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback';
+  
+  if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+    passport.use(
+      new GoogleStrategy(
+        {
+          clientID: GOOGLE_CLIENT_ID,
+          clientSecret: GOOGLE_CLIENT_SECRET,
+          callbackURL: GOOGLE_CALLBACK_URL,
+          scope: ['profile', 'email']
+        },
+        async (accessToken, refreshToken, profile, done) => {
+          try {
+            // Check if user already exists with this Google ID
+            const existingUser = await storage.getUserByGoogleId(profile.id);
+            
+            if (existingUser) {
+              // If user exists, return the user
+              return done(null, existingUser);
+            }
+            
+            // If user doesn't exist, create a new one
+            // First, check if the email is already in use
+            const email = profile.emails && profile.emails[0] ? profile.emails[0].value : '';
+            
+            if (email) {
+              const userWithEmail = await storage.getUserByEmail(email);
+              
+              if (userWithEmail) {
+                // Link Google account to existing user
+                const updatedUser = await storage.updateUser(userWithEmail.id, {
+                  googleId: profile.id,
+                  photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                  authProvider: 'google'
+                });
+                
+                return done(null, updatedUser);
+              }
+            }
+            
+            // Create new user
+            const username = email.split('@')[0] + '_' + Math.floor(Math.random() * 1000);
+            const displayName = profile.displayName || (profile.name ? `${profile.name.givenName} ${profile.name.familyName}` : username);
+            
+            // Get the default organization ID
+            const organizations = await storage.getAllOrganizations();
+            const defaultOrg = organizations.find(org => org.isSystemAdmin) || organizations[0];
+            
+            if (!defaultOrg) {
+              return done(new Error('No default organization found'), null);
+            }
+            
+            const newUser = await storage.createUser({
+              username,
+              name: displayName,
+              email: email || username + '@example.com', // Fallback email if none provided
+              role: 'client', // Default role for new users
+              googleId: profile.id,
+              photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+              authProvider: 'google',
+              organizationId: defaultOrg.id,
+              active: true
+            });
+            
+            return done(null, newUser);
+          } catch (error) {
+            return done(error);
+          }
+        }
+      )
+    );
+    console.log('Google OAuth strategy configured');
+  } else {
+    console.log('Google OAuth not configured. GOOGLE_CLIENT_ID and/or GOOGLE_CLIENT_SECRET not set');
+  }
   
   return passport;
 }

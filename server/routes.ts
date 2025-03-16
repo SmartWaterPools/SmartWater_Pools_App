@@ -144,6 +144,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Google OAuth login route
+  app.get('/api/auth/google', passport.authenticate('google', { 
+    scope: ['profile', 'email'],
+    // Force approval screen
+    prompt: 'select_account'
+  }));
+  
+  // Google OAuth callback route
+  app.get('/api/auth/google/callback', 
+    passport.authenticate('google', { 
+      failureRedirect: '/login',
+      failureMessage: true
+    }),
+    (req, res) => {
+      // Successful authentication, redirect to home page
+      res.redirect('/');
+    }
+  );
+  
   app.get("/api/auth/session", (req: Request, res: Response) => {
     if (req.isAuthenticated()) {
       // Don't send password to the client

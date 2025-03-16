@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, ShieldAlert, KeySquare } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { FcGoogle } from "react-icons/fc";
 
 // Define login form schema
 const loginFormSchema = z.object({
@@ -186,6 +187,26 @@ export default function Login() {
               </Button>
             </form>
           </Form>
+          
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-300" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-white px-2 text-muted-foreground">Or</span>
+            </div>
+          </div>
+          
+          <a href="/api/auth/google" className="w-full">
+            <Button 
+              variant="outline" 
+              className="w-full flex items-center justify-center" 
+              type="button"
+            >
+              <FcGoogle className="mr-2 h-5 w-5" />
+              Sign in with Google
+            </Button>
+          </a>
           
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

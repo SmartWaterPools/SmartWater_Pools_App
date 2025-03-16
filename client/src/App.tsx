@@ -39,6 +39,9 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/not-found";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
+import OAuthConsent from "./pages/OAuthConsent";
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -78,6 +81,15 @@ function App() {
                 </Route>
                 <Route path="/unauthorized">
                   <Unauthorized />
+                </Route>
+                <Route path="/privacy-policy">
+                  <PrivacyPolicy />
+                </Route>
+                <Route path="/terms-of-service">
+                  <TermsOfService />
+                </Route>
+                <Route path="/oauth-consent">
+                  <OAuthConsent />
                 </Route>
                 
                 {/* Protected routes */}
