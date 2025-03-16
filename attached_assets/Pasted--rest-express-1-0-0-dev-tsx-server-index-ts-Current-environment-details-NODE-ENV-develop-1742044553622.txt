@@ -1,0 +1,38 @@
+> rest-express@1.0.0 dev
+> tsx server/index.ts
+
+Current environment details:
+- NODE_ENV: development
+- REPL_ID: 960d6dab-9873-41e1-b9b3-27c1b66a670f
+- REPL_SLUG: workspace
+- REPL_OWNER: TravisDeRisi
+- PORT: not set
+- Selected Port: 5000
+- Is Replit Environment: Yes
+1:04:40 PM [scheduler] Scheduler: Incomplete maintenance rescheduling job scheduled to run in 655 minutes
+1:04:40 PM [scheduler] Scheduler initialized
+🚀 Server is now listening on port 5000
+1:04:40 PM [express] Server running on port 5000 - Environment: development
+1:04:40 PM [express] Local access URL: http://localhost:5000
+1:04:40 PM [express] Network access URL: http://0.0.0.0:5000
+1:04:40 PM [express] Replit access URL: https://workspace.TravisDeRisi.repl.co
+1:04:40 PM [express] Using port 5000 for server compatibility
+1:04:40 PM [express] Running in Replit environment - make sure to use relative URLs in frontend
+1:04:40 PM [express] Server ready and accepting connections on port 5000
+1:05:01 PM [express] GET /api/auth/session 200 in 24ms :: {"isAuthenticated":true,"user":{"id":6,"us…
+Successfully retrieved Google Maps API key for client
+1:05:01 PM [express] GET /api/google-maps-key 200 in 36ms :: {"apiKey":"AIzaSyB3mCrj1qCOz6wCAxPqBq3g…
+Retrieved 9 projects
+Successfully retrieved client 2 with user 2
+Successfully retrieved client 5 with user 8
+Successfully retrieved client 5 with user 8
+Successfully retrieved client 5 with user 8
+Successfully retrieved client 5 with user 8
+Successfully retrieved client 2 with user 2
+Successfully retrieved client 1 with user 1
+Successfully retrieved client 3 with user 3
+Successfully retrieved client 2 with user 2
+Successfully retrieved client 1 with user 1
+1:05:02 PM [express] GET /api/dashboard/summary 200 in 551ms :: {"metrics":{"activeProjects":9,"main…
+1:05:24 PM [express] GET /api/service-templates 304 in 54ms :: [{"id":1,"name":"Weekly Pool Service"…
+1:05:38 PM [express] GET /api/users 200 in 64ms :: [{"id":1,"username":"test.client1","password":"$2…

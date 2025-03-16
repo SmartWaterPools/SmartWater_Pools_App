@@ -10,6 +10,7 @@ import path from "path";
 import pg from "pg";
 const { Pool } = pg;
 import connectPgSimple from "connect-pg-simple";
+import { loadEmailConfigFromDatabase } from "./email-service";
 
 const app = express();
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images
@@ -102,6 +103,25 @@ app.use((req, res, next) => {
   // Default port hierarchy: PORT env var > 5000 (for Replit workflow) > 3000 (local dev)
   const defaultPort = isReplit ? 5000 : (isProduction ? 5000 : 3000);
   const port = process.env.PORT ? parseInt(process.env.PORT, 10) : defaultPort;
+  
+  // Load email configuration from database
+  try {
+    // This might take a moment, but we don't need to wait for it to complete
+    // Email functionality will be enabled once this completes
+    loadEmailConfigFromDatabase().then(success => {
+      if (success) {
+        log('Email configuration successfully loaded from database');
+      } else {
+        log('No email provider configured. Email functionality will be disabled.');
+      }
+    }).catch(error => {
+      console.error('Error loading email configuration:', error);
+      log('Email functionality will be disabled due to configuration error');
+    });
+  } catch (error) {
+    console.error('Exception during email configuration setup:', error);
+    log('Email functionality will be disabled due to setup error');
+  }
   
   // Output the current environment details for easier debugging
   console.log('Current environment details:');

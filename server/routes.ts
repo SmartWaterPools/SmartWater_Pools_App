@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fs, path, rootDir } from "./utils";
+import emailRoutes from "./email-routes";
 import { 
   insertUserSchema, 
   insertClientSchema, 
@@ -194,6 +195,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to register user" });
     }
   });
+
+  // Email-related routes for password reset, 2FA, etc.
+  app.use("/api/email", emailRoutes);
 
   // Enhanced health check endpoint with detailed diagnostics
   app.get("/api/health", (req: Request, res: Response) => {
@@ -2703,6 +2707,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid route ID" });
       }
       
+      // Get existing route to check organization permissions
+      const existingRoute = await storage.getRoute(id);
+      if (!existingRoute) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      // Apply organization security check
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to update routes" });
+      }
+      
+      // Check organization boundary for non-system admins
+      if (reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (existingRoute.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to update route from organization ${existingRoute.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this route" });
+        }
+      }
+      
+      // Prevent organization ID changes for security reasons
+      if (req.body.organizationId && existingRoute.organizationId !== req.body.organizationId) {
+        // Only system admins can change organization assignments
+        if (reqUser.role !== 'system_admin') {
+          console.log(`[API] Attempt to change route organization from ${existingRoute.organizationId} to ${req.body.organizationId} blocked`);
+          return res.status(403).json({ message: "You don't have permission to change a route's organization" });
+        }
+      }
+      
+      // Proceed with update
       const route = await storage.updateRoute(id, req.body);
       if (!route) {
         return res.status(404).json({ message: "Route not found" });
@@ -2722,6 +2756,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid route ID" });
       }
       
+      // Get existing route to check organization permissions
+      const existingRoute = await storage.getRoute(id);
+      if (!existingRoute) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      // Apply organization security check
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to delete routes" });
+      }
+      
+      // Check organization boundary for non-system admins
+      if (reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (existingRoute.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to delete route from organization ${existingRoute.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to delete this route" });
+        }
+      }
+      
+      // Only after permission check, proceed with deletion
       const success = await storage.deleteRoute(id);
       if (!success) {
         return res.status(404).json({ message: "Route not found" });
@@ -2764,8 +2819,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid day of week" });
       }
       
+      // Get all routes for the specified day
       const routes = await storage.getRoutesByDayOfWeek(dayOfWeek.toLowerCase());
-      res.json(routes);
+      
+      // Apply organization filtering
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Filter routes to only show those from user's organization
+        const filteredRoutes = routes.filter(route => route.organizationId === reqUser.organizationId);
+        res.json(filteredRoutes);
+      } else if (reqUser && reqUser.role === 'system_admin') {
+        // System admins can see all routes
+        res.json(routes);
+      } else {
+        // Not authenticated or missing organization info
+        return res.status(403).json({ message: "Authentication required to view routes" });
+      }
     } catch (error) {
       console.error("Error fetching routes by day of week:", error);
       res.status(500).json({ message: "Failed to fetch routes by day of week" });
@@ -2784,8 +2853,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Get all routes for the specified type
       const routes = await storage.getRoutesByType(type.toLowerCase());
-      res.json(routes);
+      
+      // Apply organization filtering
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Filter routes to only show those from user's organization
+        const filteredRoutes = routes.filter(route => route.organizationId === reqUser.organizationId);
+        res.json(filteredRoutes);
+      } else if (reqUser && reqUser.role === 'system_admin') {
+        // System admins can see all routes
+        res.json(routes);
+      } else {
+        // Not authenticated or missing organization info
+        return res.status(403).json({ message: "Authentication required to view routes" });
+      }
     } catch (error) {
       console.error("Error fetching routes by type:", error);
       res.status(500).json({ message: "Failed to fetch routes by type" });
@@ -2805,6 +2888,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Route assignment not found" });
       }
       
+      // Get the route to check organization access
+      const route = await storage.getRoute(assignment.routeId);
+      if (!route) {
+        return res.status(404).json({ message: "Associated route not found" });
+      }
+      
+      // Check organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (route.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access route assignment from organization ${route.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this route assignment" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to view route assignments" });
+      }
+      
       res.json(assignment);
     } catch (error) {
       console.error("Error fetching route assignment:", error);
@@ -2820,6 +2920,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validation.error });
       }
       
+      // Check if route exists and verify organization permissions
+      const routeId = validation.data.routeId;
+      const route = await storage.getRoute(routeId);
+      if (!route) {
+        return res.status(404).json({ message: "Route not found" });
+      }
+      
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (route.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to create route assignment for route from organization ${route.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to create assignments for this route" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to create route assignments" });
+      }
+      
       const assignment = await storage.createRouteAssignment(validation.data);
       res.status(201).json(assignment);
     } catch (error) {
@@ -2833,6 +2951,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid route assignment ID" });
+      }
+      
+      // Get the current assignment to check permissions
+      const currentAssignment = await storage.getRouteAssignment(id);
+      if (!currentAssignment) {
+        return res.status(404).json({ message: "Route assignment not found" });
+      }
+      
+      // Get the route to check organization permissions
+      const route = await storage.getRoute(currentAssignment.routeId);
+      if (!route) {
+        return res.status(404).json({ message: "Associated route not found" });
+      }
+      
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (route.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to update route assignment for route from organization ${route.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this route assignment" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to update route assignments" });
+      }
+      
+      // If the routeId is being updated, check permissions for the new route too
+      if (req.body.routeId && req.body.routeId !== currentAssignment.routeId) {
+        const newRoute = await storage.getRoute(req.body.routeId);
+        if (!newRoute) {
+          return res.status(404).json({ message: "New route not found" });
+        }
+        
+        // Verify organization permission for the new route
+        if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+          if (newRoute.organizationId !== reqUser.organizationId) {
+            console.log(`[API] User from organization ${reqUser.organizationId} attempted to update route assignment to a route from organization ${newRoute.organizationId}`);
+            return res.status(403).json({ message: "You don't have permission to assign to this route" });
+          }
+        }
       }
       
       const assignment = await storage.updateRouteAssignment(id, req.body);
@@ -2852,6 +3009,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid route assignment ID" });
+      }
+      
+      // Get the assignment to check permissions
+      const assignment = await storage.getRouteAssignment(id);
+      if (!assignment) {
+        return res.status(404).json({ message: "Route assignment not found" });
+      }
+      
+      // Get the route to check organization permissions
+      const route = await storage.getRoute(assignment.routeId);
+      if (!route) {
+        return res.status(404).json({ message: "Associated route not found" });
+      }
+      
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (route.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to delete route assignment for route from organization ${route.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to delete this route assignment" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to delete route assignments" });
       }
       
       const success = await storage.deleteRouteAssignment(id);
@@ -2879,6 +3059,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Route not found" });
       }
       
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (route.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access route assignments for route from organization ${route.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access assignments for this route" });
+        }
+      }
+      
       const assignments = await storage.getRouteAssignmentsByRouteId(routeId);
       res.json(assignments);
     } catch (error) {
@@ -2898,6 +3087,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const maintenance = await storage.getMaintenance(maintenanceId);
       if (!maintenance) {
         return res.status(404).json({ message: "Maintenance not found" });
+      }
+      
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Get the client to check organization
+        const client = await storage.getClient(maintenance.clientId);
+        if (!client) {
+          return res.status(404).json({ message: "Associated client not found" });
+        }
+        
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access route assignments for maintenance from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access assignments for this maintenance" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to access route assignments" });
       }
       
       const assignments = await storage.getRouteAssignmentsByMaintenanceId(maintenanceId);
@@ -2926,6 +3132,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Route not found" });
       }
       
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (route.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to reorder route assignments for route from organization ${route.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to reorder assignments for this route" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to reorder route assignments" });
+      }
+      
       const assignments = await storage.reorderRouteAssignments(routeId, assignmentIds);
       res.json(assignments);
     } catch (error) {
@@ -2934,13 +3151,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/dashboard/summary", async (_req: Request, res: Response) => {
+  app.get("/api/dashboard/summary", async (req: Request, res: Response) => {
     try {
-      const projects = await storage.getAllProjects();
-      const maintenances = await storage.getUpcomingMaintenances(7);
-      const repairs = await storage.getRecentRepairs(5);
-      const clients = await storage.getAllClients();
-
+      const reqUser = req.user as any;
+      let projects, maintenances, repairs, clients;
+      
+      // Filter by organization if user is not system_admin
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        // Get organization-specific data
+        projects = (await storage.getAllProjects()).filter(p => {
+          // For each project, get the client and check their organization
+          const client = storage.getClient(p.clientId);
+          return client.then(c => c?.organizationId === reqUser.organizationId);
+        });
+        
+        // Filter maintenances by organization through clients
+        maintenances = (await storage.getUpcomingMaintenances(7)).filter(m => {
+          const client = storage.getClient(m.clientId);
+          return client.then(c => c?.organizationId === reqUser.organizationId);
+        });
+        
+        // Filter repairs by organization through clients
+        repairs = (await storage.getRecentRepairs(5)).filter(r => {
+          const client = storage.getClient(r.clientId);
+          return client.then(c => c?.organizationId === reqUser.organizationId);
+        });
+        
+        // Filter clients by organization
+        clients = (await storage.getAllClients()).filter(c => 
+          c.organizationId === reqUser.organizationId
+        );
+      } else {
+        // System admin or unauthenticated user gets all data
+        projects = await storage.getAllProjects();
+        maintenances = await storage.getUpcomingMaintenances(7);
+        repairs = await storage.getRecentRepairs(5);
+        clients = await storage.getAllClients();
+      }
+      
       const summary = {
         metrics: {
           activeProjects: projects.filter(p => p.status !== "completed").length,
@@ -3012,6 +3260,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid project ID" });
       }
 
+      // Get the project to verify organization permissions
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get the client to check organization
+      const client = await storage.getClient(project.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Associated client not found" });
+      }
+
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access project documents from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access these project documents" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to access project documents" });
+      }
+
       const documents = await storage.getProjectDocumentsByProjectId(projectId);
       res.json(documents);
     } catch (error) {
@@ -3025,6 +3296,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const projectId = parseInt(req.params.projectId);
       if (isNaN(projectId)) {
         return res.status(400).json({ message: "Invalid project ID" });
+      }
+
+      // Get the project to verify organization permissions
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      // Get the client to check organization
+      const client = await storage.getClient(project.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Associated client not found" });
+      }
+
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access project documents by type from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access these project documents" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to access project documents" });
       }
 
       const { documentType } = req.params;
@@ -3043,6 +3337,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid phase ID" });
       }
 
+      // Get the phase to verify organization permissions
+      const phase = await storage.getProjectPhase(phaseId);
+      if (!phase) {
+        return res.status(404).json({ message: "Phase not found" });
+      }
+
+      // Get the project
+      const project = await storage.getProject(phase.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Associated project not found" });
+      }
+
+      // Get the client to check organization
+      const client = await storage.getClient(project.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Associated client not found" });
+      }
+
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access phase documents from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access these phase documents" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to access phase documents" });
+      }
+
       const documents = await storage.getProjectDocumentsByPhaseId(phaseId);
       res.json(documents);
     } catch (error) {
@@ -3058,9 +3381,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid document ID" });
       }
 
+      // Get the document
       const document = await storage.getProjectDocument(id);
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
+      }
+
+      // Get the project
+      const project = await storage.getProject(document.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Associated project not found" });
+      }
+
+      // Get the client to check organization
+      const client = await storage.getClient(project.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Associated client not found" });
+      }
+
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to access document from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to access this document" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to access documents" });
       }
 
       res.json(document);
@@ -3081,6 +3428,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = await storage.getProject(projectId);
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
+      }
+      
+      // Get the client to check organization
+      const client = await storage.getClient(project.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Associated client not found" });
+      }
+
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to create document for project from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to create documents for this project" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to create project documents" });
       }
 
       // Validate document data
@@ -3111,6 +3475,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
       }
+      
+      // Get the project
+      const project = await storage.getProject(document.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Associated project not found" });
+      }
+
+      // Get the client to check organization
+      const client = await storage.getClient(project.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Associated client not found" });
+      }
+
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to update document from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to update this document" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to update documents" });
+      }
 
       // Update document
       const updatedDocument = await storage.updateProjectDocument(id, req.body);
@@ -3132,6 +3519,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const document = await storage.getProjectDocument(id);
       if (!document) {
         return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Get the project
+      const project = await storage.getProject(document.projectId);
+      if (!project) {
+        return res.status(404).json({ message: "Associated project not found" });
+      }
+
+      // Get the client to check organization
+      const client = await storage.getClient(project.clientId);
+      if (!client) {
+        return res.status(404).json({ message: "Associated client not found" });
+      }
+
+      // Verify organization permission
+      const reqUser = req.user as any;
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        if (client.organizationId !== reqUser.organizationId) {
+          console.log(`[API] User from organization ${reqUser.organizationId} attempted to delete document from organization ${client.organizationId}`);
+          return res.status(403).json({ message: "You don't have permission to delete this document" });
+        }
+      } else if (!reqUser) {
+        return res.status(403).json({ message: "Authentication required to delete documents" });
       }
 
       // Delete document
