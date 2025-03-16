@@ -3,6 +3,10 @@ import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+
+interface MaintenanceReportFormProps {
+  maintenanceId: number;
+}
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -206,9 +210,7 @@ const PhotoUpload = ({
   );
 };
 
-export default function MaintenanceReportForm() {
-  const { id } = useParams<{ id: string }>();
-  const maintenanceId = parseInt(id || '0', 10);
+export default function MaintenanceReportForm({ maintenanceId }: MaintenanceReportFormProps) {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -271,8 +273,8 @@ export default function MaintenanceReportForm() {
   // Fetch existing report if available
   const { data: existingReport, isLoading: isLoadingReport } = useQuery({
     queryKey: ['/api/maintenance-reports/maintenance', maintenanceId],
-    queryFn: async () => {
-      const data = await apiRequest(`/api/maintenance-reports/maintenance/${maintenanceId}`);
+    queryFn: async ({ queryKey }) => {
+      const data = await apiRequest(`/api/maintenance-reports/maintenance/${maintenanceId}`, 'GET');
       return data;
     },
     enabled: !!maintenanceId,
@@ -1397,7 +1399,7 @@ export default function MaintenanceReportForm() {
                       
                       {/* Submission warnings */}
                       {(!customerSignature || !technicianSignature || !form.getValues().securedYard) && (
-                        <Alert variant="warning">
+                        <Alert variant="destructive">
                           <AlertCircle className="h-4 w-4" />
                           <AlertTitle>Attention Required</AlertTitle>
                           <AlertDescription>

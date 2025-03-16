@@ -16,6 +16,7 @@ import {
   CommunicationProvider, InsertCommunicationProvider, CommunicationProviderType,
   ChemicalUsage, InsertChemicalUsage, ChemicalType,
   WaterReading, InsertWaterReading,
+  MaintenanceReport, InsertMaintenanceReport,
   Route, InsertRoute,
   RouteAssignment, InsertRouteAssignment,
   InventoryItem, InsertInventoryItem,
@@ -31,7 +32,7 @@ import {
   TransferType, TransferStatus, BarcodeType,
   organizations, users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
-  communicationProviders, chemicalUsage, waterReadings, routes, routeAssignments,
+  communicationProviders, chemicalUsage, waterReadings, maintenanceReports, routes, routeAssignments,
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
   inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems
 } from "@shared/schema";

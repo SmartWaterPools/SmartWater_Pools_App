@@ -16,8 +16,8 @@ export default function MaintenanceReportPage() {
   // Fetch maintenance details with client and technician info
   const { data: maintenance, isLoading: isLoadingMaintenance } = useQuery({
     queryKey: ['/api/maintenances', maintenanceId],
-    queryFn: async () => {
-      const data = await apiRequest(`/api/maintenances/${maintenanceId}`);
+    queryFn: async ({ queryKey }) => {
+      const data = await apiRequest(`/api/maintenances/${maintenanceId}`, 'GET');
       return data;
     },
     enabled: !!maintenanceId,
@@ -274,7 +274,7 @@ export default function MaintenanceReportPage() {
         )}
         
         {/* Report Form */}
-        {maintenance && <MaintenanceReportForm />}
+        {maintenance && <MaintenanceReportForm maintenanceId={maintenanceId} />}
       </div>
     </div>
   );
