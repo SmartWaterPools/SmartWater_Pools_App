@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import MaintenanceReportForm from '@/components/maintenance/MaintenanceReportForm';
@@ -11,13 +11,17 @@ import { format } from 'date-fns';
 export default function MaintenanceReportPage() {
   const { id } = useParams<{ id: string }>();
   const maintenanceId = parseInt(id || '0', 10);
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   
   // Fetch maintenance details with client and technician info
   const { data: maintenance, isLoading: isLoadingMaintenance } = useQuery({
     queryKey: ['/api/maintenances', maintenanceId],
-    queryFn: () => apiRequest(`/api/maintenances/${maintenanceId}`),
+    queryFn: async () => {
+      const data = await apiRequest(`/api/maintenances/${maintenanceId}`);
+      return data;
+    },
     enabled: !!maintenanceId,
+    retry: 1
   });
   
   // Format date for display
@@ -51,7 +55,7 @@ export default function MaintenanceReportPage() {
             variant="ghost"
             size="sm"
             className="mb-2"
-            onClick={() => navigate(-1)}
+            onClick={() => window.history.back()}
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
             Back
@@ -83,11 +87,11 @@ export default function MaintenanceReportPage() {
             </div>
             
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => navigate('/maintenance')}>
+              <Button size="sm" variant="outline" onClick={() => setLocation('/maintenance')}>
                 <Calendar className="h-4 w-4 mr-1" />
                 Maintenance Calendar
               </Button>
-              <Button size="sm" variant="outline" onClick={() => navigate('/')}>
+              <Button size="sm" variant="outline" onClick={() => setLocation('/')}>
                 <Home className="h-4 w-4 mr-1" />
                 Dashboard
               </Button>
@@ -263,7 +267,7 @@ export default function MaintenanceReportPage() {
           <div className="rounded-lg border p-6 text-center">
             <h2 className="font-semibold text-lg mb-2">Maintenance Not Found</h2>
             <p className="text-muted-foreground mb-4">The maintenance record you're looking for doesn't exist or you may not have permission to view it.</p>
-            <Button onClick={() => navigate('/maintenance')}>
+            <Button onClick={() => setLocation('/maintenance')}>
               Return to Maintenance List
             </Button>
           </div>

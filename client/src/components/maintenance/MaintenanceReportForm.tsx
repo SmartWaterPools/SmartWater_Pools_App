@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -209,7 +209,7 @@ const PhotoUpload = ({
 export default function MaintenanceReportForm() {
   const { id } = useParams<{ id: string }>();
   const maintenanceId = parseInt(id || '0', 10);
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
@@ -231,58 +231,6 @@ export default function MaintenanceReportForm() {
   const [customerSignature, setCustomerSignature] = useState<string | null>(null);
   const [technicianSignature, setTechnicianSignature] = useState<string | null>(null);
   const [saveInProgress, setSaveInProgress] = useState(false);
-  
-  // Fetch existing report if available
-  const { data: existingReport, isLoading: isLoadingReport } = useQuery({
-    queryKey: ['/api/maintenance-reports/maintenance', maintenanceId],
-    queryFn: () => apiRequest(`/api/maintenance-reports/maintenance/${maintenanceId}`),
-    enabled: !!maintenanceId,
-    onSuccess: (data) => {
-      if (data && data.length > 0) {
-        const report = data[0];
-        
-        // Populate form with existing data
-        if (report.beforePhotos && report.beforePhotos.length > 0) {
-          setPhotos(prev => ({ ...prev, before: report.beforePhotos }));
-        }
-        
-        if (report.afterPhotos && report.afterPhotos.length > 0) {
-          setPhotos(prev => ({ ...prev, after: report.afterPhotos }));
-        }
-        
-        if (report.workItems && report.workItems.length > 0) {
-          setWorkItems(report.workItems);
-        }
-        
-        if (report.customerSignature) {
-          setCustomerSignature(report.customerSignature);
-        }
-        
-        if (report.technicianSignature) {
-          setTechnicianSignature(report.technicianSignature);
-        }
-        
-        // Update form
-        const formValues: Partial<MaintenanceReportFormValues> = {
-          maintenanceId,
-          status: report.status || 'draft',
-          beforePhotos: report.beforePhotos || [],
-          afterPhotos: report.afterPhotos || [],
-          workItems: report.workItems || DEFAULT_WORK_ITEMS,
-          chemicalReadings: report.chemicalReadings || {},
-          chemicalsAdded: report.chemicalsAdded || [],
-          equipmentChecks: report.equipmentChecks || {},
-          notes: report.notes || '',
-          securedYard: report.securedYard || false,
-          customerSignature: report.customerSignature || '',
-          technicianSignature: report.technicianSignature || '',
-          completedAt: report.completedAt ? new Date(report.completedAt) : null,
-        };
-        
-        form.reset(formValues as MaintenanceReportFormValues);
-      }
-    }
-  });
   
   // Form definition
   const form = useForm<MaintenanceReportFormValues>({
@@ -319,6 +267,63 @@ export default function MaintenanceReportForm() {
       completedAt: null,
     }
   });
+  
+  // Fetch existing report if available
+  const { data: existingReport, isLoading: isLoadingReport } = useQuery({
+    queryKey: ['/api/maintenance-reports/maintenance', maintenanceId],
+    queryFn: async () => {
+      const data = await apiRequest(`/api/maintenance-reports/maintenance/${maintenanceId}`);
+      return data;
+    },
+    enabled: !!maintenanceId,
+  });
+  
+  // Process the data when it changes
+  useEffect(() => {
+    if (existingReport && existingReport.length > 0) {
+      const report = existingReport[0];
+      
+      // Populate form with existing data
+      if (report.beforePhotos && report.beforePhotos.length > 0) {
+        setPhotos(prev => ({ ...prev, before: report.beforePhotos }));
+      }
+      
+      if (report.afterPhotos && report.afterPhotos.length > 0) {
+        setPhotos(prev => ({ ...prev, after: report.afterPhotos }));
+      }
+      
+      if (report.workItems && report.workItems.length > 0) {
+        setWorkItems(report.workItems);
+      }
+      
+      if (report.customerSignature) {
+        setCustomerSignature(report.customerSignature);
+      }
+      
+      if (report.technicianSignature) {
+        setTechnicianSignature(report.technicianSignature);
+      }
+      
+      // Update form
+      const formValues: Partial<MaintenanceReportFormValues> = {
+        maintenanceId,
+        status: report.status || 'draft',
+        beforePhotos: report.beforePhotos || [],
+        afterPhotos: report.afterPhotos || [],
+        workItems: report.workItems || DEFAULT_WORK_ITEMS,
+        chemicalReadings: report.chemicalReadings || {},
+        chemicalsAdded: report.chemicalsAdded || [],
+        equipmentChecks: report.equipmentChecks || {},
+        notes: report.notes || '',
+        securedYard: report.securedYard || false,
+        customerSignature: report.customerSignature || '',
+        technicianSignature: report.technicianSignature || '',
+        completedAt: report.completedAt ? new Date(report.completedAt) : null,
+      };
+      
+      form.reset(formValues as MaintenanceReportFormValues);
+    }
+  }, [existingReport, form, maintenanceId]);
   
   // Save report mutation
   const saveReportMutation = useMutation({
@@ -374,7 +379,7 @@ export default function MaintenanceReportForm() {
       setSaveInProgress(false);
       
       // Navigate back to maintenance list
-      navigate('/maintenance');
+      setLocation('/maintenance');
     },
     onError: (error) => {
       toast({
