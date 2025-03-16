@@ -1,0 +1,6 @@
+{
+  "name": "@components/placeholder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local placeholder package for path alias"
+}
