@@ -30,11 +30,14 @@ import {
   BarcodeScanHistory, InsertBarcodeScanHistory,
   InventoryAdjustment, InsertInventoryAdjustment,
   TransferType, TransferStatus, BarcodeType,
+  FleetmaticsConfig, InsertFleetmaticsConfig,
+  FleetmaticsLocationHistory, InsertFleetmaticsLocationHistory,
   organizations, users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
   communicationProviders, chemicalUsage, waterReadings, maintenanceReports, routes, routeAssignments,
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
-  inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems
+  inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems,
+  fleetmaticsConfig, fleetmaticsLocationHistory
 } from "@shared/schema";
 import { and, eq, desc, gte, lte, sql, asc, isNotNull, lt, or, inArray } from "drizzle-orm";
 import { db } from "./db";
@@ -46,6 +49,18 @@ export interface IStorage {
   createOrganization(organization: Partial<InsertOrganization>): Promise<Organization>;
   updateOrganization(id: number, organization: Partial<Organization>): Promise<Organization | undefined>;
   getAllOrganizations(): Promise<Organization[]>;
+  
+  // Fleetmatics operations
+  getFleetmaticsConfig(id: number): Promise<FleetmaticsConfig | undefined>;
+  getFleetmaticsConfigByOrganizationId(organizationId: number): Promise<FleetmaticsConfig | undefined>;
+  createFleetmaticsConfig(config: InsertFleetmaticsConfig): Promise<FleetmaticsConfig>;
+  updateFleetmaticsConfig(id: number, config: Partial<FleetmaticsConfig>): Promise<FleetmaticsConfig | undefined>;
+  getAllFleetmaticsConfigs(): Promise<FleetmaticsConfig[]>;
+  createFleetmaticsLocationHistory(history: InsertFleetmaticsLocationHistory): Promise<FleetmaticsLocationHistory>;
+  getFleetmaticsLocationHistory(id: number): Promise<FleetmaticsLocationHistory | undefined>;
+  getFleetmaticsLocationHistoryByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory[]>;
+  getLatestFleetmaticsLocationByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory | undefined>;
+  getFleetmaticsLocationHistoryByDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<FleetmaticsLocationHistory[]>;
   
   // User operations
   getUser(id: number): Promise<User | undefined>;
@@ -333,6 +348,24 @@ export interface IStorage {
   getInventoryAdjustmentsByUserId(userId: number): Promise<InventoryAdjustment[]>;
   getInventoryAdjustmentsByReason(reason: string): Promise<InventoryAdjustment[]>;
   getInventoryAdjustmentsByDate(startDate: Date, endDate: Date): Promise<InventoryAdjustment[]>;
+  
+  // Fleetmatics Integration operations
+  getFleetmaticsConfig(id: number): Promise<FleetmaticsConfig | undefined>;
+  getFleetmaticsConfigByOrganizationId(organizationId: number): Promise<FleetmaticsConfig | undefined>;
+  createFleetmaticsConfig(config: InsertFleetmaticsConfig): Promise<FleetmaticsConfig>;
+  updateFleetmaticsConfig(id: number, config: Partial<FleetmaticsConfig>): Promise<FleetmaticsConfig | undefined>;
+  deleteFleetmaticsConfig(id: number): Promise<boolean>;
+  
+  // Fleetmatics Location History operations
+  getFleetmaticsLocationHistory(id: number): Promise<FleetmaticsLocationHistory | undefined>;
+  createFleetmaticsLocationHistory(history: InsertFleetmaticsLocationHistory): Promise<FleetmaticsLocationHistory>;
+  getFleetmaticsLocationHistoryByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory[]>;
+  getFleetmaticsLocationHistoryByVehicleIdAndTimeRange(vehicleId: number, startTime: Date, endTime: Date): Promise<FleetmaticsLocationHistory[]>;
+  getLatestFleetmaticsLocationByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory | undefined>;
+  
+  // Vehicle GPS Tracking operations
+  updateVehicleLocation(vehicleId: number, latitude: number, longitude: number): Promise<TechnicianVehicle | undefined>;
+  getVehiclesInArea(latitude: number, longitude: number, radiusMiles: number): Promise<TechnicianVehicle[]>;
 }
 
 // In-memory storage implementation
@@ -345,6 +378,8 @@ export class MemStorage implements IStorage {
   private projectPhases: Map<number, ProjectPhase>;
   private projectAssignments: Map<number, ProjectAssignment>;
   private maintenances: Map<number, Maintenance>;
+  private fleetmaticsConfigs: Map<number, FleetmaticsConfig>;
+  private fleetmaticsLocationHistories: Map<number, FleetmaticsLocationHistory>;
   private repairs: Map<number, Repair>;
   private invoices: Map<number, Invoice>;
   private poolEquipment: Map<number, PoolEquipment>;
@@ -401,6 +436,10 @@ export class MemStorage implements IStorage {
   private barcodeScanHistoryId: number;
   private inventoryAdjustmentId: number;
   
+  // Fleetmatics IDs
+  private fleetmaticsConfigId: number;
+  private fleetmaticsLocationHistoryId: number;
+  
   constructor() {
     this.organizations = new Map();
     this.users = new Map();
@@ -435,6 +474,10 @@ export class MemStorage implements IStorage {
     this.barcodeScanHistory = new Map();
     this.inventoryAdjustments = new Map();
     
+    // Initialize Fleetmatics maps
+    this.fleetmaticsConfigs = new Map();
+    this.fleetmaticsLocationHistories = new Map();
+    
     this.organizationId = 1;
     this.userId = 1;
     this.clientId = 1;
@@ -468,10 +511,16 @@ export class MemStorage implements IStorage {
     this.barcodeScanHistoryId = 1;
     this.inventoryAdjustmentId = 1;
     
+    // Initialize Fleetmatics IDs
+    this.fleetmaticsConfigId = 1;
+    this.fleetmaticsLocationHistoryId = 1;
+    
     // Add sample data
     this.initSampleData();
     // Add sample inventory data
     this.initSampleInventoryData();
+    // Add Fleetmatics sample data
+    this.initSampleFleetmaticsData();
   }
   
   // Organization operations
@@ -1719,6 +1768,279 @@ export class MemStorage implements IStorage {
     );
   }
   
+  // Initialize Fleetmatics sample data
+  private async initSampleFleetmaticsData() {
+    console.log("Initializing sample Fleetmatics data...");
+    
+    // Create a Fleetmatics configuration for testing
+    const fleetmaticsConfig = await this.createFleetmaticsConfig({
+      organizationId: 1,
+      apiKey: "sample_api_key",
+      apiSecret: "sample_api_secret",
+      baseUrl: "https://fim.us.fleetmatics.com/api",
+      accessToken: "sample_access_token",
+      refreshToken: "sample_refresh_token",
+      tokenExpiryTime: new Date(Date.now() + 3600000), // 1 hour from now
+      syncFrequencyMinutes: 15, // Sync every 15 minutes
+      isActive: true
+    });
+    
+    // Find technician vehicles to map with Fleetmatics
+    const tech1 = await this.getTechnicianByUserId(2);
+    const tech2 = await this.getTechnicianByUserId(3);
+    
+    if (tech1) {
+      const tech1Vehicles = await this.getTechnicianVehiclesByTechnicianId(tech1.id);
+      if (tech1Vehicles.length > 0) {
+        const vehicle1 = tech1Vehicles[0];
+        
+        // Update vehicle with Fleetmatics IDs
+        await this.updateTechnicianVehicle(vehicle1.id, {
+          fleetmaticsVehicleId: "fleet_vehicle_1",
+          gpsDeviceId: "gps_device_1",
+          lastKnownLatitude: 40.7128,
+          lastKnownLongitude: -74.0060, // NYC coordinates
+          lastLocationUpdate: new Date()
+        } as any);
+        
+        // Add some location history for vehicle 1
+        await this.createFleetmaticsLocationHistory({
+          vehicleId: vehicle1.id,
+          latitude: 40.7128,
+          longitude: -74.0060,
+          speed: 0,
+          heading: 0,
+          ignitionStatus: "off",
+          eventType: "location_update",
+          eventTime: new Date(Date.now() - 3600000), // 1 hour ago
+          address: "New York, NY",
+          fleetmaticsEventId: "event_1"
+        });
+        
+        await this.createFleetmaticsLocationHistory({
+          vehicleId: vehicle1.id,
+          latitude: 40.7138,
+          longitude: -74.0070,
+          speed: 25,
+          heading: 90,
+          ignitionStatus: "on",
+          eventType: "location_update",
+          eventTime: new Date(Date.now() - 1800000), // 30 minutes ago
+          address: "New York, NY",
+          fleetmaticsEventId: "event_2"
+        });
+        
+        await this.createFleetmaticsLocationHistory({
+          vehicleId: vehicle1.id,
+          latitude: 40.7148,
+          longitude: -74.0080,
+          speed: 0,
+          heading: 90,
+          ignitionStatus: "on",
+          eventType: "location_update",
+          eventTime: new Date(), // Now
+          address: "New York, NY",
+          fleetmaticsEventId: "event_3"
+        });
+      }
+    }
+    
+    if (tech2) {
+      const tech2Vehicles = await this.getTechnicianVehiclesByTechnicianId(tech2.id);
+      if (tech2Vehicles.length > 0) {
+        const vehicle2 = tech2Vehicles[0];
+        
+        // Update vehicle with Fleetmatics IDs
+        await this.updateTechnicianVehicle(vehicle2.id, {
+          fleetmaticsVehicleId: "fleet_vehicle_2",
+          gpsDeviceId: "gps_device_2",
+          lastKnownLatitude: 34.0522,
+          lastKnownLongitude: -118.2437, // LA coordinates
+          lastLocationUpdate: new Date()
+        } as any);
+        
+        // Add some location history for vehicle 2
+        await this.createFleetmaticsLocationHistory({
+          vehicleId: vehicle2.id,
+          latitude: 34.0522,
+          longitude: -118.2437,
+          speed: 0,
+          heading: 0,
+          ignitionStatus: "off",
+          eventType: "location_update",
+          eventTime: new Date(Date.now() - 3600000), // 1 hour ago
+          address: "Los Angeles, CA",
+          fleetmaticsEventId: "event_4"
+        });
+        
+        await this.createFleetmaticsLocationHistory({
+          vehicleId: vehicle2.id,
+          latitude: 34.0532,
+          longitude: -118.2447,
+          speed: 30,
+          heading: 45,
+          ignitionStatus: "on",
+          eventType: "location_update",
+          eventTime: new Date(Date.now() - 1800000), // 30 minutes ago
+          address: "Los Angeles, CA",
+          fleetmaticsEventId: "event_5"
+        });
+        
+        await this.createFleetmaticsLocationHistory({
+          vehicleId: vehicle2.id,
+          latitude: 34.0542,
+          longitude: -118.2457,
+          speed: 0,
+          heading: 45,
+          ignitionStatus: "on",
+          eventType: "location_update",
+          eventTime: new Date(), // Now
+          address: "Los Angeles, CA",
+          fleetmaticsEventId: "event_6"
+        });
+      }
+    }
+    
+    console.log("Sample Fleetmatics data initialized successfully");
+  }
+  
+  // Fleetmatics operations
+  async getFleetmaticsConfig(id: number): Promise<FleetmaticsConfig | undefined> {
+    return this.fleetmaticsConfigs.get(id);
+  }
+  
+  async getFleetmaticsConfigByOrganizationId(organizationId: number): Promise<FleetmaticsConfig | undefined> {
+    return Array.from(this.fleetmaticsConfigs.values()).find(
+      (config) => config.organizationId === organizationId
+    );
+  }
+  
+  async createFleetmaticsConfig(insertConfig: InsertFleetmaticsConfig): Promise<FleetmaticsConfig> {
+    const id = this.fleetmaticsConfigId++;
+    const config: FleetmaticsConfig = {
+      ...insertConfig,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSyncTime: insertConfig.lastSyncTime || null,
+      syncInterval: insertConfig.syncInterval || 15, // Default to 15 minutes
+      isActive: insertConfig.isActive !== undefined ? insertConfig.isActive : true
+    };
+    this.fleetmaticsConfigs.set(id, config);
+    return config;
+  }
+  
+  async updateFleetmaticsConfig(id: number, data: Partial<FleetmaticsConfig>): Promise<FleetmaticsConfig | undefined> {
+    const config = await this.getFleetmaticsConfig(id);
+    if (!config) return undefined;
+    
+    const updatedConfig = { 
+      ...config, 
+      ...data,
+      updatedAt: new Date()
+    };
+    this.fleetmaticsConfigs.set(id, updatedConfig);
+    return updatedConfig;
+  }
+  
+  async deleteFleetmaticsConfig(id: number): Promise<boolean> {
+    return this.fleetmaticsConfigs.delete(id);
+  }
+  
+  async getAllFleetmaticsConfigs(): Promise<FleetmaticsConfig[]> {
+    return Array.from(this.fleetmaticsConfigs.values());
+  }
+  
+  async createFleetmaticsLocationHistory(insertHistory: InsertFleetmaticsLocationHistory): Promise<FleetmaticsLocationHistory> {
+    const id = this.fleetmaticsLocationHistoryId++;
+    const history: FleetmaticsLocationHistory = {
+      ...insertHistory,
+      id,
+      createdAt: new Date()
+    };
+    this.fleetmaticsLocationHistories.set(id, history);
+    return history;
+  }
+  
+  async getFleetmaticsLocationHistory(id: number): Promise<FleetmaticsLocationHistory | undefined> {
+    return this.fleetmaticsLocationHistories.get(id);
+  }
+  
+  async getFleetmaticsLocationHistoryByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory[]> {
+    return Array.from(this.fleetmaticsLocationHistories.values()).filter(
+      (history) => history.vehicleId === vehicleId
+    );
+  }
+  
+  async getLatestFleetmaticsLocationByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory | undefined> {
+    const histories = await this.getFleetmaticsLocationHistoryByVehicleId(vehicleId);
+    if (histories.length === 0) return undefined;
+    
+    // Sort by timestamp descending and get the most recent
+    return histories.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    )[0];
+  }
+  
+  async getFleetmaticsLocationHistoryByDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<FleetmaticsLocationHistory[]> {
+    return Array.from(this.fleetmaticsLocationHistories.values()).filter(
+      (history) => history.vehicleId === vehicleId && 
+                  new Date(history.timestamp) >= startDate && 
+                  new Date(history.timestamp) <= endDate
+    );
+  }
+  
+  async getFleetmaticsLocationHistoryByVehicleIdAndTimeRange(vehicleId: number, startTime: Date, endTime: Date): Promise<FleetmaticsLocationHistory[]> {
+    return this.getFleetmaticsLocationHistoryByDateRange(vehicleId, startTime, endTime);
+  }
+  
+  async updateVehicleLocation(vehicleId: number, latitude: number, longitude: number): Promise<TechnicianVehicle | undefined> {
+    const vehicle = await this.getTechnicianVehicle(vehicleId);
+    if (!vehicle) return undefined;
+    
+    const updatedVehicle = {
+      ...vehicle,
+      lastKnownLatitude: latitude,
+      lastKnownLongitude: longitude,
+      lastLocationUpdate: new Date()
+    };
+    
+    this.technicianVehicles.set(vehicleId, updatedVehicle);
+    return updatedVehicle;
+  }
+  
+  async getVehiclesInArea(latitude: number, longitude: number, radiusMiles: number): Promise<TechnicianVehicle[]> {
+    // Get all vehicles with location data
+    const vehicles = Array.from(this.technicianVehicles.values()).filter(
+      (v) => v.lastKnownLatitude !== null && v.lastKnownLongitude !== null
+    );
+    
+    // Filter vehicles within the specified radius
+    return vehicles.filter(vehicle => {
+      if (!vehicle.lastKnownLatitude || !vehicle.lastKnownLongitude) return false;
+      
+      // Use Haversine formula to calculate distance
+      const R = 3958.8; // Earth radius in miles
+      const dLat = this.toRad(latitude - vehicle.lastKnownLatitude);
+      const dLon = this.toRad(longitude - vehicle.lastKnownLongitude);
+      
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(this.toRad(latitude)) * Math.cos(this.toRad(vehicle.lastKnownLatitude)) * 
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      const distance = R * c;
+      
+      return distance <= radiusMiles;
+    });
+  }
+  
+  // Helper function for Haversine formula
+  private toRad(degrees: number): number {
+    return degrees * Math.PI / 180;
+  }
+  
   // Water Readings operations
   async getWaterReading(id: number): Promise<WaterReading | undefined> {
     return this.waterReadings.get(id);
@@ -2325,6 +2647,9 @@ export class MemStorage implements IStorage {
       maxStockLevel: 100,
       lastOrderDate: null
     });
+    
+    // Initialize sample Fleetmatics data
+    await this.initSampleFleetmaticsData();
     
     const tablets = await this.createInventoryItem({
       name: "Chlorine Tablets",
@@ -3025,6 +3350,129 @@ export class MemStorage implements IStorage {
 export class DatabaseStorage implements IStorage {
   // Initialize ID counters for MemStorage compatibility
   private inventoryItemId = 1;
+  
+  // Fleetmatics operations
+  async getFleetmaticsConfig(id: number): Promise<FleetmaticsConfig | undefined> {
+    try {
+      const result = await db.query.fleetmaticsConfig.findFirst({
+        where: eq(fleetmaticsConfig.id, id)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting Fleetmatics config:', error);
+      return undefined;
+    }
+  }
+
+  async getFleetmaticsConfigByOrganizationId(organizationId: number): Promise<FleetmaticsConfig | undefined> {
+    try {
+      const result = await db.query.fleetmaticsConfig.findFirst({
+        where: eq(fleetmaticsConfig.organizationId, organizationId)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting Fleetmatics config by organization ID:', error);
+      return undefined;
+    }
+  }
+
+  async createFleetmaticsConfig(config: InsertFleetmaticsConfig): Promise<FleetmaticsConfig> {
+    try {
+      const result = await db.insert(fleetmaticsConfig).values(config).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating Fleetmatics config:', error);
+      throw error;
+    }
+  }
+
+  async updateFleetmaticsConfig(id: number, config: Partial<FleetmaticsConfig>): Promise<FleetmaticsConfig | undefined> {
+    try {
+      const result = await db.update(fleetmaticsConfig)
+        .set({
+          ...config,
+          updatedAt: new Date()
+        })
+        .where(eq(fleetmaticsConfig.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error updating Fleetmatics config:', error);
+      return undefined;
+    }
+  }
+
+  async getAllFleetmaticsConfigs(): Promise<FleetmaticsConfig[]> {
+    try {
+      return await db.query.fleetmaticsConfig.findMany();
+    } catch (error) {
+      console.error('Error getting all Fleetmatics configs:', error);
+      return [];
+    }
+  }
+
+  async createFleetmaticsLocationHistory(history: InsertFleetmaticsLocationHistory): Promise<FleetmaticsLocationHistory> {
+    try {
+      const result = await db.insert(fleetmaticsLocationHistory).values(history).returning();
+      return result[0];
+    } catch (error) {
+      console.error('Error creating Fleetmatics location history:', error);
+      throw error;
+    }
+  }
+
+  async getFleetmaticsLocationHistory(id: number): Promise<FleetmaticsLocationHistory | undefined> {
+    try {
+      const result = await db.query.fleetmaticsLocationHistory.findFirst({
+        where: eq(fleetmaticsLocationHistory.id, id)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting Fleetmatics location history:', error);
+      return undefined;
+    }
+  }
+
+  async getFleetmaticsLocationHistoryByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory[]> {
+    try {
+      return await db.query.fleetmaticsLocationHistory.findMany({
+        where: eq(fleetmaticsLocationHistory.vehicleId, vehicleId),
+        orderBy: [desc(fleetmaticsLocationHistory.eventTime)]
+      });
+    } catch (error) {
+      console.error('Error getting Fleetmatics location history by vehicle ID:', error);
+      return [];
+    }
+  }
+
+  async getLatestFleetmaticsLocationByVehicleId(vehicleId: number): Promise<FleetmaticsLocationHistory | undefined> {
+    try {
+      const result = await db.query.fleetmaticsLocationHistory.findFirst({
+        where: eq(fleetmaticsLocationHistory.vehicleId, vehicleId),
+        orderBy: [desc(fleetmaticsLocationHistory.eventTime)]
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting latest Fleetmatics location by vehicle ID:', error);
+      return undefined;
+    }
+  }
+
+  async getFleetmaticsLocationHistoryByDateRange(vehicleId: number, startDate: Date, endDate: Date): Promise<FleetmaticsLocationHistory[]> {
+    try {
+      return await db.query.fleetmaticsLocationHistory.findMany({
+        where: and(
+          eq(fleetmaticsLocationHistory.vehicleId, vehicleId),
+          gte(fleetmaticsLocationHistory.eventTime, startDate),
+          lte(fleetmaticsLocationHistory.eventTime, endDate)
+        ),
+        orderBy: [asc(fleetmaticsLocationHistory.eventTime)]
+      });
+    } catch (error) {
+      console.error('Error getting Fleetmatics location history by date range:', error);
+      return [];
+    }
+  }
   private warehouseId = 1;
   private technicianVehicleId = 1;
   private warehouseInventoryId = 1;

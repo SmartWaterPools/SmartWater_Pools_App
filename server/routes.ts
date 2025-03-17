@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fs, path, rootDir } from "./utils";
 import emailRoutes from "./email-routes";
+import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import { 
   insertUserSchema, 
   insertClientSchema, 
@@ -217,6 +218,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Email-related routes for password reset, 2FA, etc.
   app.use("/api/email", emailRoutes);
+  
+  // Fleetmatics GPS integration routes
+  app.use("/api/fleetmatics", fleetmaticsRoutes);
 
   // Enhanced health check endpoint with detailed diagnostics
   app.get("/api/health", (req: Request, res: Response) => {

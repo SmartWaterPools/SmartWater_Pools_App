@@ -1065,6 +1065,11 @@ export const technicianVehicles = pgTable("technician_vehicles", {
   vin: text("vin"),
   status: text("status").notNull().default("active"), // active, maintenance, retired
   notes: text("notes"),
+  fleetmaticsVehicleId: text("fleetmatics_vehicle_id"), // External ID from Fleetmatics
+  gpsDeviceId: text("gps_device_id"), // ID of installed GPS device
+  lastKnownLatitude: doublePrecision("last_known_latitude"), // Last reported GPS latitude
+  lastKnownLongitude: doublePrecision("last_known_longitude"), // Last reported GPS longitude
+  lastLocationUpdate: timestamp("last_location_update"), // When the location was last updated
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1073,6 +1078,7 @@ export const insertTechnicianVehicleSchema = createInsertSchema(technicianVehicl
   id: true,
   createdAt: true,
   updatedAt: true,
+  lastLocationUpdate: true,
 });
 
 // Inventory Location Types (Warehouse, Vehicle, etc.)
@@ -1413,3 +1419,72 @@ export type InsertRoute = z.infer<typeof insertRouteSchema>;
 
 export type RouteAssignment = typeof routeAssignments.$inferSelect;
 export type InsertRouteAssignment = z.infer<typeof insertRouteAssignmentSchema>;
+
+// Fleetmatics Integration Schema
+export const fleetmaticsConfig = pgTable("fleetmatics_config", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
+  apiKey: text("api_key").notNull(),
+  apiSecret: text("api_secret"),
+  baseUrl: text("base_url").notNull().default("https://fim.us.fleetmatics.com/api"),
+  accountId: text("account_id"),
+  refreshToken: text("refresh_token"),
+  accessToken: text("access_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  isActive: boolean("is_active").notNull().default(true),
+  lastSyncTime: timestamp("last_sync_time"),
+  syncFrequencyMinutes: integer("sync_frequency_minutes").default(15),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertFleetmaticsConfigSchema = createInsertSchema(fleetmaticsConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  tokenExpiresAt: true,
+  lastSyncTime: true,
+});
+
+// Fleetmatics Tracking History
+export const fleetmaticsLocationHistory = pgTable("fleetmatics_location_history", {
+  id: serial("id").primaryKey(),
+  vehicleId: integer("vehicle_id").references(() => technicianVehicles.id).notNull(),
+  latitude: doublePrecision("latitude").notNull(),
+  longitude: doublePrecision("longitude").notNull(),
+  speed: doublePrecision("speed"), // Speed in mph
+  heading: integer("heading"), // Direction in degrees
+  eventTime: timestamp("event_time").notNull(),
+  address: text("address"), // Reverse geocoded address if available
+  ignitionStatus: text("ignition_status"), // on, off
+  odometer: doublePrecision("odometer"), // Current odometer reading
+  fleetmaticsEventId: text("fleetmatics_event_id"), // ID from Fleetmatics
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const insertFleetmaticsLocationHistorySchema = createInsertSchema(fleetmaticsLocationHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Relations
+export const fleetmaticsConfigRelations = relations(fleetmaticsConfig, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [fleetmaticsConfig.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+export const fleetmaticsLocationHistoryRelations = relations(fleetmaticsLocationHistory, ({ one }) => ({
+  vehicle: one(technicianVehicles, {
+    fields: [fleetmaticsLocationHistory.vehicleId],
+    references: [technicianVehicles.id],
+  }),
+}));
+
+// Export types
+export type FleetmaticsConfig = typeof fleetmaticsConfig.$inferSelect;
+export type InsertFleetmaticsConfig = z.infer<typeof insertFleetmaticsConfigSchema>;
+
+export type FleetmaticsLocationHistory = typeof fleetmaticsLocationHistory.$inferSelect;
+export type InsertFleetmaticsLocationHistory = z.infer<typeof insertFleetmaticsLocationHistorySchema>;
