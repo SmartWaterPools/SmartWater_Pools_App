@@ -33,6 +33,9 @@ import MaintenanceReportPage from "./pages/MaintenanceReportPage";
 import Communications from "./pages/Communications";
 import Business from "./pages/Business";
 import InventoryTransfers from "./pages/InventoryTransfers";
+import FleetmaticsSettings from "./pages/FleetmaticsSettings";
+import VehicleMapping from "./pages/VehicleMapping";
+import VehicleTracking from "./pages/VehicleTracking";
 import Settings from "./pages/Settings";
 import ApiKeyDebug from "./pages/ApiKeyDebug";
 import BarcodeDemo from "./pages/BarcodeDemo";
@@ -152,6 +155,12 @@ function App() {
                           <Route path="/business" component={Business} />
                           <Route path="/inventory/transfers" component={InventoryTransfers} />
                           <Route path="/inventory/barcode-demo" component={BarcodeDemo} />
+                          
+                          {/* Fleetmatics routes */}
+                          <Route path="/fleetmatics/settings" component={FleetmaticsSettings} />
+                          <Route path="/fleetmatics/vehicle-mapping" component={VehicleMapping} />
+                          <Route path="/fleetmatics/vehicle-tracking" component={VehicleTracking} />
+                          
                           <Route path="/settings" component={Settings} />
                           <Route path="/api-key-debug" component={ApiKeyDebug} />
                           

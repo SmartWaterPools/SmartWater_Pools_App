@@ -1,4 +1,4 @@
-import type { Express, Request, Response, NextFunction } from "express";
+import express, { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fs, path, rootDir } from "./utils";
@@ -220,7 +220,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/email", emailRoutes);
   
   // Fleetmatics GPS integration routes
-  app.use("/api/fleetmatics", fleetmaticsRoutes);
+  const fleetmaticsRouter = express.Router();
+  app.use("/api/fleetmatics", fleetmaticsRoutes(fleetmaticsRouter, storage));
 
   // Enhanced health check endpoint with detailed diagnostics
   app.get("/api/health", (req: Request, res: Response) => {

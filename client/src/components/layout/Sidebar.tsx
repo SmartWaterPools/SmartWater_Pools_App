@@ -16,7 +16,10 @@ import {
   AlignRight,
   MessageSquare,
   BarChart4,
-  Barcode
+  Barcode,
+  MapPin,
+  Truck,
+  Cog
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -451,6 +454,108 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 isOnBarcodeDemo ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Scanner
+              </span>
+            )}
+          </div>
+          
+          {/* Fleetmatics Vehicle Tracking */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/vehicle-tracking")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              location.startsWith("/fleetmatics/vehicle-tracking") ? "text-primary" : "text-gray-500"
+            )}>
+              <MapPin className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                location.startsWith("/fleetmatics/vehicle-tracking") ? "text-primary" : "text-gray-700"
+              )}>
+                Vehicle Tracking
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                location.startsWith("/fleetmatics/vehicle-tracking") ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Tracking
+              </span>
+            )}
+          </div>
+          
+          {/* Fleetmatics Vehicle Mapping */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/vehicle-mapping")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              location.startsWith("/fleetmatics/vehicle-mapping") ? "text-primary" : "text-gray-500"
+            )}>
+              <Truck className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                location.startsWith("/fleetmatics/vehicle-mapping") ? "text-primary" : "text-gray-700"
+              )}>
+                Vehicle Mapping
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                location.startsWith("/fleetmatics/vehicle-mapping") ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Mapping
+              </span>
+            )}
+          </div>
+          
+          {/* Fleetmatics Settings */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/settings")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              location.startsWith("/fleetmatics/settings") ? "text-primary" : "text-gray-500"
+            )}>
+              <Cog className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                location.startsWith("/fleetmatics/settings") ? "text-primary" : "text-gray-700"
+              )}>
+                Fleetmatics Settings
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                location.startsWith("/fleetmatics/settings") ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Fleet Settings
               </span>
             )}
           </div>

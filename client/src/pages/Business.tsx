@@ -6,6 +6,19 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+
+// Define types for the business data
+interface BusinessData {
+  expenses: any[];
+  timeEntries: any[];
+  reports: any[];
+  vendors: any[];
+  purchaseOrders: any[];
+  inventory: any[];
+  licenses: any[];
+  insurance: any[];
+  poolReports: any[];
+}
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +34,12 @@ import {
   BarChart4,
   FileCheck,
   Shield,
-  Droplet
+  Droplet,
+  Map,
+  Truck,
+  Settings as SettingsIcon,
+  Link as LinkIcon,
+  Loader2
 } from "lucide-react";
 import ExpensesTable from "@/components/business/ExpensesTable";
 // Payroll table component removed
@@ -65,7 +83,7 @@ export default function Business() {
   });
 
   // Query for expenses data
-  const { data: expenses, isLoading: expensesLoading } = useQuery({
+  const { data: expenses, isLoading: expensesLoading } = useQuery<any[]>({
     queryKey: ['/api/business/expenses'],
     enabled: activeTab === "expenses"
   });
@@ -73,49 +91,49 @@ export default function Business() {
   // Payroll query removed
 
   // Query for time entries data
-  const { data: timeEntries, isLoading: timeEntriesLoading } = useQuery({
+  const { data: timeEntries, isLoading: timeEntriesLoading } = useQuery<any[]>({
     queryKey: ['/api/business/time-entries'],
     enabled: activeTab === "time-tracking"
   });
 
   // Query for financial reports data
-  const { data: reports, isLoading: reportsLoading } = useQuery({
+  const { data: reports, isLoading: reportsLoading } = useQuery<any[]>({
     queryKey: ['/api/business/reports'],
     enabled: activeTab === "reports"
   });
 
   // Query for vendors data
-  const { data: vendors, isLoading: vendorsLoading } = useQuery({
+  const { data: vendors, isLoading: vendorsLoading } = useQuery<any[]>({
     queryKey: ['/api/business/vendors'],
     enabled: activeTab === "vendors"
   });
 
   // Query for purchase orders data
-  const { data: purchaseOrders, isLoading: purchaseOrdersLoading } = useQuery({
+  const { data: purchaseOrders, isLoading: purchaseOrdersLoading } = useQuery<any[]>({
     queryKey: ['/api/business/purchase-orders'],
     enabled: activeTab === "purchase-orders"
   });
 
   // Query for inventory items data
-  const { data: inventory, isLoading: inventoryLoading } = useQuery({
+  const { data: inventory, isLoading: inventoryLoading } = useQuery<any[]>({
     queryKey: ['/api/business/inventory'],
     enabled: activeTab === "inventory"
   });
   
   // Query for licenses data
-  const { data: licenses, isLoading: licensesLoading } = useQuery({
+  const { data: licenses, isLoading: licensesLoading } = useQuery<any[]>({
     queryKey: ['/api/business/licenses'],
     enabled: activeTab === "licenses"
   });
   
   // Query for insurance data
-  const { data: insurance, isLoading: insuranceLoading } = useQuery({
+  const { data: insurance, isLoading: insuranceLoading } = useQuery<any[]>({
     queryKey: ['/api/business/insurance'],
     enabled: activeTab === "insurance"
   });
   
   // Query for pool reports data
-  const { data: poolReports, isLoading: poolReportsLoading } = useQuery({
+  const { data: poolReports, isLoading: poolReportsLoading } = useQuery<any[]>({
     queryKey: ['/api/business/pool-reports'],
     enabled: activeTab === "pool-reports"
   });
@@ -186,6 +204,18 @@ export default function Business() {
             <TabsTrigger value="insurance" className="flex items-center gap-1">
               <Shield className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Insurance</span>
+            </TabsTrigger>
+            <TabsTrigger value="vehicle-tracking" className="flex items-center gap-1">
+              <Map className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Vehicle Tracking</span>
+            </TabsTrigger>
+            <TabsTrigger value="vehicle-mapping" className="flex items-center gap-1">
+              <Truck className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Vehicle Mapping</span>
+            </TabsTrigger>
+            <TabsTrigger value="fleetmatics-settings" className="flex items-center gap-1">
+              <SettingsIcon className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Fleet Settings</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -528,6 +558,144 @@ export default function Business() {
             isLoading={poolReportsLoading}
             onCreateReport={() => setShowPoolReportForm(true)}
           />
+        </TabsContent>
+
+        {/* Vehicle Tracking Tab */}
+        <TabsContent value="vehicle-tracking" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl font-bold">Vehicle Tracking</h2>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
+              onClick={() => {
+                // Open in a full page
+                const event = new CustomEvent('addTab', {
+                  detail: {
+                    path: '/fleetmatics/vehicle-tracking',
+                    title: 'Vehicle Tracking Map',
+                    icon: 'map'
+                  }
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              <Map className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Open</span> Full Map
+            </Button>
+          </div>
+          <Card className="col-span-1">
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-base sm:text-lg">GPS Vehicle Tracking</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Track your technician vehicles in real-time with Fleetmatics GPS
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-2">
+              <div className="text-center py-8">
+                <Map className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                <p className="text-sm mb-4">View your technician vehicles on a real-time tracking map</p>
+                <Button 
+                  onClick={() => {
+                    window.location.href = "/fleetmatics/vehicle-tracking";
+                  }}
+                >
+                  Open Vehicle Tracking
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Vehicle Mapping Tab */}
+        <TabsContent value="vehicle-mapping" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl font-bold">Vehicle Mapping</h2>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
+              onClick={() => {
+                // Open in a full page
+                const event = new CustomEvent('addTab', {
+                  detail: {
+                    path: '/fleetmatics/vehicle-mapping',
+                    title: 'Vehicle Mapping',
+                    icon: 'truck'
+                  }
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              <Truck className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Open</span> Vehicle Mapping
+            </Button>
+          </div>
+          <Card className="col-span-1">
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-base sm:text-lg">Vehicle Mapping</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Map your technician vehicles to Fleetmatics GPS devices
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-2">
+              <div className="text-center py-8">
+                <Truck className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                <p className="text-sm mb-4">Connect your technician vehicles to Fleetmatics for GPS tracking</p>
+                <Button 
+                  onClick={() => {
+                    window.location.href = "/fleetmatics/vehicle-mapping";
+                  }}
+                >
+                  Configure Vehicle Mapping
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Fleetmatics Settings Tab */}
+        <TabsContent value="fleetmatics-settings" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl font-bold">Fleetmatics Settings</h2>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
+              onClick={() => {
+                // Open in a full page
+                const event = new CustomEvent('addTab', {
+                  detail: {
+                    path: '/fleetmatics/settings',
+                    title: 'Fleetmatics Settings',
+                    icon: 'settings'
+                  }
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              <SettingsIcon className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Open</span> Settings
+            </Button>
+          </div>
+          <Card className="col-span-1">
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-base sm:text-lg">Fleetmatics Integration</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Configure your Fleetmatics GPS integration settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-2">
+              <div className="text-center py-8">
+                <SettingsIcon className="h-16 w-16 mx-auto text-gray-400 mb-4" />
+                <p className="text-sm mb-4">Set up your API keys and synchronization settings for Fleetmatics</p>
+                <Button 
+                  onClick={() => {
+                    window.location.href = "/fleetmatics/settings";
+                  }}
+                >
+                  Configure Fleetmatics
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
