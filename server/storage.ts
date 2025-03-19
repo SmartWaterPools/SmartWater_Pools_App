@@ -287,6 +287,7 @@ export interface IStorage {
   deleteTechnicianVehicle(id: number): Promise<boolean>;
   getAllTechnicianVehicles(): Promise<TechnicianVehicle[]>;
   getActiveTechnicianVehicles(): Promise<TechnicianVehicle[]>;
+  getTechnicianVehiclesWithFleetmaticsId(): Promise<TechnicianVehicle[]>;
   
   // Warehouse Inventory operations
   getWarehouseInventory(warehouseId: number, itemId: number): Promise<WarehouseInventory | undefined>;
@@ -5431,6 +5432,23 @@ export class DatabaseStorage implements IStorage {
         .where(eq(technicianVehicles.status, "active"));
     } catch (error) {
       console.error("Error retrieving active technician vehicles:", error);
+      return [];
+    }
+  }
+  
+  async getTechnicianVehiclesWithFleetmaticsId(): Promise<TechnicianVehicle[]> {
+    try {
+      return await db
+        .select()
+        .from(technicianVehicles)
+        .where(
+          and(
+            isNotNull(technicianVehicles.fleetmaticsVehicleId),
+            ne(technicianVehicles.fleetmaticsVehicleId, "")
+          )
+        );
+    } catch (error) {
+      console.error("Error retrieving technician vehicles with Fleetmatics ID:", error);
       return [];
     }
   }
