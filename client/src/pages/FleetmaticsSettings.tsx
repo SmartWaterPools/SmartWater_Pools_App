@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
@@ -29,6 +30,7 @@ type FleetmaticsFormValues = z.infer<typeof fleetmaticsFormSchema>;
 export default function FleetmaticsSettings() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   
@@ -37,7 +39,7 @@ export default function FleetmaticsSettings() {
     data: configData,
     isLoading: isLoadingConfig,
     error: configError
-  } = useQuery({
+  } = useQuery<FleetmaticsConfig>({
     queryKey: ['/api/fleetmatics/config'],
   });
   
@@ -47,7 +49,7 @@ export default function FleetmaticsSettings() {
     isPending: isSaving,
   } = useMutation({
     mutationFn: async (values: FleetmaticsFormValues) => {
-      if (configData?.id) {
+      if (configData && 'id' in configData) {
         // Update existing config
         return apiRequest(`/api/fleetmatics/config/${configData.id}`, 'PATCH', values);
       } else {
@@ -148,18 +150,20 @@ export default function FleetmaticsSettings() {
     },
   });
   
-  // Update form when config data is loaded
-  if (configData && !form.formState.isDirty) {
-    const config = configData as FleetmaticsConfig;
-    form.reset({
-      apiKey: config.apiKey,
-      apiSecret: config.apiSecret || '',
-      baseUrl: config.baseUrl,
-      accountId: config.accountId,
-      syncFrequencyMinutes: config.syncFrequencyMinutes,
-      isActive: config.isActive,
-    });
-  }
+  // Update form when config data is loaded - wrapped in useEffect to prevent infinite rerenders
+  useEffect(() => {
+    if (configData && !form.formState.isDirty) {
+      const config = configData as FleetmaticsConfig;
+      form.reset({
+        apiKey: config.apiKey,
+        apiSecret: config.apiSecret || '',
+        baseUrl: config.baseUrl,
+        accountId: config.accountId,
+        syncFrequencyMinutes: config.syncFrequencyMinutes,
+        isActive: config.isActive,
+      });
+    }
+  }, [configData, form]);
   
   const onSubmit = (values: FleetmaticsFormValues) => {
     saveConfig(values);
@@ -344,7 +348,7 @@ export default function FleetmaticsSettings() {
                       type="button" 
                       variant="outline" 
                       onClick={() => syncFleetmatics()}
-                      disabled={isSyncing || !configData?.isActive}
+                      disabled={isSyncing || !(configData && configData.isActive)}
                       className="flex items-center"
                     >
                       {isSyncing ? (
@@ -403,7 +407,7 @@ export default function FleetmaticsSettings() {
                     <h3 className="text-sm font-medium text-gray-500">Last Sync</h3>
                     <p className="mt-1">
                       {configData.lastSyncTime ? (
-                        new Date(configData.lastSyncTime).toLocaleString()
+                        new Date(configData.lastSyncTime as string).toLocaleString()
                       ) : (
                         'Never'
                       )}
@@ -420,13 +424,13 @@ export default function FleetmaticsSettings() {
                   <div>
                     <h3 className="text-sm font-medium text-gray-500">Created</h3>
                     <p className="mt-1">
-                      {new Date(configData.createdAt).toLocaleDateString()}
+                      {new Date(configData.createdAt as string).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
               </CardContent>
               <CardFooter className="text-sm text-gray-500">
-                Last updated: {new Date(configData.updatedAt).toLocaleString()}
+                Last updated: {new Date(configData.updatedAt as string).toLocaleString()}
               </CardFooter>
             </Card>
           )}
@@ -445,7 +449,7 @@ export default function FleetmaticsSettings() {
               </p>
               
               <Button 
-                onClick={() => window.location.href = '/vehicle-mapping'}
+                onClick={() => setLocation('/fleetmatics/vehicle-mapping')}
                 className="flex items-center"
               >
                 Manage Vehicle Mapping

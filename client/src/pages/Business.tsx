@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import {
   Tabs,
   TabsContent,
@@ -65,6 +66,7 @@ import { EXPENSE_CATEGORIES } from "@shared/schema";
 
 export default function Business() {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [location, setLocation] = useLocation();
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   // Payroll state removed
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
@@ -596,7 +598,7 @@ export default function Business() {
                 <p className="text-sm mb-4">View your technician vehicles on a real-time tracking map</p>
                 <Button 
                   onClick={() => {
-                    window.location.href = "/fleetmatics/vehicle-tracking";
+                    setLocation("/fleetmatics/vehicle-tracking");
                   }}
                 >
                   Open Vehicle Tracking
@@ -642,7 +644,7 @@ export default function Business() {
                 <p className="text-sm mb-4">Connect your technician vehicles to Fleetmatics for GPS tracking</p>
                 <Button 
                   onClick={() => {
-                    window.location.href = "/fleetmatics/vehicle-mapping";
+                    setLocation("/fleetmatics/vehicle-mapping");
                   }}
                 >
                   Configure Vehicle Mapping
@@ -688,7 +690,7 @@ export default function Business() {
                 <p className="text-sm mb-4">Set up your API keys and synchronization settings for Fleetmatics</p>
                 <Button 
                   onClick={() => {
-                    window.location.href = "/fleetmatics/settings";
+                    setLocation("/fleetmatics/settings");
                   }}
                 >
                   Configure Fleetmatics
