@@ -94,8 +94,8 @@ export default function Register() {
   }
   
   return (
-    <div className="container flex items-center justify-center min-h-screen py-8">
-      <Card className="w-full max-w-lg">
+    <div className="container flex items-center justify-center min-h-screen py-8 overflow-auto">
+      <Card className="w-full max-w-lg my-8">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl text-center">Create Account</CardTitle>
           <CardDescription className="text-center">

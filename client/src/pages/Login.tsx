@@ -106,8 +106,8 @@ export default function Login() {
   }
   
   return (
-    <div className="container flex items-center justify-center min-h-screen py-8 bg-pattern">
-      <Card className="w-full max-w-md shadow-lg">
+    <div className="container flex items-center justify-center min-h-screen py-8 bg-pattern overflow-auto">
+      <Card className="w-full max-w-md shadow-lg my-8">
         <CardHeader className="space-y-2">
           <div className="flex justify-center mb-2">
             <div className="rounded-full bg-primary/10 p-2">
