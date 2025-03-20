@@ -75,7 +75,26 @@ export function configurePassport(storage: IStorage) {
   // Configure Google OAuth strategy
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-  const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback';
+  
+  // Determine the environment and set appropriate callback URL
+  let callbackURL = 'http://localhost:5000/api/auth/google/callback';
+  
+  // Check if we're running in Replit environment
+  if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    // Check if this is a production deployment (replit.app domain)
+    const isProduction = process.env.NODE_ENV === 'production';
+    
+    if (isProduction) {
+      callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
+      console.log(`Running in Replit production environment. Using callback URL: ${callbackURL}`);
+    } else {
+      callbackURL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
+      console.log(`Running in Replit development environment. Using callback URL: ${callbackURL}`);
+    }
+  } else if (process.env.GOOGLE_CALLBACK_URL) {
+    callbackURL = process.env.GOOGLE_CALLBACK_URL;
+    console.log(`Using callback URL from environment: ${callbackURL}`);
+  }
   
   if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     passport.use(
@@ -83,7 +102,7 @@ export function configurePassport(storage: IStorage) {
         {
           clientID: GOOGLE_CLIENT_ID,
           clientSecret: GOOGLE_CLIENT_SECRET,
-          callbackURL: GOOGLE_CALLBACK_URL,
+          callbackURL: callbackURL,
           scope: ['profile', 'email']
         },
         async (accessToken, refreshToken, profile, done) => {
