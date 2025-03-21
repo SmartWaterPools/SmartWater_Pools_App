@@ -211,7 +211,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     (req, res, next) => {
       console.log('Received Google OAuth callback request', {
         path: req.path,
-        query: req.query,
+        query: {
+          code: req.query.code ? `${req.query.code.toString().substring(0, 10)}...` : undefined,
+          state: req.query.state,
+          error: req.query.error
+        },
         headers: {
           host: req.headers.host,
           referer: req.headers.referer,
@@ -219,75 +223,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
       
+      if (req.query.error) {
+        console.error('Google OAuth error received:', req.query.error);
+        return res.redirect(`/login?error=${encodeURIComponent(req.query.error as string)}`);
+      }
+      
+      // Handle the authentication with a more robust error handler
       passport.authenticate('google', { 
         failureRedirect: '/login?error=oauth-failed',
-        failureMessage: true
-      })(req, res, next);
-    },
-    (req, res) => {
-      try {
-        // Successful authentication
-        const user = req.user as User;
+        failureMessage: true,
+        session: true
+      }, (err, user, info) => {
+        if (err) {
+          console.error('Google OAuth authentication error:', err);
+          return res.redirect(`/login?error=${encodeURIComponent(err.message)}`);
+        }
         
         if (!user) {
-          console.error('OAuth callback success but user object is not available in request!');
-          return res.redirect('/login?error=session-not-created');
+          console.error('Google OAuth authentication failed:', info);
+          return res.redirect('/login?error=authentication-failed');
         }
         
-        // Log the successful OAuth login
-        console.log(`Google OAuth login successful for user: ${user.email}`, {
-          id: user.id,
-          role: user.role,
-          email: user.email,
-          name: user.name,
-          session: req.session ? 'exists' : 'missing'
-        });
-        
-        // Verify session is working
-        if (!req.isAuthenticated()) {
-          console.error('User authenticated but req.isAuthenticated() is false!', {
-            sessionID: req.sessionID,
-            hasSession: !!req.session
+        // Log in the user manually to ensure session is created
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            console.error('Failed to create session after Google OAuth:', loginErr);
+            return res.redirect('/login?error=session-creation-failed');
+          }
+          
+          // Successful authentication
+          console.log(`Google OAuth login successful for user: ${user.email}`, {
+            id: user.id,
+            role: user.role,
+            email: user.email,
+            name: user.name,
+            session: req.session ? 'exists' : 'missing',
+            authenticated: req.isAuthenticated()
           });
-        }
-        
-        // Redirect based on user role
-        if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
-          // Admin users go to the admin dashboard
-          console.log(`Redirecting admin user ${user.email} to /admin`);
-          return res.redirect('/admin');
-        } else if (user.role === 'technician') {
-          // Technicians go to technician dashboard
-          console.log(`Redirecting technician ${user.email} to /technician`);
-          return res.redirect('/technician');
-        } else if (user.role === 'client') {
-          // Clients go to client portal
-          console.log(`Redirecting client ${user.email} to /client-portal`);
-          return res.redirect('/client-portal');
-        } else {
-          // Default dashboard for all other roles
-          console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
-          return res.redirect('/dashboard');
-        }
-      } catch (error) {
-        console.error('Error in OAuth callback handler:', error);
-        return res.redirect('/login?error=callback-error');
-      }
+          
+          // Redirect based on user role
+          if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
+            // Admin users go to the admin dashboard
+            console.log(`Redirecting admin user ${user.email} to /admin`);
+            return res.redirect('/admin');
+          } else if (user.role === 'technician') {
+            // Technicians go to technician dashboard
+            console.log(`Redirecting technician ${user.email} to /technician`);
+            return res.redirect('/technician');
+          } else if (user.role === 'client') {
+            // Clients go to client portal
+            console.log(`Redirecting client ${user.email} to /client-portal`);
+            return res.redirect('/client-portal');
+          } else {
+            // Default dashboard for all other roles
+            console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
+            return res.redirect('/dashboard');
+          }
+        });
+      })(req, res, next);
     }
   );
   
   app.get("/api/auth/session", (req: Request, res: Response) => {
+    console.log("Session check request received");
+    console.log("Is authenticated:", req.isAuthenticated());
+    console.log("Session ID:", req.sessionID);
+    console.log("Session cookie:", req.session?.cookie);
+    
     if (req.isAuthenticated()) {
+      console.log("User is authenticated, user ID:", (req.user as any).id);
+      
       // Don't send password to the client
       const { password, ...userWithoutPassword } = req.user as any;
       
       return res.json({ 
         isAuthenticated: true, 
-        user: userWithoutPassword
+        user: userWithoutPassword,
+        sessionID: req.sessionID,
+        sessionCreated: req.session?.cookie.originalMaxAge 
+          ? new Date(Date.now() - req.session.cookie.maxAge + req.session.cookie.originalMaxAge) 
+          : null,
+        sessionExpires: req.session?.cookie.expires
       });
     }
     
-    res.json({ isAuthenticated: false });
+    console.log("User is not authenticated");
+    res.json({ 
+      isAuthenticated: false,
+      sessionID: req.sessionID,
+      sessionExists: !!req.session,
+      cookieMaxAge: req.session?.cookie?.maxAge
+    });
   });
   
   app.get("/api/auth/google-test", async (req: Request, res: Response) => {
@@ -393,6 +419,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Fleetmatics GPS integration routes
   const fleetmaticsRouter = express.Router();
   app.use("/api/fleetmatics", fleetmaticsRoutes(fleetmaticsRouter, storage));
+  
+  // OAuth routes
+  // We removed the duplicate Google OAuth routes - they're defined higher up in the file
+  
+  // OAuth debug route
+  app.get("/oauth-debug", (req: Request, res: Response) => {
+    const debugInfo = {
+      session: req.session,
+      isAuthenticated: req.isAuthenticated(),
+      user: req.user,
+      cookies: req.headers.cookie,
+      env: {
+        REPL_SLUG: process.env.REPL_SLUG,
+        REPL_OWNER: process.env.REPL_OWNER,
+        NODE_ENV: process.env.NODE_ENV,
+      }
+    };
+    
+    res.send(`
+      <html>
+        <head>
+          <title>OAuth Debug</title>
+          <style>
+            body { font-family: system-ui, sans-serif; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; }
+            pre { background: #f5f5f5; padding: 1rem; overflow: auto; border-radius: 4px; }
+            .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
+            h2 { margin-top: 0; color: #2563eb; }
+            .button { display: inline-block; background: #2563eb; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 4px; }
+            .info { color: #666; }
+          </style>
+        </head>
+        <body>
+          <h1>OAuth Debug Information</h1>
+          
+          <div class="card">
+            <h2>Authentication Status</h2>
+            <p>User is ${req.isAuthenticated() ? 'authenticated' : 'not authenticated'}</p>
+            ${req.user ? `<p>Logged in as: ${(req.user as any).username || 'Unknown'}</p>` : ''}
+          </div>
+          
+          <div class="card">
+            <h2>Environment</h2>
+            <pre>${JSON.stringify(debugInfo.env, null, 2)}</pre>
+          </div>
+          
+          <div class="card">
+            <h2>Session Data</h2>
+            <pre>${JSON.stringify(debugInfo.session, null, 2)}</pre>
+          </div>
+          
+          <div class="card">
+            <h2>User Object</h2>
+            <pre>${JSON.stringify(debugInfo.user, null, 2)}</pre>
+          </div>
+          
+          <div class="card">
+            <h2>Cookie Headers</h2>
+            <pre>${debugInfo.cookies || 'No cookies found'}</pre>
+          </div>
+          
+          <div class="card">
+            <h2>Actions</h2>
+            <p><a class="button" href="/api/auth/google">Sign in with Google</a></p>
+            <p><a class="button" href="/api/auth/logout">Logout</a></p>
+            <p><a class="button" href="/">Go to Home</a></p>
+          </div>
+          
+          <p class="info">Page generated at: ${new Date().toISOString()}</p>
+        </body>
+      </html>
+    `);
+  });
 
   // Enhanced health check endpoint with detailed diagnostics
   app.get("/api/health", (req: Request, res: Response) => {

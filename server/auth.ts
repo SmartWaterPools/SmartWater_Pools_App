@@ -8,15 +8,30 @@ import { IStorage } from './storage';
 export function configurePassport(storage: IStorage) {
   // Serialize user to the session
   passport.serializeUser((user: any, done) => {
+    console.log(`Serializing user to session:`, { id: user.id, username: user.username });
     done(null, user.id);
   });
   
   // Deserialize user from the session
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log(`Deserializing user from session with ID: ${id}`);
       const user = await storage.getUser(id);
+      
+      if (!user) {
+        console.error(`Failed to deserialize user: User with ID ${id} not found`);
+        return done(null, false);
+      }
+      
+      console.log(`Successfully deserialized user:`, { 
+        id: user.id, 
+        username: user.username,
+        role: user.role
+      });
+      
       done(null, user);
     } catch (error) {
+      console.error(`Error deserializing user:`, error);
       done(error);
     }
   });
@@ -81,20 +96,31 @@ export function configurePassport(storage: IStorage) {
   
   // Check if we're running in Replit environment
   if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    // Check if this is a production deployment (replit.app domain)
-    const isProduction = process.env.NODE_ENV === 'production';
-    
-    if (isProduction) {
+    // Check if this is a production deployment
+    if (process.env.REPL_SLUG.includes('smartwaterpools') || process.env.NODE_ENV === 'production') {
       callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
       console.log(`Running in Replit production environment. Using callback URL: ${callbackURL}`);
     } else {
-      // Use the exact case as provided by Replit environment variables
-      callbackURL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
+      // Use the Replit environment variables for callback
+      const slug = process.env.REPL_SLUG || 'workspace';
+      const owner = process.env.REPL_OWNER || 'TravisDeRisi';
+      callbackURL = `https://${slug}.${owner}.repl.co/api/auth/google/callback`;
       console.log(`Running in Replit development environment. Using callback URL: ${callbackURL}`);
     }
   } else if (process.env.GOOGLE_CALLBACK_URL) {
     callbackURL = process.env.GOOGLE_CALLBACK_URL;
     console.log(`Using callback URL from environment: ${callbackURL}`);
+  }
+  
+  console.log(`Google OAuth callback URL configured as: ${callbackURL}`);
+  
+  // Explicitly check that the required environment variables are available
+  if (!GOOGLE_CLIENT_ID) {
+    console.error('GOOGLE_CLIENT_ID environment variable is missing!');
+  }
+  
+  if (!GOOGLE_CLIENT_SECRET) {
+    console.error('GOOGLE_CLIENT_SECRET environment variable is missing!');
   }
   
   if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
@@ -109,9 +135,24 @@ export function configurePassport(storage: IStorage) {
         async (accessToken, refreshToken, profile, done) => {
           try {
             // Check if user already exists with this Google ID
-            const existingUser = await storage.getUserByGoogleId(profile.id);
+            console.log(`Looking up user by Google ID: ${profile.id}`);
+            let existingUser = await storage.getUserByGoogleId(profile.id);
             
             if (existingUser) {
+              console.log(`Found existing user by Google ID: ${profile.id}`, {
+                id: existingUser.id,
+                username: existingUser.username,
+                role: existingUser.role
+              });
+              
+              // Update photo URL if it changed
+              if (profile.photos && profile.photos[0] && profile.photos[0].value !== existingUser.photoUrl) {
+                console.log(`Updating user photo URL`);
+                existingUser = await storage.updateUser(existingUser.id, {
+                  photoUrl: profile.photos[0].value
+                }) || existingUser;
+              }
+              
               // If user exists, return the user
               return done(null, existingUser);
             }

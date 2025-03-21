@@ -30,13 +30,15 @@ app.use(
       createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET || 'smart-water-pools-secret',
-    resave: false,
-    saveUninitialized: false,
+    resave: true, // Changed to true to ensure session is saved on each request
+    saveUninitialized: true, // Changed to true to create session for all requests
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
       secure: isProduction, // Use secure cookies in production
       httpOnly: true, // Prevent JavaScript access to the cookie
+      sameSite: 'lax', // Added to allow cookies in cross-site requests for OAuth
     },
+    name: 'swp.sid', // Custom name to avoid conflicts
   })
 );
 
