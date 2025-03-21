@@ -116,6 +116,34 @@ export function UserManagement() {
       setEditingUser(null);
     },
   });
+  
+  // Mutation for deleting user
+  const deleteMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      return await apiRequest(`/api/users/${userId}`, "DELETE");
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "User deleted",
+        description: "User has been deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete user",
+        variant: "destructive",
+      });
+    }
+  });
+  
+  // Handle delete user
+  const handleDelete = (user: UserType) => {
+    if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
+      deleteMutation.mutate(user.id);
+    }
+  };
 
   // Form setup
   const form = useForm<UserFormValues>({
@@ -458,14 +486,29 @@ export function UserManagement() {
                         </Badge>
                       </td>
                       <td className="p-4 align-middle text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(user)}
-                        >
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Edit</span>
-                        </Button>
+                        <div className="flex justify-end space-x-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(user)}
+                          >
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                          {/* Don't show delete button for system_admin users or for the current user */}
+                          {user.role !== 'system_admin' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleDelete(user)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash className="h-4 w-4" />
+                              <span className="sr-only">Delete</span>
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

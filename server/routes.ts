@@ -558,16 +558,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User routes
-  app.get("/api/users", async (_req: Request, res: Response) => {
+  app.get("/api/users", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const users = await storage.getAllUsers();
+      // Check if user is authenticated and get their role and organization ID
+      const reqUser = req.user as any;
+      let users = [];
+      
+      if (reqUser && reqUser.role) {
+        // If user is system_admin or org_admin, they can see all users
+        if (reqUser.role === 'system_admin') {
+          users = await storage.getAllUsers();
+          console.log(`System admin retrieved ${users.length} users`);
+        } else if (reqUser.role === 'org_admin' && reqUser.organizationId) {
+          // Org admins can see users in their organization
+          users = await storage.getUsersByOrganizationId(reqUser.organizationId);
+          console.log(`Org admin retrieved ${users.length} users for organization ${reqUser.organizationId}`);
+        } else if (reqUser.role === 'admin' && reqUser.organizationId) {
+          // Regular admins can see users in their organization
+          users = await storage.getUsersByOrganizationId(reqUser.organizationId);
+          console.log(`Admin retrieved ${users.length} users for organization ${reqUser.organizationId}`);
+        } else {
+          // Regular users should only see themselves
+          users = [await storage.getUser(reqUser.id)].filter(Boolean);
+          console.log(`Regular user (${reqUser.username}) retrieved only their own user info`);
+        }
+      } else {
+        return res.status(403).json({ message: "Unauthorized access to user list" });
+      }
+
       res.json(users);
     } catch (error) {
+      console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
     }
   });
 
-  app.get("/api/users/:id", async (req: Request, res: Response) => {
+  app.get("/api/users/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       const user = await storage.getUser(id);
@@ -576,13 +602,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "User not found" });
       }
 
-      res.json(user);
+      // Check if user has permission to view this user
+      const reqUser = req.user as any;
+      if (reqUser) {
+        // Users can see themselves
+        if (reqUser.id === id) {
+          return res.json(user);
+        }
+        
+        // System admins can see all users
+        if (reqUser.role === 'system_admin') {
+          return res.json(user);
+        }
+        
+        // Org admins and admins can see users in their organization
+        if ((reqUser.role === 'org_admin' || reqUser.role === 'admin') && 
+            reqUser.organizationId === user.organizationId) {
+          return res.json(user);
+        }
+        
+        // Otherwise, unauthorized
+        return res.status(403).json({ message: "You don't have permission to view this user" });
+      }
+      
+      return res.status(401).json({ message: "Authentication required" });
     } catch (error) {
+      console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });
 
-  app.post("/api/users", async (req: Request, res: Response) => {
+  app.post("/api/users", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
       const validation = validateRequest(insertUserSchema, req.body);
 
@@ -604,11 +654,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(userWithoutPassword);
     } catch (error) {
+      console.error("Error creating user:", error);
       res.status(500).json({ message: "Failed to create user" });
     }
   });
   
-  app.patch("/api/users/:id", async (req: Request, res: Response) => {
+  // Add a new delete user endpoint
+  app.delete("/api/users/:id", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid user ID" });
+      }
+      
+      // Get the user first to check if they exist
+      const user = await storage.getUser(id);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Don't allow deleting system_admin users
+      if (user.role === 'system_admin') {
+        return res.status(403).json({ message: "Cannot delete system administrator accounts" });
+      }
+      
+      // Check if user has permission to delete this user
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // System admins can delete any user (except other system admins)
+      if (reqUser.role === 'system_admin') {
+        // Allow the delete
+      }
+      // Org admins can delete users in their organization
+      else if (reqUser.role === 'org_admin' && reqUser.organizationId === user.organizationId) {
+        // Allow the delete
+      }
+      // Otherwise, unauthorized
+      else {
+        return res.status(403).json({ message: "You don't have permission to delete this user" });
+      }
+      
+      // Check if this is the user's own account
+      if (reqUser.id === id) {
+        return res.status(403).json({ message: "Cannot delete your own account" });
+      }
+      
+      // Set user inactive instead of hard deleting
+      const updatedUser = await storage.updateUser(id, { active: false });
+      
+      if (!updatedUser) {
+        return res.status(500).json({ message: "Failed to delete user" });
+      }
+      
+      return res.json({ message: "User deleted successfully", success: true });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return res.status(500).json({ message: "Failed to delete user" });
+    }
+  });
+  
+  app.patch("/api/users/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       console.log(`[API] Updating user ${id} with data:`, req.body);
@@ -618,11 +728,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
+      // Get the existing user first
+      const existingUser = await storage.getUser(id);
+      if (!existingUser) {
+        console.log(`[API] User ${id} not found for update`);
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Check if user has permission to update this user
+      const reqUser = req.user as any;
+      if (reqUser) {
+        // Users can update themselves
+        if (reqUser.id === id) {
+          // Continue with the update
+        }
+        // System admins can update any user
+        else if (reqUser.role === 'system_admin') {
+          // Continue with the update
+        }
+        // Org admins and admins can update users in their organization
+        else if ((reqUser.role === 'org_admin' || reqUser.role === 'admin') && 
+            reqUser.organizationId === existingUser.organizationId) {
+          // Continue with the update
+        }
+        else {
+          // Otherwise, unauthorized
+          return res.status(403).json({ message: "You don't have permission to update this user" });
+        }
+      } else {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+      
+      // Proceed with the update
       const updatedUser = await storage.updateUser(id, req.body);
       
       if (!updatedUser) {
-        console.log(`[API] User ${id} not found for update`);
-        return res.status(404).json({ message: "User not found" });
+        console.log(`[API] User ${id} update failed`);
+        return res.status(500).json({ message: "Failed to update user" });
       }
       
       console.log(`[API] User ${id} updated successfully:`, updatedUser);

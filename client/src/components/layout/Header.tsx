@@ -34,11 +34,11 @@ export function Header({ toggleMobileMenu }: HeaderProps) {
   };
 
   const handleProfileClick = () => {
-    setLocation('/settings');
+    setLocation('/settings?tab=profile');
   };
 
   const handleSettingsClick = () => {
-    setLocation('/settings');
+    setLocation('/settings?tab=advanced');
   };
 
   const handleNotificationClick = (id: number) => {
