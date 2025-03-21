@@ -120,18 +120,51 @@ export function configurePassport(storage: IStorage) {
             // First, check if the email is already in use
             const email = profile.emails && profile.emails[0] ? profile.emails[0].value : '';
             
+            console.log(`Google authentication - checking for existing user with email: ${email}`);
+            console.log(`Google profile:`, {
+              id: profile.id,
+              displayName: profile.displayName,
+              email: email,
+              hasEmails: profile.emails ? profile.emails.length : 0,
+              hasPhotos: profile.photos ? profile.photos.length : 0
+            });
+            
             if (email) {
-              const userWithEmail = await storage.getUserByEmail(email);
-              
-              if (userWithEmail) {
-                // Link Google account to existing user
-                const updatedUser = await storage.updateUser(userWithEmail.id, {
-                  googleId: profile.id,
-                  photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                  authProvider: 'google'
-                });
+              try {
+                const userWithEmail = await storage.getUserByEmail(email);
                 
-                return done(null, updatedUser);
+                if (userWithEmail) {
+                  console.log(`Found existing user for email ${email}:`, {
+                    id: userWithEmail.id,
+                    username: userWithEmail.username,
+                    role: userWithEmail.role,
+                    active: userWithEmail.active, 
+                    hasGoogleId: !!userWithEmail.googleId
+                  });
+                  
+                  // Link Google account to existing user
+                  const updatedUser = await storage.updateUser(userWithEmail.id, {
+                    googleId: profile.id,
+                    photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                    authProvider: 'google'
+                  });
+                  
+                  if (updatedUser) {
+                    console.log(`Updated existing user with Google credentials:`, {
+                      id: updatedUser.id,
+                      googleId: updatedUser.googleId,
+                      authProvider: updatedUser.authProvider
+                    });
+                    return done(null, updatedUser);
+                  } else {
+                    console.error(`Failed to update user with Google credentials - updateUser returned undefined`);
+                    return done(new Error('Failed to update user in database'), false);
+                  }
+                } else {
+                  console.log(`No existing user found with email: ${email}`);
+                }
+              } catch (error) {
+                console.error(`Error finding user by email ${email}:`, error);
               }
             }
             

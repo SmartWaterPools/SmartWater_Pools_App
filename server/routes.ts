@@ -156,12 +156,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
       },
       query: req.query
     });
+    
+    // Get the callback URL from env variables or build it
+    let callbackURL = '';
+    if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+      // Use the exact case from environment variables for callback
+      callbackURL = `https://workspace.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
+      
+      // For production deployment
+      if (process.env.NODE_ENV === 'production') {
+        callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
+      }
+    } else {
+      callbackURL = 'http://localhost:5000/api/auth/google/callback';
+    }
+    
     res.json({
       success: true,
       message: 'This is a test of the OAuth callback URL configuration',
-      url: `https://${req.headers.host}/api/auth/google/callback`,
-      expectedUrl: `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`,
-      isMatch: req.headers.host === `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+      currentUrl: `https://${req.headers.host}/api/auth/google/callback`,
+      expectedCallbackUrl: callbackURL,
+      environmentDetails: {
+        nodeEnv: process.env.NODE_ENV || 'development',
+        replSlug: process.env.REPL_SLUG,
+        replOwner: process.env.REPL_OWNER
+      },
+      isReplit: !!process.env.REPL_ID,
+      recommendedCallbackURLs: [
+        `https://workspace.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`, // Development with proper case
+        `https://workspace.${process.env.REPL_OWNER?.toLowerCase()}.repl.co/api/auth/google/callback`, // Development with lowercase
+        `https://smartwaterpools.replit.app/api/auth/google/callback` // Production
+      ],
+      userDetails: req.user ? {
+        id: (req.user as any).id,
+        username: (req.user as any).username,
+        email: (req.user as any).email,
+        role: (req.user as any).role,
+        isAuthenticated: req.isAuthenticated()
+      } : {
+        isAuthenticated: req.isAuthenticated()
+      }
     });
   });
 
@@ -191,34 +225,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       })(req, res, next);
     },
     (req, res) => {
-      // Successful authentication
-      const user = req.user as User;
-      
-      // Log the successful OAuth login
-      console.log(`Google OAuth login successful for user: ${user.email}`, {
-        id: user.id,
-        role: user.role,
-        email: user.email,
-        name: user.name
-      });
-      
-      // Redirect based on user role
-      if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
-        // Admin users go to the admin dashboard
-        console.log(`Redirecting admin user ${user.email} to /admin`);
-        return res.redirect('/admin');
-      } else if (user.role === 'technician') {
-        // Technicians go to technician dashboard
-        console.log(`Redirecting technician ${user.email} to /technician`);
-        return res.redirect('/technician');
-      } else if (user.role === 'client') {
-        // Clients go to client portal
-        console.log(`Redirecting client ${user.email} to /client-portal`);
-        return res.redirect('/client-portal');
-      } else {
-        // Default dashboard for all other roles
-        console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
-        return res.redirect('/dashboard');
+      try {
+        // Successful authentication
+        const user = req.user as User;
+        
+        if (!user) {
+          console.error('OAuth callback success but user object is not available in request!');
+          return res.redirect('/login?error=session-not-created');
+        }
+        
+        // Log the successful OAuth login
+        console.log(`Google OAuth login successful for user: ${user.email}`, {
+          id: user.id,
+          role: user.role,
+          email: user.email,
+          name: user.name,
+          session: req.session ? 'exists' : 'missing'
+        });
+        
+        // Verify session is working
+        if (!req.isAuthenticated()) {
+          console.error('User authenticated but req.isAuthenticated() is false!', {
+            sessionID: req.sessionID,
+            hasSession: !!req.session
+          });
+        }
+        
+        // Redirect based on user role
+        if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
+          // Admin users go to the admin dashboard
+          console.log(`Redirecting admin user ${user.email} to /admin`);
+          return res.redirect('/admin');
+        } else if (user.role === 'technician') {
+          // Technicians go to technician dashboard
+          console.log(`Redirecting technician ${user.email} to /technician`);
+          return res.redirect('/technician');
+        } else if (user.role === 'client') {
+          // Clients go to client portal
+          console.log(`Redirecting client ${user.email} to /client-portal`);
+          return res.redirect('/client-portal');
+        } else {
+          // Default dashboard for all other roles
+          console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
+          return res.redirect('/dashboard');
+        }
+      } catch (error) {
+        console.error('Error in OAuth callback handler:', error);
+        return res.redirect('/login?error=callback-error');
       }
     }
   );
@@ -235,6 +288,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     res.json({ isAuthenticated: false });
+  });
+  
+  app.get("/api/auth/google-test", async (req: Request, res: Response) => {
+    try {
+      // Get Replit environment variables for debugging
+      const nodeEnv = process.env.NODE_ENV || 'development';
+      const replId = process.env.REPL_ID || '';
+      const replSlug = process.env.REPL_SLUG || '';
+      const replOwner = process.env.REPL_OWNER || '';
+      const isReplit = !!process.env.REPL_ID && !!process.env.REPL_SLUG;
+      
+      // Determine the base URL
+      let baseUrl = '';
+      if (isReplit) {
+        baseUrl = `https://${replSlug}.${replOwner}.repl.co`;
+      } else if (process.env.NODE_ENV === 'production') {
+        baseUrl = 'https://smartwaterpools.replit.app';
+      } else {
+        baseUrl = 'http://localhost:5000';
+      }
+      
+      // Determine callback URL
+      const callbackUrl = `${baseUrl}/api/auth/google/callback`;
+      
+      // Generate recommended callback URLs
+      const recommendedCallbackURLs = [
+        `https://${replSlug}.${replOwner}.repl.co/api/auth/google/callback`,
+        `https://${replSlug.toLowerCase()}.${replOwner.toLowerCase()}.repl.co/api/auth/google/callback`,
+        'https://smartwaterpools.replit.app/api/auth/google/callback'
+      ];
+      
+      // Get user information if logged in
+      const userDetails = req.user ? {
+        id: (req.user as User).id,
+        username: (req.user as User).username,
+        email: (req.user as User).email,
+        role: (req.user as User).role,
+        isAuthenticated: true
+      } : undefined;
+      
+      // Build response object
+      const responseData = {
+        currentUrl: baseUrl,
+        expectedCallbackUrl: callbackUrl,
+        environmentDetails: {
+          nodeEnv,
+          replSlug,
+          replOwner
+        },
+        isReplit,
+        recommendedCallbackURLs,
+        userDetails
+      };
+      
+      res.json(responseData);
+    } catch (error) {
+      console.error('Error in Google OAuth test endpoint:', error);
+      res.status(500).json({ error: 'Failed to generate OAuth test information' });
+    }
   });
   
   // User registration endpoint (modified version of the existing user creation endpoint)

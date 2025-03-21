@@ -46,6 +46,7 @@ import NotFound from "./pages/not-found";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
+import OAuthDebug from "./pages/OAuthDebug";
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -94,6 +95,9 @@ function App() {
                 </Route>
                 <Route path="/oauth-consent">
                   <OAuthConsent />
+                </Route>
+                <Route path="/oauth-debug">
+                  <OAuthDebug />
                 </Route>
                 
                 {/* Protected routes */}
