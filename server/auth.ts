@@ -134,7 +134,29 @@ export function configurePassport(storage: IStorage) {
         },
         async (accessToken, refreshToken, profile, done) => {
           try {
-            // Check if user already exists with this Google ID
+            if (!profile || !profile.id) {
+              console.error('Invalid Google profile received', profile);
+              return done(new Error('Invalid Google profile'), false);
+            }
+            
+            // Extract primary email from profile
+            const email = profile.emails && profile.emails[0] ? profile.emails[0].value.toLowerCase() : '';
+            
+            if (!email) {
+              console.error('No email found in Google profile', profile);
+              return done(new Error('No email address provided by Google'), false);
+            }
+            
+            console.log(`Google authentication for email: ${email}`);
+            console.log(`Google profile:`, {
+              id: profile.id,
+              displayName: profile.displayName,
+              email: email,
+              hasEmails: profile.emails ? profile.emails.length : 0,
+              hasPhotos: profile.photos ? profile.photos.length : 0
+            });
+            
+            // Step 1: Check if user already exists with this Google ID
             console.log(`Looking up user by Google ID: ${profile.id}`);
             let existingUser = await storage.getUserByGoogleId(profile.id);
             
@@ -157,31 +179,25 @@ export function configurePassport(storage: IStorage) {
               return done(null, existingUser);
             }
             
-            // If user doesn't exist, create a new one
-            // First, check if the email is already in use
-            const email = profile.emails && profile.emails[0] ? profile.emails[0].value : '';
-            
-            console.log(`Google authentication - checking for existing user with email: ${email}`);
-            console.log(`Google profile:`, {
-              id: profile.id,
-              displayName: profile.displayName,
-              email: email,
-              hasEmails: profile.emails ? profile.emails.length : 0,
-              hasPhotos: profile.photos ? profile.photos.length : 0
-            });
-            
-            if (email) {
-              try {
-                const userWithEmail = await storage.getUserByEmail(email);
+            // Step 2: If no user found by Google ID, check if user exists with the same email
+            // This is the case where a user registered with email/password or was created by admin
+            // and now they're trying to sign in with Google using the same email
+            try {
+              console.log(`No user found with Google ID ${profile.id}. Looking up by email: ${email}`);
+              const userWithEmail = await storage.getUserByEmail(email);
+              
+              if (userWithEmail) {
+                console.log(`Found existing user with email ${email}:`, {
+                  id: userWithEmail.id,
+                  username: userWithEmail.username,
+                  role: userWithEmail.role,
+                  active: userWithEmail.active, 
+                  hasGoogleId: !!userWithEmail.googleId
+                });
                 
-                if (userWithEmail) {
-                  console.log(`Found existing user for email ${email}:`, {
-                    id: userWithEmail.id,
-                    username: userWithEmail.username,
-                    role: userWithEmail.role,
-                    active: userWithEmail.active, 
-                    hasGoogleId: !!userWithEmail.googleId
-                  });
+                // Case-insensitive comparison to handle email casing differences
+                if (userWithEmail.email.toLowerCase() === email.toLowerCase()) {
+                  console.log(`Email match confirmed. Linking Google account to existing user: ${userWithEmail.id}`);
                   
                   // Link Google account to existing user
                   const updatedUser = await storage.updateUser(userWithEmail.id, {
@@ -191,10 +207,11 @@ export function configurePassport(storage: IStorage) {
                   });
                   
                   if (updatedUser) {
-                    console.log(`Updated existing user with Google credentials:`, {
+                    console.log(`Successfully linked Google account to existing user:`, {
                       id: updatedUser.id,
+                      email: updatedUser.email,
                       googleId: updatedUser.googleId,
-                      authProvider: updatedUser.authProvider
+                      role: updatedUser.role
                     });
                     return done(null, updatedUser);
                   } else {
@@ -202,40 +219,86 @@ export function configurePassport(storage: IStorage) {
                     return done(new Error('Failed to update user in database'), false);
                   }
                 } else {
-                  console.log(`No existing user found with email: ${email}`);
+                  console.log(`Email case mismatch: ${userWithEmail.email} vs ${email}, still linking accounts`);
+                  // Continue with linking as above, same logic applies for case-insensitive matches
+                  const updatedUser = await storage.updateUser(userWithEmail.id, {
+                    googleId: profile.id,
+                    photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                    authProvider: 'google'
+                  });
+                  
+                  if (updatedUser) {
+                    return done(null, updatedUser);
+                  } else {
+                    return done(new Error('Failed to update user in database'), false);
+                  }
                 }
-              } catch (error) {
-                console.error(`Error finding user by email ${email}:`, error);
+              } else {
+                console.log(`No existing user found with email: ${email}, creating new user`);
               }
+            } catch (error) {
+              console.error(`Error finding user by email ${email}:`, error);
+              // Continue to create new user if there's an error looking up by email
             }
             
             // Create new user
-            const username = email.split('@')[0] + '_' + Math.floor(Math.random() * 1000);
-            const displayName = profile.displayName || (profile.name ? `${profile.name.givenName} ${profile.name.familyName}` : username);
+            // Username = email prefix + random number to avoid collisions
+            const username = email.split('@')[0] + '_' + Math.floor(Math.random() * 10000);
+            const displayName = profile.displayName || 
+                               (profile.name ? `${profile.name.givenName} ${profile.name.familyName}` : 
+                                email.split('@')[0]);
             
             // Get the default organization ID
-            const organizations = await storage.getAllOrganizations();
-            const defaultOrg = organizations.find(org => org.isSystemAdmin) || organizations[0];
-            
-            if (!defaultOrg) {
-              return done(new Error('No default organization found'), false);
+            let defaultOrg;
+            try {
+              const organizations = await storage.getAllOrganizations();
+              defaultOrg = organizations.find(org => org.isSystemAdmin) || organizations[0];
+              
+              if (!defaultOrg) {
+                console.error('No organizations found in the database');
+                return done(new Error('No default organization found'), false);
+              }
+            } catch (err) {
+              console.error('Error getting organizations:', err);
+              return done(new Error('Failed to get organizations'), false);
             }
             
-            const newUser = await storage.createUser({
+            console.log(`Creating new user with Google credentials:`, {
               username,
-              name: displayName,
-              email: email || username + '@example.com', // Fallback email if none provided
-              role: 'client', // Default role for new users
-              googleId: profile.id,
-              photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-              authProvider: 'google',
-              organizationId: defaultOrg.id,
-              active: true
+              email,
+              displayName,
+              organization: defaultOrg.id
             });
             
-            return done(null, newUser);
+            try {
+              const newUser = await storage.createUser({
+                username,
+                password: null, // No password for OAuth users
+                name: displayName,
+                email: email, 
+                role: 'client', // Default role for new users
+                googleId: profile.id,
+                photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                authProvider: 'google',
+                organizationId: defaultOrg.id,
+                active: true
+              });
+              
+              console.log(`Successfully created new user from Google OAuth:`, {
+                id: newUser.id,
+                username: newUser.username,
+                email: newUser.email,
+                role: newUser.role
+              });
+              
+              return done(null, newUser);
+            } catch (createError) {
+              console.error('Error creating new user:', createError);
+              return done(createError, false);
+            }
           } catch (error) {
-            return done(error);
+            console.error('Unexpected error in Google OAuth strategy:', error);
+            return done(error, false);
           }
         }
       )

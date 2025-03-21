@@ -200,11 +200,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Google OAuth login route
-  app.get('/api/auth/google', passport.authenticate('google', { 
-    scope: ['profile', 'email'],
-    // Force approval screen
-    prompt: 'select_account'
-  }));
+  app.get('/api/auth/google', (req, res, next) => {
+    console.log('Google OAuth login route accessed');
+    console.log('Session before Google auth:', req.sessionID);
+    
+    // Ensure session is saved before redirecting to Google
+    if (req.session) {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Error saving session before OAuth redirect:', err);
+        }
+        // Continue with Google authentication
+        passport.authenticate('google', { 
+          scope: ['profile', 'email'],
+          // Force approval screen
+          prompt: 'select_account',
+          session: true
+        })(req, res, next);
+      });
+    } else {
+      console.error('No session object available before Google auth');
+      passport.authenticate('google', { 
+        scope: ['profile', 'email'],
+        prompt: 'select_account',
+        session: true
+      })(req, res, next);
+    }
+  });
   
   // Google OAuth callback route with enhanced error handling and logging
   app.get('/api/auth/google/callback', 
@@ -220,12 +242,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           host: req.headers.host,
           referer: req.headers.referer,
           origin: req.headers.origin
-        }
+        },
+        sessionID: req.sessionID
       });
       
       if (req.query.error) {
         console.error('Google OAuth error received:', req.query.error);
         return res.redirect(`/login?error=${encodeURIComponent(req.query.error as string)}`);
+      }
+      
+      if (!req.query.code) {
+        console.error('No auth code received in Google OAuth callback');
+        return res.redirect('/login?error=missing-auth-code');
       }
       
       // Handle the authentication with a more robust error handler
@@ -251,34 +279,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.redirect('/login?error=session-creation-failed');
           }
           
-          // Successful authentication
-          console.log(`Google OAuth login successful for user: ${user.email}`, {
-            id: user.id,
-            role: user.role,
-            email: user.email,
-            name: user.name,
-            session: req.session ? 'exists' : 'missing',
-            authenticated: req.isAuthenticated()
+          // Make sure session is saved before redirect
+          req.session.save((saveErr) => {
+            if (saveErr) {
+              console.error('Error saving session after Google OAuth login:', saveErr);
+              return res.redirect('/login?error=session-save-failed');
+            }
+            
+            // Successful authentication
+            console.log(`Google OAuth login successful for user: ${user.email}`, {
+              id: user.id,
+              role: user.role,
+              email: user.email,
+              name: user.name,
+              session: req.session ? 'exists' : 'missing',
+              sessionID: req.sessionID,
+              authenticated: req.isAuthenticated()
+            });
+            
+            // Redirect based on user role
+            if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
+              // Admin users go to the admin dashboard
+              console.log(`Redirecting admin user ${user.email} to /admin`);
+              return res.redirect('/admin');
+            } else if (user.role === 'technician') {
+              // Technicians go to technician dashboard
+              console.log(`Redirecting technician ${user.email} to /technician`);
+              return res.redirect('/technician');
+            } else if (user.role === 'client') {
+              // Clients go to client portal
+              console.log(`Redirecting client ${user.email} to /client-portal`);
+              return res.redirect('/client-portal');
+            } else {
+              // Default dashboard for all other roles
+              console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
+              return res.redirect('/dashboard');
+            }
           });
-          
-          // Redirect based on user role
-          if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
-            // Admin users go to the admin dashboard
-            console.log(`Redirecting admin user ${user.email} to /admin`);
-            return res.redirect('/admin');
-          } else if (user.role === 'technician') {
-            // Technicians go to technician dashboard
-            console.log(`Redirecting technician ${user.email} to /technician`);
-            return res.redirect('/technician');
-          } else if (user.role === 'client') {
-            // Clients go to client portal
-            console.log(`Redirecting client ${user.email} to /client-portal`);
-            return res.redirect('/client-portal');
-          } else {
-            // Default dashboard for all other roles
-            console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
-            return res.redirect('/dashboard');
-          }
         });
       })(req, res, next);
     }

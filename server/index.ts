@@ -20,23 +20,41 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 // Configure session store with PostgreSQL
 const PgSession = connectPgSimple(session);
 const isProduction = process.env.NODE_ENV === 'production';
+const isReplit = !!process.env.REPL_ID;
 
-// Setup session middleware
+// Generate a more secure session secret that changes on server restart but remains consistent during a session
+const generateSessionSecret = () => {
+  const baseSecret = process.env.SESSION_SECRET || 'smart-water-pools-secret';
+  const randomPart = Math.random().toString(36).substring(2, 15);
+  const timestamp = Date.now().toString(36);
+  return `${baseSecret}-${randomPart}-${timestamp}`;
+};
+
+const sessionSecret = generateSessionSecret();
+console.log('Session middleware initialized with new secret');
+
+// Setup session middleware with improved configuration
 app.use(
   session({
     store: new PgSession({
       pool: new Pool({ connectionString: process.env.DATABASE_URL }),
       tableName: 'session', // Name of the session table
       createTableIfMissing: true,
+      // Cleanup expired sessions periodically (every 24 hours)
+      pruneSessionInterval: 24 * 60 * 60
     }),
-    secret: process.env.SESSION_SECRET || 'smart-water-pools-secret',
-    resave: true, // Changed to true to ensure session is saved on each request
-    saveUninitialized: true, // Changed to true to create session for all requests
+    secret: sessionSecret,
+    resave: false, // Only save session when modified
+    saveUninitialized: true, // Create session for all requests (needed for OAuth)
+    rolling: true, // Reset cookie maxAge on each response
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      secure: isProduction, // Use secure cookies in production
+      // Only use secure cookies in production, but not in Replit environment 
+      // since Replit doesn't always support HTTPS properly in preview
+      secure: isProduction && !isReplit,
       httpOnly: true, // Prevent JavaScript access to the cookie
-      sameSite: 'lax', // Added to allow cookies in cross-site requests for OAuth
+      sameSite: 'lax', // Allow cross-site cookies for OAuth while providing some CSRF protection
+      path: '/', // Ensure cookie is available for the entire site
     },
     name: 'swp.sid', // Custom name to avoid conflicts
   })
@@ -46,6 +64,16 @@ app.use(
 const passport = configurePassport(storage);
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Add middleware to attach session ID to response headers for debugging
+app.use((req, res, next) => {
+  // Only in development, add session info to response headers
+  if (process.env.NODE_ENV !== 'production') {
+    res.setHeader('X-Session-ID', req.sessionID || 'no-session');
+    res.setHeader('X-Auth-Status', req.isAuthenticated ? (req.isAuthenticated() ? 'authenticated' : 'not-authenticated') : 'unknown');
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const start = Date.now();
