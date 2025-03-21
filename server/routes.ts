@@ -423,6 +423,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: validation.error });
       }
       
+      // Validate email domain for SmartWater Pools organization
+      const email = validation.data.email.toLowerCase();
+      // If not a SmartWater Pools email, set to default organization and client role
+      if (!email.endsWith('@smartwaterpools.com')) {
+        // Set to client role regardless of what was requested
+        validation.data.role = 'client';
+        
+        // Get the default organization for clients
+        const defaultOrg = await storage.getOrganizationBySlug('client-organization');
+        if (defaultOrg) {
+          validation.data.organizationId = defaultOrg.id;
+        } else {
+          console.warn("No default client organization found. User registration may fail.");
+        }
+      }
+      
       // Hash the password before storing it
       const hashedPassword = await hashPassword(validation.data.password);
       
@@ -510,6 +526,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Validate email domain for SmartWater Pools organization permissions
+      const emailLower = email.toLowerCase();
+      let userRole = role;
+      let userOrganizationId = organizationId;
+      
+      // If not a SmartWater Pools email and trying to get higher privileges, restrict to client role
+      if (!emailLower.endsWith('@smartwaterpools.com') && 
+          (role === 'system_admin' || role === 'org_admin' || role === 'admin')) {
+        userRole = 'client';
+        
+        // Get default organization for clients if needed
+        if (!organizationId) {
+          const defaultOrg = await storage.getOrganizationBySlug('client-organization');
+          if (defaultOrg) {
+            userOrganizationId = defaultOrg.id;
+          }
+        }
+      }
+      
       // Create the user account
       const hashedPassword = await hashPassword(password);
       
@@ -518,8 +553,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         password: hashedPassword,
         name,
         email,
-        role,
-        organizationId,
+        role: userRole,
+        organizationId: userOrganizationId,
         active: true,
         phone: null,
         address: null,

@@ -143,11 +143,23 @@ export default function Login() {
       // Remove confirmPassword as it's not needed for the API
       const { confirmPassword, ...signupData } = data;
       
+      // Check if the email is from SmartWaterPools domain
+      const isCompanyEmail = signupData.email.toLowerCase().endsWith('@smartwaterpools.com');
+      
       // Default role to client for self-registration
       const registrationData = {
         ...signupData,
         role: "client",
       };
+      
+      // If not a company email, show a warning toast
+      if (!isCompanyEmail) {
+        toast({
+          title: "Non-company Email",
+          description: "You're registering with a non-SmartWaterPools email. Your account will have client-level access only.",
+          variant: "warning",
+        });
+      }
       
       const success = await register(registrationData);
       
