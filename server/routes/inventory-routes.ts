@@ -11,6 +11,36 @@ import * as z from 'zod';
 
 export default function registerInventoryRoutes(router: Router, storage: IStorage) {
   /**
+   * Get inventory summary statistics
+   * GET /api/inventory/summary
+   */
+  router.get('/summary', isAuthenticated, async (_req: Request, res: Response) => {
+    try {
+      // Get counts from various inventory entities
+      const items = await storage.getAllInventoryItems();
+      const warehouses = await storage.getAllWarehouses();
+      const vehicles = await storage.getAllTechnicianVehicles();
+      const lowStockItems = await storage.getLowStockItems();
+      
+      // Get pending transfers
+      const transfers = await storage.getInventoryTransfersByStatus('pending');
+      
+      // Build summary object
+      const summary = {
+        totalItems: items.length,
+        totalWarehouses: warehouses.length,
+        totalVehicles: vehicles.length,
+        lowStockItems: lowStockItems.length,
+        pendingTransfers: transfers.length
+      };
+      
+      res.json(summary);
+    } catch (error) {
+      console.error('Error fetching inventory summary:', error);
+      res.status(500).json({ error: 'Failed to fetch inventory summary' });
+    }
+  });
+  /**
    * Get all inventory items
    * GET /api/inventory/items
    */

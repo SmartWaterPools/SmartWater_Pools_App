@@ -747,6 +747,16 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         </div>
         
         <div 
+          onClick={(e) => handleSidebarNavigation(e, "/inventory")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnInventory ? "text-primary" : "text-gray-500")}>
+            <Truck className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnInventory ? "text-primary font-medium" : "text-gray-500")}>Inventory</span>
+        </div>
+        
+        <div 
           onClick={(e) => handleSidebarNavigation(e, "/inventory/barcode-demo")}
           className="flex flex-col items-center px-3 py-1"
         >
