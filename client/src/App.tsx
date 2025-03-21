@@ -33,6 +33,7 @@ import MaintenanceReportPage from "./pages/MaintenanceReportPage";
 import Communications from "./pages/Communications";
 import Business from "./pages/Business";
 import InventoryTransfers from "./pages/InventoryTransfers";
+import InventoryManagement from "./pages/InventoryManagement";
 import FleetmaticsSettings from "./pages/FleetmaticsSettings";
 import VehicleMapping from "./pages/VehicleMapping";
 import VehicleTracking from "./pages/VehicleTracking";
@@ -157,6 +158,7 @@ function App() {
                           <Route path="/maintenance-report/:id" component={MaintenanceReportPage} />
                           <Route path="/communications" component={Communications} />
                           <Route path="/business" component={Business} />
+                          <Route path="/inventory" component={InventoryManagement} />
                           <Route path="/inventory/transfers" component={InventoryTransfers} />
                           <Route path="/inventory/barcode-demo" component={BarcodeDemo} />
                           

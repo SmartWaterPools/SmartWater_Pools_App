@@ -271,12 +271,22 @@ export function configurePassport(storage: IStorage) {
             });
             
             try {
+              // Determine role based on email
+              // Special case for Travis@SmartWaterPools.com - assign system_admin role
+              let role = 'client'; // Default role
+              
+              // Check for system admin email in a case-insensitive way
+              if (email.toLowerCase() === 'travis@smartwaterpools.com') {
+                role = 'system_admin';
+                console.log(`Assigning system_admin role to ${email}`);
+              }
+              
               const newUser = await storage.createUser({
                 username,
                 password: null, // No password for OAuth users
                 name: displayName,
                 email: email, 
-                role: 'client', // Default role for new users
+                role: role, // Assign role based on email
                 googleId: profile.id,
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                 authProvider: 'google',
@@ -355,6 +365,83 @@ export function isSystemAdmin(req: any, res: any, next: any) {
   
   // For regular requests, redirect to unauthorized page
   res.redirect('/unauthorized');
+}
+
+// Middleware to check organization boundaries for resource access
+export function checkOrganizationAccess(storage: IStorage) {
+  return async (req: any, res: any, next: any) => {
+    // Skip if not authenticated
+    if (!req.isAuthenticated()) {
+      return next();
+    }
+
+    // System admins can access all resources
+    if (req.user.role === 'system_admin') {
+      return next();
+    }
+
+    const resourceType = req.params.resourceType;
+    const resourceId = parseInt(req.params.id);
+
+    if (!resourceId || isNaN(resourceId)) {
+      return next();
+    }
+
+    try {
+      let resource;
+      let resourceOrgId;
+
+      // Determine resource type and check organization access
+      if (resourceType === 'user' || req.path.includes('/users/')) {
+        resource = await storage.getUser(resourceId);
+        resourceOrgId = resource?.organizationId;
+      } else if (resourceType === 'client' || req.path.includes('/clients/')) {
+        const clientWithUser = await storage.getClientWithUser(resourceId);
+        resourceOrgId = clientWithUser?.user.organizationId;
+      } else if (resourceType === 'technician' || req.path.includes('/technicians/')) {
+        const techWithUser = await storage.getTechnicianWithUser(resourceId);
+        resourceOrgId = techWithUser?.user.organizationId;
+      } else if (resourceType === 'project' || req.path.includes('/projects/')) {
+        const project = await storage.getProject(resourceId);
+        if (project) {
+          const clientWithUser = await storage.getClientWithUser(project.clientId);
+          resourceOrgId = clientWithUser?.user.organizationId;
+        }
+      } else if (resourceType === 'maintenance' || req.path.includes('/maintenances/')) {
+        const maintenance = await storage.getMaintenance(resourceId);
+        if (maintenance) {
+          const clientWithUser = await storage.getClientWithUser(maintenance.clientId);
+          resourceOrgId = clientWithUser?.user.organizationId;
+        }
+      } else if (resourceType === 'repair' || req.path.includes('/repairs/')) {
+        const repair = await storage.getRepair(resourceId);
+        if (repair) {
+          const clientWithUser = await storage.getClientWithUser(repair.clientId);
+          resourceOrgId = clientWithUser?.user.organizationId;
+        }
+      } else if (resourceType === 'invoice' || req.path.includes('/invoices/')) {
+        const invoice = await storage.getInvoice(resourceId);
+        if (invoice) {
+          const clientWithUser = await storage.getClientWithUser(invoice.clientId);
+          resourceOrgId = clientWithUser?.user.organizationId;
+        }
+      } else {
+        // For other resource types we default to allow access for now
+        return next();
+      }
+
+      // If no organization ID was found or if it matches the user's organization, allow access
+      if (!resourceOrgId || resourceOrgId === req.user.organizationId) {
+        return next();
+      }
+
+      console.log(`Organization access denied: User from organization ${req.user.organizationId} attempted to access resource from organization ${resourceOrgId}`);
+      return res.status(403).json({ message: "You don't have permission to access this resource" });
+    } catch (error) {
+      console.error("Error checking organization access:", error);
+      return next(); // In case of error, proceed (safer to not block access due to error)
+    }
+  };
 }
 
 // Hash password using bcrypt

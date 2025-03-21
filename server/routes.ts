@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { fs, path, rootDir } from "./utils";
 import emailRoutes from "./email-routes";
 import fleetmaticsRoutes from "./routes/fleetmatics-routes";
+import inventoryRoutes from "./routes/inventory-routes";
 import { 
   insertUserSchema, 
   insertClientSchema, 
@@ -62,7 +63,7 @@ import {
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
 import passport from "passport";
-import { isAuthenticated, isAdmin, isSystemAdmin, hashPassword } from "./auth";
+import { isAuthenticated, isAdmin, isSystemAdmin, hashPassword, checkOrganizationAccess } from "./auth";
 
 // Helper function to handle validation and respond with appropriate error
 const validateRequest = (schema: z.ZodType<any, any>, data: any): { success: boolean; data?: any; error?: string } => {
@@ -456,6 +457,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Fleetmatics GPS integration routes
   const fleetmaticsRouter = express.Router();
   app.use("/api/fleetmatics", fleetmaticsRoutes(fleetmaticsRouter, storage));
+  
+  // Inventory management routes
+  const inventoryRouter = express.Router();
+  app.use("/api/inventory", inventoryRoutes(inventoryRouter, storage));
   
   // OAuth routes
   // We removed the duplicate Google OAuth routes - they're defined higher up in the file
