@@ -28,17 +28,28 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
     // If authenticated and user data is loaded
     if (!isLoading && isAuthenticated && user) {
+      let accessDenied = false;
+      let reason = '';
+      
       // First check permissions if specified (new permission system)
       if (permissions.length > 0) {
         if (!canAccessRoute(user, permissions)) {
-          console.warn(`Access denied for user ${user.username} with role ${user.role} - required permissions:`, permissions);
-          navigate('/unauthorized');
-          return;
+          accessDenied = true;
+          reason = `Permission-based check failed: User has role '${user.role}' but lacks required permissions`;
+          console.warn(`Access denied for user ${user.username} (ID: ${user.id}) with role ${user.role} - required permissions:`, 
+            permissions.map(([resource, action]) => `${action} ${resource}`).join(', '));
         }
       }
       // Fall back to legacy role-based check if no permissions are specified but roles are
       else if (roles.length > 0 && !roles.includes(user.role)) {
-        console.warn(`Access denied for user ${user.username} with role ${user.role} - required roles:`, roles);
+        accessDenied = true;
+        reason = `Role-based check failed: User has role '${user.role}' but needs one of: ${roles.join(', ')}`;
+        console.warn(`Access denied for user ${user.username} (ID: ${user.id}) with role ${user.role} - required roles:`, roles);
+      }
+      
+      // If access was denied, redirect to unauthorized page
+      if (accessDenied) {
+        console.error(`Route access denied to ${location}: ${reason}`);
         navigate('/unauthorized');
         return;
       }

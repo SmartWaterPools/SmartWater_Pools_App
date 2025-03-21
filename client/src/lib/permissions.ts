@@ -207,8 +207,8 @@ export function canAccessRoute(user: any, requiredPermissions: Array<[ResourceTy
     return true;
   }
   
-  // System admin can access everything
-  if (user.role === 'system_admin') {
+  // System admin and admin can access everything
+  if (user.role === 'system_admin' || user.role === 'admin') {
     return true;
   }
   

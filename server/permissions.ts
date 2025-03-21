@@ -32,7 +32,8 @@ export type UserRole =
   | 'manager'         // Can manage most things in their organization, but with some restrictions
   | 'office_staff'    // Can handle administrative tasks but not technical operations
   | 'technician'      // Can perform maintenance and repairs
-  | 'client';         // Can view their own data and request services
+  | 'client'          // Can view their own data and request services
+  | 'admin';          // Legacy role, treated same as org_admin
 
 // Role permission mapping
 const permissionsByRole: Record<UserRole, Record<ResourceType, Record<ActionType, boolean>>> = {
@@ -51,6 +52,23 @@ const permissionsByRole: Record<UserRole, Record<ResourceType, Record<ActionType
     communications: { view: true, create: true, edit: true, delete: true },
     users:          { view: true, create: true, edit: true, delete: true },
     organization:   { view: true, create: true, edit: true, delete: true },
+  },
+  
+  // For backward compatibility - treat admin same as org_admin
+  admin: {
+    clients:        { view: true, create: true, edit: true, delete: true },
+    technicians:    { view: true, create: true, edit: true, delete: true },
+    projects:       { view: true, create: true, edit: true, delete: true },
+    maintenance:    { view: true, create: true, edit: true, delete: true },
+    repairs:        { view: true, create: true, edit: true, delete: true },
+    invoices:       { view: true, create: true, edit: true, delete: true },
+    inventory:      { view: true, create: true, edit: true, delete: true },
+    reports:        { view: true, create: true, edit: true, delete: true },
+    settings:       { view: true, create: true, edit: true, delete: true },
+    vehicles:       { view: true, create: true, edit: true, delete: true },
+    communications: { view: true, create: true, edit: true, delete: true },
+    users:          { view: true, create: true, edit: true, delete: true },
+    organization:   { view: true, create: false, edit: true, delete: false },
   },
   
   // Organization Admin has all permissions within their organization
@@ -187,19 +205,26 @@ export function checkPermission(resource: ResourceType, action: ActionType) {
     
     const userRole = req.user.role as UserRole;
     
-    // System admins can do anything
-    if (userRole === 'system_admin') {
+    // System admins and admins can do anything
+    if (userRole === 'system_admin' || userRole === 'admin') {
       return next();
     }
     
-    if (hasPermission(userRole, resource, action)) {
+    const permitted = hasPermission(userRole, resource, action);
+    
+    if (permitted) {
       return next();
     } else {
+      // Log permission failure for debugging
+      console.log(`Permission denied for user ${req.user.id} (${req.user.username}) with role ${userRole}: ${action} ${resource}`);
+      
       // If request expects JSON, return 403 status
       if (req.xhr || req.path.startsWith('/api/')) {
         return res.status(403).json({ 
           message: 'Forbidden', 
-          details: `You don't have permission to ${action} ${resource}` 
+          details: `You don't have permission to ${action} ${resource}`,
+          role: userRole,
+          requiredPermission: { resource, action }
         });
       }
       
@@ -215,7 +240,7 @@ export function checkPermission(resource: ResourceType, action: ActionType) {
  */
 export function checkResourceOwnership(req: any, res: any, resourceOwnerId: number | undefined, next: () => void) {
   // Skip check for admin-level roles
-  if (['system_admin', 'org_admin', 'manager'].includes(req.user.role)) {
+  if (['system_admin', 'org_admin', 'admin', 'manager'].includes(req.user.role)) {
     return next();
   }
   
@@ -227,10 +252,16 @@ export function checkResourceOwnership(req: any, res: any, resourceOwnerId: numb
   // For technicians, additional checks would go here
   // (e.g., if they're assigned to this client/project/maintenance)
   
+  // Log ownership check failure
+  console.log(`Resource ownership check failed for user ${req.user.id} (${req.user.username}) with role ${req.user.role}: trying to access resource owned by ${resourceOwnerId}`);
+  
   // Deny access if ownership check fails
   return res.status(403).json({ 
     message: 'Forbidden', 
-    details: 'You can only access your own resources' 
+    details: 'You can only access your own resources',
+    role: req.user.role,
+    userId: req.user.id,
+    resourceOwnerId: resourceOwnerId
   });
 }
 

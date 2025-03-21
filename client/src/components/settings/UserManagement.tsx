@@ -39,10 +39,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Edit, Plus, User, Search } from "lucide-react";
+import { Trash, Edit, Plus, User, Search, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { User as UserType } from "@shared/schema";
+import { User as UserType, Organization } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -83,6 +83,15 @@ export function UserManagement() {
   } = useQuery({
     queryKey: ["/api/users"],
     select: (data: UserType[]) => data,
+  });
+  
+  // Fetch organizations
+  const {
+    data: organizations = [],
+    isLoading: isLoadingOrgs,
+  } = useQuery({
+    queryKey: ["/api/organizations"],
+    select: (data: Organization[]) => data,
   });
 
   // Mutation for creating/updating user
@@ -197,11 +206,16 @@ export function UserManagement() {
   // Filter users based on search term
   const filteredUsers = users.filter(user => {
     const searchVal = searchTerm.toLowerCase();
+    
+    // Get organization name for the user
+    const orgName = organizations.find(org => org.id === user.organizationId)?.name || "";
+    
     return (
       user.name?.toLowerCase().includes(searchVal) ||
       user.username?.toLowerCase().includes(searchVal) ||
       user.email?.toLowerCase().includes(searchVal) ||
-      user.role?.toLowerCase().includes(searchVal)
+      user.role?.toLowerCase().includes(searchVal) ||
+      orgName.toLowerCase().includes(searchVal)
     );
   });
 
@@ -346,9 +360,15 @@ export function UserManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="1">SmartWater Pools (Main)</SelectItem>
-                            <SelectItem value="2">Pacific Pool Services</SelectItem>
-                            <SelectItem value="3">Desert Oasis Pools</SelectItem>
+                            {organizations.length === 0 ? (
+                              <SelectItem value="1">Loading organizations...</SelectItem>
+                            ) : (
+                              organizations.map((org) => (
+                                <SelectItem key={org.id} value={org.id.toString()}>
+                                  {org.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         <FormDescription>
@@ -427,7 +447,7 @@ export function UserManagement() {
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
           <Input 
             className="pl-9" 
-            placeholder="Search users by name, email, or role..." 
+            placeholder="Search users by name, email, role, or organization..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -457,6 +477,7 @@ export function UserManagement() {
                   <tr className="border-b bg-muted/50">
                     <th className="h-10 px-4 text-left font-medium">User</th>
                     <th className="h-10 px-4 text-left font-medium">Username</th>
+                    <th className="h-10 px-4 text-left font-medium">Organization</th>
                     <th className="h-10 px-4 text-left font-medium">Role</th>
                     <th className="h-10 px-4 text-left font-medium">Status</th>
                     <th className="h-10 px-4 text-right font-medium">Actions</th>
@@ -475,6 +496,13 @@ export function UserManagement() {
                         </div>
                       </td>
                       <td className="p-4 align-middle">{user.username}</td>
+                      <td className="p-4 align-middle">
+                        <div className="flex items-center gap-2">
+                          <Building className="h-4 w-4 text-gray-400" />
+                          {organizations.find(org => org.id === user.organizationId)?.name || 
+                           "Unknown Organization"}
+                        </div>
+                      </td>
                       <td className="p-4 align-middle">
                         <Badge className={getRoleBadgeColor(user.role)}>
                           {user.role.charAt(0).toUpperCase() + user.role.slice(1)}

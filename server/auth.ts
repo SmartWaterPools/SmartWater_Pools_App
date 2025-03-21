@@ -358,7 +358,8 @@ export function isAdmin(req: any, res: any, next: any) {
 
 // Middleware to check if user has system admin role
 export function isSystemAdmin(req: any, res: any, next: any) {
-  if (req.isAuthenticated() && (req.user.role === 'system_admin' || req.user.role === 'admin')) {
+  // Only system_admin role should have system admin privileges
+  if (req.isAuthenticated() && req.user.role === 'system_admin') {
     return next();
   }
   
@@ -388,8 +389,8 @@ export function requirePermission(resource: ResourceType, action: ActionType) {
     
     const userRole = req.user.role as UserRole;
     
-    // System admins bypass permission checks
-    if (userRole === 'system_admin') {
+    // System admins and admin role bypass permission checks
+    if (userRole === 'system_admin' || userRole === 'admin') {
       return next();
     }
     
@@ -419,8 +420,8 @@ export function checkOrganizationAccess(storage: IStorage) {
       return next();
     }
 
-    // System admins can access all resources
-    if (req.user.role === 'system_admin') {
+    // System admins and admin role can access all resources
+    if (req.user.role === 'system_admin' || req.user.role === 'admin') {
       return next();
     }
 
