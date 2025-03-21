@@ -4,6 +4,7 @@ import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import bcrypt from 'bcrypt';
 import { User } from '@shared/schema';
 import { IStorage } from './storage';
+import { UserRole, ResourceType, ActionType, hasPermission, checkPermission } from './permissions';
 
 export function configurePassport(storage: IStorage) {
   // Serialize user to the session
@@ -336,7 +337,7 @@ export function isAuthenticated(req: any, res: any, next: any) {
   res.redirect('/login');
 }
 
-// Middleware to check if user has admin role
+// Middleware to check if user has admin role (system_admin, org_admin, or admin)
 export function isAdmin(req: any, res: any, next: any) {
   if (req.isAuthenticated() && 
       (req.user.role === 'admin' || req.user.role === 'system_admin' || req.user.role === 'org_admin')) {
@@ -345,7 +346,10 @@ export function isAdmin(req: any, res: any, next: any) {
   
   // If request expects JSON, return 403 status
   if (req.xhr || req.path.startsWith('/api/')) {
-    return res.status(403).json({ message: 'Admin access required' });
+    return res.status(403).json({ 
+      message: 'Admin access required',
+      details: 'This operation requires administrator privileges' 
+    });
   }
   
   // For regular requests, redirect to unauthorized page
@@ -360,11 +364,51 @@ export function isSystemAdmin(req: any, res: any, next: any) {
   
   // If request expects JSON, return 403 status
   if (req.xhr || req.path.startsWith('/api/')) {
-    return res.status(403).json({ message: 'System Admin access required' });
+    return res.status(403).json({ 
+      message: 'System Admin access required',
+      details: 'This operation requires system administrator privileges' 
+    });
   }
   
   // For regular requests, redirect to unauthorized page
   res.redirect('/unauthorized');
+}
+
+// Generic permission check middleware creator
+export function requirePermission(resource: ResourceType, action: ActionType) {
+  return (req: any, res: any, next: any) => {
+    if (!req.isAuthenticated()) {
+      // If request expects JSON, return 401 status
+      if (req.xhr || req.path.startsWith('/api/')) {
+        return res.status(401).json({ message: 'Authentication required' });
+      }
+      // For regular requests, redirect to login page
+      return res.redirect('/login');
+    }
+    
+    const userRole = req.user.role as UserRole;
+    
+    // System admins bypass permission checks
+    if (userRole === 'system_admin') {
+      return next();
+    }
+    
+    // Check permission
+    if (hasPermission(userRole, resource, action)) {
+      return next();
+    }
+    
+    // If permission check fails
+    if (req.xhr || req.path.startsWith('/api/')) {
+      return res.status(403).json({ 
+        message: 'Permission denied',
+        details: `You don't have permission to ${action} ${resource}`,
+        required: { resource, action }
+      });
+    }
+    
+    return res.redirect('/unauthorized');
+  };
 }
 
 // Middleware to check organization boundaries for resource access
