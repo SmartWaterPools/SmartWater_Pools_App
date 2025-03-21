@@ -425,6 +425,31 @@ export function checkOrganizationAccess(storage: IStorage) {
           const clientWithUser = await storage.getClientWithUser(invoice.clientId);
           resourceOrgId = clientWithUser?.user.organizationId;
         }
+      } else if (resourceType === 'inventory-item' || req.path.includes('/inventory/items/')) {
+        const item = await storage.getInventoryItem(resourceId);
+        resourceOrgId = item?.organizationId;
+      } else if (resourceType === 'warehouse' || req.path.includes('/inventory/warehouses/')) {
+        const warehouse = await storage.getWarehouse(resourceId);
+        resourceOrgId = warehouse?.organizationId;
+      } else if (resourceType === 'inventory-transfer' || req.path.includes('/inventory/transfers/')) {
+        const transfer = await storage.getInventoryTransfer(resourceId);
+        resourceOrgId = transfer?.organizationId;
+      } else if (resourceType === 'inventory-adjustment' || req.path.includes('/inventory/adjustments/')) {
+        const adjustment = await storage.getInventoryAdjustment(resourceId);
+        resourceOrgId = adjustment?.organizationId;
+      } else if (resourceType === 'barcode' || req.path.includes('/inventory/barcodes/')) {
+        const barcode = await storage.getBarcode(resourceId);
+        
+        // For barcodes, we need to check the organization ID of the referenced item
+        if (barcode) {
+          if (barcode.itemType === 'inventory_item') {
+            const item = await storage.getInventoryItem(barcode.itemId);
+            resourceOrgId = item?.organizationId;
+          } else if (barcode.itemType === 'warehouse') {
+            const warehouse = await storage.getWarehouse(barcode.itemId);
+            resourceOrgId = warehouse?.organizationId;
+          }
+        }
       } else {
         // For other resource types we default to allow access for now
         return next();

@@ -48,6 +48,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
 import OAuthDebug from "./pages/OAuthDebug";
+import InvitePage from "./pages/InvitePage";
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -99,6 +100,9 @@ function App() {
                 </Route>
                 <Route path="/oauth-debug">
                   <OAuthDebug />
+                </Route>
+                <Route path="/invite">
+                  <InvitePage />
                 </Route>
                 
                 {/* Protected routes */}

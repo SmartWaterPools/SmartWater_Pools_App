@@ -1,5 +1,6 @@
 import { runMigration as addOrganizationId } from './migrations/add-organization-id-to-users';
 import { runMigration as addGoogleOAuth } from './migrations/add-google-oauth';
+import { runMigration as addInventoryOrganizationId } from './migrations/add-organization-id-to-inventory';
 
 /**
  * Main migration runner that executes all migrations in sequence
@@ -11,6 +12,7 @@ async function runMigrations() {
     // Run migrations in sequence
     await addOrganizationId();
     await addGoogleOAuth();
+    await addInventoryOrganizationId();
     
     console.log('✅ All migrations completed successfully');
   } catch (error) {

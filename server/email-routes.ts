@@ -469,6 +469,72 @@ router.get('/email-test', async (_req: Request, res: Response) => {
 });
 
 /**
+ * Send invitation email to join organization
+ * POST /api/email/invite
+ * (Protected admin route)
+ */
+router.post('/invite', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  try {
+    const { name, email, role, organizationId } = req.body;
+    
+    if (!name || !email || !role || !organizationId) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required fields' 
+      });
+    }
+    
+    // Get organization info
+    const organization = await db.query.organizations.findFirst({
+      where: (organizations, { eq }) => eq(organizations.id, organizationId)
+    });
+    
+    if (!organization) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Organization not found' 
+      });
+    }
+    
+    // Generate a unique token for this invitation
+    const crypto = await import('crypto');
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    // Get company name from organization
+    const companyName = organization.name;
+    
+    // Send the invitation email
+    const emailSent = await emailService.sendUserInvitation(
+      name,
+      email,
+      companyName,
+      role,
+      token
+    );
+    
+    if (emailSent) {
+      return res.json({ 
+        success: true, 
+        message: 'Invitation email sent successfully',
+        // Include token in response for development purposes
+        ...(process.env.NODE_ENV !== 'production' ? { token } : {})
+      });
+    } else {
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to send invitation email' 
+      });
+    }
+  } catch (error) {
+    console.error('Error sending invitation:', error);
+    return res.status(500).json({ 
+      success: false,
+      error: 'An error occurred while sending invitation' 
+    });
+  }
+});
+
+/**
  * Create a new communication provider
  * POST /api/email/providers
  * (Protected admin route)

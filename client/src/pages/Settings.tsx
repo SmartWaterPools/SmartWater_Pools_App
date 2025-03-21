@@ -6,12 +6,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceTemplates } from "@/components/settings/ServiceTemplates";
 import { UserManagement } from "@/components/settings/UserManagement";
+import { InvitationManagement } from "@/components/settings/InvitationManagement";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { PermissionSettings } from "@/components/settings/PermissionSettings";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
-import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail, Settings as SettingsIcon, Server, User } from "lucide-react";
+import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail, Settings as SettingsIcon, Server, User, UserPlus } from "lucide-react";
 
 export default function Settings() {
   const [, params] = useLocation();
@@ -53,6 +54,10 @@ export default function Settings() {
               <Users className="h-4 w-4" />
               <span className="whitespace-nowrap">User Management</span>
             </TabsTrigger>
+            <TabsTrigger value="invitations" className="flex gap-2 items-center px-4 py-2">
+              <UserPlus className="h-4 w-4" />
+              <span className="whitespace-nowrap">Invitations</span>
+            </TabsTrigger>
             <TabsTrigger value="notifications" className="flex gap-2 items-center px-4 py-2">
               <Bell className="h-4 w-4" />
               <span className="whitespace-nowrap">Notifications</span>
@@ -86,6 +91,10 @@ export default function Settings() {
         
         <TabsContent value="user-management" className="space-y-4">
           <UserManagement />
+        </TabsContent>
+        
+        <TabsContent value="invitations" className="space-y-4">
+          <InvitationManagement />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">

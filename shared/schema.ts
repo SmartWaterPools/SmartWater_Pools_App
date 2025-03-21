@@ -456,6 +456,31 @@ export const insertServiceTemplateSchema = createInsertSchema(serviceTemplates).
 export const COMMUNICATION_PROVIDER_TYPES = ['gmail', 'outlook', 'ringcentral', 'twilio'] as const;
 export type CommunicationProviderType = typeof COMMUNICATION_PROVIDER_TYPES[number];
 
+// User invitation token types
+export const INVITATION_TOKEN_STATUS = ['pending', 'accepted', 'expired'] as const;
+export type InvitationTokenStatus = typeof INVITATION_TOKEN_STATUS[number];
+
+// User invitation tokens schema
+export const invitationTokens = pgTable("invitation_tokens", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  role: text("role").notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
+  status: text("status", { enum: INVITATION_TOKEN_STATUS }).notNull().default("pending"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+});
+
+export const insertInvitationTokenSchema = createInsertSchema(invitationTokens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Communication providers schema
 export const communicationProviders = pgTable("communication_providers", {
   id: serial("id").primaryKey(),
@@ -489,7 +514,19 @@ export const insertCommunicationProviderSchema = createInsertSchema(communicatio
 // Relations
 // Organization relations
 export const organizationsRelations = relations(organizations, ({ many }) => ({
-  users: many(users)
+  users: many(users),
+  invitationTokens: many(invitationTokens)
+}));
+
+export const invitationTokensRelations = relations(invitationTokens, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [invitationTokens.organizationId],
+    references: [organizations.id],
+  }),
+  createdBy: one(users, {
+    fields: [invitationTokens.createdBy],
+    references: [users.id],
+  })
 }));
 
 export const usersRelations = relations(users, ({ many, one }) => ({
@@ -757,6 +794,9 @@ export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
 export type CommunicationProvider = typeof communicationProviders.$inferSelect;
 export type InsertCommunicationProvider = z.infer<typeof insertCommunicationProviderSchema>;
 
+export type InvitationToken = typeof invitationTokens.$inferSelect;
+export type InsertInvitationToken = z.infer<typeof insertInvitationTokenSchema>;
+
 // Business Module Schemas
 
 // Expense Categories
@@ -934,6 +974,7 @@ export const inventoryItems = pgTable("inventory_items", {
   imageUrl: text("image_url"),
   notes: text("notes"),
   isActive: boolean("is_active").notNull().default(true),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1042,6 +1083,7 @@ export const warehouses = pgTable("warehouses", {
   isActive: boolean("is_active").notNull().default(true),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1145,6 +1187,7 @@ export const inventoryTransfers = pgTable("inventory_transfers", {
   notes: text("notes"),
   completedDate: timestamp("completed_date"),
   completedByUserId: integer("completed_by_user_id").references(() => users.id),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
 });
 
 export const insertInventoryTransferSchema = createInsertSchema(inventoryTransfers).omit({
@@ -1219,6 +1262,7 @@ export const inventoryAdjustments = pgTable("inventory_adjustments", {
   notes: text("notes"),
   maintenanceId: integer("maintenance_id").references(() => maintenances.id), // If used during a maintenance
   repairId: integer("repair_id").references(() => repairs.id), // If used during a repair
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
 });
 
 export const insertInventoryAdjustmentSchema = createInsertSchema(inventoryAdjustments).omit({

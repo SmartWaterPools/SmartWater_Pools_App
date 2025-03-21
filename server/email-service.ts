@@ -415,6 +415,70 @@ export class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send invitation email to join an organization
+   */
+  async sendUserInvitation(
+    recipientName: string, 
+    recipientEmail: string, 
+    companyName: string, 
+    role: string, 
+    invitationToken: string
+  ): Promise<boolean> {
+    // Check if we're in development mode - this will affect our fallback behavior
+    const isDevelopment = process.env.NODE_ENV !== 'production';
+    
+    if (!this.credentials) {
+      console.error('Email credentials not configured');
+      // In development, we'll simulate successful sending
+      if (isDevelopment) {
+        console.log('DEVELOPMENT MODE: Continuing without email credentials');
+      } else {
+        return false;
+      }
+    }
+
+    try {
+      // Create invitation link using the invitation token
+      const baseUrl = process.env.APP_URL || '';
+      const inviteLink = `${baseUrl}/invite?token=${invitationToken}`;
+      
+      // Create email content from template
+      const emailOptions: EmailOptions = {
+        to: recipientEmail,
+        subject: emailTemplates.userInvitation.subject,
+        text: emailTemplates.userInvitation.text(recipientName, companyName, inviteLink, role),
+        html: emailTemplates.userInvitation.html(recipientName, companyName, inviteLink, role)
+      };
+      
+      // If Gmail service is available and configured
+      if (this.credentials?.provider === 'gmail' && this.gmailService) {
+        return await this.gmailService.sendEmail(emailOptions);
+      } else {
+        // Fallback to console log
+        console.log(`----------------------------------------`);
+        console.log(`[EMAIL] Invitation email would be sent to ${recipientEmail}`);
+        console.log(`Company: ${companyName}`);
+        console.log(`Role: ${role}`);
+        console.log(`Invitation link: ${inviteLink}`);
+        console.log(`----------------------------------------`);
+        
+        // In development, always simulate success
+        return isDevelopment ? true : false;
+      }
+    } catch (error) {
+      console.error('Error sending invitation email:', error);
+      
+      // In development, we want to simulate success even if there was an error
+      if (isDevelopment) {
+        console.log('DEVELOPMENT MODE: Simulating successful email sending despite error');
+        return true;
+      }
+      
+      return false;
+    }
+  }
 }
 
 /**

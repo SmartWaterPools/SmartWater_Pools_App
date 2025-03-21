@@ -5,6 +5,7 @@ import { fs, path, rootDir } from "./utils";
 import emailRoutes from "./email-routes";
 import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import inventoryRoutes from "./routes/inventory-routes";
+import invitationRoutes from "./routes/invitation-routes";
 import { 
   insertUserSchema, 
   insertClientSchema, 
@@ -447,6 +448,116 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
     } catch (error) {
+      console.error("Error registering user:", error);
+      res.status(500).json({ message: "Failed to register user" });
+    }
+  });
+    
+  // Handle registration via invitation token
+  app.post("/api/auth/register-invitation", async (req: Request, res: Response) => {
+    try {
+      const { name, email, password, token, role, organizationId } = req.body;
+      
+      if (!token) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invitation token is required" 
+        });
+      }
+      
+      // Verify the token exists and is valid
+      const invitation = await db.query.invitationTokens.findFirst({
+        where: (invite, { eq }) => eq(invite.token, token)
+      });
+      
+      if (!invitation) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Invitation not found" 
+        });
+      }
+      
+      // Check if the token has expired
+      if (invitation.status === 'expired' || invitation.expiresAt < new Date()) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invitation has expired" 
+        });
+      }
+      
+      // Check if the token has already been used
+      if (invitation.status === 'accepted') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invitation has already been used" 
+        });
+      }
+      
+      // Verify the email matches
+      if (invitation.email.toLowerCase() !== email.toLowerCase()) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email does not match invitation" 
+        });
+      }
+      
+      // Check if a user with this email already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "A user with this email already exists" 
+        });
+      }
+      
+      // Create the user account
+      const hashedPassword = await hashPassword(password);
+      
+      const newUser = await storage.createUser({
+        username: email,
+        password: hashedPassword,
+        name,
+        email,
+        role,
+        organizationId,
+        active: true,
+        phone: null,
+        address: null,
+        authProvider: 'local',
+        photoUrl: null
+      });
+      
+      // Mark the invitation as accepted
+      await db.update(invitationTokens)
+        .set({ 
+          status: 'accepted', 
+          updatedAt: new Date(),
+          acceptedAt: new Date()
+        })
+        .where(eq(invitationTokens.id, invitation.id));
+      
+      // Auto-login after registration
+      req.login(newUser, (loginErr) => {
+        if (loginErr) {
+          console.error('Failed to auto-login after invitation registration:', loginErr);
+          // Still return success, but client will need to log in manually
+          return res.status(201).json({ 
+            success: true, 
+            message: "Registration successful, but auto-login failed",
+            loginRequired: true
+          });
+        }
+        
+        // Don't send password to the client
+        const { password, ...userWithoutPassword } = newUser;
+        
+        res.status(201).json({ 
+          success: true, 
+          message: "Registration successful",
+          user: userWithoutPassword
+        });
+      });
+    } catch (error) {
       res.status(500).json({ message: "Failed to register user" });
     }
   });
@@ -461,6 +572,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inventory management routes
   const inventoryRouter = express.Router();
   app.use("/api/inventory", inventoryRoutes(inventoryRouter, storage));
+  
+  // Invitation routes
+  const invitationRouter = express.Router();
+  app.use("/api/invitations", invitationRoutes);
   
   // OAuth routes
   // We removed the duplicate Google OAuth routes - they're defined higher up in the file

@@ -66,6 +66,63 @@ export function getDefaultEmailCredentials(): EmailCredentials | null {
 
 // Email templates
 export const emailTemplates = {
+  userInvitation: {
+    subject: 'Invitation to Join Smart Water Pools',
+    text: (name: string, company: string, inviteLink: string, role: string) => `
+Hello ${name},
+
+You have been invited to join ${company} on the Smart Water Pools platform.
+You have been invited as a ${role}.
+
+Please click the link below to create your account:
+
+${inviteLink}
+
+This invitation link will expire in 7 days.
+
+Thank you,
+Smart Water Pools Team
+    `.trim(),
+    html: (name: string, company: string, inviteLink: string, role: string) => `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Invitation to Join Smart Water Pools</title>
+  <style>
+    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background-color: #0284c7; color: white; padding: 15px; text-align: center; }
+    .content { padding: 20px; background-color: #f9fafb; }
+    .button { display: inline-block; background-color: #0284c7; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; }
+    .footer { padding: 15px; text-align: center; font-size: 0.8rem; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>You're Invited!</h1>
+    </div>
+    <div class="content">
+      <p>Hello ${name},</p>
+      <p>You have been invited to join <strong>${company}</strong> on the Smart Water Pools platform as a <strong>${role}</strong>.</p>
+      <p>Please click the button below to create your account:</p>
+      <p style="text-align: center;">
+        <a href="${inviteLink}" class="button">Accept Invitation</a>
+      </p>
+      <p>If the button doesn't work, copy and paste this link into your browser:</p>
+      <p>${inviteLink}</p>
+      <p>This invitation link will expire in 7 days.</p>
+    </div>
+    <div class="footer">
+      <p>&copy; ${new Date().getFullYear()} Smart Water Pools. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim()
+  },
+  
   passwordReset: {
     subject: 'Reset Your Password - Smart Water Pools',
     text: (name: string, resetLink: string) => `

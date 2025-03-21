@@ -5,7 +5,7 @@
  * technician vehicles, and inventory transfers.
  */
 import { Router, Request, Response } from 'express';
-import { isAuthenticated, isAdmin } from '../auth';
+import { isAuthenticated, isAdmin, checkOrganizationAccess } from '../auth';
 import { IStorage } from '../storage';
 import * as z from 'zod';
 
@@ -44,9 +44,11 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all inventory items
    * GET /api/inventory/items
    */
-  router.get('/items', isAuthenticated, async (_req: Request, res: Response) => {
+  router.get('/items', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const items = await storage.getAllInventoryItems();
+      // Only return items for the user's organization
+      const organizationId = req.user.organizationId;
+      const items = await storage.getInventoryItemsByOrganizationId(organizationId);
       res.json(items);
     } catch (error: any) {
       console.error('Error fetching inventory items:', error);
@@ -84,7 +86,10 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
   router.post('/items', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
       // Validate request body
-      const item = req.body;
+      const item = {
+        ...req.body,
+        organizationId: req.user.organizationId
+      };
       
       // Create the inventory item
       const newItem = await storage.createInventoryItem(item);
@@ -182,9 +187,11 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all warehouses
    * GET /api/inventory/warehouses
    */
-  router.get('/warehouses', isAuthenticated, async (_req: Request, res: Response) => {
+  router.get('/warehouses', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const warehouses = await storage.getAllWarehouses();
+      // Only return warehouses for the user's organization
+      const organizationId = req.user.organizationId;
+      const warehouses = await storage.getWarehousesByOrganizationId(organizationId);
       res.json(warehouses);
     } catch (error: any) {
       console.error('Error fetching warehouses:', error);
@@ -222,7 +229,10 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
   router.post('/warehouses', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
       // Validate request body
-      const warehouse = req.body;
+      const warehouse = {
+        ...req.body,
+        organizationId: req.user.organizationId
+      };
       
       // Create the warehouse
       const newWarehouse = await storage.createWarehouse(warehouse);
@@ -291,9 +301,11 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all technician vehicles
    * GET /api/inventory/technician-vehicles
    */
-  router.get('/technician-vehicles', isAuthenticated, async (_req: Request, res: Response) => {
+  router.get('/technician-vehicles', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const vehicles = await storage.getAllTechnicianVehicles();
+      // Only return vehicles for the user's organization
+      const organizationId = req.user.organizationId;
+      const vehicles = await storage.getTechnicianVehiclesByOrganizationId(organizationId);
       res.json(vehicles);
     } catch (error: any) {
       console.error('Error fetching technician vehicles:', error);
@@ -349,8 +361,11 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    */
   router.post('/technician-vehicles', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      // Validate request body
-      const vehicle = req.body;
+      // Add organization ID to the vehicle data
+      const vehicle = {
+        ...req.body,
+        organizationId: req.user.organizationId
+      };
       
       // Create the technician vehicle
       const newVehicle = await storage.createTechnicianVehicle(vehicle);
@@ -440,7 +455,12 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    */
   router.post('/warehouse-inventory', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const inventory = req.body;
+      // Add organization ID to the inventory data
+      const inventory = {
+        ...req.body,
+        organizationId: req.user.organizationId
+      };
+      
       const newInventory = await storage.createWarehouseInventory(inventory);
       res.status(201).json(newInventory);
     } catch (error: any) {
@@ -498,7 +518,12 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    */
   router.post('/vehicle-inventory', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
-      const inventory = req.body;
+      // Add organization ID to the inventory data
+      const inventory = {
+        ...req.body,
+        organizationId: req.user.organizationId
+      };
+      
       const newInventory = await storage.createVehicleInventory(inventory);
       res.status(201).json(newInventory);
     } catch (error: any) {
@@ -535,9 +560,11 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all inventory transfers
    * GET /api/inventory/transfers
    */
-  router.get('/transfers', isAuthenticated, async (_req: Request, res: Response) => {
+  router.get('/transfers', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const transfers = await storage.getAllInventoryTransfers();
+      // Only return transfers for the user's organization
+      const organizationId = req.user.organizationId;
+      const transfers = await storage.getInventoryTransfersByOrganizationId(organizationId);
       res.json(transfers);
     } catch (error: any) {
       console.error('Error fetching inventory transfers:', error);
@@ -583,10 +610,10 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
       // Prepare transfer data
       const transferData = {
         ...req.body,
-        initiatedByUserId: userId,
+        requestedByUserId: userId,
         status: 'pending',
-        createdAt: new Date(),
-        updatedAt: new Date()
+        organizationId: req.user.organizationId,
+        requestDate: new Date()
       };
       
       // Create the transfer
@@ -654,7 +681,12 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
         return res.status(400).json({ error: 'Invalid status' });
       }
 
-      const transfers = await storage.getInventoryTransfersByStatus(status as any);
+      // Include organization ID filter
+      const organizationId = req.user.organizationId;
+      const transfers = await storage.getInventoryTransfersByStatusAndOrganization(
+        status as any,
+        organizationId
+      );
       res.json(transfers);
     } catch (error: any) {
       console.error('Error fetching inventory transfers by status:', error);
@@ -674,7 +706,13 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
         return res.status(400).json({ error: 'Start and end dates are required' });
       }
 
-      const transfers = await storage.getInventoryTransfersByDate(new Date(startDate as string), new Date(endDate as string));
+      // Include organization ID filter
+      const organizationId = req.user.organizationId;
+      const transfers = await storage.getInventoryTransfersByDateAndOrganization(
+        new Date(startDate as string),
+        new Date(endDate as string),
+        organizationId
+      );
       res.json(transfers);
     } catch (error: any) {
       console.error('Error fetching inventory transfers by date range:', error);
@@ -699,6 +737,13 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
         return res.status(404).json({ error: 'Inventory transfer not found' });
       }
 
+      // Verify transfer belongs to user's organization
+      if (transfer.organizationId !== req.user.organizationId) {
+        return res.status(403).json({ 
+          error: 'You do not have permission to add items to this transfer' 
+        });
+      }
+      
       // Create transfer items
       const createdItems = [];
       for (const item of items) {
@@ -727,6 +772,19 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
         return res.status(400).json({ error: 'Invalid transfer ID format' });
       }
 
+      // First verify transfer belongs to user's organization
+      const transfer = await storage.getInventoryTransfer(transferId);
+      if (!transfer) {
+        return res.status(404).json({ error: 'Inventory transfer not found' });
+      }
+
+      // Verify transfer belongs to user's organization
+      if (transfer.organizationId !== req.user.organizationId) {
+        return res.status(403).json({ 
+          error: 'You do not have permission to view items for this transfer' 
+        });
+      }
+
       const items = await storage.getInventoryTransferItemsByTransferId(transferId);
       res.json(items);
     } catch (error: any) {
@@ -750,7 +808,8 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
       // Prepare adjustment data
       const adjustmentData = {
         ...req.body,
-        userId,
+        performedByUserId: userId,
+        organizationId: req.user.organizationId,
         adjustmentDate: new Date()
       };
       
@@ -760,6 +819,22 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
     } catch (error: any) {
       console.error('Error creating inventory adjustment:', error);
       res.status(500).json({ error: 'Failed to create inventory adjustment' });
+    }
+  });
+
+  /**
+   * Get all inventory adjustments
+   * GET /api/inventory/adjustments
+   */
+  router.get('/adjustments', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // Only return adjustments for the user's organization
+      const organizationId = req.user.organizationId;
+      const adjustments = await storage.getInventoryAdjustmentsByOrganizationId(organizationId);
+      res.json(adjustments);
+    } catch (error: any) {
+      console.error('Error fetching inventory adjustments:', error);
+      res.status(500).json({ error: 'Failed to fetch inventory adjustments' });
     }
   });
 
@@ -775,7 +850,13 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
         return res.status(400).json({ error: 'Start and end dates are required' });
       }
 
-      const adjustments = await storage.getInventoryAdjustmentsByDate(new Date(startDate as string), new Date(endDate as string));
+      // Include organization ID filter
+      const organizationId = req.user.organizationId;
+      const adjustments = await storage.getInventoryAdjustmentsByDateAndOrganization(
+        new Date(startDate as string),
+        new Date(endDate as string),
+        organizationId
+      );
       res.json(adjustments);
     } catch (error: any) {
       console.error('Error fetching inventory adjustments by date range:', error);
