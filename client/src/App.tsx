@@ -38,6 +38,7 @@ import FleetmaticsSettings from "./pages/FleetmaticsSettings";
 import VehicleMapping from "./pages/VehicleMapping";
 import VehicleTracking from "./pages/VehicleTracking";
 import Settings from "./pages/Settings";
+import Admin from "./pages/Admin";
 import ApiKeyDebug from "./pages/ApiKeyDebug";
 import BarcodeDemo from "./pages/BarcodeDemo";
 import Login from "./pages/Login";
@@ -172,6 +173,7 @@ function App() {
                           <Route path="/fleetmatics/vehicle-tracking" component={VehicleTracking} />
                           
                           <Route path="/settings" component={Settings} />
+                          <Route path="/admin" component={Admin} />
                           <Route path="/api-key-debug" component={ApiKeyDebug} />
                           
                           {/* Catch-all */}

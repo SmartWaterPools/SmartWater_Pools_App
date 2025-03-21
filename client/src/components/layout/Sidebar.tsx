@@ -19,7 +19,8 @@ import {
   Barcode,
   MapPin,
   Truck,
-  Cog
+  Cog,
+  ShieldCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -47,6 +48,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     role: "Not logged in"
   });
   
+  // Check if user has admin-level permissions (system_admin, org_admin, or admin)
+  const isAdminUser = user && ['system_admin', 'org_admin', 'admin'].includes(user.role);
+  
   const [isOnDashboard] = useRoute("/");
   const [isOnProjects] = useRoute("/projects");
   const [isOnMaintenance] = useRoute("/maintenance");
@@ -58,6 +62,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
   const [isOnSettings] = useRoute("/settings");
+  const [isOnAdmin] = useRoute("/admin");
   
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -97,6 +102,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Business';
       case '/settings':
         return 'Settings';
+      case '/admin':
+        return 'Admin Dashboard';
       default:
         return 'New Tab';
     }
@@ -122,6 +129,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <BarChart4 className="h-4 w-4" />;
       case '/settings':
         return <Settings className="h-4 w-4" />;
+      case '/admin':
+        return <ShieldCheck className="h-4 w-4" />;
       default:
         return <LayoutDashboard className="h-4 w-4" />;
     }
@@ -628,6 +637,42 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          
+          {/* Admin Dashboard - only shown for admin users */}
+          {isAdminUser && (
+            <div
+              onClick={(e) => handleSidebarNavigation(e, "/admin")}
+              className={cn(
+                "flex cursor-pointer",
+                isCollapsed 
+                  ? "flex-col items-center justify-center p-2" 
+                  : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+              )}
+            >
+              <div className={cn(
+                "flex items-center justify-center",
+                isCollapsed ? "p-1 rounded-md" : "mr-3",
+                isOnAdmin ? "text-primary" : "text-gray-500"
+              )}>
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+              {!isCollapsed ? (
+                <span className={cn(
+                  "text-sm font-medium",
+                  isOnAdmin ? "text-primary" : "text-gray-700"
+                )}>
+                  Admin Dashboard
+                </span>
+              ) : (
+                <span className={cn(
+                  "text-xs mt-0.5",
+                  isOnAdmin ? "text-primary font-medium" : "text-gray-500"
+                )}>
+                  Admin
+                </span>
+              )}
+            </div>
+          )}
         </nav>
         
         {/* These additional links only show in expanded desktop mode */}
@@ -775,6 +820,19 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnSettings ? "text-primary font-medium" : "text-gray-500")}>Settings</span>
         </div>
+
+        {/* Admin Dashboard - only shown for admin users in mobile navigation */}
+        {isAdminUser && (
+          <div 
+            onClick={(e) => handleSidebarNavigation(e, "/admin")}
+            className="flex flex-col items-center px-3 py-1"
+          >
+            <div className={cn("p-1 rounded-md", isOnAdmin ? "text-primary" : "text-gray-500")}>
+              <ShieldCheck className="h-5 w-5" />
+            </div>
+            <span className={cn("text-xs mt-0.5", isOnAdmin ? "text-primary font-medium" : "text-gray-500")}>Admin</span>
+          </div>
+        )}
       </div>
     </div>
   );

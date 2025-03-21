@@ -69,6 +69,7 @@ export interface IStorage {
   getUserByGoogleId(googleId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
+  deleteUser(id: number): Promise<boolean>;
   getAllUsers(): Promise<User[]>;
   getUsersByOrganizationId(organizationId: number): Promise<User[]>;
   
@@ -610,6 +611,24 @@ export class MemStorage implements IStorage {
     const updatedUser = { ...user, ...data };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    // First check if user exists
+    const user = await this.getUser(id);
+    if (!user) {
+      console.error(`Cannot delete user with ID ${id}: User not found`);
+      return false;
+    }
+    
+    // Don't allow deletion of system_admin users
+    if (user.role === 'system_admin') {
+      console.error(`Cannot delete user with ID ${id}: User is a system administrator`);
+      return false;
+    }
+    
+    // Delete the user
+    return this.users.delete(id);
   }
   
   async getAllUsers(): Promise<User[]> {
@@ -3599,6 +3618,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.id, id))
       .returning();
     return updatedUser || undefined;
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    try {
+      // First check if user exists
+      const user = await this.getUser(id);
+      if (!user) {
+        console.error(`Cannot delete user with ID ${id}: User not found`);
+        return false;
+      }
+      
+      // Don't allow deletion of system_admin users
+      if (user.role === 'system_admin') {
+        console.error(`Cannot delete user with ID ${id}: User is a system administrator`);
+        return false;
+      }
+      
+      // Perform the deletion
+      const result = await db.delete(users)
+        .where(eq(users.id, id))
+        .returning();
+        
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
   }
 
   async getAllUsers(): Promise<User[]> {

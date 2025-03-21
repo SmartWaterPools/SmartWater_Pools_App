@@ -818,6 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/users/:id", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const permanent = req.query.permanent === 'true'; // Check if permanent deletion is requested
       
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid user ID" });
@@ -859,14 +860,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Cannot delete your own account" });
       }
       
-      // Set user inactive instead of hard deleting
-      const updatedUser = await storage.updateUser(id, { active: false });
+      let result;
       
-      if (!updatedUser) {
-        return res.status(500).json({ message: "Failed to delete user" });
+      if (permanent) {
+        // Perform permanent deletion of the user (but only if user is system_admin)
+        if (reqUser.role !== 'system_admin') {
+          return res.status(403).json({ 
+            message: "Only system administrators can permanently delete users" 
+          });
+        }
+        
+        // Perform actual permanent deletion from the database
+        result = await storage.deleteUser(id);
+        
+        if (!result) {
+          return res.status(500).json({ message: "Failed to permanently delete user" });
+        }
+        
+        return res.json({ 
+          message: "User permanently deleted", 
+          success: true,
+          permanent: true
+        });
+      } else {
+        // Set user inactive instead of hard deleting (default behavior)
+        const updatedUser = await storage.updateUser(id, { active: false });
+        
+        if (!updatedUser) {
+          return res.status(500).json({ message: "Failed to deactivate user" });
+        }
+        
+        return res.json({ 
+          message: "User deactivated successfully", 
+          success: true,
+          permanent: false
+        });
       }
-      
-      return res.json({ message: "User deleted successfully", success: true });
     } catch (error) {
       console.error("Error deleting user:", error);
       return res.status(500).json({ message: "Failed to delete user" });
@@ -7068,9 +7097,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Organization Management Routes
-  app.get("/api/organizations", async (_req: Request, res: Response) => {
+  app.get("/api/organizations", isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const organizations = await storage.getAllOrganizations();
+      // Check if user is authenticated and get their role
+      const reqUser = req.user as any;
+      let organizations = [];
+      
+      // System admins can see all organizations
+      if (reqUser && reqUser.role === 'system_admin') {
+        organizations = await storage.getAllOrganizations();
+      } 
+      // Others can only see their own organization
+      else if (reqUser && reqUser.organizationId) {
+        const org = await storage.getOrganization(reqUser.organizationId);
+        organizations = org ? [org] : [];
+      }
+      
       res.json(organizations);
     } catch (error) {
       console.error("[API] Error fetching organizations:", error);
@@ -7078,7 +7120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/organizations/:id", async (req: Request, res: Response) => {
+  app.get("/api/organizations/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -7090,7 +7132,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Organization not found" });
       }
 
-      res.json(organization);
+      // Check if the user has permission to view this organization
+      const reqUser = req.user as any;
+      if (reqUser) {
+        // System admins can see any organization
+        if (reqUser.role === 'system_admin') {
+          return res.json(organization);
+        }
+        
+        // Users can only see their own organization
+        if (reqUser.organizationId === organization.id) {
+          return res.json(organization);
+        }
+        
+        // Otherwise, unauthorized
+        return res.status(403).json({ message: "You don't have permission to view this organization" });
+      }
+      
+      return res.status(401).json({ message: "Authentication required" });
     } catch (error) {
       console.error("[API] Error fetching organization:", error);
       res.status(500).json({ message: "Failed to fetch organization" });

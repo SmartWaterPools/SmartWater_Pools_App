@@ -165,8 +165,15 @@ export function configurePassport(storage: IStorage) {
               console.log(`Found existing user by Google ID: ${profile.id}`, {
                 id: existingUser.id,
                 username: existingUser.username,
-                role: existingUser.role
+                role: existingUser.role,
+                active: existingUser.active
               });
+              
+              // Check if user is active
+              if (!existingUser.active) {
+                console.log(`User ${existingUser.id} is inactive, rejecting login`);
+                return done(null, false, { message: 'This account has been deactivated' });
+              }
               
               // Update photo URL if it changed
               if (profile.photos && profile.photos[0] && profile.photos[0].value !== existingUser.photoUrl) {
@@ -176,7 +183,7 @@ export function configurePassport(storage: IStorage) {
                 }) || existingUser;
               }
               
-              // If user exists, return the user
+              // If user exists and is active, return the user
               return done(null, existingUser);
             }
             
@@ -199,6 +206,12 @@ export function configurePassport(storage: IStorage) {
                 // Case-insensitive comparison to handle email casing differences
                 if (userWithEmail.email.toLowerCase() === email.toLowerCase()) {
                   console.log(`Email match confirmed. Linking Google account to existing user: ${userWithEmail.id}`);
+
+                  // Check if user is active
+                  if (!userWithEmail.active) {
+                    console.log(`User ${userWithEmail.id} is inactive, rejecting login`);
+                    return done(null, false, { message: 'This account has been deactivated' });
+                  }
                   
                   // Link Google account to existing user
                   const updatedUser = await storage.updateUser(userWithEmail.id, {
@@ -221,6 +234,13 @@ export function configurePassport(storage: IStorage) {
                   }
                 } else {
                   console.log(`Email case mismatch: ${userWithEmail.email} vs ${email}, still linking accounts`);
+                  
+                  // Check if user is active
+                  if (!userWithEmail.active) {
+                    console.log(`User ${userWithEmail.id} is inactive, rejecting login`);
+                    return done(null, false, { message: 'This account has been deactivated' });
+                  }
+                  
                   // Continue with linking as above, same logic applies for case-insensitive matches
                   const updatedUser = await storage.updateUser(userWithEmail.id, {
                     googleId: profile.id,
