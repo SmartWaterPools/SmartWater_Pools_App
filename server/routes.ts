@@ -160,8 +160,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       success: true,
       message: 'This is a test of the OAuth callback URL configuration',
       url: `https://${req.headers.host}/api/auth/google/callback`,
-      expectedUrl: 'https://workspace.travisderisi.repl.co/api/auth/google/callback',
-      isMatch: req.headers.host === 'workspace.travisderisi.repl.co'
+      expectedUrl: `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`,
+      isMatch: req.headers.host === `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
     });
   });
 

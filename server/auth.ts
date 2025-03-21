@@ -88,11 +88,9 @@ export function configurePassport(storage: IStorage) {
       callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
       console.log(`Running in Replit production environment. Using callback URL: ${callbackURL}`);
     } else {
-      // Make sure to use lowercase for the owner name to match browser URL conventions
-      const replOwner = process.env.REPL_OWNER ? process.env.REPL_OWNER.toLowerCase() : process.env.REPL_OWNER;
-      callbackURL = `https://${process.env.REPL_SLUG}.${replOwner}.repl.co/api/auth/google/callback`;
+      // Use the exact case as provided by Replit environment variables
+      callbackURL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
       console.log(`Running in Replit development environment. Using callback URL: ${callbackURL}`);
-      console.log(`Note: Using lowercase owner name for URL consistency with browser: ${replOwner}`);
     }
   } else if (process.env.GOOGLE_CALLBACK_URL) {
     callbackURL = process.env.GOOGLE_CALLBACK_URL;
