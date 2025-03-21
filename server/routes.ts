@@ -56,7 +56,8 @@ import {
   TRANSFER_STATUS,
   BARCODE_TYPES,
   TransferStatus,
-  TransferType
+  TransferType,
+  User
 } from "@shared/schema";
 import { z } from "zod";
 import { fromZodError } from "zod-validation-error";
@@ -145,6 +146,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
+  // Test route for OAuth callback URL
+  app.get('/api/auth/google-test', (req, res) => {
+    console.log('Google OAuth test route called with:', {
+      headers: {
+        host: req.headers.host,
+        referer: req.headers.referer || 'none',
+        userAgent: req.headers['user-agent'] || 'none'
+      },
+      query: req.query
+    });
+    res.json({
+      success: true,
+      message: 'This is a test of the OAuth callback URL configuration',
+      url: `https://${req.headers.host}/api/auth/google/callback`,
+      expectedUrl: 'https://workspace.travisderisi.repl.co/api/auth/google/callback',
+      isMatch: req.headers.host === 'workspace.travisderisi.repl.co'
+    });
+  });
+
   // Google OAuth login route
   app.get('/api/auth/google', passport.authenticate('google', { 
     scope: ['profile', 'email'],
@@ -152,31 +172,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     prompt: 'select_account'
   }));
   
-  // Google OAuth callback route
+  // Google OAuth callback route with enhanced error handling and logging
   app.get('/api/auth/google/callback', 
-    passport.authenticate('google', { 
-      failureRedirect: '/login',
-      failureMessage: true
-    }),
+    (req, res, next) => {
+      console.log('Received Google OAuth callback request', {
+        path: req.path,
+        query: req.query,
+        headers: {
+          host: req.headers.host,
+          referer: req.headers.referer,
+          origin: req.headers.origin
+        }
+      });
+      
+      passport.authenticate('google', { 
+        failureRedirect: '/login?error=oauth-failed',
+        failureMessage: true
+      })(req, res, next);
+    },
     (req, res) => {
       // Successful authentication
       const user = req.user as User;
       
       // Log the successful OAuth login
-      console.log(`Google OAuth login successful for user: ${user.email}`);
+      console.log(`Google OAuth login successful for user: ${user.email}`, {
+        id: user.id,
+        role: user.role,
+        email: user.email,
+        name: user.name
+      });
       
       // Redirect based on user role
       if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
         // Admin users go to the admin dashboard
+        console.log(`Redirecting admin user ${user.email} to /admin`);
         return res.redirect('/admin');
       } else if (user.role === 'technician') {
         // Technicians go to technician dashboard
+        console.log(`Redirecting technician ${user.email} to /technician`);
         return res.redirect('/technician');
       } else if (user.role === 'client') {
         // Clients go to client portal
+        console.log(`Redirecting client ${user.email} to /client-portal`);
         return res.redirect('/client-portal');
       } else {
         // Default dashboard for all other roles
+        console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
         return res.redirect('/dashboard');
       }
     }

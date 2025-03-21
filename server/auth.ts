@@ -88,8 +88,11 @@ export function configurePassport(storage: IStorage) {
       callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
       console.log(`Running in Replit production environment. Using callback URL: ${callbackURL}`);
     } else {
-      callbackURL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
+      // Make sure to use lowercase for the owner name to match browser URL conventions
+      const replOwner = process.env.REPL_OWNER ? process.env.REPL_OWNER.toLowerCase() : process.env.REPL_OWNER;
+      callbackURL = `https://${process.env.REPL_SLUG}.${replOwner}.repl.co/api/auth/google/callback`;
       console.log(`Running in Replit development environment. Using callback URL: ${callbackURL}`);
+      console.log(`Note: Using lowercase owner name for URL consistency with browser: ${replOwner}`);
     }
   } else if (process.env.GOOGLE_CALLBACK_URL) {
     callbackURL = process.env.GOOGLE_CALLBACK_URL;
@@ -143,7 +146,7 @@ export function configurePassport(storage: IStorage) {
             const defaultOrg = organizations.find(org => org.isSystemAdmin) || organizations[0];
             
             if (!defaultOrg) {
-              return done(new Error('No default organization found'), null);
+              return done(new Error('No default organization found'), false);
             }
             
             const newUser = await storage.createUser({
