@@ -131,20 +131,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      req.login(user, (loginErr) => {
-        if (loginErr) {
-          return next(loginErr);
+      // Check if this is an exempt user or needs subscription validation
+      const isExemptUser = 
+        user.role === 'system_admin' || 
+        user.role === 'admin' || 
+        user.role === 'org_admin' ||
+        user.email.toLowerCase() === 'travis@smartwaterpools.com';
+      
+      // For non-exempt users, check organization and subscription before logging in
+      if (!isExemptUser) {
+        // If user doesn't have an organization, return error with pricing redirect
+        if (!user.organizationId) {
+          console.log(`User ${user.id} (${user.email}) has no organization - redirecting to pricing`);
+          return res.status(403).json({
+            success: false,
+            message: "Your account doesn't have an active organization. Please subscribe to a plan.",
+            redirectTo: '/pricing',
+            requiresSubscription: true
+          });
         }
         
-        // Don't send password to the client
-        const { password, ...userWithoutPassword } = user;
-        
-        return res.json({ 
-          success: true, 
-          message: "Login successful", 
-          user: userWithoutPassword 
+        // Check if organization exists and has a valid subscription
+        (async () => {
+          try {
+            const organization = await storage.getOrganization(user.organizationId);
+            
+            // Organization doesn't exist
+            if (!organization) {
+              console.log(`Organization ${user.organizationId} not found for user ${user.id} - redirecting to pricing`);
+              return res.status(403).json({
+                success: false,
+                message: "Your organization is not active. Please contact support or subscribe to a plan.",
+                redirectTo: '/pricing',
+                requiresSubscription: true
+              });
+            }
+            
+            // Check subscription status
+            if (!organization.subscriptionId) {
+              console.log(`No subscription for organization ${organization.id} - redirecting to pricing`);
+              return res.status(403).json({
+                success: false,
+                message: "Your organization doesn't have an active subscription. Please subscribe to a plan.",
+                redirectTo: '/pricing',
+                requiresSubscription: true
+              });
+            }
+            
+            const subscription = await storage.getSubscription(organization.subscriptionId);
+            
+            if (!subscription || (subscription.status !== 'active' && subscription.status !== 'trialing')) {
+              console.log(`Subscription ${organization.subscriptionId} is not active (status: ${subscription?.status || 'not found'})`);
+              return res.status(403).json({
+                success: false,
+                message: "Your organization's subscription is not active. Please renew your subscription.",
+                redirectTo: '/pricing',
+                requiresSubscription: true
+              });
+            }
+            
+            // If everything is valid, proceed with login
+            completeLogin();
+          } catch (error) {
+            console.error('Error checking subscription during login:', error);
+            // Allow login despite error, but log it
+            completeLogin();
+          }
+        })();
+      } else {
+        // Exempt user, proceed with login
+        completeLogin();
+      }
+      
+      // Function to complete the login process
+      function completeLogin() {
+        req.login(user, (loginErr) => {
+          if (loginErr) {
+            return next(loginErr);
+          }
+          
+          // Don't send password to the client
+          const { password, ...userWithoutPassword } = user;
+          
+          return res.json({ 
+            success: true, 
+            message: "Login successful", 
+            user: userWithoutPassword 
+          });
         });
-      });
+      }
     })(req, res, next);
   });
   
@@ -308,11 +383,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               authenticated: req.isAuthenticated()
             });
             
-            // Check if this is a new user (created within the last minute) or a reactivated user
-            const isNewUser = (user.createdAt && 
-              (new Date().getTime() - new Date(user.createdAt).getTime() < 60000)) || 
-              (user as any).isReactivated;
-            
             // Handle special cases that bypass subscription check (admin users or Travis)
             const isExemptUser = 
               user.role === 'system_admin' || 
@@ -320,10 +390,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               user.role === 'org_admin' ||
               user.email.toLowerCase() === 'travis@smartwaterpools.com';
               
-            // If the user is new (or reactivated) and not exempt, redirect to subscription flow
-            if (isNewUser && !isExemptUser) {
-              console.log(`New or reactivated user ${user.email} detected - redirecting to registration complete page`);
-              return res.redirect('/registration-complete?oauth=true&redirect=/pricing');
+            // ALWAYS check for organization membership for non-exempt users, regardless of whether they are new or existing
+            if (!isExemptUser) {
+              console.log(`Non-exempt user ${user.email} - checking organization and subscription status`);
+              
+              // If the user doesn't have an organizationId or it's invalid, redirect to pricing
+              if (!user.organizationId) {
+                console.error(`User ${user.id} (${user.email}) has no organization ID - redirecting to pricing`);
+                return res.redirect('/pricing?error=no-organization-id');
+              }
             }
             
             // Check subscription status
@@ -334,11 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               } else {
                 // Get the user's organization
                 console.log(`Checking organization for user ${user.email} (ID: ${user.id}, organizationId: ${user.organizationId})`);
-                
-                if (!user.organizationId) {
-                  console.error(`User ${user.id} (${user.email}) has no organization ID - redirecting to pricing`);
-                  return res.redirect('/pricing?error=no-organization-id');
-                }
+                // We already checked for null organizationId above
                 
                 const organization = await storage.getOrganization(user.organizationId);
               

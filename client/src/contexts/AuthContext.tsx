@@ -9,7 +9,9 @@ interface AuthContextType {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: ((username: string, password: string) => Promise<boolean>) & {
+    onLoginSuccess: (user: AuthUser) => void;
+  };
   logout: () => Promise<void>;
   register: (userData: any) => Promise<boolean>;
   checkSession: () => Promise<boolean>;
@@ -88,7 +90,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const loginImpl = async (username: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
       
@@ -126,6 +128,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(false);
     }
   };
+  
+  // Add the onLoginSuccess method to the login function
+  const login = Object.assign(
+    loginImpl,
+    {
+      onLoginSuccess: (userData: AuthUser) => {
+        console.log("Manual login success, setting user data:", userData);
+        setUser(userData);
+        setIsAuthenticated(true);
+      }
+    }
+  );
 
   const logout = async (): Promise<void> => {
     try {

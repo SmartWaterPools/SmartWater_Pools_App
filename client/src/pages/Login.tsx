@@ -135,19 +135,59 @@ export default function Login() {
   async function onLoginSubmit(data: LoginFormValues) {
     try {
       setError(null);
-      const success = await login(data.username, data.password);
       
-      if (success) {
-        // Redirect to dashboard after successful login
-        toast({
-          title: "Login successful",
-          description: "Welcome to SmartWater Pools Management System",
-        });
-        setLocation(redirectPath !== '/login' ? redirectPath : '/');
-      } else {
-        // Show error when login fails
-        setError("Invalid email or password. Please try again.");
+      // Use a modified login that returns the full response for subscription checking
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: data.username,
+          password: data.password,
+        }),
+        credentials: 'include',
+      });
+      
+      const result = await response.json();
+      
+      // Handle successful login
+      if (response.ok && result.success) {
+        // Check if user session exists and update auth state
+        if (result.user) {
+          // Use the existing login success handler to update auth state
+          login.onLoginSuccess(result.user);
+          
+          toast({
+            title: "Login successful",
+            description: "Welcome to SmartWater Pools Management System",
+          });
+          
+          setLocation(redirectPath !== '/login' ? redirectPath : '/');
+          return;
+        }
       }
+      
+      // Handle subscription errors (403 status with specific messages)
+      if (response.status === 403 && result.requiresSubscription) {
+        setError(result.message || "Your account requires an active subscription.");
+        
+        // Show toast with subscription message
+        toast({
+          title: "Subscription Required",
+          description: result.message || "Please subscribe to a plan to continue.",
+          variant: "destructive",
+        });
+        
+        // Redirect to pricing page after a short delay
+        setTimeout(() => {
+          setLocation(result.redirectTo || '/pricing');
+        }, 2000);
+        return;
+      }
+      
+      // Handle regular login errors
+      setError(result.message || "Invalid email or password. Please try again.");
     } catch (error) {
       console.error("Login error:", error);
       setError("An unexpected error occurred. Please try again.");
