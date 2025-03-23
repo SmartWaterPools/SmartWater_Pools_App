@@ -32,12 +32,15 @@ import {
   TransferType, TransferStatus, BarcodeType,
   FleetmaticsConfig, InsertFleetmaticsConfig,
   FleetmaticsLocationHistory, InsertFleetmaticsLocationHistory,
+  SubscriptionPlan, InsertSubscriptionPlan,
+  Subscription, InsertSubscription,
+  PaymentRecord, InsertPaymentRecord,
   organizations, users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
   communicationProviders, chemicalUsage, waterReadings, maintenanceReports, routes, routeAssignments,
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
   inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems,
-  fleetmaticsConfig, fleetmaticsLocationHistory
+  fleetmaticsConfig, fleetmaticsLocationHistory, subscriptionPlans, subscriptions, paymentRecords
 } from "@shared/schema";
 import { and, eq, desc, gte, lte, sql, asc, isNotNull, lt, or, inArray } from "drizzle-orm";
 import { db } from "./db";
@@ -368,6 +371,33 @@ export interface IStorage {
   // Vehicle GPS Tracking operations
   updateVehicleLocation(vehicleId: number, latitude: number, longitude: number): Promise<TechnicianVehicle | undefined>;
   getVehiclesInArea(latitude: number, longitude: number, radiusMiles: number): Promise<TechnicianVehicle[]>;
+  
+  // Subscription Plan operations
+  getSubscriptionPlan(id: number): Promise<SubscriptionPlan | undefined>;
+  createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
+  updateSubscriptionPlan(id: number, plan: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined>;
+  deleteSubscriptionPlan(id: number): Promise<boolean>;
+  getAllSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlansByTier(tier: string): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlansByBillingCycle(billingCycle: string): Promise<SubscriptionPlan[]>;
+  getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  
+  // Subscription operations
+  getSubscription(id: number): Promise<Subscription | undefined>;
+  getSubscriptionByOrganizationId(organizationId: number): Promise<Subscription | undefined>;
+  getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined>;
+  createSubscription(subscription: InsertSubscription): Promise<Subscription>;
+  updateSubscription(id: number, subscription: Partial<Subscription>): Promise<Subscription | undefined>;
+  deleteSubscription(id: number): Promise<boolean>;
+  getAllSubscriptions(): Promise<Subscription[]>;
+  getSubscriptionsByStatus(status: string): Promise<Subscription[]>;
+  
+  // Payment Record operations
+  getPaymentRecord(id: number): Promise<PaymentRecord | undefined>;
+  createPaymentRecord(record: InsertPaymentRecord): Promise<PaymentRecord>;
+  getPaymentRecordsByOrganizationId(organizationId: number): Promise<PaymentRecord[]>;
+  getPaymentRecordsBySubscriptionId(subscriptionId: number): Promise<PaymentRecord[]>;
+  getPaymentRecordsByDateRange(startDate: Date, endDate: Date): Promise<PaymentRecord[]>;
 }
 
 // In-memory storage implementation
@@ -401,6 +431,9 @@ export class MemStorage implements IStorage {
   private waterReadings: Map<number, WaterReading>;
   private routes: Map<number, Route>;
   private routeAssignments: Map<number, RouteAssignment>;
+  private subscriptionPlans: Map<number, SubscriptionPlan>;
+  private subscriptions: Map<number, Subscription>;
+  private paymentRecords: Map<number, PaymentRecord>;
   
   private organizationId: number;
   private userId: number;
@@ -442,6 +475,11 @@ export class MemStorage implements IStorage {
   private fleetmaticsConfigId: number;
   private fleetmaticsLocationHistoryId: number;
   
+  // Subscription IDs
+  private subscriptionPlanId: number;
+  private subscriptionId: number;
+  private paymentRecordId: number;
+  
   constructor() {
     this.organizations = new Map();
     this.users = new Map();
@@ -480,6 +518,11 @@ export class MemStorage implements IStorage {
     this.fleetmaticsConfigs = new Map();
     this.fleetmaticsLocationHistories = new Map();
     
+    // Initialize Subscription maps
+    this.subscriptionPlans = new Map();
+    this.subscriptions = new Map();
+    this.paymentRecords = new Map();
+    
     this.organizationId = 1;
     this.userId = 1;
     this.clientId = 1;
@@ -517,12 +560,19 @@ export class MemStorage implements IStorage {
     this.fleetmaticsConfigId = 1;
     this.fleetmaticsLocationHistoryId = 1;
     
+    // Initialize Subscription IDs
+    this.subscriptionPlanId = 1;
+    this.subscriptionId = 1;
+    this.paymentRecordId = 1;
+    
     // Add sample data
     this.initSampleData();
     // Add sample inventory data
     this.initSampleInventoryData();
     // Add Fleetmatics sample data
     this.initSampleFleetmaticsData();
+    // Add subscription and payment data
+    this.initSampleSubscriptionData();
   }
   
   // Organization operations
@@ -2059,6 +2109,165 @@ export class MemStorage implements IStorage {
   // Helper function for Haversine formula
   private toRad(degrees: number): number {
     return degrees * Math.PI / 180;
+  }
+  
+  // Subscription Plan operations
+  async getSubscriptionPlan(id: number): Promise<SubscriptionPlan | undefined> {
+    return this.subscriptionPlans.get(id);
+  }
+
+  async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    const id = this.subscriptionPlanId++;
+    const subscriptionPlan: SubscriptionPlan = {
+      ...plan,
+      id,
+      active: plan.active ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.subscriptionPlans.set(id, subscriptionPlan);
+    return subscriptionPlan;
+  }
+
+  async updateSubscriptionPlan(id: number, plan: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined> {
+    const existingPlan = await this.getSubscriptionPlan(id);
+    if (!existingPlan) return undefined;
+    
+    const updatedPlan = { ...existingPlan, ...plan, updatedAt: new Date() };
+    this.subscriptionPlans.set(id, updatedPlan);
+    return updatedPlan;
+  }
+
+  async deleteSubscriptionPlan(id: number): Promise<boolean> {
+    return this.subscriptionPlans.delete(id);
+  }
+
+  async getAllSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return Array.from(this.subscriptionPlans.values());
+  }
+
+  async getSubscriptionPlansByTier(tier: string): Promise<SubscriptionPlan[]> {
+    return Array.from(this.subscriptionPlans.values())
+      .filter(plan => plan.tier === tier);
+  }
+
+  async getSubscriptionPlansByBillingCycle(billingCycle: string): Promise<SubscriptionPlan[]> {
+    return Array.from(this.subscriptionPlans.values())
+      .filter(plan => plan.billingCycle === billingCycle);
+  }
+
+  async getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return Array.from(this.subscriptionPlans.values())
+      .filter(plan => plan.active);
+  }
+
+  // Subscription operations
+  async getSubscription(id: number): Promise<Subscription | undefined> {
+    return this.subscriptions.get(id);
+  }
+
+  async getSubscriptionByOrganizationId(organizationId: number): Promise<Subscription | undefined> {
+    return Array.from(this.subscriptions.values())
+      .find(subscription => subscription.organizationId === organizationId);
+  }
+
+  async getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined> {
+    return Array.from(this.subscriptions.values())
+      .find(subscription => subscription.stripeSubscriptionId === stripeSubscriptionId);
+  }
+
+  async createSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    const id = this.subscriptionId++;
+    const newSubscription: Subscription = {
+      ...subscription,
+      id,
+      status: subscription.status ?? "active",
+      cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
+      canceledAt: subscription.canceledAt ?? null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.subscriptions.set(id, newSubscription);
+    return newSubscription;
+  }
+
+  async updateSubscription(id: number, subscription: Partial<Subscription>): Promise<Subscription | undefined> {
+    const existingSubscription = await this.getSubscription(id);
+    if (!existingSubscription) return undefined;
+    
+    const updatedSubscription = { ...existingSubscription, ...subscription, updatedAt: new Date() };
+    this.subscriptions.set(id, updatedSubscription);
+    return updatedSubscription;
+  }
+
+  async deleteSubscription(id: number): Promise<boolean> {
+    return this.subscriptions.delete(id);
+  }
+
+  async getAllSubscriptions(): Promise<Subscription[]> {
+    return Array.from(this.subscriptions.values());
+  }
+
+  async getSubscriptionsByStatus(status: string): Promise<Subscription[]> {
+    return Array.from(this.subscriptions.values())
+      .filter(subscription => subscription.status === status);
+  }
+
+  // Payment Record operations
+  async getPaymentRecord(id: number): Promise<PaymentRecord | undefined> {
+    return this.paymentRecords.get(id);
+  }
+
+  async getPaymentRecordsByOrganizationId(organizationId: number): Promise<PaymentRecord[]> {
+    return Array.from(this.paymentRecords.values())
+      .filter(record => record.organizationId === organizationId);
+  }
+
+  async getPaymentRecordsBySubscriptionId(subscriptionId: number): Promise<PaymentRecord[]> {
+    return Array.from(this.paymentRecords.values())
+      .filter(record => record.subscriptionId === subscriptionId);
+  }
+
+  async createPaymentRecord(record: InsertPaymentRecord): Promise<PaymentRecord> {
+    const id = this.paymentRecordId++;
+    const paymentRecord: PaymentRecord = {
+      ...record,
+      id,
+      currency: record.currency ?? "usd",
+      createdAt: new Date()
+    };
+    this.paymentRecords.set(id, paymentRecord);
+    return paymentRecord;
+  }
+
+  async updatePaymentRecord(id: number, record: Partial<PaymentRecord>): Promise<PaymentRecord | undefined> {
+    const existingRecord = await this.getPaymentRecord(id);
+    if (!existingRecord) return undefined;
+    
+    const updatedRecord = { ...existingRecord, ...record };
+    this.paymentRecords.set(id, updatedRecord);
+    return updatedRecord;
+  }
+
+  async deletePaymentRecord(id: number): Promise<boolean> {
+    return this.paymentRecords.delete(id);
+  }
+
+  async getAllPaymentRecords(): Promise<PaymentRecord[]> {
+    return Array.from(this.paymentRecords.values());
+  }
+
+  async getPaymentRecordsByStatus(status: string): Promise<PaymentRecord[]> {
+    return Array.from(this.paymentRecords.values())
+      .filter(record => record.status === status);
+  }
+
+  async getPaymentRecordsByDate(startDate: Date, endDate: Date): Promise<PaymentRecord[]> {
+    return Array.from(this.paymentRecords.values())
+      .filter(record => {
+        const recordDate = new Date(record.createdAt);
+        return recordDate >= startDate && recordDate <= endDate;
+      });
   }
   
   // Water Readings operations
