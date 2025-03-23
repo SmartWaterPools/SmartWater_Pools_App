@@ -565,19 +565,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           } catch (error) {
             console.error("Error creating organization:", error);
-            // Fall back to default organization
-            const defaultOrg = await storage.getOrganizationBySlug('client-organization');
+            // Fall back to default organization (SmartWater Pools - ID 1)
+            const defaultOrg = await storage.getOrganization(1);
             if (defaultOrg) {
               organizationId = defaultOrg.id;
+              console.log(`Using fallback organization: ${defaultOrg.name} (ID: ${defaultOrg.id})`);
             }
           }
         } else {
-          // No organization name provided, use default
-          const defaultOrg = await storage.getOrganizationBySlug('client-organization');
+          // No organization name provided, use SmartWater Pools org (ID 1)
+          const defaultOrg = await storage.getOrganization(1);
           if (defaultOrg) {
             organizationId = defaultOrg.id;
+            console.log(`Using default organization: ${defaultOrg.name} (ID: ${defaultOrg.id})`);
           } else {
-            console.warn("No default client organization found. User registration may fail.");
+            console.warn("Could not find SmartWater Pools organization. Trying any available organization.");
+            const organizations = await storage.getAllOrganizations();
+            if (organizations && organizations.length > 0) {
+              organizationId = organizations[0].id;
+              console.log(`Using first available organization: ${organizations[0].name} (ID: ${organizations[0].id})`);
+            } else {
+              console.error("No organizations found in database. User registration will fail.");
+            }
           }
         }
       }
@@ -705,9 +714,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Get default organization for clients if needed
         if (!organizationId) {
-          const defaultOrg = await storage.getOrganizationBySlug('client-organization');
+          // Try to get SmartWater Pools organization (ID 1)
+          const defaultOrg = await storage.getOrganization(1);
           if (defaultOrg) {
             userOrganizationId = defaultOrg.id;
+            console.log(`Using default organization: ${defaultOrg.name} (ID: ${defaultOrg.id})`);
+          } else {
+            // Fall back to any available organization
+            const organizations = await storage.getAllOrganizations();
+            if (organizations && organizations.length > 0) {
+              userOrganizationId = organizations[0].id;
+              console.log(`Using first available organization: ${organizations[0].name} (ID: ${organizations[0].id})`);
+            } else {
+              console.error("No organizations found in database. User registration will fail.");
+            }
           }
         }
       }

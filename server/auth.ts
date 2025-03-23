@@ -290,13 +290,22 @@ export function configurePassport(storage: IStorage) {
             // Get the default organization ID
             let defaultOrg;
             try {
-              const organizations = await storage.getAllOrganizations();
-              defaultOrg = organizations.find(org => org.isSystemAdmin) || organizations[0];
+              // Get organization 1 (SmartWater Pools) directly if possible
+              defaultOrg = await storage.getOrganization(1);
+              
+              // If org 1 doesn't exist for some reason, fall back to any organization
+              if (!defaultOrg) {
+                console.log('SmartWater Pools organization not found, falling back to any organization');
+                const organizations = await storage.getAllOrganizations();
+                defaultOrg = organizations.find(org => org.isSystemAdmin) || organizations[0];
+              }
               
               if (!defaultOrg) {
                 console.error('No organizations found in the database');
                 return done(new Error('No default organization found'), false);
               }
+              
+              console.log(`Using default organization: ${defaultOrg.name} (ID: ${defaultOrg.id})`);
             } catch (err) {
               console.error('Error getting organizations:', err);
               return done(new Error('Failed to get organizations'), false);
