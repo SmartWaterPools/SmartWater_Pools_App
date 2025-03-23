@@ -485,7 +485,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User registration endpoint (modified version of the existing user creation endpoint)
   app.post("/api/auth/register", async (req: Request, res: Response) => {
     try {
-      const validation = validateRequest(insertUserSchema, req.body);
+      const { organizationName, ...userData } = req.body;
+      
+      // Temporarily assign a placeholder organizationId if it's not provided
+      // We'll replace it with the real one after organization creation
+      if (!userData.organizationId) {
+        userData.organizationId = -1; // Temporary value for validation
+      }
+      
+      const validation = validateRequest(insertUserSchema, userData);
       
       if (!validation.success) {
         return res.status(400).json({ message: validation.error });
@@ -493,18 +501,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Validate email domain for SmartWater Pools organization
       const email = validation.data.email.toLowerCase();
-      // If not a SmartWater Pools email, set to default organization and client role
-      if (!email.endsWith('@smartwaterpools.com')) {
+      let organizationId;
+      
+      // If it's a SmartWater Pools email
+      if (email.endsWith('@smartwaterpools.com')) {
+        // Allow requested role
+        // Get SmartWater Pools organization
+        const smartWaterOrg = await storage.getOrganizationBySlug('smartwaterpools');
+        if (smartWaterOrg) {
+          organizationId = smartWaterOrg.id;
+        }
+      } else {
         // Set to client role regardless of what was requested
         validation.data.role = 'client';
         
-        // Get the default organization for clients
-        const defaultOrg = await storage.getOrganizationBySlug('client-organization');
-        if (defaultOrg) {
-          validation.data.organizationId = defaultOrg.id;
+        // Create a new organization if organizationName was provided
+        if (organizationName) {
+          try {
+            // Generate a slug from the organization name
+            const slug = organizationName.toLowerCase()
+              .replace(/\s+/g, '-')
+              .replace(/[^a-z0-9-]/g, '');
+            
+            // Check if organization with this slug already exists
+            const existingOrg = await storage.getOrganizationBySlug(slug);
+            
+            if (existingOrg) {
+              // If exists, add a random suffix to make it unique
+              const uniqueSlug = `${slug}-${Math.floor(Math.random() * 10000)}`;
+              
+              const newOrg = await storage.createOrganization({
+                name: organizationName,
+                slug: uniqueSlug,
+                active: true,
+                address: null,
+                city: null,
+                state: null,
+                zipCode: null,
+                phone: null,
+                email: null,
+                website: null,
+                logo: null,
+                isSystemAdmin: false
+              });
+              
+              organizationId = newOrg.id;
+            } else {
+              // Create the organization with the original slug
+              const newOrg = await storage.createOrganization({
+                name: organizationName,
+                slug,
+                active: true,
+                address: null,
+                city: null,
+                state: null,
+                zipCode: null,
+                phone: null,
+                email: null,
+                website: null,
+                logo: null,
+                isSystemAdmin: false
+              });
+              
+              organizationId = newOrg.id;
+            }
+          } catch (error) {
+            console.error("Error creating organization:", error);
+            // Fall back to default organization
+            const defaultOrg = await storage.getOrganizationBySlug('client-organization');
+            if (defaultOrg) {
+              organizationId = defaultOrg.id;
+            }
+          }
         } else {
-          console.warn("No default client organization found. User registration may fail.");
+          // No organization name provided, use default
+          const defaultOrg = await storage.getOrganizationBySlug('client-organization');
+          if (defaultOrg) {
+            organizationId = defaultOrg.id;
+          } else {
+            console.warn("No default client organization found. User registration may fail.");
+          }
         }
+      }
+      
+      // Set the organization ID for the user
+      if (organizationId) {
+        validation.data.organizationId = organizationId;
       }
       
       // Hash the password before storing it

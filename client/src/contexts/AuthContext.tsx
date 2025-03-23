@@ -182,7 +182,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       setIsLoading(true);
       
-      console.log("Attempting registration for user:", userData.username);
+      console.log("Attempting registration for user:", userData.email, "with organization:", userData.organizationName);
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         credentials: 'include',

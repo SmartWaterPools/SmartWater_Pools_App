@@ -3890,8 +3890,34 @@ export class DatabaseStorage implements IStorage {
 
   async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
     try {
-      const result = await db.select().from(organizations).where(eq(organizations.slug, slug));
-      return result[0];
+      // Use raw SQL to avoid schema issues with missing columns
+      const result = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          slug,
+          address,
+          city,
+          state,
+          zip_code as "zipCode",
+          phone,
+          email,
+          website,
+          logo,
+          active,
+          created_at as "createdAt",
+          is_system_admin as "isSystemAdmin",
+          subscription_id as "subscriptionId",
+          stripe_customer_id as "stripeCustomerId"
+        FROM organizations
+        WHERE slug = ${slug}
+      `);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      return result.rows[0] as Organization;
     } catch (error) {
       console.error("Error getting organization by slug:", error);
       return undefined;
@@ -3900,24 +3926,47 @@ export class DatabaseStorage implements IStorage {
 
   async createOrganization(organization: Partial<InsertOrganization>): Promise<Organization> {
     try {
-      const result = await db.insert(organizations).values({
-        name: organization.name || "",
-        slug: organization.slug || "",
-        address: organization.address,
-        city: organization.city,
-        state: organization.state,
-        zipCode: organization.zipCode,
-        phone: organization.phone,
-        email: organization.email,
-        website: organization.website,
-        logo: organization.logo,
-        active: organization.active !== undefined ? organization.active : true,
-        isSystemAdmin: organization.isSystemAdmin !== undefined ? organization.isSystemAdmin : false,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }).returning();
-
-      return result[0];
+      console.log("Creating organization with data:", JSON.stringify(organization));
+      
+      // Use more basic approach with fewer fields to avoid SQL errors
+      const result = await db.execute(sql`
+        INSERT INTO organizations (
+          name,
+          slug,
+          active,
+          is_system_admin,
+          created_at
+        ) VALUES (
+          ${organization.name || ""},
+          ${organization.slug || ""},
+          ${organization.active !== undefined ? organization.active : true},
+          ${organization.isSystemAdmin !== undefined ? organization.isSystemAdmin : false},
+          NOW()
+        )
+        RETURNING 
+          id, 
+          name,
+          slug,
+          address,
+          city,
+          state,
+          zip_code as "zipCode",
+          phone,
+          email,
+          website,
+          logo,
+          active,
+          created_at as "createdAt",
+          is_system_admin as "isSystemAdmin",
+          subscription_id as "subscriptionId",
+          stripe_customer_id as "stripeCustomerId"
+      `);
+      
+      if (result.rows.length === 0) {
+        throw new Error("Failed to create organization - no rows returned");
+      }
+      
+      return result.rows[0] as Organization;
     } catch (error) {
       console.error("Error creating organization:", error);
       throw error;

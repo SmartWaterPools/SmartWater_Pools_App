@@ -36,11 +36,11 @@ import { Loader2 } from "lucide-react";
 
 // Define registration form schema
 const registerFormSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
+  email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   confirmPassword: z.string(),
   name: z.string().min(1, "Full name is required"),
-  email: z.string().email("Please enter a valid email address"),
+  organizationName: z.string().min(2, "Organization name is required"),
   role: z.enum(["client", "technician", "manager", "admin"]),
   phone: z.string().optional(),
   address: z.string().optional(),
@@ -60,11 +60,11 @@ export default function Register() {
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema),
     defaultValues: {
-      username: "",
+      email: "",
       password: "",
       confirmPassword: "",
       name: "",
-      email: "",
+      organizationName: "",
       role: "client",
       phone: "",
       address: "",
@@ -73,7 +73,17 @@ export default function Register() {
   
   async function onSubmit(data: RegisterFormValues) {
     // Remove confirmPassword as it's not needed for the API
-    const { confirmPassword, ...registrationData } = data;
+    const { confirmPassword, organizationName, ...userFields } = data;
+    
+    // Construct username from email (email is now the primary identifier)
+    const username = userFields.email.split('@')[0]; // Use part before @ as username
+    
+    // Prepare data for registration
+    const registrationData = {
+      ...userFields,
+      username,
+      organizationName, // Include organization name for organization creation
+    };
     
     try {
       const success = await register(registrationData);
@@ -81,9 +91,9 @@ export default function Register() {
       if (success) {
         // Redirect to pricing page after successful registration
         // Include organization name in query parameters for the pricing page
-        const organizationParam = registrationData.name.replace(/\s+/g, '-').toLowerCase();
+        const organizationParam = organizationName.replace(/\s+/g, '-').toLowerCase();
         const slugParam = organizationParam.replace(/[^a-z0-9-]/g, '');
-        setLocation(`/pricing?name=${encodeURIComponent(registrationData.name)}&slug=${slugParam}`);
+        setLocation(`/pricing?name=${encodeURIComponent(organizationName)}&slug=${slugParam}`);
       }
       // Toast notifications are handled in the AuthContext register function
     } catch (error) {
@@ -111,14 +121,14 @@ export default function Register() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={form.control}
-                  name="username"
+                  name="organizationName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Username</FormLabel>
+                      <FormLabel>Organization Name</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder="Enter a username"
+                          placeholder="Enter your organization name"
                           disabled={isLoading}
                         />
                       </FormControl>
