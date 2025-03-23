@@ -388,7 +388,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
               user.role === 'system_admin' || 
               user.role === 'admin' || 
               user.role === 'org_admin' ||
-              user.email.toLowerCase() === 'travis@smartwaterpools.com';
+              user.email.toLowerCase() === 'travis@smartwaterpools.com' ||
+              user.email.toLowerCase() === '010101thomasanderson@gmail.com'; // Add test user to exemptions
+              
+            // Add debug information for Thomas Anderson test user
+            if (user.email.toLowerCase() === '010101thomasanderson@gmail.com') {
+              console.log(`SPECIAL DEBUG - Thomas Anderson test user detected:`, {
+                id: user.id,
+                role: user.role,
+                organizationId: user.organizationId,
+                email: user.email,
+              });
+            }
               
             // ALWAYS check for organization membership for non-exempt users, regardless of whether they are new or existing
             if (!isExemptUser) {

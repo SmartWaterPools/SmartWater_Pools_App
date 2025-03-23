@@ -97,27 +97,17 @@ export function UserManagement() {
         const response = await apiRequest('/api/organizations');
         console.log("Organizations API response:", response);
         
-        // If no organizations are returned or there's an error, provide a fallback
-        if (!response || !Array.isArray(response) || response.length === 0) {
-          console.log("No organizations found, using fallback organization");
-          return [{ 
-            id: 1, 
-            name: "SmartWater Pools",
-            slug: "smartwater-pools",
-            active: true
-          }] as Organization[];
+        // Return actual organization data if available
+        if (response && Array.isArray(response)) {
+          return response as Organization[];
         }
         
-        return response as Organization[];
+        // Return empty array if no data (don't use fallback data)
+        console.log("No organizations found or empty array returned");
+        return [] as Organization[];
       } catch (error) {
         console.error("Error fetching organizations:", error);
-        // Return a fallback organization
-        return [{ 
-          id: 1, 
-          name: "SmartWater Pools",
-          slug: "smartwater-pools",
-          active: true
-        }] as Organization[];
+        throw error; // Let react-query handle the error
       }
     },
     retry: 1,
@@ -207,7 +197,7 @@ export function UserManagement() {
       email: "",
       role: "technician",
       active: true,
-      organizationId: 1, // Default to SmartWater Pools (Main)
+      organizationId: organizations.length > 0 ? organizations[0].id : 1, // Default to first available organization
       password: "",
       confirmPassword: "",
     },
@@ -231,7 +221,7 @@ export function UserManagement() {
       email: user.email || "",
       role: user.role as "system_admin" | "org_admin" | "manager" | "office_staff" | "technician" | "client",
       active: user.active,
-      organizationId: user.organizationId || 1, // Default to org ID 1 if not set
+      organizationId: user.organizationId || (organizations.length > 0 ? organizations[0].id : 1), // Use first available org or default
     });
     setOpen(true);
   };
@@ -545,8 +535,8 @@ export function UserManagement() {
                           <Building className="h-4 w-4 text-gray-400" />
                           {user.organizationId ? 
                             (organizations.find(org => org.id === user.organizationId)?.name || 
-                            (isLoadingOrgs ? "Loading..." : "SmartWater Pools")) : 
-                            "SmartWater Pools"}
+                            (isLoadingOrgs ? "Loading..." : "Unknown Organization")) : 
+                            "No Organization"}
                         </div>
                       </td>
                       <td className="p-4 align-middle">
