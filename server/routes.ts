@@ -7481,6 +7481,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[API] System admin retrieved ${organizations.length} organizations`);
         console.log('[API] Organization IDs:', organizations.map(org => org.id).join(', '));
         console.log('[API] First organization details:', JSON.stringify(organizations[0] || '(none)'));
+        
+        // Detailed logging for debugging
+        if (organizations.length > 0) {
+          console.log('[API] All organization ID/names:');
+          organizations.forEach(org => {
+            console.log(`[API] - ID: ${org.id}, Name: ${org.name}`);
+          });
+        }
       } 
       // Org admins should see all organizations to properly manage users
       else if (reqUser && (reqUser.role === 'org_admin' || reqUser.role === 'admin')) {
@@ -7488,6 +7496,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[API] Admin retrieved ${organizations.length} organizations`);
         console.log('[API] Organization IDs:', organizations.map(org => org.id).join(', '));
         console.log('[API] First organization details:', JSON.stringify(organizations[0] || '(none)'));
+        
+        // Detailed logging for debugging
+        if (organizations.length > 0) {
+          console.log('[API] All organization ID/names:');
+          organizations.forEach(org => {
+            console.log(`[API] - ID: ${org.id}, Name: ${org.name}`);
+          });
+        }
       }
       // Others can only see their own organization
       else if (reqUser && reqUser.organizationId) {

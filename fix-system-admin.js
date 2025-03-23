@@ -2,68 +2,91 @@
  * This script updates the role of the system admin user based on email
  * to ensure the user with email Travis@SmartWaterPools.com has system_admin role
  */
-import { pool } from './server/db.js';
+import bcrypt from 'bcrypt';
+import pg from 'pg';
+const { Pool } = pg;
 
 async function updateSystemAdminUser() {
-  const client = await pool.connect();
-  
+  const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+  });
+
   try {
-    console.log('Starting system admin user role update...');
+    console.log('Looking for user with email Travis@SmartWaterPools.com...');
     
-    // Begin transaction
-    await client.query('BEGIN');
-    
-    // Find user by email (case-insensitive)
-    const userResult = await client.query(
-      `SELECT * FROM "users" WHERE LOWER(email) = LOWER($1)`,
-      ['Travis@SmartWaterPools.com']
+    // First, check if the Travis@SmartWaterPools.com user exists
+    let result = await pool.query(
+      `SELECT id, username, name, email, role, organization_id, active
+       FROM users
+       WHERE LOWER(email) = LOWER('Travis@SmartWaterPools.com')`
     );
     
-    if (userResult.rows.length === 0) {
-      console.log('System admin user not found. No updates needed.');
-      await client.query('COMMIT');
-      return;
-    }
-    
-    const user = userResult.rows[0];
-    console.log(`Found user: ID=${user.id}, Username=${user.username}, Current Role=${user.role}`);
-    
-    // Only update if the role is not already system_admin
-    if (user.role !== 'system_admin') {
-      console.log(`Updating user ${user.id} (${user.email}) role to system_admin`);
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      console.log('Found Travis@SmartWaterPools.com user:', user);
       
-      await client.query(
-        `UPDATE "users" SET role = $1 WHERE id = $2`,
-        ['system_admin', user.id]
+      // Set a new password for this user
+      const saltRounds = 10;
+      const password = 'sysadmin123';
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      
+      // Update the user to make sure they have system_admin role
+      const updateResult = await pool.query(
+        `UPDATE users
+         SET role = 'system_admin', active = true, password = $1
+         WHERE id = $2
+         RETURNING id, username, name, email, role`,
+        [hashedPassword, user.id]
       );
       
-      console.log(`Successfully updated role to system_admin for user: ${user.email}`);
+      if (updateResult.rows.length > 0) {
+        console.log('Successfully updated system admin user:');
+        console.log(updateResult.rows[0]);
+        console.log(`\nYou can now log in with:\nUsername: ${updateResult.rows[0].username}\nPassword: ${password}`);
+      } else {
+        console.error('Failed to update system admin user');
+      }
     } else {
-      console.log(`User ${user.id} (${user.email}) already has system_admin role. No update needed.`);
+      console.log('No user found with email Travis@SmartWaterPools.com');
+      
+      // Find the SmartWater Pools organization ID (should be 1, but let's verify)
+      const orgResult = await pool.query(
+        `SELECT id, name FROM organizations WHERE LOWER(name) LIKE LOWER('%SmartWater%') OR id = 1`
+      );
+      
+      let organizationId = 1;
+      if (orgResult.rows.length > 0) {
+        organizationId = orgResult.rows[0].id;
+        console.log(`Found SmartWater Pools organization with ID: ${organizationId}`);
+      } else {
+        console.log('SmartWater Pools organization not found. Using default ID: 1');
+      }
+      
+      // Create the system admin user
+      const saltRounds = 10;
+      const password = 'sysadmin123';
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      
+      const insertResult = await pool.query(
+        `INSERT INTO users (username, password, name, email, role, organization_id, active, auth_provider)
+         VALUES ('travis', $1, 'Travis DeRisi', 'Travis@SmartWaterPools.com', 'system_admin', $2, true, 'local')
+         RETURNING id, username, name, email, role`,
+        [hashedPassword, organizationId]
+      );
+      
+      if (insertResult.rows.length > 0) {
+        console.log('Successfully created system admin user:');
+        console.log(insertResult.rows[0]);
+        console.log(`\nYou can now log in with:\nUsername: travis\nPassword: ${password}`);
+      } else {
+        console.error('Failed to create system admin user');
+      }
     }
-    
-    // Commit transaction
-    await client.query('COMMIT');
-    console.log('System admin user role update completed successfully.');
-    
   } catch (error) {
-    // Rollback in case of error
-    await client.query('ROLLBACK');
-    console.error('Error updating system admin user:', error);
-    throw error;
+    console.error('Error:', error);
   } finally {
-    // Release client back to pool
-    client.release();
+    await pool.end();
   }
 }
 
-// Run the function
-updateSystemAdminUser()
-  .then(() => {
-    console.log('Update completed');
-    process.exit(0);
-  })
-  .catch(err => {
-    console.error('Update failed:', err);
-    process.exit(1);
-  });
+updateSystemAdminUser().catch(console.error);

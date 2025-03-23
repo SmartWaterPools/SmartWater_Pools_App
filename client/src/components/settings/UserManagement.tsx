@@ -42,9 +42,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Trash, Edit, Plus, User, Search, Building } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { User as UserType, Organization } from "@shared/schema";
+import { User as BaseUserType, Organization } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+// Extended user type to include organization property
+interface UserType extends BaseUserType {
+  organization?: Organization;
+}
 
 // Define user form schema
 const userFormSchema = z.object({
@@ -94,7 +99,7 @@ export function UserManagement() {
     queryKey: ["/api/organizations"],
     queryFn: async () => {
       try {
-        const response = await apiRequest('/api/organizations');
+        const response = await apiRequest('/api/organizations', 'GET');
         console.log("Organizations API response:", response);
         
         // Return actual organization data if available
@@ -536,8 +541,9 @@ export function UserManagement() {
                           {user.organization ? 
                             user.organization.name : 
                             (user.organizationId ? 
-                              (organizations.find(org => org.id === user.organizationId)?.name || 
-                              (isLoadingOrgs ? "Loading..." : "Unknown Organization")) : 
+                              (isLoadingOrgs ? "Loading..." : 
+                               (organizations.find(org => org.id === user.organizationId)?.name || 
+                                `Organization ID: ${user.organizationId}`)) : 
                               "No Organization")}
                         </div>
                       </td>
