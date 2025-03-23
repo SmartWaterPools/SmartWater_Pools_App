@@ -12,6 +12,16 @@ const { Pool } = pg;
 import connectPgSimple from "connect-pg-simple";
 import { loadEmailConfigFromDatabase } from "./email-service";
 
+// Set up environment variables for Replit
+const isReplitEnv = !!process.env.REPL_ID;
+if (isReplitEnv && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+  // Set APP_URL for email links and other absolute URLs
+  if (!process.env.APP_URL) {
+    process.env.APP_URL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    console.log(`Setting APP_URL for Replit environment: ${process.env.APP_URL}`);
+  }
+}
+
 const app = express();
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images
 app.use(express.json({ limit: '50mb' }));

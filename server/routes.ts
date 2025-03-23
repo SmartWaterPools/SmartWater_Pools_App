@@ -624,7 +624,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, email, password, token, role, organizationId } = req.body;
       
+      console.log(`[Register-Invitation] Processing registration for ${email} with token ${token ? token.substring(0, 8) + '...' : 'missing'}`);
+      
       if (!token) {
+        console.log(`[Register-Invitation] Failed: No token provided`);
         return res.status(400).json({ 
           success: false, 
           message: "Invitation token is required" 
@@ -632,19 +635,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify the token exists and is valid
+      console.log(`[Register-Invitation] Verifying token in database...`);
       const invitation = await db.query.invitationTokens.findFirst({
-        where: (invite, { eq }) => eq(invite.token, token)
+        where: (invite, { eq }) => eq(invite.token, token),
+        with: {
+          organization: true
+        }
       });
       
       if (!invitation) {
+        console.log(`[Register-Invitation] Failed: Token not found in database`);
         return res.status(404).json({ 
           success: false, 
           message: "Invitation not found" 
         });
       }
       
+      console.log(`[Register-Invitation] Found invitation for: ${invitation.email}`);
+      console.log(`[Register-Invitation] Organization: ${invitation.organization?.name || 'Unknown'} (ID: ${invitation.organizationId})`);
+      console.log(`[Register-Invitation] Status: ${invitation.status}, Expires: ${invitation.expiresAt}`);
+      
       // Check if the token has expired
       if (invitation.status === 'expired' || invitation.expiresAt < new Date()) {
+        console.log(`[Register-Invitation] Failed: Invitation has expired`);
+        // Update status to expired if not already
+        if (invitation.status !== 'expired') {
+          await db.update(invitationTokens)
+            .set({ status: 'expired', updatedAt: new Date() })
+            .where(eq(invitationTokens.id, invitation.id));
+        }
         return res.status(400).json({ 
           success: false, 
           message: "Invitation has expired" 
@@ -743,7 +762,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       });
     } catch (error) {
-      res.status(500).json({ message: "Failed to register user" });
+      console.error('[Register-Invitation] Error during invitation registration:', error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to register user", 
+        details: error.message || 'Unknown error' 
+      });
     }
   });
 
@@ -7284,21 +7308,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const reqUser = req.user as any;
       let organizations = [];
       
+      console.log(`[API] /api/organizations - User role: ${reqUser?.role}, organizationId: ${reqUser?.organizationId}`);
+      
       // System admins can see all organizations
       if (reqUser && reqUser.role === 'system_admin') {
         organizations = await storage.getAllOrganizations();
         console.log(`[API] System admin retrieved ${organizations.length} organizations`);
+        console.log('[API] Organization IDs:', organizations.map(org => org.id).join(', '));
       } 
       // Org admins should see all organizations to properly manage users
       else if (reqUser && (reqUser.role === 'org_admin' || reqUser.role === 'admin')) {
         organizations = await storage.getAllOrganizations();
         console.log(`[API] Admin retrieved ${organizations.length} organizations`);
+        console.log('[API] Organization IDs:', organizations.map(org => org.id).join(', '));
       }
       // Others can only see their own organization
       else if (reqUser && reqUser.organizationId) {
         const org = await storage.getOrganization(reqUser.organizationId);
         organizations = org ? [org] : [];
         console.log(`[API] User retrieved their organization: ${org?.name || 'Unknown'}`);
+        
+        if (!org) {
+          console.log(`[API] WARNING: Could not find organization with ID ${reqUser.organizationId}`);
+          // Try to get all organizations and find a matching one
+          const allOrgs = await storage.getAllOrganizations();
+          console.log(`[API] Found ${allOrgs.length} total organizations in database`);
+          
+          if (allOrgs.length > 0) {
+            // Use the first organization as a fallback
+            organizations = [allOrgs[0]];
+            console.log(`[API] Using fallback organization: ${allOrgs[0].name} (ID: ${allOrgs[0].id})`);
+          }
+        }
       }
       
       res.json(organizations);

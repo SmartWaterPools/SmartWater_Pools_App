@@ -441,8 +441,26 @@ export class EmailService {
 
     try {
       // Create invitation link using the invitation token
-      const baseUrl = process.env.APP_URL || '';
+      let baseUrl = process.env.APP_URL || '';
+      const isReplitEnv = !!process.env.REPL_ID;
+      
+      // If no APP_URL is set but we're in Replit, construct the URL
+      if (!baseUrl && isReplitEnv && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+        console.log('Constructed Replit URL for email:', baseUrl);
+      } else if (!baseUrl) {
+        // Local development fallback
+        baseUrl = 'http://localhost:5000';
+        console.log('Using localhost URL for email in development');
+      }
+      
+      // Make sure baseUrl doesn't end with a slash
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
+      }
+      
       const inviteLink = `${baseUrl}/invite?token=${invitationToken}`;
+      console.log('Generated invitation link:', inviteLink);
       
       // Create email content from template
       const emailOptions: EmailOptions = {

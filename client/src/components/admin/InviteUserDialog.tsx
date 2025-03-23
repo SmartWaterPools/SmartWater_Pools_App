@@ -82,10 +82,9 @@ export function InviteUserDialog({ onSuccess }: InviteUserDialogProps) {
         organizationId: user.organizationId,
       };
 
-      const response = await apiRequest('/api/invitations', {
-        method: 'POST',
-        data: payload,
-      });
+      console.log('Sending invitation with payload:', payload);
+
+      const response = await apiRequest('/api/invitations', 'POST', payload);
 
       if (response.success) {
         toast({

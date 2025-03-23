@@ -116,24 +116,48 @@ router.post('/', isAuthenticated, isAdmin, async (req: Request, res: Response) =
       });
     }
     
-    // Send the invitation email
-    const emailSent = await emailService.sendUserInvitation(
-      name,
-      email,
-      organization.name,
-      role,
-      token
-    );
+    console.log('Preparing to send invitation email:');
+    console.log('- Name:', name);
+    console.log('- Email:', email);
+    console.log('- Organization:', organization.name);
+    console.log('- Role:', role);
+    console.log('- Token:', token.substring(0, 8) + '...');
     
-    if (!emailSent) {
-      // If email sending fails, still return success but with a warning
+    try {
+      // Send the invitation email
+      const emailSent = await emailService.sendUserInvitation(
+        name,
+        email,
+        organization.name,
+        role,
+        token
+      );
+      
+      console.log('Email sending result:', emailSent ? 'Success' : 'Failed');
+      
+      if (!emailSent) {
+        // If email sending fails, still return success but with a warning
+        console.log('WARNING: Email could not be sent, but invitation was created');
+        return res.json({
+          success: true,
+          warning: 'Invitation created but email could not be sent. Email service may not be properly configured.',
+          invitation: {
+            id: insertResult[0].id,
+            email: insertResult[0].email,
+            token: insertResult[0].token, // Include token for testing
+            expiresAt: insertResult[0].expiresAt
+          }
+        });
+      }
+    } catch (emailError) {
+      console.error('Error sending invitation email:', emailError);
       return res.json({
         success: true,
-        warning: 'Invitation created but email could not be sent',
+        warning: 'Invitation created but encountered an error sending email: ' + (emailError.message || 'Unknown error'),
         invitation: {
           id: insertResult[0].id,
           email: insertResult[0].email,
-          token: insertResult[0].token, // Include token for testing
+          token: insertResult[0].token, // Include token for testing in dev
           expiresAt: insertResult[0].expiresAt
         }
       });
@@ -167,7 +191,10 @@ router.get('/verify', async (req: Request, res: Response) => {
   try {
     const token = req.query.token as string;
     
+    console.log(`[Invitation] Verifying token: ${token ? token.substring(0, 8) + '...' : 'undefined'}`);
+    
     if (!token) {
+      console.log('[Invitation] Verification failed: No token provided');
       return res.status(400).json({
         success: false,
         message: 'Token is required'
@@ -175,6 +202,7 @@ router.get('/verify', async (req: Request, res: Response) => {
     }
     
     // Find the invitation token
+    console.log('[Invitation] Searching for token in database...');
     const invitation = await db.query.invitationTokens.findFirst({
       where: (invite, { eq }) => eq(invite.token, token),
       with: {
@@ -183,16 +211,23 @@ router.get('/verify', async (req: Request, res: Response) => {
     });
     
     if (!invitation) {
+      console.log('[Invitation] Verification failed: Token not found in database');
       return res.status(404).json({
         success: false,
         message: 'Invitation not found'
       });
     }
     
+    console.log(`[Invitation] Found invitation for: ${invitation.email}`);
+    console.log(`[Invitation] Organization: ${invitation.organization?.name || 'Unknown'} (ID: ${invitation.organizationId})`);
+    console.log(`[Invitation] Status: ${invitation.status}, Expires: ${invitation.expiresAt}`);
+    
     // Check if invitation is expired
     if (invitation.status === 'expired' || invitation.expiresAt < new Date()) {
+      console.log('[Invitation] Verification failed: Invitation has expired');
       // Mark as expired if not already
       if (invitation.status !== 'expired') {
+        console.log('[Invitation] Updating status to expired');
         await db.update(invitationTokens)
           .set({ status: 'expired', updatedAt: new Date() })
           .where(eq(invitationTokens.id, invitation.id));
