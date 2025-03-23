@@ -203,15 +203,39 @@ export function configurePassport(storage: IStorage) {
                   hasGoogleId: !!userWithEmail.googleId
                 });
                 
+                // Check if the user was previously deleted or inactive
+                if (!userWithEmail.active) {
+                  // For previously deleted users, reactivate the account and treat as a new sign up
+                  console.log(`User ${userWithEmail.id} was previously deactivated. Treating as a new registration.`);
+                  
+                  // Reactivate the user account and update with Google credentials
+                  const updatedUser = await storage.updateUser(userWithEmail.id, {
+                    googleId: profile.id,
+                    photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                    authProvider: 'google',
+                    active: true,
+                    createdAt: new Date() // Reset creation date to trigger "new user" flow
+                  });
+                  
+                  if (updatedUser) {
+                    console.log(`Successfully reactivated previously deleted user and updated Google credentials:`, {
+                      id: updatedUser.id,
+                      email: updatedUser.email,
+                      googleId: updatedUser.googleId,
+                      role: updatedUser.role
+                    });
+                    // Set a flag to indicate this is a reactivated user that should go through subscription flow
+                    (updatedUser as any).isReactivated = true;
+                    return done(null, updatedUser);
+                  } else {
+                    console.error(`Failed to reactivate user with Google credentials`);
+                    return done(new Error('Failed to reactivate user in database'), false);
+                  }
+                }
+                
                 // Case-insensitive comparison to handle email casing differences
                 if (userWithEmail.email.toLowerCase() === email.toLowerCase()) {
                   console.log(`Email match confirmed. Linking Google account to existing user: ${userWithEmail.id}`);
-
-                  // Check if user is active
-                  if (!userWithEmail.active) {
-                    console.log(`User ${userWithEmail.id} is inactive, rejecting login`);
-                    return done(null, false, { message: 'This account has been deactivated' });
-                  }
                   
                   // Link Google account to existing user
                   const updatedUser = await storage.updateUser(userWithEmail.id, {
@@ -234,12 +258,6 @@ export function configurePassport(storage: IStorage) {
                   }
                 } else {
                   console.log(`Email case mismatch: ${userWithEmail.email} vs ${email}, still linking accounts`);
-                  
-                  // Check if user is active
-                  if (!userWithEmail.active) {
-                    console.log(`User ${userWithEmail.id} is inactive, rejecting login`);
-                    return done(null, false, { message: 'This account has been deactivated' });
-                  }
                   
                   // Continue with linking as above, same logic applies for case-insensitive matches
                   const updatedUser = await storage.updateUser(userWithEmail.id, {

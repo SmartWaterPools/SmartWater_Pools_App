@@ -308,38 +308,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
               authenticated: req.isAuthenticated()
             });
             
-            // Check if this is a new user (created within the last minute)
-            const isNewUser = user.createdAt && 
-              (new Date().getTime() - new Date(user.createdAt).getTime() < 60000);
+            // Check if this is a new user (created within the last minute) or a reactivated user
+            const isNewUser = (user.createdAt && 
+              (new Date().getTime() - new Date(user.createdAt).getTime() < 60000)) || 
+              (user as any).isReactivated;
             
-            // If the user is new and not an admin, redirect them to the registration complete page
-            if (
-              isNewUser && 
-              user.role !== 'system_admin' && 
-              user.role !== 'admin' && 
-              user.role !== 'org_admin' &&
-              user.email.toLowerCase() !== 'travis@smartwaterpools.com'
-            ) {
-              console.log(`New user ${user.email} detected - redirecting to registration complete page`);
+            // Handle special cases that bypass subscription check (admin users or Travis)
+            const isExemptUser = 
+              user.role === 'system_admin' || 
+              user.role === 'admin' || 
+              user.role === 'org_admin' ||
+              user.email.toLowerCase() === 'travis@smartwaterpools.com';
+              
+            // If the user is new (or reactivated) and not exempt, redirect to subscription flow
+            if (isNewUser && !isExemptUser) {
+              console.log(`New or reactivated user ${user.email} detected - redirecting to registration complete page`);
               return res.redirect('/registration-complete?oauth=true&redirect=/pricing');
             }
             
             // Check subscription status
             try {
-              // Skip for admins and Travis
-              if (
-                user.role === 'system_admin' || 
-                user.role === 'admin' || 
-                user.role === 'org_admin' ||
-                user.email.toLowerCase() === 'travis@smartwaterpools.com'
-              ) {
-                // No subscription check for admin users
+              // Skip subscription check for exempt users
+              if (isExemptUser) {
+                console.log(`Exempt user ${user.email} - skipping subscription check`);
               } else {
                 // Get the user's organization
                 const organization = await storage.getOrganization(user.organizationId);
               
                 if (!organization) {
-                  console.error(`Organization not found for user ${user.id}`);
+                  console.error(`Organization not found for user ${user.id} - redirecting to pricing`);
+                  return res.redirect('/pricing?error=no-organization');
                 } else {
                   // Check if organization has a subscription
                   if (!organization.subscriptionId) {

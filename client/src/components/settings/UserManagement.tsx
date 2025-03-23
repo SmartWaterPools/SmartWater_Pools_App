@@ -126,36 +126,46 @@ export function UserManagement() {
     },
   });
   
-  // Mutation for deleting user
+  // Mutation for deleting or deactivating user
   const deleteMutation = useMutation({
-    mutationFn: async (userId: number) => {
-      console.log(`Calling DELETE API for user ID: ${userId}`);
-      return await apiRequest(`/api/users/${userId}`, "DELETE");
+    mutationFn: async ({ userId, permanent }: { userId: number, permanent: boolean }) => {
+      console.log(`Calling DELETE API for user ID: ${userId}, permanent: ${permanent}`);
+      return await apiRequest(`/api/users/${userId}${permanent ? '?permanent=true' : ''}`, "DELETE");
     },
     onSuccess: (data) => {
       console.log('Delete user response:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      
+      const actionType = data.permanent ? "deleted" : "deactivated";
+      
       toast({
-        title: "User deactivated",
-        description: data.message || "User has been deactivated successfully",
+        title: `User ${actionType}`,
+        description: data.message || `User has been ${actionType} successfully`,
       });
     },
     onError: (error: any) => {
-      console.error('Error deleting user:', error);
+      console.error('Error modifying user:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to deactivate user",
+        description: error.message || "Failed to modify user",
         variant: "destructive",
       });
     }
   });
   
-  // Handle delete user
+  // Handle deactivate or delete user
   const handleDelete = (user: UserType) => {
-    if (window.confirm(`Are you sure you want to deactivate ${user.name}? This user will be set to inactive status.`)) {
-      console.log(`Deleting user with ID: ${user.id}`);
-      deleteMutation.mutate(user.id);
+    // Create a confirmation dialog with both options
+    if (confirm(`What would you like to do with ${user.name}?\n\n- Click OK to permanently DELETE this user\n- Click Cancel to just DEACTIVATE (user will be set to inactive status)`)) {
+      // User clicked OK - permanently delete
+      console.log(`Permanently deleting user with ID: ${user.id}`);
+      deleteMutation.mutate({ userId: user.id, permanent: true });
+    } else if (confirm(`Are you sure you want to deactivate ${user.name}? (They can be reactivated later)`)) {
+      // User clicked OK to deactivate
+      console.log(`Deactivating user with ID: ${user.id}`);
+      deleteMutation.mutate({ userId: user.id, permanent: false });
     }
+    // If they cancel both dialogs, do nothing
   };
 
   // Form setup
@@ -505,7 +515,7 @@ export function UserManagement() {
                           <Building className="h-4 w-4 text-gray-400" />
                           {user.organizationId ? 
                             (organizations.find(org => org.id === user.organizationId)?.name || 
-                            `Organization ID: ${user.organizationId}`) : 
+                            "Unknown Organization") : 
                             "No Organization"}
                         </div>
                       </td>
