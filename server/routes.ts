@@ -1040,8 +1040,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         return res.status(403).json({ message: "Unauthorized access to user list" });
       }
+      
+      // Get organization details for each user
+      const usersWithOrganizations = await Promise.all(
+        users.map(async (user) => {
+          // Skip users without organization ID
+          if (!user.organizationId) {
+            return {
+              ...user, 
+              organization: { name: "No Organization" }
+            };
+          }
+          
+          // Get organization details
+          const organization = await storage.getOrganization(user.organizationId);
+          
+          console.log(`[API] User ${user.id} (${user.email}) organization lookup:`, 
+                      organization ? organization.name : "Organization not found");
+          
+          return {
+            ...user,
+            organization: organization || { name: "Unknown Organization", id: user.organizationId }
+          };
+        })
+      );
 
-      res.json(users);
+      res.json(usersWithOrganizations);
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
@@ -1060,20 +1084,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Check if user has permission to view this user
       const reqUser = req.user as any;
       if (reqUser) {
+        // Fetch the organization data for this user
+        let userWithOrganization = { ...user };
+        
+        if (user.organizationId) {
+          const organization = await storage.getOrganization(user.organizationId);
+          
+          console.log(`[API] Single user ${user.id} (${user.email}) organization lookup:`, 
+                      organization ? organization.name : "Organization not found");
+          
+          userWithOrganization = {
+            ...user,
+            organization: organization || { name: "Unknown Organization", id: user.organizationId }
+          };
+        } else {
+          userWithOrganization = {
+            ...user,
+            organization: { name: "No Organization" }
+          };
+        }
+        
         // Users can see themselves
         if (reqUser.id === id) {
-          return res.json(user);
+          return res.json(userWithOrganization);
         }
         
         // System admins can see all users
         if (reqUser.role === 'system_admin') {
-          return res.json(user);
+          return res.json(userWithOrganization);
         }
         
         // Org admins and admins can see users in their organization
         if ((reqUser.role === 'org_admin' || reqUser.role === 'admin') && 
             reqUser.organizationId === user.organizationId) {
-          return res.json(user);
+          return res.json(userWithOrganization);
         }
         
         // Otherwise, unauthorized
@@ -7436,18 +7480,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         organizations = await storage.getAllOrganizations();
         console.log(`[API] System admin retrieved ${organizations.length} organizations`);
         console.log('[API] Organization IDs:', organizations.map(org => org.id).join(', '));
+        console.log('[API] First organization details:', JSON.stringify(organizations[0] || '(none)'));
       } 
       // Org admins should see all organizations to properly manage users
       else if (reqUser && (reqUser.role === 'org_admin' || reqUser.role === 'admin')) {
         organizations = await storage.getAllOrganizations();
         console.log(`[API] Admin retrieved ${organizations.length} organizations`);
         console.log('[API] Organization IDs:', organizations.map(org => org.id).join(', '));
+        console.log('[API] First organization details:', JSON.stringify(organizations[0] || '(none)'));
       }
       // Others can only see their own organization
       else if (reqUser && reqUser.organizationId) {
         const org = await storage.getOrganization(reqUser.organizationId);
         organizations = org ? [org] : [];
         console.log(`[API] User retrieved their organization: ${org?.name || 'Unknown'}`);
+        console.log('[API] Organization details:', JSON.stringify(org || '(none)'));
         
         if (!org) {
           console.log(`[API] WARNING: Could not find organization with ID ${reqUser.organizationId}`);

@@ -533,10 +533,12 @@ export function UserManagement() {
                       <td className="p-4 align-middle">
                         <div className="flex items-center gap-2">
                           <Building className="h-4 w-4 text-gray-400" />
-                          {user.organizationId ? 
-                            (organizations.find(org => org.id === user.organizationId)?.name || 
-                            (isLoadingOrgs ? "Loading..." : "Unknown Organization")) : 
-                            "No Organization"}
+                          {user.organization ? 
+                            user.organization.name : 
+                            (user.organizationId ? 
+                              (organizations.find(org => org.id === user.organizationId)?.name || 
+                              (isLoadingOrgs ? "Loading..." : "Unknown Organization")) : 
+                              "No Organization")}
                         </div>
                       </td>
                       <td className="p-4 align-middle">

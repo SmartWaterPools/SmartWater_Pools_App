@@ -3880,17 +3880,7 @@ export class DatabaseStorage implements IStorage {
   // Organization operations
   async getOrganization(id: number): Promise<Organization | undefined> {
     try {
-      const result = await db.select().from(organizations).where(eq(organizations.id, id));
-      return result[0];
-    } catch (error) {
-      console.error("Error getting organization:", error);
-      return undefined;
-    }
-  }
-
-  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
-    try {
-      // Use raw SQL to avoid schema issues with missing columns
+      // Use raw SQL with explicit column aliasing to match camelCase property names
       const result = await db.execute(sql`
         SELECT 
           id, 
@@ -3908,10 +3898,54 @@ export class DatabaseStorage implements IStorage {
           created_at as "createdAt",
           is_system_admin as "isSystemAdmin",
           subscription_id as "subscriptionId",
-          stripe_customer_id as "stripeCustomerId"
+          stripe_customer_id as "stripeCustomerId",
+          trial_ends_at as "trialEndsAt"
+        FROM organizations
+        WHERE id = ${id}
+      `);
+      
+      console.log(`[storage] getOrganization(${id}) result:`, 
+                  result.rows.length > 0 ? JSON.stringify(result.rows[0]) : 'No organization found');
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      return result.rows[0] as Organization;
+    } catch (error) {
+      console.error("Error getting organization:", error);
+      return undefined;
+    }
+  }
+
+  async getOrganizationBySlug(slug: string): Promise<Organization | undefined> {
+    try {
+      // Use raw SQL with explicit column aliasing to match camelCase property names
+      const result = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          slug,
+          address,
+          city,
+          state,
+          zip_code as "zipCode",
+          phone,
+          email,
+          website,
+          logo,
+          active,
+          created_at as "createdAt",
+          is_system_admin as "isSystemAdmin",
+          subscription_id as "subscriptionId",
+          stripe_customer_id as "stripeCustomerId",
+          trial_ends_at as "trialEndsAt"
         FROM organizations
         WHERE slug = ${slug}
       `);
+      
+      console.log(`[storage] getOrganizationBySlug(${slug}) result:`, 
+                  result.rows.length > 0 ? JSON.stringify(result.rows[0]) : 'No organization found');
       
       if (result.rows.length === 0) {
         return undefined;
@@ -3975,13 +4009,115 @@ export class DatabaseStorage implements IStorage {
 
   async updateOrganization(id: number, organization: Partial<Organization>): Promise<Organization | undefined> {
     try {
-      const updateFields: Partial<Organization> = { ...organization, updatedAt: new Date() };
-      const result = await db.update(organizations)
-        .set(updateFields)
-        .where(eq(organizations.id, id))
-        .returning();
+      // Create SQL for updating only the fields that were provided
+      let updateSql = 'UPDATE organizations SET ';
+      const updateValues: any[] = [];
+      const updateFields: string[] = [];
       
-      return result[0];
+      // Add each field that was provided to the update SQL
+      if (organization.name !== undefined) {
+        updateFields.push('name = $' + (updateValues.length + 1));
+        updateValues.push(organization.name);
+      }
+      if (organization.slug !== undefined) {
+        updateFields.push('slug = $' + (updateValues.length + 1));
+        updateValues.push(organization.slug);
+      }
+      if (organization.address !== undefined) {
+        updateFields.push('address = $' + (updateValues.length + 1));
+        updateValues.push(organization.address);
+      }
+      if (organization.city !== undefined) {
+        updateFields.push('city = $' + (updateValues.length + 1));
+        updateValues.push(organization.city);
+      }
+      if (organization.state !== undefined) {
+        updateFields.push('state = $' + (updateValues.length + 1));
+        updateValues.push(organization.state);
+      }
+      if (organization.zipCode !== undefined) {
+        updateFields.push('zip_code = $' + (updateValues.length + 1));
+        updateValues.push(organization.zipCode);
+      }
+      if (organization.phone !== undefined) {
+        updateFields.push('phone = $' + (updateValues.length + 1));
+        updateValues.push(organization.phone);
+      }
+      if (organization.email !== undefined) {
+        updateFields.push('email = $' + (updateValues.length + 1));
+        updateValues.push(organization.email);
+      }
+      if (organization.website !== undefined) {
+        updateFields.push('website = $' + (updateValues.length + 1));
+        updateValues.push(organization.website);
+      }
+      if (organization.logo !== undefined) {
+        updateFields.push('logo = $' + (updateValues.length + 1));
+        updateValues.push(organization.logo);
+      }
+      if (organization.active !== undefined) {
+        updateFields.push('active = $' + (updateValues.length + 1));
+        updateValues.push(organization.active);
+      }
+      if (organization.isSystemAdmin !== undefined) {
+        updateFields.push('is_system_admin = $' + (updateValues.length + 1));
+        updateValues.push(organization.isSystemAdmin);
+      }
+      if (organization.subscriptionId !== undefined) {
+        updateFields.push('subscription_id = $' + (updateValues.length + 1));
+        updateValues.push(organization.subscriptionId);
+      }
+      if (organization.stripeCustomerId !== undefined) {
+        updateFields.push('stripe_customer_id = $' + (updateValues.length + 1));
+        updateValues.push(organization.stripeCustomerId);
+      }
+      
+      // Add updated_at timestamp
+      updateFields.push('updated_at = $' + (updateValues.length + 1));
+      updateValues.push(new Date());
+      
+      // If no fields were provided to update, return the current organization
+      if (updateFields.length === 1) { // Only updated_at is set
+        return await this.getOrganization(id);
+      }
+      
+      // Finish building the SQL
+      updateSql += updateFields.join(', ');
+      updateSql += ' WHERE id = $' + (updateValues.length + 1);
+      updateValues.push(id);
+      
+      // Add RETURNING clause with all fields and the correct column aliases
+      updateSql += ` RETURNING 
+        id, 
+        name,
+        slug,
+        address,
+        city,
+        state,
+        zip_code as "zipCode",
+        phone,
+        email,
+        website,
+        logo,
+        active,
+        created_at as "createdAt",
+        is_system_admin as "isSystemAdmin",
+        subscription_id as "subscriptionId",
+        stripe_customer_id as "stripeCustomerId",
+        trial_ends_at as "trialEndsAt"`;
+      
+      console.log(`[storage] Executing update for organization ${id}:`, updateSql);
+      
+      // Execute the SQL
+      const result = await pool.query(updateSql, updateValues);
+      
+      if (result.rows.length === 0) {
+        return undefined;
+      }
+      
+      console.log(`[storage] Organization ${id} updated successfully:`, JSON.stringify(result.rows[0]));
+      
+      return result.rows[0] as Organization;
     } catch (error) {
       console.error("Error updating organization:", error);
       return undefined;
@@ -3990,7 +4126,38 @@ export class DatabaseStorage implements IStorage {
 
   async getAllOrganizations(): Promise<Organization[]> {
     try {
-      return await db.select().from(organizations).orderBy(organizations.name);
+      // Use raw SQL to avoid schema issues with column naming (snake_case vs camelCase)
+      const result = await db.execute(sql`
+        SELECT 
+          id, 
+          name,
+          slug,
+          address,
+          city,
+          state,
+          zip_code as "zipCode",
+          phone,
+          email,
+          website,
+          logo,
+          active,
+          created_at as "createdAt",
+          is_system_admin as "isSystemAdmin",
+          subscription_id as "subscriptionId",
+          stripe_customer_id as "stripeCustomerId",
+          trial_ends_at as "trialEndsAt"
+        FROM organizations
+        ORDER BY name
+      `);
+      
+      console.log("[storage] getAllOrganizations retrieved", result.rows.length, "organizations");
+      
+      // Add debugging to check the retrieved organizations
+      if (result.rows.length > 0) {
+        console.log("[storage] First organization:", JSON.stringify(result.rows[0]));
+      }
+      
+      return result.rows;
     } catch (error) {
       console.error("Error getting all organizations:", error);
       return [];
