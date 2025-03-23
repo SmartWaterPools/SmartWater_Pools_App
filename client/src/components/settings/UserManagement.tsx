@@ -129,19 +129,22 @@ export function UserManagement() {
   // Mutation for deleting user
   const deleteMutation = useMutation({
     mutationFn: async (userId: number) => {
+      console.log(`Calling DELETE API for user ID: ${userId}`);
       return await apiRequest(`/api/users/${userId}`, "DELETE");
     },
     onSuccess: (data) => {
+      console.log('Delete user response:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
-        title: "User deleted",
-        description: "User has been deleted successfully",
+        title: "User deactivated",
+        description: data.message || "User has been deactivated successfully",
       });
     },
     onError: (error: any) => {
+      console.error('Error deleting user:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete user",
+        description: error.message || "Failed to deactivate user",
         variant: "destructive",
       });
     }
@@ -149,7 +152,8 @@ export function UserManagement() {
   
   // Handle delete user
   const handleDelete = (user: UserType) => {
-    if (window.confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
+    if (window.confirm(`Are you sure you want to deactivate ${user.name}? This user will be set to inactive status.`)) {
+      console.log(`Deleting user with ID: ${user.id}`);
       deleteMutation.mutate(user.id);
     }
   };

@@ -975,7 +975,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = parseInt(req.params.id);
       const permanent = req.query.permanent === 'true'; // Check if permanent deletion is requested
       
+      console.log(`[API] User deletion request - ID: ${id}, Permanent: ${permanent}`);
+      
       if (isNaN(id)) {
+        console.log(`[API] Invalid user ID provided: ${req.params.id}`);
         return res.status(400).json({ message: "Invalid user ID" });
       }
       
@@ -983,35 +986,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(id);
       
       if (!user) {
+        console.log(`[API] User not found for deletion: ${id}`);
         return res.status(404).json({ message: "User not found" });
       }
       
+      console.log(`[API] Found user for deletion: ${user.name} (${user.username}), role: ${user.role}`);
+      
       // Don't allow deleting system_admin users
       if (user.role === 'system_admin') {
+        console.log(`[API] Attempted to delete system_admin user: ${id}`);
         return res.status(403).json({ message: "Cannot delete system administrator accounts" });
       }
       
       // Check if user has permission to delete this user
       const reqUser = req.user as any;
       if (!reqUser) {
+        console.log(`[API] Unauthenticated deletion attempt for user: ${id}`);
         return res.status(401).json({ message: "Authentication required" });
       }
       
+      console.log(`[API] Delete request by user: ${reqUser.username} (${reqUser.id}), role: ${reqUser.role}`);
+      
       // System admins can delete any user (except other system admins)
       if (reqUser.role === 'system_admin') {
+        console.log(`[API] System admin authorized to delete user: ${id}`);
         // Allow the delete
       }
       // Org admins can delete users in their organization
-      else if (reqUser.role === 'org_admin' && reqUser.organizationId === user.organizationId) {
+      else if ((reqUser.role === 'org_admin' || reqUser.role === 'admin') && 
+               reqUser.organizationId === user.organizationId) {
+        console.log(`[API] Org admin authorized to delete user: ${id} (same organization)`);
         // Allow the delete
       }
       // Otherwise, unauthorized
       else {
+        console.log(`[API] Unauthorized deletion attempt: ${reqUser.username} (${reqUser.role}) tried to delete user ${id}`);
         return res.status(403).json({ message: "You don't have permission to delete this user" });
       }
       
       // Check if this is the user's own account
       if (reqUser.id === id) {
+        console.log(`[API] User ${reqUser.username} attempted to delete their own account`);
         return res.status(403).json({ message: "Cannot delete your own account" });
       }
       
@@ -1020,18 +1035,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (permanent) {
         // Perform permanent deletion of the user (but only if user is system_admin)
         if (reqUser.role !== 'system_admin') {
+          console.log(`[API] Non-system admin tried permanent deletion: ${reqUser.username}`);
           return res.status(403).json({ 
             message: "Only system administrators can permanently delete users" 
           });
         }
         
+        console.log(`[API] Performing permanent deletion of user: ${id}`);
+        
         // Perform actual permanent deletion from the database
         result = await storage.deleteUser(id);
         
         if (!result) {
+          console.log(`[API] Failed to permanently delete user: ${id}`);
           return res.status(500).json({ message: "Failed to permanently delete user" });
         }
         
+        console.log(`[API] User ${id} permanently deleted`);
         return res.json({ 
           message: "User permanently deleted", 
           success: true,
@@ -1039,12 +1059,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         // Set user inactive instead of hard deleting (default behavior)
+        console.log(`[API] Deactivating user: ${id}`);
         const updatedUser = await storage.updateUser(id, { active: false });
         
         if (!updatedUser) {
+          console.log(`[API] Failed to deactivate user: ${id}`);
           return res.status(500).json({ message: "Failed to deactivate user" });
         }
         
+        console.log(`[API] User ${id} successfully deactivated`);
         return res.json({ 
           message: "User deactivated successfully", 
           success: true,
@@ -1052,8 +1075,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } catch (error) {
-      console.error("Error deleting user:", error);
-      return res.status(500).json({ message: "Failed to delete user" });
+      console.error("[API] Error deleting user:", error);
+      return res.status(500).json({ 
+        message: "Failed to delete user",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
@@ -7261,11 +7287,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // System admins can see all organizations
       if (reqUser && reqUser.role === 'system_admin') {
         organizations = await storage.getAllOrganizations();
+        console.log(`[API] System admin retrieved ${organizations.length} organizations`);
       } 
+      // Org admins should see all organizations to properly manage users
+      else if (reqUser && (reqUser.role === 'org_admin' || reqUser.role === 'admin')) {
+        organizations = await storage.getAllOrganizations();
+        console.log(`[API] Admin retrieved ${organizations.length} organizations`);
+      }
       // Others can only see their own organization
       else if (reqUser && reqUser.organizationId) {
         const org = await storage.getOrganization(reqUser.organizationId);
         organizations = org ? [org] : [];
+        console.log(`[API] User retrieved their organization: ${org?.name || 'Unknown'}`);
       }
       
       res.json(organizations);
