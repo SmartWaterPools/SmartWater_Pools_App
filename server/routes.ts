@@ -333,10 +333,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 console.log(`Exempt user ${user.email} - skipping subscription check`);
               } else {
                 // Get the user's organization
+                console.log(`Checking organization for user ${user.email} (ID: ${user.id}, organizationId: ${user.organizationId})`);
+                
+                if (!user.organizationId) {
+                  console.error(`User ${user.id} (${user.email}) has no organization ID - redirecting to pricing`);
+                  return res.redirect('/pricing?error=no-organization-id');
+                }
+                
                 const organization = await storage.getOrganization(user.organizationId);
               
                 if (!organization) {
-                  console.error(`Organization not found for user ${user.id} - redirecting to pricing`);
+                  console.error(`Organization not found for user ${user.id} (${user.email}) with organizationId ${user.organizationId} - redirecting to pricing`);
+                  
+                  // Try to assign user to the default organization (SmartWater Pools)
+                  try {
+                    const smartWaterOrg = await storage.getOrganizationBySlug('smartwaterpools');
+                    if (smartWaterOrg) {
+                      console.log(`Assigning user ${user.id} to default organization (id: ${smartWaterOrg.id})`);
+                      await storage.updateUser(user.id, { organizationId: smartWaterOrg.id });
+                      // Redirect to login to retry with updated user data
+                      return res.redirect('/login?message=organization-assigned');
+                    }
+                  } catch (orgError) {
+                    console.error('Failed to assign default organization:', orgError);
+                  }
+                  
                   return res.redirect('/pricing?error=no-organization');
                 } else {
                   // Check if organization has a subscription

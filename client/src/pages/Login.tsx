@@ -63,6 +63,35 @@ export default function Login() {
   // Check if there's a redirect URL in the query string
   const searchParams = new URLSearchParams(location.split('?')[1] || '');
   const redirectPath = searchParams.get('redirect') || '/';
+  const errorParam = searchParams.get('error');
+  
+  // Process URL parameters on mount
+  useEffect(() => {
+    // Handle error parameter from OAuth callback
+    if (errorParam) {
+      if (errorParam === 'no-organization') {
+        setError("Your account is not associated with an organization. Please complete the subscription process.");
+        // Automatically redirect to pricing page after a delay
+        const timer = setTimeout(() => {
+          setLocation('/pricing');
+        }, 3000);
+        return () => clearTimeout(timer);
+      } else if (errorParam === 'no-subscription') {
+        setError("Your organization doesn't have an active subscription. Please subscribe to continue.");
+        // Automatically redirect to pricing page after a delay
+        const timer = setTimeout(() => {
+          setLocation('/pricing');
+        }, 3000);
+        return () => clearTimeout(timer);
+      } else if (errorParam === 'invalid-subscription') {
+        setError("There was an issue with your subscription. Please contact support or update your subscription.");
+      } else if (errorParam === 'inactive-subscription') {
+        setError("Your subscription is not active. Please renew your subscription to continue.");
+      } else {
+        setError(`Authentication error: ${errorParam}`);
+      }
+    }
+  }, [errorParam, setLocation]);
   
   // If already authenticated, redirect to homepage
   useEffect(() => {
