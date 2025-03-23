@@ -79,8 +79,11 @@ export default function Register() {
       const success = await register(registrationData);
       
       if (success) {
-        // Redirect to dashboard after successful registration
-        setLocation("/");
+        // Redirect to pricing page after successful registration
+        // Include organization name in query parameters for the pricing page
+        const organizationParam = registrationData.name.replace(/\s+/g, '-').toLowerCase();
+        const slugParam = organizationParam.replace(/[^a-z0-9-]/g, '');
+        setLocation(`/pricing?name=${encodeURIComponent(registrationData.name)}&slug=${slugParam}`);
       }
       // Toast notifications are handled in the AuthContext register function
     } catch (error) {

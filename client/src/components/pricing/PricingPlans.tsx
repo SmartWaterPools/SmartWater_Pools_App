@@ -24,7 +24,7 @@ export default function PricingPlans({
   
   // Fetch all subscription plans
   const { data: plans, isLoading, error } = useQuery({
-    queryKey: ['/api/subscription-plans'],
+    queryKey: ['/api/stripe/plans'],
   });
   
   // Filter plans by billing cycle and active status

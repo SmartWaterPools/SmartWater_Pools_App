@@ -29,7 +29,7 @@ export default function Pricing() {
   // Mutation for creating a Stripe checkout session
   const createCheckoutMutation = useMutation({
     mutationFn: (data: { planId: number; organizationName?: string; organizationSlug?: string }) => {
-      return apiRequest("/api/checkout", {
+      return apiRequest("/api/stripe/checkout-session", {
         method: "POST",
         data: {
           planId: data.planId,

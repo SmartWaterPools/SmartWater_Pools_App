@@ -6,8 +6,10 @@ import emailRoutes from "./email-routes";
 import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import inventoryRoutes from "./routes/inventory-routes";
 import invitationRoutes from "./routes/invitation-routes";
+import stripeRoutes from "./routes/stripe-routes";
 import Stripe from "stripe";
 import { getStripeService } from "./stripe-service";
+import { requireActiveSubscription } from "./subscription-middleware";
 
 // Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
@@ -270,7 +272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         failureRedirect: '/login?error=oauth-failed',
         failureMessage: true,
         session: true
-      }, (err, user, info) => {
+      }, async (err, user, info) => {
         if (err) {
           console.error('Google OAuth authentication error:', err);
           return res.redirect(`/login?error=${encodeURIComponent(err.message)}`);
@@ -289,7 +291,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Make sure session is saved before redirect
-          req.session.save((saveErr) => {
+          req.session.save(async (saveErr) => {
             if (saveErr) {
               console.error('Error saving session after Google OAuth login:', saveErr);
               return res.redirect('/login?error=session-save-failed');
@@ -305,6 +307,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sessionID: req.sessionID,
               authenticated: req.isAuthenticated()
             });
+            
+            // Check if this is a new user (created within the last minute)
+            const isNewUser = user.createdAt && 
+              (new Date().getTime() - new Date(user.createdAt).getTime() < 60000);
+            
+            // If the user is new and not an admin, redirect them to the registration complete page
+            if (
+              isNewUser && 
+              user.role !== 'system_admin' && 
+              user.role !== 'admin' && 
+              user.role !== 'org_admin' &&
+              user.email.toLowerCase() !== 'travis@smartwaterpools.com'
+            ) {
+              console.log(`New user ${user.email} detected - redirecting to registration complete page`);
+              return res.redirect('/registration-complete?oauth=true&redirect=/pricing');
+            }
+            
+            // Check subscription status
+            try {
+              // Skip for admins and Travis
+              if (
+                user.role === 'system_admin' || 
+                user.role === 'admin' || 
+                user.role === 'org_admin' ||
+                user.email.toLowerCase() === 'travis@smartwaterpools.com'
+              ) {
+                // No subscription check for admin users
+              } else {
+                // Get the user's organization
+                const organization = await storage.getOrganization(user.organizationId);
+              
+                if (!organization) {
+                  console.error(`Organization not found for user ${user.id}`);
+                } else {
+                  // Check if organization has a subscription
+                  if (!organization.subscriptionId) {
+                    console.log(`No subscription found for organization ${organization.id} - redirecting to pricing`);
+                    return res.redirect('/pricing?error=no-subscription');
+                  }
+                  
+                  // Get subscription details
+                  const subscription = await storage.getSubscription(organization.subscriptionId);
+                  
+                  if (!subscription) {
+                    console.error(`Subscription ${organization.subscriptionId} not found for organization ${organization.id}`);
+                    return res.redirect('/pricing?error=invalid-subscription');
+                  }
+                  
+                  // Check subscription status
+                  if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+                    console.log(`Subscription ${subscription.id} has status ${subscription.status} - redirecting to pricing`);
+                    return res.redirect('/pricing?error=inactive-subscription');
+                  }
+                }
+              }
+            } catch (error) {
+              console.error('Error checking subscription status during OAuth callback:', error);
+              // Continue with normal redirection flow
+            }
             
             // Redirect based on user role
             if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
@@ -618,6 +679,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Invitation routes
   const invitationRouter = express.Router();
   app.use("/api/invitations", invitationRoutes);
+  
+  // Stripe payment routes
+  const stripeRouter = express.Router();
+  const stripeServiceInstance = getStripeService(storage);
+  app.use("/api/stripe", stripeRoutes(stripeRouter, storage, stripeServiceInstance));
   
   // OAuth routes
   // We removed the duplicate Google OAuth routes - they're defined higher up in the file
@@ -7361,6 +7427,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[API] Subscription cancellation error:", error);
       res.status(500).json({ error: "Failed to cancel subscription" });
+    }
+  });
+  
+  // API endpoint to create Stripe checkout sessions
+  app.post("/api/stripe/checkout", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { planId, successUrl, cancelUrl } = req.body;
+      
+      if (!planId || !successUrl || !cancelUrl) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+      
+      // @ts-ignore - we know user is defined due to isAuthenticated middleware
+      const organizationId = req.user.organizationId;
+      
+      if (!organizationId) {
+        return res.status(400).json({ error: "User is not associated with an organization" });
+      }
+      
+      const stripeService = getStripeService(storage);
+      const checkoutSession = await stripeService.createCheckoutSession(
+        parseInt(planId),
+        organizationId, 
+        successUrl, 
+        cancelUrl
+      );
+      
+      res.json({ url: checkoutSession });
+    } catch (error) {
+      console.error("[API] Checkout error:", error);
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+  
+  // Get checkout session details
+  app.get("/api/stripe/checkout-session", async (req: Request, res: Response) => {
+    try {
+      const { session_id } = req.query;
+      
+      if (!session_id) {
+        return res.status(400).json({ error: "Missing session_id parameter" });
+      }
+      
+      // Retrieve the session from Stripe
+      const session = await stripe.checkout.sessions.retrieve(session_id as string, {
+        expand: ['customer', 'subscription', 'line_items']
+      });
+      
+      if (!session) {
+        return res.status(404).json({ error: "Checkout session not found" });
+      }
+      
+      // Get the organization and plan information
+      const organizationId = session.metadata?.organizationId;
+      const planId = session.metadata?.planId;
+      
+      let organizationName = "your organization";
+      let planName = "selected plan";
+      let billingCycle = "monthly";
+      
+      if (organizationId) {
+        const organization = await storage.getOrganization(parseInt(organizationId));
+        if (organization) {
+          organizationName = organization.name;
+        }
+      }
+      
+      if (planId) {
+        const plan = await storage.getSubscriptionPlan(parseInt(planId));
+        if (plan) {
+          planName = plan.name;
+          billingCycle = plan.billingCycle;
+        }
+      }
+      
+      res.json({
+        sessionId: session.id,
+        organizationName,
+        planName,
+        billingCycle,
+        status: "active"
+      });
+    } catch (error) {
+      console.error("[API] Error retrieving checkout session:", error);
+      res.status(500).json({ error: "Failed to retrieve checkout session" });
     }
   });
   

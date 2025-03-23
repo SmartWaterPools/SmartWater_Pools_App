@@ -1,24 +1,23 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { CheckCircle, ArrowRight } from "lucide-react";
+import { ArrowRight, CheckCircle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useSession } from "@/hooks/use-session";
 
-export default function SubscriptionSuccess() {
+export default function RegistrationComplete() {
   const [, navigate] = useLocation();
-  const { session, isLoading, refreshSession } = useSession();
+  const { session, isLoading } = useSession();
   const [countdown, setCountdown] = useState(5);
   
   // Get query params
   const searchParams = new URLSearchParams(window.location.search);
-  const planName = searchParams.get("plan") || "subscription";
+  const fromOAuth = searchParams.get("oauth") === "true";
+  const redirectTo = searchParams.get("redirect") || "/pricing";
   
   useEffect(() => {
-    // Refresh session to get updated subscription info
-    refreshSession();
-    
     // If user is not authenticated, redirect to login
     if (!isLoading && !session.isAuthenticated) {
       navigate("/login");
@@ -30,16 +29,7 @@ export default function SubscriptionSuccess() {
       setCountdown((current) => {
         if (current <= 1) {
           clearInterval(timer);
-          // Send user to the appropriate dashboard
-          if (session.user?.role === 'system_admin' || session.user?.role === 'org_admin' || session.user?.role === 'admin') {
-            navigate("/admin");
-          } else if (session.user?.role === 'technician') {
-            navigate("/technician");
-          } else if (session.user?.role === 'client') {
-            navigate("/client-portal");
-          } else {
-            navigate("/dashboard");
-          }
+          navigate(redirectTo);
           return 0;
         }
         return current - 1;
@@ -47,7 +37,7 @@ export default function SubscriptionSuccess() {
     }, 1000);
     
     return () => clearInterval(timer);
-  }, [isLoading, session, navigate, refreshSession]);
+  }, [isLoading, session, navigate, redirectTo]);
   
   return (
     <div className="container max-w-4xl py-12 mx-auto">
@@ -58,19 +48,20 @@ export default function SubscriptionSuccess() {
               <CheckCircle className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-3xl">Subscription Activated!</CardTitle>
+          <CardTitle className="text-3xl">Registration Complete!</CardTitle>
           <CardDescription className="text-lg">
-            Thank you for subscribing to our {planName} plan
+            Your account has been created successfully
           </CardDescription>
         </CardHeader>
         
         <CardContent className="space-y-6">
-          <div className="bg-primary/5 p-4 rounded-lg">
-            <h3 className="font-medium mb-2">Your subscription has been successfully activated</h3>
-            <p className="text-muted-foreground">
-              You now have full access to all features included in your plan. Your subscription details have been sent to your email.
-            </p>
-          </div>
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertTitle>One more step required</AlertTitle>
+            <AlertDescription>
+              To access the full features of SmartWater Pools Management System, you'll need to choose a subscription plan.
+            </AlertDescription>
+          </Alert>
           
           <div className="space-y-4">
             <h3 className="text-lg font-medium">What happens next?</h3>
@@ -79,28 +70,28 @@ export default function SubscriptionSuccess() {
                 <div className="bg-primary/10 p-1 rounded-full mt-0.5">
                   <span className="text-primary text-sm font-bold">1</span>
                 </div>
-                <p>You'll be redirected to your dashboard in {countdown} seconds</p>
+                <p>You'll be redirected to our pricing page in {countdown} seconds</p>
               </div>
               
               <div className="flex items-start gap-2">
                 <div className="bg-primary/10 p-1 rounded-full mt-0.5">
                   <span className="text-primary text-sm font-bold">2</span>
                 </div>
-                <p>You can set up your pool service company profile</p>
+                <p>Select a subscription plan that fits your business needs</p>
               </div>
               
               <div className="flex items-start gap-2">
                 <div className="bg-primary/10 p-1 rounded-full mt-0.5">
                   <span className="text-primary text-sm font-bold">3</span>
                 </div>
-                <p>Add your team members and clients</p>
+                <p>Complete the checkout process with Stripe</p>
               </div>
               
               <div className="flex items-start gap-2">
                 <div className="bg-primary/10 p-1 rounded-full mt-0.5">
                   <span className="text-primary text-sm font-bold">4</span>
                 </div>
-                <p>Start managing your pool service operations</p>
+                <p>Gain immediate access to all features of the platform</p>
               </div>
             </div>
           </div>
@@ -109,29 +100,21 @@ export default function SubscriptionSuccess() {
           
           <div className="text-center text-muted-foreground">
             <p>
-              If you have any questions or need help getting started, please contact our support team.
+              {fromOAuth
+                ? "Thanks for signing in with Google!"
+                : "Thanks for creating your account!"
+              }
             </p>
           </div>
         </CardContent>
         
         <CardFooter className="flex justify-center">
           <Button 
-            onClick={() => {
-              // Send user to the appropriate dashboard
-              if (session.user?.role === 'system_admin' || session.user?.role === 'org_admin' || session.user?.role === 'admin') {
-                navigate("/admin");
-              } else if (session.user?.role === 'technician') {
-                navigate("/technician");
-              } else if (session.user?.role === 'client') {
-                navigate("/client-portal");
-              } else {
-                navigate("/dashboard");
-              }
-            }} 
+            onClick={() => navigate(redirectTo)} 
             className="px-8"
             size="lg"
           >
-            Go to Dashboard
+            Continue to Pricing
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </CardFooter>
