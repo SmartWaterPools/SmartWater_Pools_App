@@ -1,0 +1,1 @@
+{"success":true,"message":"Login successful","user":{"id":9,"username":"admin","name":"Administrator","email":"admin@example.com","role":"admin","phone":null,"address":null,"active":true,"organizationId":1,"googleId":null,"photoUrl":null,"authProvider":"local"}}

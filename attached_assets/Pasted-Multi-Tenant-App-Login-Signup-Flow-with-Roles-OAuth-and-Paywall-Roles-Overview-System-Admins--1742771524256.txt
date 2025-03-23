@@ -1,0 +1,103 @@
+Multi-Tenant App Login/Signup Flow with Roles, OAuth, and Paywall
+
+Roles Overview
+	•	System Admins – Internal/global control
+	•	Org Admins – Manage organization-level settings and users
+	•	Office Admins – Manage location-specific settings and teams
+	•	Field Technicians – Operate in the field
+	•	Org Clients – View progress, receive updates
+
+⸻
+
+1. Entry Point
+	•	Landing Page:
+	•	Login
+	•	Sign Up
+	•	OAuth Options (Google, Apple)
+	•	“Join via Invite Link” (with pre-filled role + org)
+
+⸻
+
+2. Sign Up Flow
+
+A. Determine Path
+	•	Ask: “Are you starting a new organization or joining one?”
+	•	New Organization (Org Admin – creates account)
+	•	Joining Existing (via invite or domain match)
+
+⸻
+
+B. New Org Signup (Org Admin)
+	•	Choose: Email/Password or OAuth
+	•	Enter:
+	•	Org Name
+	•	Primary Office Name
+	•	Your Info (name, email, password or OAuth)
+	•	Create:
+	•	Org Tenant
+	•	Assign Role = Org Admin
+	•	Redirect to:
+	•	Plan Selection / Paywall
+	•	Integrate Stripe
+	•	Require payment to activate features
+
+⸻
+
+C. Existing Org Signup
+	•	Enter email or use OAuth
+	•	Check domain or invite token
+	•	If matched → allow access
+	•	If not → show error / request invite
+	•	Assign appropriate role from invite:
+	•	Office Admin
+	•	Field Tech
+	•	Org Client
+
+⸻
+
+3. OAuth Flow
+	•	User selects Google/Apple
+	•	OAuth redirects back
+	•	App checks:
+	•	Is user new?
+	•	→ Check for invite or domain
+	•	→ Create user + assign role
+	•	Is user existing?
+	•	→ Log in & redirect to role-based dashboard
+
+⸻
+
+4. Role-Based Dashboards
+	•	After login/signup, users are redirected based on role:
+	•	System Admin → Global admin console
+	•	Org Admin → Org-level dashboard (billing, user mgmt, settings)
+	•	Office Admin → Office-specific ops and staff management
+	•	Field Technician → Mobile/field interface
+	•	Org Client → Client dashboard (limited view, updates, invoices)
+
+⸻
+
+5. Invite-Based Flow
+	•	Org Admin can send invite:
+	•	Email address
+	•	Role to assign
+	•	Invite link has secure token
+	•	User clicks → Guided to signup/login → Auto-assigned role + tenant
+
+⸻
+
+6. Paywall Flow
+	•	Shown only to new org signups (Org Admins)
+	•	Steps:
+	1.	Choose Plan
+	2.	Input Billing (Stripe)
+	3.	On webhook success → Activate Tenant
+	4.	Show onboarding wizard
+
+⸻
+
+7. Error Handling
+	•	OAuth token failure → Show fallback login
+	•	Invite expired → Notify sender & user
+	•	Invalid domain → Prompt to request invite or contact admin
+	•	Unpaid tenant → Restrict access for non-admin roles, show billing reminder to Org Admin

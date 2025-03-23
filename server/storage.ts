@@ -3898,8 +3898,7 @@ export class DatabaseStorage implements IStorage {
           created_at as "createdAt",
           is_system_admin as "isSystemAdmin",
           subscription_id as "subscriptionId",
-          stripe_customer_id as "stripeCustomerId",
-          trial_ends_at as "trialEndsAt"
+          stripe_customer_id as "stripeCustomerId"
         FROM organizations
         WHERE id = ${id}
       `);
@@ -3938,8 +3937,7 @@ export class DatabaseStorage implements IStorage {
           created_at as "createdAt",
           is_system_admin as "isSystemAdmin",
           subscription_id as "subscriptionId",
-          stripe_customer_id as "stripeCustomerId",
-          trial_ends_at as "trialEndsAt"
+          stripe_customer_id as "stripeCustomerId"
         FROM organizations
         WHERE slug = ${slug}
       `);
@@ -4103,8 +4101,7 @@ export class DatabaseStorage implements IStorage {
         created_at as "createdAt",
         is_system_admin as "isSystemAdmin",
         subscription_id as "subscriptionId",
-        stripe_customer_id as "stripeCustomerId",
-        trial_ends_at as "trialEndsAt"`;
+        stripe_customer_id as "stripeCustomerId"`;
       
       console.log(`[storage] Executing update for organization ${id}:`, updateSql);
       
@@ -4144,8 +4141,7 @@ export class DatabaseStorage implements IStorage {
           created_at as "createdAt",
           is_system_admin as "isSystemAdmin",
           subscription_id as "subscriptionId",
-          stripe_customer_id as "stripeCustomerId",
-          trial_ends_at as "trialEndsAt"
+          stripe_customer_id as "stripeCustomerId"
         FROM organizations
         ORDER BY name
       `);
