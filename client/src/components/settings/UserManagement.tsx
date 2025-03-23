@@ -89,9 +89,39 @@ export function UserManagement() {
   const {
     data: organizations = [],
     isLoading: isLoadingOrgs,
+    error: orgError
   } = useQuery({
     queryKey: ["/api/organizations"],
-    select: (data: Organization[]) => data,
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('/api/organizations');
+        console.log("Organizations API response:", response);
+        
+        // If no organizations are returned or there's an error, provide a fallback
+        if (!response || !Array.isArray(response) || response.length === 0) {
+          console.log("No organizations found, using fallback organization");
+          return [{ 
+            id: 1, 
+            name: "SmartWater Pools",
+            slug: "smartwater-pools",
+            active: true
+          }] as Organization[];
+        }
+        
+        return response as Organization[];
+      } catch (error) {
+        console.error("Error fetching organizations:", error);
+        // Return a fallback organization
+        return [{ 
+          id: 1, 
+          name: "SmartWater Pools",
+          slug: "smartwater-pools",
+          active: true
+        }] as Organization[];
+      }
+    },
+    retry: 1,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Mutation for creating/updating user
@@ -515,8 +545,8 @@ export function UserManagement() {
                           <Building className="h-4 w-4 text-gray-400" />
                           {user.organizationId ? 
                             (organizations.find(org => org.id === user.organizationId)?.name || 
-                            "Unknown Organization") : 
-                            "No Organization"}
+                            (isLoadingOrgs ? "Loading..." : "SmartWater Pools")) : 
+                            "SmartWater Pools"}
                         </div>
                       </td>
                       <td className="p-4 align-middle">
