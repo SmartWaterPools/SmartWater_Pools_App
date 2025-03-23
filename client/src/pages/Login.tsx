@@ -31,7 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Define login form schema
 const loginFormSchema = z.object({
-  username: z.string().min(1, "Username is required"),
+  username: z.string().min(1, "Email is required"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -75,7 +75,7 @@ export default function Login() {
   const loginForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginFormSchema),
     defaultValues: {
-      username: demoCredentials ? "testuser" : "",
+      username: demoCredentials ? "testuser@smartwaterpools.com" : "",
       password: demoCredentials ? "Test123!" : "",
     },
   });
@@ -95,7 +95,7 @@ export default function Login() {
   // Update form values when demo credentials toggle changes
   useEffect(() => {
     if (demoCredentials) {
-      loginForm.setValue("username", "testuser");
+      loginForm.setValue("username", "testuser@smartwaterpools.com");
       loginForm.setValue("password", "Test123!");
     } else {
       loginForm.setValue("username", "");
@@ -117,7 +117,7 @@ export default function Login() {
         setLocation(redirectPath !== '/login' ? redirectPath : '/');
       } else {
         // Show error when login fails
-        setError("Invalid username or password. Please try again.");
+        setError("Invalid email or password. Please try again.");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -228,13 +228,14 @@ export default function Login() {
                     name="username"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Username</FormLabel>
+                        <FormLabel>Email</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
-                            placeholder="Enter your username"
+                            placeholder="Enter your email"
                             disabled={isLoading}
-                            autoComplete="username"
+                            autoComplete="email"
+                            type="email"
                           />
                         </FormControl>
                         <FormMessage />
