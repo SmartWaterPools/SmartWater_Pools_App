@@ -6,6 +6,13 @@ import emailRoutes from "./email-routes";
 import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import inventoryRoutes from "./routes/inventory-routes";
 import invitationRoutes from "./routes/invitation-routes";
+import Stripe from "stripe";
+import { getStripeService } from "./stripe-service";
+
+// Initialize Stripe with secret key
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
+  apiVersion: "2023-10-16",
+});
 import { 
   insertUserSchema, 
   insertClientSchema, 
@@ -7240,6 +7247,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("[API] Error fetching organization users:", error);
       res.status(500).json({ message: "Failed to fetch organization users" });
+    }
+  });
+
+  // Subscription endpoints
+  app.get("/api/subscription-plans", async (_req: Request, res: Response) => {
+    try {
+      const plans = await storage.getAllSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("[API] Error fetching subscription plans:", error);
+      res.status(500).json({ error: "Failed to fetch subscription plans" });
+    }
+  });
+  
+  app.get("/api/subscription-plans/active", async (_req: Request, res: Response) => {
+    try {
+      const plans = await storage.getActiveSubscriptionPlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("[API] Error fetching active subscription plans:", error);
+      res.status(500).json({ error: "Failed to fetch active subscription plans" });
+    }
+  });
+  
+  app.post("/api/checkout", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+    try {
+      const { planId, successUrl, cancelUrl } = req.body;
+      
+      if (!planId || !successUrl || !cancelUrl) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+      
+      // @ts-ignore - we know user is defined due to isAuthenticated middleware
+      const organizationId = req.user.organizationId;
+      
+      if (!organizationId) {
+        return res.status(400).json({ error: "User is not associated with an organization" });
+      }
+      
+      const stripeService = getStripeService(storage);
+      const checkoutSession = await stripeService.createCheckoutSession(
+        parseInt(planId), 
+        organizationId, 
+        successUrl, 
+        cancelUrl
+      );
+      
+      res.json({ url: checkoutSession });
+    } catch (error) {
+      console.error("[API] Checkout error:", error);
+      res.status(500).json({ error: "Failed to create checkout session" });
+    }
+  });
+  
+  app.get("/api/organization/subscription", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      // @ts-ignore - we know user is defined due to isAuthenticated middleware
+      const organizationId = req.user.organizationId;
+      
+      if (!organizationId) {
+        return res.status(400).json({ error: "User is not associated with an organization" });
+      }
+      
+      const subscription = await storage.getSubscriptionByOrganizationId(organizationId);
+      
+      if (!subscription) {
+        return res.status(404).json({ error: "No subscription found for this organization" });
+      }
+      
+      const plan = await storage.getSubscriptionPlan(subscription.planId);
+      
+      res.json({
+        subscription,
+        plan
+      });
+    } catch (error) {
+      console.error("[API] Subscription fetch error:", error);
+      res.status(500).json({ error: "Failed to fetch subscription information" });
+    }
+  });
+  
+  // Cancel subscription endpoint
+  app.post("/api/organization/subscription/cancel", isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+    try {
+      // @ts-ignore - we know user is defined due to isAuthenticated middleware
+      const organizationId = req.user.organizationId;
+      const { cancelImmediately } = req.body;
+      
+      if (!organizationId) {
+        return res.status(400).json({ error: "User is not associated with an organization" });
+      }
+      
+      const subscription = await storage.getSubscriptionByOrganizationId(organizationId);
+      
+      if (!subscription) {
+        return res.status(404).json({ error: "No subscription found for this organization" });
+      }
+      
+      const stripeService = getStripeService(storage);
+      const updatedSubscription = await stripeService.cancelSubscription(
+        subscription.id, 
+        !!cancelImmediately
+      );
+      
+      res.json({
+        success: true,
+        message: cancelImmediately 
+          ? "Subscription canceled immediately" 
+          : "Subscription will be canceled at the end of the billing period",
+        subscription: updatedSubscription
+      });
+    } catch (error) {
+      console.error("[API] Subscription cancellation error:", error);
+      res.status(500).json({ error: "Failed to cancel subscription" });
+    }
+  });
+  
+  // Stripe webhook endpoint
+  app.post("/api/stripe/webhook", express.raw({ type: 'application/json' }), async (req: Request, res: Response) => {
+    const sig = req.headers['stripe-signature'];
+    
+    if (!sig) {
+      return res.status(400).json({ error: 'Missing Stripe signature' });
+    }
+    
+    try {
+      const stripeService = getStripeService(storage);
+      const event = stripe.webhooks.constructEvent(
+        req.body, 
+        sig, 
+        process.env.STRIPE_WEBHOOK_SECRET || ''
+      );
+      
+      const success = await stripeService.handleWebhookEvent(event);
+      
+      if (success) {
+        res.json({ received: true });
+      } else {
+        res.status(500).json({ error: 'Failed to process webhook event' });
+      }
+    } catch (error) {
+      console.error("[API] Webhook error:", error);
+      res.status(400).json({ error: 'Webhook signature verification failed' });
     }
   });
 

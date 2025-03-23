@@ -1974,6 +1974,171 @@ export class MemStorage implements IStorage {
     console.log("Sample Fleetmatics data initialized successfully");
   }
   
+  private async initSampleSubscriptionData() {
+    console.log("Initializing sample subscription data...");
+    
+    // Create subscription plans
+    const basicMonthlyPlan = await this.createSubscriptionPlan({
+      name: "Basic Monthly",
+      description: "Basic features with monthly billing",
+      tier: "basic",
+      price: 1999, // $19.99
+      billingCycle: "monthly",
+      features: JSON.stringify([
+        "Up to 5 users",
+        "Basic client management",
+        "Basic scheduling",
+        "Email support"
+      ]),
+      active: true,
+      stripeProductId: "prod_basic_monthly",
+      stripePriceId: "price_basic_monthly"
+    });
+    
+    const basicYearlyPlan = await this.createSubscriptionPlan({
+      name: "Basic Yearly",
+      description: "Basic features with yearly billing (save 17%)",
+      tier: "basic",
+      price: 19990, // $199.90 (2 months free)
+      billingCycle: "yearly",
+      features: JSON.stringify([
+        "Up to 5 users",
+        "Basic client management",
+        "Basic scheduling",
+        "Email support"
+      ]),
+      active: true,
+      stripeProductId: "prod_basic_yearly",
+      stripePriceId: "price_basic_yearly"
+    });
+    
+    const professionalMonthlyPlan = await this.createSubscriptionPlan({
+      name: "Professional Monthly",
+      description: "Professional features with monthly billing",
+      tier: "professional",
+      price: 4999, // $49.99
+      billingCycle: "monthly",
+      features: JSON.stringify([
+        "Up to 15 users",
+        "Advanced client management",
+        "Advanced scheduling",
+        "Chemical tracking",
+        "Work order management",
+        "Email and phone support"
+      ]),
+      active: true,
+      stripeProductId: "prod_professional_monthly",
+      stripePriceId: "price_professional_monthly"
+    });
+    
+    const professionalYearlyPlan = await this.createSubscriptionPlan({
+      name: "Professional Yearly",
+      description: "Professional features with yearly billing (save 17%)",
+      tier: "professional",
+      price: 49990, // $499.90 (2 months free)
+      billingCycle: "yearly",
+      features: JSON.stringify([
+        "Up to 15 users",
+        "Advanced client management",
+        "Advanced scheduling",
+        "Chemical tracking",
+        "Work order management",
+        "Email and phone support"
+      ]),
+      active: true,
+      stripeProductId: "prod_professional_yearly",
+      stripePriceId: "price_professional_yearly"
+    });
+    
+    const enterpriseMonthlyPlan = await this.createSubscriptionPlan({
+      name: "Enterprise Monthly",
+      description: "Enterprise features with monthly billing",
+      tier: "enterprise",
+      price: 9999, // $99.99
+      billingCycle: "monthly",
+      features: JSON.stringify([
+        "Unlimited users",
+        "Full client management",
+        "Full scheduling",
+        "Chemical tracking and forecasting",
+        "Work order management",
+        "Inventory management",
+        "Advanced reporting",
+        "GPS tracking",
+        "Priority email and phone support"
+      ]),
+      active: true,
+      stripeProductId: "prod_enterprise_monthly",
+      stripePriceId: "price_enterprise_monthly"
+    });
+    
+    const enterpriseYearlyPlan = await this.createSubscriptionPlan({
+      name: "Enterprise Yearly",
+      description: "Enterprise features with yearly billing (save 17%)",
+      tier: "enterprise",
+      price: 99990, // $999.90 (2 months free)
+      billingCycle: "yearly",
+      features: JSON.stringify([
+        "Unlimited users",
+        "Full client management",
+        "Full scheduling",
+        "Chemical tracking and forecasting",
+        "Work order management",
+        "Inventory management",
+        "Advanced reporting",
+        "GPS tracking",
+        "Priority email and phone support"
+      ]),
+      active: true,
+      stripeProductId: "prod_enterprise_yearly",
+      stripePriceId: "price_enterprise_yearly"
+    });
+    
+    console.log("Created subscription plans with IDs:", 
+      basicMonthlyPlan.id, basicYearlyPlan.id, 
+      professionalMonthlyPlan.id, professionalYearlyPlan.id, 
+      enterpriseMonthlyPlan.id, enterpriseYearlyPlan.id);
+    
+    // Create a subscription for the SmartWater Pools organization
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    
+    const mainSubscription = await this.createSubscription({
+      organizationId: 1,
+      planId: enterpriseMonthlyPlan.id,
+      status: "active",
+      currentPeriodStart: today,
+      currentPeriodEnd: nextMonth,
+      cancelAtPeriodEnd: false,
+      stripeCustomerId: "cus_example123",
+      stripeSubscriptionId: "sub_example123",
+      stripeProductId: "prod_enterprise_monthly",
+      stripePriceId: "price_enterprise_monthly"
+    });
+    
+    console.log(`Created subscription with ID ${mainSubscription.id} for SmartWater Pools`);
+    
+    // Create a payment record
+    const paymentRecord = await this.createPaymentRecord({
+      organizationId: 1,
+      subscriptionId: mainSubscription.id,
+      amount: 9999,
+      currency: "usd",
+      status: "succeeded",
+      paymentMethod: "credit_card",
+      paymentMethodDetails: JSON.stringify({
+        brand: "visa",
+        last4: "4242"
+      }),
+      stripePaymentIntentId: "pi_example123",
+      description: "Enterprise Monthly Plan - Initial payment"
+    });
+    
+    console.log(`Created payment record with ID ${paymentRecord.id}`);
+    console.log("Sample subscription data initialized successfully");
+  }
+  
   // Fleetmatics operations
   async getFleetmaticsConfig(id: number): Promise<FleetmaticsConfig | undefined> {
     return this.fleetmaticsConfigs.get(id);

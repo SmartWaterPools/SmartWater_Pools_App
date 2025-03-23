@@ -43,6 +43,8 @@ import ApiKeyDebug from "./pages/ApiKeyDebug";
 import BarcodeDemo from "./pages/BarcodeDemo";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Pricing from "./pages/Pricing";
+import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/not-found";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
@@ -104,6 +106,12 @@ function App() {
                 </Route>
                 <Route path="/invite">
                   <InvitePage />
+                </Route>
+                <Route path="/pricing">
+                  <Pricing />
+                </Route>
+                <Route path="/subscription/success">
+                  <SubscriptionSuccess />
                 </Route>
                 
                 {/* Protected routes */}
