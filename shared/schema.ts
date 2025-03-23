@@ -3,7 +3,19 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// Organization schema
+// Subscription plan types
+export const SUBSCRIPTION_TIERS = ['basic', 'professional', 'enterprise'] as const;
+export type SubscriptionTier = typeof SUBSCRIPTION_TIERS[number];
+
+// Subscription plan billing cycles
+export const BILLING_CYCLES = ['monthly', 'yearly'] as const;
+export type BillingCycle = typeof BILLING_CYCLES[number];
+
+// Subscription plan status
+export const SUBSCRIPTION_STATUSES = ['active', 'inactive', 'past_due', 'canceled', 'trialing'] as const;
+export type SubscriptionStatus = typeof SUBSCRIPTION_STATUSES[number];
+
+// Organization schema first to avoid circular dependencies
 export const organizations = pgTable("organizations", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
@@ -19,9 +31,86 @@ export const organizations = pgTable("organizations", {
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   isSystemAdmin: boolean("is_system_admin").default(false), // If true, this is the SmartWater organization
+  
+  // Subscription related fields
+  subscriptionId: integer("subscription_id"), // No foreign key reference to avoid circular dependency
+  stripeCustomerId: text("stripe_customer_id"), // Stripe Customer ID
+  trialEndsAt: timestamp("trial_ends_at"), // When trial period ends (null if not in trial)
 });
 
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Subscription plans schema
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  tier: text("tier", { enum: SUBSCRIPTION_TIERS }).notNull(),
+  price: integer("price").notNull(), // Price in cents
+  billingCycle: text("billing_cycle", { enum: BILLING_CYCLES }).notNull(),
+  features: jsonb("features").notNull(), // JSON array of features
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  stripePriceId: text("stripe_price_id"), // Stripe Price ID
+  stripeProductId: text("stripe_product_id"), // Stripe Product ID
+  maxTechnicians: integer("max_technicians").notNull().default(1), // Max number of technicians allowed
+  maxClients: integer("max_clients"), // Max number of clients allowed (null = unlimited)
+  maxProjects: integer("max_projects"), // Max number of projects (null = unlimited)
+});
+
+export const insertSubscriptionPlanSchema = createInsertSchema(subscriptionPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Subscriptions schema
+export const subscriptions = pgTable("subscriptions", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
+  planId: integer("plan_id").references(() => subscriptionPlans.id).notNull(),
+  status: text("status", { enum: SUBSCRIPTION_STATUSES }).notNull().default("active"),
+  currentPeriodStart: timestamp("current_period_start").notNull(),
+  currentPeriodEnd: timestamp("current_period_end").notNull(),
+  cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+  canceledAt: timestamp("canceled_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  stripeSubscriptionId: text("stripe_subscription_id"), // Stripe Subscription ID
+  trialEndsAt: timestamp("trial_ends_at"), // When trial period ends (null if not in trial)
+  quantity: integer("quantity").notNull().default(1), // Number of seats/licenses
+  metadataJson: jsonb("metadata_json"), // Additional metadata
+});
+
+export const insertSubscriptionSchema = createInsertSchema(subscriptions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Payment records schema
+export const paymentRecords = pgTable("payment_records", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
+  subscriptionId: integer("subscription_id").references(() => subscriptions.id),
+  amount: integer("amount").notNull(), // Amount in cents
+  currency: text("currency").notNull().default("usd"),
+  status: text("status").notNull(), // succeeded, pending, failed
+  paymentMethod: text("payment_method"), // credit_card, bank_transfer, etc.
+  paymentMethodDetails: jsonb("payment_method_details"), // Details about payment method
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeChargeId: text("stripe_charge_id"),
+  receiptUrl: text("receipt_url"),
+  description: text("description"),
+  metadata: jsonb("metadata"),
+});
+
+export const insertPaymentRecordSchema = createInsertSchema(paymentRecords).omit({
   id: true,
   createdAt: true,
 });
