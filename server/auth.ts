@@ -213,8 +213,9 @@ export function configurePassport(storage: IStorage) {
                     googleId: profile.id,
                     photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                     authProvider: 'google',
-                    active: true,
-                    createdAt: new Date() // Reset creation date to trigger "new user" flow
+                    active: true
+                    // Note: createdAt cannot be updated through updateUser,
+                    // would need a direct database query to modify this field
                   });
                   
                   if (updatedUser) {
@@ -280,76 +281,87 @@ export function configurePassport(storage: IStorage) {
               // Continue to create new user if there's an error looking up by email
             }
             
-            // Create new user
-            // Username = email prefix + random number to avoid collisions
-            const username = email.split('@')[0] + '_' + Math.floor(Math.random() * 10000);
+            // Handle new user from OAuth differently - create a temporary pending user
+            // instead of automatically assigning to a default organization
             const displayName = profile.displayName || 
                                (profile.name ? `${profile.name.givenName} ${profile.name.familyName}` : 
                                 email.split('@')[0]);
             
-            // Get the default organization ID
-            let defaultOrg;
-            try {
-              // Get organization 1 (SmartWater Pools) directly if possible
-              defaultOrg = await storage.getOrganization(1);
-              
-              // If org 1 doesn't exist for some reason, fall back to any organization
-              if (!defaultOrg) {
-                console.log('SmartWater Pools organization not found, falling back to any organization');
-                const organizations = await storage.getAllOrganizations();
-                defaultOrg = organizations.find(org => org.isSystemAdmin) || organizations[0];
+            // Special case for Travis@SmartWaterPools.com - assign directly to SmartWater Pools
+            if (email.toLowerCase() === 'travis@smartwaterpools.com') {
+              try {
+                const username = email.split('@')[0] + '_' + Math.floor(Math.random() * 10000);
+                console.log(`Special case: Creating system admin user for ${email}`);
+                
+                // Get SmartWater Pools organization
+                const organization = await storage.getOrganizationBySlug('smartwater-pools');
+                if (!organization) {
+                  console.error('SmartWater Pools organization not found');
+                  return done(new Error('Default organization not found'), false);
+                }
+                
+                const newAdmin = await storage.createUser({
+                  username,
+                  password: null,
+                  name: displayName,
+                  email: email,
+                  role: 'system_admin',
+                  googleId: profile.id,
+                  photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                  authProvider: 'google',
+                  organizationId: organization.id,
+                  active: true
+                });
+                
+                console.log(`Successfully created system admin from Google OAuth:`, {
+                  id: newAdmin.id,
+                  username: newAdmin.username,
+                  email: newAdmin.email,
+                  role: newAdmin.role
+                });
+                
+                return done(null, newAdmin);
+              } catch (error) {
+                console.error('Error creating system admin user:', error);
+                return done(error, false);
               }
-              
-              if (!defaultOrg) {
-                console.error('No organizations found in the database');
-                return done(new Error('No default organization found'), false);
-              }
-              
-              console.log(`Using default organization: ${defaultOrg.name} (ID: ${defaultOrg.id})`);
-            } catch (err) {
-              console.error('Error getting organizations:', err);
-              return done(new Error('Failed to get organizations'), false);
             }
             
-            console.log(`Creating new user with Google credentials:`, {
-              username,
-              email,
-              displayName,
-              organization: defaultOrg.id
-            });
-            
+            // For all other new users, store their info as pending
             try {
-              // Determine role based on email
-              // Special case for Travis@SmartWaterPools.com - assign system_admin role
-              let role = 'client'; // Default role
+              console.log(`Storing pending OAuth user for organization selection:`, {
+                email,
+                displayName,
+                googleId: profile.id
+              });
               
-              // Check for system admin email in a case-insensitive way
-              if (email.toLowerCase() === 'travis@smartwaterpools.com') {
-                role = 'system_admin';
-                console.log(`Assigning system_admin role to ${email}`);
-              }
+              // Import the function to store pending users
+              const { storePendingOAuthUser } = await import('./oauth-pending-users');
               
-              const newUser = await storage.createUser({
-                username,
-                password: null, // No password for OAuth users
-                name: displayName,
-                email: email, 
-                role: role, // Assign role based on email
+              // Store the pending user
+              storePendingOAuthUser({
+                id: profile.id,
+                email: email,
+                displayName: displayName,
+                photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                profile: profile,
+                createdAt: new Date()
+              });
+              
+              // Create a special user object to indicate this is a pending OAuth user
+              // This will be handled differently in the callback
+              const pendingUser = {
+                id: 0, // Will be replaced when user is created
+                username: email.split('@')[0],
+                email: email,
                 googleId: profile.id,
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                authProvider: 'google',
-                organizationId: defaultOrg.id,
-                active: true
-              });
+                name: displayName,
+                isPendingOAuthUser: true, // Special flag
+                needsOrganizationSelection: true
+              };
               
-              console.log(`Successfully created new user from Google OAuth:`, {
-                id: newUser.id,
-                username: newUser.username,
-                email: newUser.email,
-                role: newUser.role
-              });
-              
-              return done(null, newUser);
+              return done(null, pendingUser);
             } catch (createError) {
               console.error('Error creating new user:', createError);
               return done(createError, false);

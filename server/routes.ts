@@ -7,6 +7,7 @@ import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import inventoryRoutes from "./routes/inventory-routes";
 import invitationRoutes from "./routes/invitation-routes";
 import stripeRoutes from "./routes/stripe-routes";
+import registerOAuthRoutes from "./routes/oauth-routes";
 import Stripe from "stripe";
 import { getStripeService } from "./stripe-service";
 import { requireActiveSubscription } from "./subscription-middleware";
@@ -382,6 +383,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
               sessionID: req.sessionID,
               authenticated: req.isAuthenticated()
             });
+            
+            // Check if this is a pending OAuth user that needs organization selection
+            if ((user as any).isPendingOAuthUser) {
+              console.log(`Detected pending OAuth user: ${user.email} - redirecting to organization selection`);
+              // Redirect to organization selection page with Google ID
+              return res.redirect(`/organization-selection/${user.googleId}`);
+            }
             
             // Handle special cases that bypass subscription check (admin users or Travis)
             const isExemptUser = 
@@ -913,6 +921,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/stripe", stripeRoutes(stripeRouter, storage, stripeServiceInstance));
   
   // OAuth routes
+  const oauthRouter = express.Router();
+  app.use("/api/oauth", registerOAuthRoutes(oauthRouter, storage));
   // We removed the duplicate Google OAuth routes - they're defined higher up in the file
   
   // OAuth debug route

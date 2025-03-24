@@ -52,6 +52,7 @@ import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
 import OAuthDebug from "./pages/OAuthDebug";
 import InvitePage from "./pages/InvitePage";
+import OrganizationSelection from "./pages/OrganizationSelection";
 
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -112,6 +113,9 @@ function App() {
                 </Route>
                 <Route path="/subscription/success">
                   <SubscriptionSuccess />
+                </Route>
+                <Route path="/organization-selection/:googleId">
+                  <OrganizationSelection />
                 </Route>
                 
                 {/* Protected routes */}

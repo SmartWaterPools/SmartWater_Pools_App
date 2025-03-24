@@ -53,6 +53,10 @@ export interface IStorage {
   updateOrganization(id: number, organization: Partial<Organization>): Promise<Organization | undefined>;
   getAllOrganizations(): Promise<Organization[]>;
   
+  // Invitation token operations
+  getInvitationByToken(token: string): Promise<any | undefined>;
+  updateInvitationToken(id: number, data: Partial<any>): Promise<any | undefined>;
+  
   // Fleetmatics operations
   getFleetmaticsConfig(id: number): Promise<FleetmaticsConfig | undefined>;
   getFleetmaticsConfigByOrganizationId(organizationId: number): Promise<FleetmaticsConfig | undefined>;
