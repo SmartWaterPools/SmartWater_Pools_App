@@ -45,36 +45,62 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
       });
 
       if (action === 'create') {
-        // Creating a new organization
-        if (!organizationName) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Organization name is required' 
-          });
-        }
+        try {
+          // Creating a new organization
+          if (!organizationName) {
+            return res.status(400).json({ 
+              success: false, 
+              message: 'Organization name is required' 
+            });
+          }
 
-        // Create a new organization
-        const newOrganization = await storage.createOrganization({
-          name: organizationName,
-          slug: organizationName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-          active: true,
-          email: pendingUser.email,
-          phone: null,
-          address: null,
-          city: null,
-          state: null,
-          zipCode: null,
-          type: organizationType || 'company',
-          logo: null,
-          customerId: null,
-          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // 14 days trial
-        });
-
-        if (!newOrganization) {
-          return res.status(500).json({ 
-            success: false, 
-            message: 'Failed to create organization' 
+          console.log('Creating organization with following details:', {
+            name: organizationName,
+            type: organizationType || 'company',
+            email: pendingUser.email
           });
+
+          // Clean and prepare organization slug
+          let slug = organizationName.toLowerCase()
+            .replace(/[^a-z0-9]/g, '-')  // Replace non-alphanumeric with hyphens
+            .replace(/-+/g, '-')         // Replace multiple hyphens with single hyphen
+            .replace(/^-|-$/g, '');      // Remove leading and trailing hyphens
+          
+          // Make sure the slug isn't empty after cleaning
+          if (!slug) {
+            slug = 'org-' + Date.now();
+          }
+            
+          console.log(`Creating organization with slug: ${slug}`);
+          
+          // Create a new organization
+          const organizationData = {
+            name: organizationName,
+            slug: slug,
+            active: true,
+            email: pendingUser.email,
+            phone: null,
+            address: null,
+            city: null,
+            state: null,
+            zipCode: null,
+            logo: null,
+            customerId: null,
+            trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
+            type: organizationType || 'company'
+          };
+
+          console.log('Creating organization with data:', organizationData);
+          
+          // Use type assertion to include the type field which may not be in the TypeScript type definition
+          const newOrganization = await storage.createOrganization(organizationData as any);
+
+          if (!newOrganization) {
+            console.error('createOrganization returned null or undefined');
+            return res.status(500).json({ 
+              success: false, 
+              message: 'Failed to create organization' 
+            });
         }
 
         // Create the user as an admin of the new organization
@@ -116,72 +142,89 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
             }
           });
         });
-      } else if (action === 'join') {
-        // Joining an existing organization with an invitation code
-        if (!invitationCode) {
-          return res.status(400).json({ 
-            success: false, 
-            message: 'Invitation code is required' 
-          });
-        }
-
-        // Verify the invitation
-        const verificationResult = await verifyInvitationToken(invitationCode, storage);
-        
-        if (!verificationResult.valid) {
-          return res.status(400).json({ 
-            success: false, 
-            message: verificationResult.message || 'Invalid invitation code' 
-          });
-        }
-
-        // Use the role from the invitation or default to 'client'
-        const role = (verificationResult.role as UserRole) || 'client';
-
-        // Create the user in the invited organization
-        const newUser = await completeOAuthRegistration(
-          googleId,
-          verificationResult.organizationId as number,
-          role,
-          storage
-        );
-
-        if (!newUser) {
+        } catch (error) {
+          console.error('Error creating organization or user:', error);
           return res.status(500).json({ 
             success: false, 
-            message: 'Failed to create user account' 
+            message: 'An unexpected error occurred while creating the organization: ' + (error instanceof Error ? error.message : String(error))
           });
         }
-
-        // Update the invitation to mark it as accepted
-        await storage.updateInvitationToken(verificationResult.invitationId as number, {
-          status: 'accepted'
-        });
-
-        // Log in the user
-        req.login(newUser, (err) => {
-          if (err) {
-            console.error('Error logging in new user:', err);
-            return res.status(500).json({ 
+      } else if (action === 'join') {
+        try {
+          // Joining an existing organization with an invitation code
+          if (!invitationCode) {
+            return res.status(400).json({ 
               success: false, 
-              message: 'Failed to log in' 
+              message: 'Invitation code is required' 
             });
           }
 
-          // Redirect to the dashboard
-          return res.json({ 
-            success: true, 
-            message: 'Successfully joined organization', 
-            redirectTo: '/dashboard',
-            user: {
-              id: newUser.id,
-              name: newUser.name,
-              email: newUser.email,
-              role: newUser.role,
-              organizationId: newUser.organizationId
+          // Verify the invitation
+          const verificationResult = await verifyInvitationToken(invitationCode, storage);
+          
+          if (!verificationResult.valid) {
+            return res.status(400).json({ 
+              success: false, 
+              message: verificationResult.message || 'Invalid invitation code' 
+            });
+          }
+
+          // Use the role from the invitation or default to 'client'
+          const role = (verificationResult.role as UserRole) || 'client';
+
+          // Create the user in the invited organization using properly typed data
+          const newUser = await completeOAuthRegistration(
+            googleId,
+            verificationResult.organizationId,
+            role,
+            storage
+          );
+
+          if (!newUser) {
+            return res.status(500).json({ 
+              success: false, 
+              message: 'Failed to create user account' 
+            });
+          }
+
+          // Update the invitation to mark it as accepted
+          if (verificationResult.invitationId) {
+            await storage.updateInvitationToken(verificationResult.invitationId, {
+              status: 'accepted'
+            });
+          }
+
+          // Log in the user
+          req.login(newUser, (err) => {
+            if (err) {
+              console.error('Error logging in new user:', err);
+              return res.status(500).json({ 
+                success: false, 
+                message: 'Failed to log in' 
+              });
             }
+
+            // Redirect to the dashboard
+            return res.json({ 
+              success: true, 
+              message: 'Successfully joined organization', 
+              redirectTo: '/dashboard',
+              user: {
+                id: newUser.id,
+                name: newUser.name,
+                email: newUser.email,
+                role: newUser.role,
+                organizationId: newUser.organizationId
+              }
+            });
           });
-        });
+        } catch (error) {
+          console.error('Error joining organization:', error);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'An unexpected error occurred while joining the organization: ' + (error instanceof Error ? error.message : String(error))
+          });
+        }
       } else {
         return res.status(400).json({ 
           success: false, 

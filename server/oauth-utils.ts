@@ -10,6 +10,22 @@ import { IStorage } from './storage';
 import { UserRole } from './permissions';
 import { InvitationTokenStatus } from '@shared/schema';
 
+// Define the interfaces for the verification results
+interface InvalidInvitationResult {
+  valid: false;
+  message: string;
+}
+
+interface ValidInvitationResult {
+  valid: true;
+  organizationId: number;
+  organizationName: string;
+  role: string;
+  invitationId: number;
+}
+
+export type InvitationVerificationResult = InvalidInvitationResult | ValidInvitationResult;
+
 /**
  * Completes the OAuth user registration by creating a full user account
  * after the user has selected an organization.
@@ -87,12 +103,12 @@ export async function completeOAuthRegistration(
  * 
  * @param invitationToken The invitation token
  * @param storage The storage interface
- * @returns The organization ID if valid, null otherwise
+ * @returns An InvitationVerificationResult object with validation details
  */
 export async function verifyInvitationToken(
   invitationToken: string,
   storage: IStorage
-) {
+): Promise<InvitationVerificationResult> {
   try {
     // Get the invitation record
     const invitation = await storage.getInvitationByToken(invitationToken);
@@ -143,7 +159,8 @@ export async function verifyInvitationToken(
       valid: true,
       organizationId: organization.id,
       organizationName: organization.name,
-      role: invitation.role
+      role: invitation.role,
+      invitationId: invitation.id
     };
   } catch (error) {
     console.error(`Error verifying invitation token:`, error);

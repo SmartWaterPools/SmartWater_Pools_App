@@ -3964,20 +3964,26 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log("Creating organization with data:", JSON.stringify(organization));
       
-      // Use more basic approach with fewer fields to avoid SQL errors
+      // Include type and email fields
       const result = await db.execute(sql`
         INSERT INTO organizations (
           name,
           slug,
           active,
           is_system_admin,
-          created_at
+          type,
+          email,
+          created_at,
+          trial_ends_at
         ) VALUES (
           ${organization.name || ""},
           ${organization.slug || ""},
           ${organization.active !== undefined ? organization.active : true},
           ${organization.isSystemAdmin !== undefined ? organization.isSystemAdmin : false},
-          NOW()
+          ${organization.type || "company"},
+          ${organization.email || null},
+          NOW(),
+          ${organization.trialEndsAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)} 
         )
         RETURNING 
           id, 
@@ -3992,10 +3998,12 @@ export class DatabaseStorage implements IStorage {
           website,
           logo,
           active,
+          type,
           created_at as "createdAt",
           is_system_admin as "isSystemAdmin",
           subscription_id as "subscriptionId",
-          stripe_customer_id as "stripeCustomerId"
+          stripe_customer_id as "stripeCustomerId",
+          trial_ends_at as "trialEndsAt"
       `);
       
       if (result.rows.length === 0) {
