@@ -110,7 +110,8 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
             googleId,
             newOrganization.id,
             'org_admin', // Make the creator an admin of the new organization
-            storage
+            storage,
+            req // Pass request object for session access
           );
 
           if (!newUser) {
@@ -179,7 +180,8 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
             googleId,
             verificationResult.organizationId,
             role,
-            storage
+            storage,
+            req // Pass request object for session access
           );
 
           if (!newUser) {
@@ -332,10 +334,17 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
   router.get('/debug', (req: Request, res: Response) => {
     try {
       // For debugging purposes, return details about available pending users
+      // Get all pending users from memory storage
+      const pendingUsersFromMemory = Object.values(getPendingOAuthUsers());
+      
+      // Get session-based pending users if they exist
+      const pendingUsersFromSession = req.session.pendingOAuthUsers || [];
+      
       const debug = {
         user: req.user,
         isAuthenticated: req.isAuthenticated(),
-        pendingUsers: req.session.pendingOAuthUsers || []
+        pendingUsersFromMemory,
+        pendingUsersFromSession
       };
       
       return res.json({

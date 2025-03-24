@@ -83,8 +83,8 @@ export async function completeOAuthRegistration(
         organizationId: newUser.organizationId
       });
       
-      // Clean up the pending user data
-      removePendingOAuthUser(googleId);
+      // Clean up the pending user data - pass req for session access
+      removePendingOAuthUser(googleId, req);
       
       return newUser;
     } else {

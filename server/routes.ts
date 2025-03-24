@@ -728,10 +728,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Don't send password to the client
         const { password, ...userWithoutPassword } = user;
         
+        // Redirect to pricing page for subscription selection
         res.status(201).json({ 
           success: true, 
           message: "Registration successful", 
-          user: userWithoutPassword 
+          user: userWithoutPassword,
+          redirectTo: '/pricing' // Add redirect to pricing page
         });
       });
     } catch (error) {
