@@ -290,7 +290,8 @@ export function configurePassport(storage: IStorage) {
             // Special case for Travis@SmartWaterPools.com - assign directly to SmartWater Pools
             if (email.toLowerCase() === 'travis@smartwaterpools.com') {
               try {
-                const username = email.split('@')[0] + '_' + Math.floor(Math.random() * 10000);
+                // Use email as username directly
+                const username = email;
                 console.log(`Special case: Creating system admin user for ${email}`);
                 
                 // Get SmartWater Pools organization
@@ -352,7 +353,7 @@ export function configurePassport(storage: IStorage) {
               // This will be handled differently in the callback
               const pendingUser = {
                 id: 0, // Will be replaced when user is created
-                username: email.split('@')[0],
+                username: email, // Using email directly as username
                 email: email,
                 googleId: profile.id,
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,

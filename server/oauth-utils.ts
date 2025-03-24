@@ -55,10 +55,8 @@ export async function completeOAuthRegistration(
     
     console.log(`Completing OAuth registration for ${pendingUser.email} with organization ${organizationId}`);
     
-    // Create a username from the email, adding a random number to avoid collisions
-    const emailParts = pendingUser.email.split('@');
-    const usernameBase = emailParts[0].toLowerCase().replace(/[^a-z0-9]/g, '');
-    const username = `${usernameBase}_${Math.floor(Math.random() * 10000)}`;
+    // Use email as username
+    const username = pendingUser.email;
     
     // Create the user record in the database
     const newUser = await storage.createUser({

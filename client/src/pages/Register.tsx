@@ -75,8 +75,8 @@ export default function Register() {
     // Remove confirmPassword as it's not needed for the API
     const { confirmPassword, organizationName, ...userFields } = data;
     
-    // Construct username from email (email is now the primary identifier)
-    const username = userFields.email.split('@')[0]; // Use part before @ as username
+    // Use email directly as username
+    const username = userFields.email;
     
     // Prepare data for registration
     const registrationData = {
