@@ -335,8 +335,8 @@ export function configurePassport(storage: IStorage) {
                 googleId: profile.id
               });
               
-              // Import the function to store pending users
-              const { storePendingOAuthUser } = await import('./oauth-pending-users');
+              // Import from oauth-pending-users directly (no dynamic import)
+              const { storePendingOAuthUser } = require('./oauth-pending-users');
               
               // Store the pending user
               storePendingOAuthUser({

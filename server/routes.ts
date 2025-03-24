@@ -290,6 +290,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/google', (req, res, next) => {
     console.log('Google OAuth login route accessed');
     console.log('Session before Google auth:', req.sessionID);
+    console.log('OAUTH DEBUG - Google Auth Route - Date & Time:', new Date().toISOString());
     
     // Ensure session is saved before redirecting to Google
     if (req.session) {
@@ -332,6 +333,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         sessionID: req.sessionID
       });
+      
+      console.log('OAUTH DEBUG - OAuth Callback - Date & Time:', new Date().toISOString());
       
       if (req.query.error) {
         console.error('Google OAuth error received:', req.query.error);
