@@ -3964,7 +3964,15 @@ export class DatabaseStorage implements IStorage {
     try {
       console.log("Creating organization with data:", JSON.stringify(organization));
       
-      // Include type and email fields
+      // Use explicit values for trial_ends_at and type
+      const trialDurationDays = 14;
+      const trialEndsAt = organization.trialEndsAt || new Date(Date.now() + trialDurationDays * 24 * 60 * 60 * 1000);
+      const organizationType = organization.type || "company";
+      
+      console.log(`Setting trial end date to: ${trialEndsAt}`);
+      console.log(`Using organization type: ${organizationType}`);
+      
+      // Include type and email fields with proper snake_case column names
       const result = await db.execute(sql`
         INSERT INTO organizations (
           name,
@@ -3980,10 +3988,10 @@ export class DatabaseStorage implements IStorage {
           ${organization.slug || ""},
           ${organization.active !== undefined ? organization.active : true},
           ${organization.isSystemAdmin !== undefined ? organization.isSystemAdmin : false},
-          ${organization.type || "company"},
+          ${organizationType},
           ${organization.email || null},
           NOW(),
-          ${organization.trialEndsAt || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)} 
+          ${trialEndsAt}
         )
         RETURNING 
           id, 

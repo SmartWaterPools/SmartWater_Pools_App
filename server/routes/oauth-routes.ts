@@ -45,55 +45,57 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
       });
 
       if (action === 'create') {
-        try {
-          // Creating a new organization
-          if (!organizationName) {
-            return res.status(400).json({ 
-              success: false, 
-              message: 'Organization name is required' 
-            });
-          }
-
-          console.log('Creating organization with following details:', {
-            name: organizationName,
-            type: organizationType || 'company',
-            email: pendingUser.email
+        // Creating a new organization
+        if (!organizationName) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Organization name is required' 
           });
+        }
 
-          // Clean and prepare organization slug
-          let slug = organizationName.toLowerCase()
-            .replace(/[^a-z0-9]/g, '-')  // Replace non-alphanumeric with hyphens
-            .replace(/-+/g, '-')         // Replace multiple hyphens with single hyphen
-            .replace(/^-|-$/g, '');      // Remove leading and trailing hyphens
-          
-          // Make sure the slug isn't empty after cleaning
-          if (!slug) {
-            slug = 'org-' + Date.now();
-          }
-            
-          console.log(`Creating organization with slug: ${slug}`);
-          
-          // Create a new organization
-          const organizationData = {
-            name: organizationName,
-            slug: slug,
-            active: true,
-            email: pendingUser.email,
-            phone: null,
-            address: null,
-            city: null,
-            state: null,
-            zipCode: null,
-            logo: null,
-            customerId: null,
-            trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days trial
-            type: organizationType || 'company'
-          };
+        console.log('[OAUTH DEBUG] Creating organization with following details:', {
+          name: organizationName,
+          type: organizationType || 'company',
+          email: pendingUser.email
+        });
 
-          console.log('Creating organization with data:', organizationData);
+        // Clean and prepare organization slug
+        let slug = organizationName.toLowerCase()
+          .replace(/[^a-z0-9]/g, '-')  // Replace non-alphanumeric with hyphens
+          .replace(/-+/g, '-')         // Replace multiple hyphens with single hyphen
+          .replace(/^-|-$/g, '');      // Remove leading and trailing hyphens
+        
+        // Make sure the slug isn't empty after cleaning
+        if (!slug) {
+          slug = 'org-' + Date.now();
+        }
           
-          // Use type assertion to include the type field which may not be in the TypeScript type definition
-          const newOrganization = await storage.createOrganization(organizationData as any);
+        console.log(`[OAUTH DEBUG] Creating organization with slug: ${slug}`);
+        
+        // Create a new organization with only the columns that exist in the database
+        const organizationData = {
+          name: organizationName,
+          slug: slug,
+          active: true,
+          email: pendingUser.email,
+          phone: null,
+          address: null,
+          city: null,
+          state: null,
+          zipCode: null,
+          logo: null,
+          type: organizationType || 'company',
+          // Explicitly set the trial end date (14 days from now)
+          trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+        };
+
+        console.log('[OAUTH DEBUG] Creating organization with data:', JSON.stringify(organizationData, null, 2));
+        
+        try {
+          // Create the organization
+          console.log('[OAUTH DEBUG] Calling storage.createOrganization...');
+          const newOrganization = await storage.createOrganization(organizationData);
+          console.log('[OAUTH DEBUG] Organization created successfully:', JSON.stringify(newOrganization, null, 2));
 
           if (!newOrganization) {
             console.error('createOrganization returned null or undefined');
@@ -101,47 +103,47 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
               success: false, 
               message: 'Failed to create organization' 
             });
-        }
+          }
 
-        // Create the user as an admin of the new organization
-        const newUser = await completeOAuthRegistration(
-          googleId,
-          newOrganization.id,
-          'org_admin', // Make the creator an admin of the new organization
-          storage
-        );
+          // Create the user as an admin of the new organization
+          const newUser = await completeOAuthRegistration(
+            googleId,
+            newOrganization.id,
+            'org_admin', // Make the creator an admin of the new organization
+            storage
+          );
 
-        if (!newUser) {
-          return res.status(500).json({ 
-            success: false, 
-            message: 'Failed to create user account' 
-          });
-        }
-
-        // Log in the user
-        req.login(newUser, (err) => {
-          if (err) {
-            console.error('Error logging in new user:', err);
+          if (!newUser) {
             return res.status(500).json({ 
               success: false, 
-              message: 'Failed to log in' 
+              message: 'Failed to create user account' 
             });
           }
 
-          // Redirect to the pricing page to select a subscription
-          return res.json({ 
-            success: true, 
-            message: 'Organization created successfully', 
-            redirectTo: '/pricing',
-            user: {
-              id: newUser.id,
-              name: newUser.name,
-              email: newUser.email,
-              role: newUser.role,
-              organizationId: newUser.organizationId
+          // Log in the user
+          req.login(newUser, (err) => {
+            if (err) {
+              console.error('Error logging in new user:', err);
+              return res.status(500).json({ 
+                success: false, 
+                message: 'Failed to log in' 
+              });
             }
+
+            // Redirect to the pricing page to select a subscription
+            return res.json({ 
+              success: true, 
+              message: 'Organization created successfully', 
+              redirectTo: '/pricing',
+              user: {
+                id: newUser.id,
+                name: newUser.name,
+                email: newUser.email,
+                role: newUser.role,
+                organizationId: newUser.organizationId
+              }
+            });
           });
-        });
         } catch (error) {
           console.error('Error creating organization or user:', error);
           return res.status(500).json({ 
@@ -150,15 +152,15 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
           });
         }
       } else if (action === 'join') {
-        try {
-          // Joining an existing organization with an invitation code
-          if (!invitationCode) {
-            return res.status(400).json({ 
-              success: false, 
-              message: 'Invitation code is required' 
-            });
-          }
+        // Joining an existing organization with an invitation code
+        if (!invitationCode) {
+          return res.status(400).json({ 
+            success: false, 
+            message: 'Invitation code is required' 
+          });
+        }
 
+        try {
           // Verify the invitation
           const verificationResult = await verifyInvitationToken(invitationCode, storage);
           
@@ -231,13 +233,13 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
           message: 'Invalid action. Must be "create" or "join".' 
         });
       }
-    } catch (error) {
-      console.error('Error completing OAuth registration:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'An unexpected error occurred' 
-      });
-    }
+      } catch (error) {
+        console.error('Error completing OAuth registration:', error);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'An unexpected error occurred' 
+        });
+      }
   });
 
   /**
