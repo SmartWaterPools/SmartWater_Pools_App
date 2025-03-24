@@ -34,17 +34,19 @@ export type InvitationVerificationResult = InvalidInvitationResult | ValidInvita
  * @param organizationId The ID of the selected organization
  * @param role The role for the new user (default: 'client')
  * @param storage The storage interface
+ * @param req Express request object (optional) - used for session access
  * @returns The newly created user or null if the pending user was not found
  */
 export async function completeOAuthRegistration(
   googleId: string,
   organizationId: number,
   role: UserRole = 'client',
-  storage: IStorage
+  storage: IStorage,
+  req?: any
 ) {
   try {
-    // Retrieve the pending OAuth user data
-    const pendingUser = getPendingOAuthUser(googleId);
+    // Retrieve the pending OAuth user data - pass req for session access
+    const pendingUser = getPendingOAuthUser(googleId, req);
     
     if (!pendingUser) {
       console.error(`Pending OAuth user not found for Google ID: ${googleId}`);

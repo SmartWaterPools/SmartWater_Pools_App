@@ -29,8 +29,8 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
         });
       }
 
-      // Verify the pending user exists
-      const pendingUser = getPendingOAuthUser(googleId);
+      // Verify the pending user exists - pass req for session access
+      const pendingUser = getPendingOAuthUser(googleId, req);
       if (!pendingUser) {
         return res.status(404).json({ 
           success: false, 
@@ -257,7 +257,7 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
         });
       }
 
-      const pendingUser = getPendingOAuthUser(googleId);
+      const pendingUser = getPendingOAuthUser(googleId, req);
       
       if (!pendingUser) {
         return res.status(404).json({ 
