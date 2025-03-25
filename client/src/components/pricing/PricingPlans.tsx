@@ -19,20 +19,65 @@ export default function PricingPlans({
   onSelectPlan,
   defaultSelectedPlanId = 0,
 }: PricingPlansProps) {
+  console.log("PricingPlans component initialized");
+  
   const [selectedPlanId, setSelectedPlanId] = useState<number>(defaultSelectedPlanId);
   const [filteredPlans, setFilteredPlans] = useState<SubscriptionPlan[]>([]);
   
   // Fetch all subscription plans
-  const { data: plans, isLoading, error } = useQuery({
+  console.log("Starting to fetch subscription plans...");
+  const { data, isLoading, error } = useQuery({
     queryKey: ['/api/stripe/plans'],
+    retry: 3, // Retry failed requests 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    onSuccess: (data) => {
+      console.log("Subscription plans API response SUCCESS:", data);
+      if (!data?.plans || !Array.isArray(data.plans)) {
+        console.error("API responded with success but plans data is invalid:", data);
+      } else {
+        console.log(`Received ${data.plans.length} subscription plans from API`);
+      }
+    },
+    onError: (error: any) => {
+      console.error("Error fetching subscription plans:", error);
+      console.error("Error details:", {
+        message: error?.message,
+        status: error?.response?.status,
+        data: error?.response?.data
+      });
+    }
   });
+  
+  console.log("Query state:", { isLoading, error: error ? "Error occurred" : "No error" });
+  
+  console.log("API response:", data);
+  
+  // Debug: Check the structure of each plan
+  if (data?.plans) {
+    data.plans.forEach((plan: any, index: number) => {
+      console.log(`Plan ${index + 1} structure:`, JSON.stringify(plan));
+    });
+  }
+  
+  // Extract plans from the response
+  const plans = data?.plans || [];
+  
+  // Debug: Log the extracted plans
+  console.log("Extracted plans:", plans);
   
   // Filter plans by billing cycle and active status
   useEffect(() => {
-    if (plans) {
-      const filtered = plans.filter((plan: SubscriptionPlan) => 
-        plan.active && plan.billingCycle === selectedCycle
-      );
+    console.log("Effect running with selectedCycle:", selectedCycle);
+    console.log("Current plans data:", plans);
+    
+    if (plans && plans.length > 0) {
+      console.log("Filtering plans for cycle:", selectedCycle);
+      const filtered = plans.filter((plan: SubscriptionPlan) => {
+        console.log("Checking plan:", plan);
+        // Make sure we're checking the correct field - some API responses may use 'active' or 'isActive'
+        const isActive = plan.active !== undefined ? plan.active : true;
+        return isActive && plan.billingCycle === selectedCycle;
+      });
       
       // Sort by price low to high
       filtered.sort((a: SubscriptionPlan, b: SubscriptionPlan) => a.price - b.price);
@@ -64,7 +109,10 @@ export default function PricingPlans({
     
     // Find a plan that has both monthly and yearly options
     const professionalPlans = plans.filter(
-      (plan: SubscriptionPlan) => plan.active && plan.tier === "professional"
+      (plan: SubscriptionPlan) => {
+        const isActive = plan.active !== undefined ? plan.active : true;
+        return isActive && plan.tier === "professional";
+      }
     );
     
     if (professionalPlans.length < 2) return 0;

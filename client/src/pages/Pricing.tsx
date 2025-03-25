@@ -9,6 +9,11 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Pricing() {
+  console.log("Pricing page component rendering");
+  
+  // Debug: add a timestamp for when this component renders
+  console.log("Pricing page rendered at:", new Date().toISOString());
+  
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const [selectedCycle, setSelectedCycle] = useState<BillingCycle>("monthly");
@@ -18,9 +23,12 @@ export default function Pricing() {
   
   // Get organization details from query parameters if available
   useEffect(() => {
+    console.log("Pricing page: reading URL params");
     const params = new URLSearchParams(window.location.search);
     const name = params.get("name");
     const slug = params.get("slug");
+    
+    console.log("Organization params from URL:", { name, slug });
     
     if (name) setOrganizationName(name);
     if (slug) setOrganizationSlug(slug);

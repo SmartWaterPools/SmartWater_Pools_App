@@ -141,10 +141,13 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
    */
   router.get("/plans", async (_req: Request, res: Response) => {
     try {
+      console.log("Fetching subscription plans...");
       const plans = await storage.getAllSubscriptionPlans();
+      console.log("Subscription plans fetched:", plans);
       
       // Filter out inactive plans
       const activePlans = plans.filter(plan => plan.active);
+      console.log("Active plans:", activePlans);
       
       res.status(200).json({ 
         success: true, 
