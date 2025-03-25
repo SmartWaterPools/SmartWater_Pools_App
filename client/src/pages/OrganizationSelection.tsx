@@ -55,11 +55,8 @@ export default function OrganizationSelection() {
   const { data: pendingUserData, isLoading: isLoadingUser, isError: isErrorUser } = useQuery({
     queryKey: ['/api/oauth/pending', googleId],
     queryFn: async () => {
-      const response = await fetch(`/api/oauth/pending/${googleId}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch pending user data');
-      }
-      return response.json();
+      console.log(`Fetching pending OAuth user data for Google ID: ${googleId}`);
+      return await apiRequest(`/api/oauth/pending/${googleId}`, 'GET');
     },
     retry: false,
   });
@@ -68,8 +65,8 @@ export default function OrganizationSelection() {
   const handleVerifyInvitation = async (code: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`/api/oauth/verify-invitation/${code}`);
-      const data = await response.json();
+      console.log(`Verifying invitation code: ${code}`);
+      const data = await apiRequest(`/api/oauth/verify-invitation/${code}`, 'GET');
       
       if (data.success) {
         setVerifiedOrg({
@@ -89,11 +86,19 @@ export default function OrganizationSelection() {
         });
         setVerifiedOrg(null);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error verifying invitation:", error);
+      
+      let errorMessage = "Could not verify the invitation code";
+      
+      // Try to extract a more specific error message
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Verification failed",
-        description: "Could not verify the invitation code",
+        description: errorMessage,
         variant: "destructive",
       });
       setVerifiedOrg(null);
@@ -106,15 +111,23 @@ export default function OrganizationSelection() {
   const onCreateOrgSubmit = async (values: z.infer<typeof createOrgSchema>) => {
     try {
       setIsLoading(true);
-      const response = await apiRequest('/api/oauth/complete-registration', {
-        method: 'POST',
-        body: JSON.stringify({
+      console.log('Creating organization with data:', {
+        googleId,
+        action: 'create',
+        organizationName: values.organizationName,
+        organizationType: values.organizationType,
+      });
+      
+      const response = await apiRequest(
+        '/api/oauth/complete-registration', 
+        'POST', 
+        {
           googleId,
           action: 'create',
           organizationName: values.organizationName,
           organizationType: values.organizationType,
-        }),
-      });
+        }
+      );
 
       if (response.success) {
         toast({
@@ -136,11 +149,19 @@ export default function OrganizationSelection() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating organization:", error);
+      
+      let errorMessage = "An unexpected error occurred";
+      
+      // Try to extract a more specific error message
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -152,14 +173,21 @@ export default function OrganizationSelection() {
   const onJoinOrgSubmit = async (values: z.infer<typeof joinOrgSchema>) => {
     try {
       setIsLoading(true);
-      const response = await apiRequest('/api/oauth/complete-registration', {
-        method: 'POST',
-        body: JSON.stringify({
+      console.log('Joining organization with invitation code:', {
+        googleId,
+        action: 'join',
+        invitationCode: values.invitationCode
+      });
+      
+      const response = await apiRequest(
+        '/api/oauth/complete-registration', 
+        'POST', 
+        {
           googleId,
           action: 'join',
           invitationCode: values.invitationCode,
-        }),
-      });
+        }
+      );
 
       if (response.success) {
         toast({
@@ -181,17 +209,44 @@ export default function OrganizationSelection() {
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error joining organization:", error);
+      
+      let errorMessage = "An unexpected error occurred";
+      
+      // Try to extract a more specific error message
+      if (error.message) {
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Debug function to check OAuth state
+  const checkOAuthDebug = async () => {
+    try {
+      console.log(`Current Google ID parameter: ${googleId}`);
+      const response = await apiRequest('/api/oauth/debug', 'GET');
+      console.log('OAuth Debug Info:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching OAuth debug info:', error);
+    }
+  };
+  
+  // Check OAuth debug on load
+  useEffect(() => {
+    if (googleId) {
+      checkOAuthDebug();
+    }
+  }, [googleId]);
 
   // Verify invitation code when it changes
   useEffect(() => {
@@ -231,6 +286,22 @@ export default function OrganizationSelection() {
               <li>You have already completed the registration</li>
               <li>An error occurred in the authentication process</li>
             </ul>
+            
+            <div className="mt-4 rounded-md bg-amber-50 p-3 text-left text-sm text-amber-800">
+              <p className="font-medium">Debug information:</p>
+              <p>Google ID: {googleId || 'Not provided'}</p>
+              {pendingUserData && (
+                <p>Error message: {pendingUserData.message || 'No specific error message'}</p>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-2"
+                onClick={checkOAuthDebug}
+              >
+                Check OAuth Debug Info
+              </Button>
+            </div>
           </CardContent>
           <CardFooter className="flex justify-center">
             <Button onClick={() => window.location.href = '/auth/login'}>
@@ -386,9 +457,19 @@ export default function OrganizationSelection() {
           <p className="text-sm text-muted-foreground">
             By continuing, you agree to our Terms of Service and Privacy Policy.
           </p>
-          <Button variant="link" onClick={() => window.location.href = '/auth/login'}>
-            Back to Login
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="link" onClick={() => window.location.href = '/auth/login'}>
+              Back to Login
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={checkOAuthDebug}
+              className="text-xs text-muted-foreground"
+            >
+              Debug
+            </Button>
+          </div>
         </CardFooter>
       </Card>
     </div>
