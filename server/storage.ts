@@ -8093,6 +8093,218 @@ export class DatabaseStorage implements IStorage {
   async getAllInventoryAdjustments(): Promise<InventoryAdjustment[]> {
     return Array.from(this.inventoryAdjustments.values());
   }
+
+  // Subscription Plan operations
+  async getSubscriptionPlan(id: number): Promise<SubscriptionPlan | undefined> {
+    try {
+      const result = await db.query.subscriptionPlans.findFirst({
+        where: eq(subscriptionPlans.id, id)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting subscription plan:', error);
+      return undefined;
+    }
+  }
+
+  async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    try {
+      const [result] = await db.insert(subscriptionPlans).values(plan).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating subscription plan:', error);
+      throw error;
+    }
+  }
+
+  async updateSubscriptionPlan(id: number, plan: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined> {
+    try {
+      const [result] = await db
+        .update(subscriptionPlans)
+        .set({ ...plan, updatedAt: new Date() })
+        .where(eq(subscriptionPlans.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating subscription plan:', error);
+      return undefined;
+    }
+  }
+
+  async deleteSubscriptionPlan(id: number): Promise<boolean> {
+    try {
+      await db.delete(subscriptionPlans).where(eq(subscriptionPlans.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting subscription plan:', error);
+      return false;
+    }
+  }
+
+  async getAllSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    try {
+      return await db.query.subscriptionPlans.findMany();
+    } catch (error) {
+      console.error('Error getting all subscription plans:', error);
+      return [];
+    }
+  }
+
+  async getSubscriptionPlansByTier(tier: string): Promise<SubscriptionPlan[]> {
+    try {
+      return await db.query.subscriptionPlans.findMany({
+        where: eq(subscriptionPlans.tier, tier)
+      });
+    } catch (error) {
+      console.error('Error getting subscription plans by tier:', error);
+      return [];
+    }
+  }
+
+  async getSubscriptionPlansByBillingCycle(billingCycle: string): Promise<SubscriptionPlan[]> {
+    try {
+      return await db.query.subscriptionPlans.findMany({
+        where: eq(subscriptionPlans.billingCycle, billingCycle)
+      });
+    } catch (error) {
+      console.error('Error getting subscription plans by billing cycle:', error);
+      return [];
+    }
+  }
+
+  async getActiveSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    try {
+      return await db.query.subscriptionPlans.findMany({
+        where: eq(subscriptionPlans.isActive, true)
+      });
+    } catch (error) {
+      console.error('Error getting active subscription plans:', error);
+      return [];
+    }
+  }
+
+  // Subscription operations
+  async getSubscription(id: number): Promise<Subscription | undefined> {
+    try {
+      const result = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.id, id)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting subscription:', error);
+      return undefined;
+    }
+  }
+
+  async getSubscriptionByOrganizationId(organizationId: number): Promise<Subscription | undefined> {
+    try {
+      const result = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.organizationId, organizationId)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting subscription by organization ID:', error);
+      return undefined;
+    }
+  }
+
+  async getSubscriptionByStripeId(stripeSubscriptionId: string): Promise<Subscription | undefined> {
+    try {
+      const result = await db.query.subscriptions.findFirst({
+        where: eq(subscriptions.stripeSubscriptionId, stripeSubscriptionId)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting subscription by Stripe ID:', error);
+      return undefined;
+    }
+  }
+
+  async createSubscription(subscription: InsertSubscription): Promise<Subscription> {
+    try {
+      const [result] = await db.insert(subscriptions).values(subscription).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating subscription:', error);
+      throw error;
+    }
+  }
+
+  async updateSubscription(id: number, subscription: Partial<Subscription>): Promise<Subscription | undefined> {
+    try {
+      const [result] = await db
+        .update(subscriptions)
+        .set({ ...subscription, updatedAt: new Date() })
+        .where(eq(subscriptions.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      return undefined;
+    }
+  }
+
+  async deleteSubscription(id: number): Promise<boolean> {
+    try {
+      await db.delete(subscriptions).where(eq(subscriptions.id, id));
+      return true;
+    } catch (error) {
+      console.error('Error deleting subscription:', error);
+      return false;
+    }
+  }
+
+  async getAllSubscriptions(): Promise<Subscription[]> {
+    try {
+      return await db.query.subscriptions.findMany();
+    } catch (error) {
+      console.error('Error getting all subscriptions:', error);
+      return [];
+    }
+  }
+
+  // Payment Record operations
+  async getPaymentRecord(id: number): Promise<PaymentRecord | undefined> {
+    try {
+      const result = await db.query.paymentRecords.findFirst({
+        where: eq(paymentRecords.id, id)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting payment record:', error);
+      return undefined;
+    }
+  }
+
+  async getPaymentRecordsBySubscriptionId(subscriptionId: number): Promise<PaymentRecord[]> {
+    try {
+      return await db.query.paymentRecords.findMany({
+        where: eq(paymentRecords.subscriptionId, subscriptionId)
+      });
+    } catch (error) {
+      console.error('Error getting payment records by subscription ID:', error);
+      return [];
+    }
+  }
+
+  async createPaymentRecord(paymentRecord: InsertPaymentRecord): Promise<PaymentRecord> {
+    try {
+      const [result] = await db.insert(paymentRecords).values(paymentRecord).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating payment record:', error);
+      throw error;
+    }
+  }
+
+  async getAllPaymentRecords(): Promise<PaymentRecord[]> {
+    try {
+      return await db.query.paymentRecords.findMany();
+    } catch (error) {
+      console.error('Error getting all payment records:', error);
+      return [];
+    }
+  }
 }
 
 // Uncomment to use in-memory storage for testing
