@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as LocalStrategy } from 'passport-local';
-import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { Strategy as GoogleStrategy, VerifyCallback } from 'passport-google-oauth20';
+import { Request } from 'express';
 import bcrypt from 'bcrypt';
 import { User } from '@shared/schema';
 import { IStorage } from './storage';
@@ -131,9 +132,15 @@ export function configurePassport(storage: IStorage) {
           clientID: GOOGLE_CLIENT_ID,
           clientSecret: GOOGLE_CLIENT_SECRET,
           callbackURL: callbackURL,
-          scope: ['profile', 'email']
+          scope: ['profile', 'email'],
+          // Enable both proxy trust and pass request object for better session handling
+          proxy: true,
+          passReqToCallback: true
         },
-        async (accessToken, refreshToken, profile, done) => {
+        async (req, accessToken, refreshToken, profile, done) => {
+          // Log session information for debugging
+          console.log(`[OAUTH DEBUG] Google callback with session ID:`, req.sessionID);
+          console.log(`[OAUTH DEBUG] Session cookie:`, req.session?.cookie);
           try {
             if (!profile || !profile.id) {
               console.error('Invalid Google profile received', profile);
@@ -339,7 +346,7 @@ export function configurePassport(storage: IStorage) {
               // Import from oauth-pending-users directly (no dynamic import)
               const { storePendingOAuthUser } = require('./oauth-pending-users');
               
-              // Store the pending user
+              // Store the pending user - pass request object for session storage
               storePendingOAuthUser({
                 id: profile.id,
                 email: email,
@@ -347,7 +354,7 @@ export function configurePassport(storage: IStorage) {
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                 profile: profile,
                 createdAt: new Date()
-              });
+              }, req);
               
               // Create a special user object to indicate this is a pending OAuth user
               // This will be handled differently in the callback

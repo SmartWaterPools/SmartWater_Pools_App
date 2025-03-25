@@ -9,7 +9,7 @@
 
 import { Router, Request, Response } from 'express';
 import { IStorage } from '../storage';
-import { getPendingOAuthUser } from '../oauth-pending-users';
+import { getPendingOAuthUser, getAllPendingOAuthUsers } from '../oauth-pending-users';
 import { completeOAuthRegistration, verifyInvitationToken } from '../oauth-utils';
 import { UserRole } from '../permissions';
 
@@ -335,17 +335,35 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
     try {
       // For debugging purposes, return details about available pending users
       // Get all pending users from memory storage
-      const pendingUsersFromMemory = Object.values(getPendingOAuthUsers());
+      const pendingUsersFromMemory = getAllPendingOAuthUsers();
       
       // Get session-based pending users if they exist
-      const pendingUsersFromSession = req.session.pendingOAuthUsers || [];
+      const pendingUsersFromSession = req.session.pendingOAuthUsers || {};
+      
+      // Full session debug info
+      const sessionInfo = {
+        id: req.sessionID,
+        cookie: req.session.cookie,
+        hasSession: !!req.session,
+        keys: req.session ? Object.keys(req.session) : []
+      };
       
       const debug = {
         user: req.user,
         isAuthenticated: req.isAuthenticated(),
         pendingUsersFromMemory,
-        pendingUsersFromSession
+        pendingUsersFromSession,
+        session: sessionInfo,
+        // Add request details that may affect cookies/session
+        requestInfo: {
+          host: req.headers.host,
+          origin: req.headers.origin,
+          referer: req.headers.referer,
+          userAgent: req.headers['user-agent']
+        }
       };
+      
+      console.log('[OAUTH DEBUG] Debug endpoint accessed with session ID:', req.sessionID);
       
       return res.json({
         success: true,

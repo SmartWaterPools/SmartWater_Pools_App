@@ -59,11 +59,10 @@ app.use(
     rolling: true, // Reset cookie maxAge on each response
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      // Only use secure cookies in production, but not in Replit environment 
-      // since Replit doesn't always support HTTPS properly in preview
-      secure: isProduction && !isReplit,
+      // For OAuth to work properly in Replit environment, we need to allow non-secure cookies
+      secure: false, // Don't require HTTPS in development or Replit
       httpOnly: true, // Prevent JavaScript access to the cookie
-      sameSite: 'lax', // Allow cross-site cookies for OAuth while providing some CSRF protection
+      sameSite: 'none', // Allow cross-domain cookies for OAuth redirects
       path: '/', // Ensure cookie is available for the entire site
     },
     name: 'swp.sid', // Custom name to avoid conflicts
