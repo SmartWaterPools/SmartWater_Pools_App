@@ -338,7 +338,7 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
       const pendingUsersFromMemory = getAllPendingOAuthUsers();
       
       // Get session-based pending users if they exist
-      const pendingUsersFromSession = req.session.pendingOAuthUsers || {};
+      const pendingUsersFromSession = req.session && req.session['pendingOAuthUsers'] ? req.session['pendingOAuthUsers'] : {};
       
       // Full session debug info
       const sessionInfo = {

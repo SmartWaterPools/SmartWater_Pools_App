@@ -98,17 +98,9 @@ export function configurePassport(storage: IStorage) {
   
   // Check if we're running in Replit environment
   if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    // Check if this is a production deployment
-    if (process.env.REPL_SLUG.includes('smartwaterpools') || process.env.NODE_ENV === 'production') {
-      callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
-      console.log(`Running in Replit production environment. Using callback URL: ${callbackURL}`);
-    } else {
-      // Use the Replit environment variables for callback
-      const slug = process.env.REPL_SLUG || 'workspace';
-      const owner = process.env.REPL_OWNER || 'TravisDeRisi';
-      callbackURL = `https://${slug}.${owner}.repl.co/api/auth/google/callback`;
-      console.log(`Running in Replit development environment. Using callback URL: ${callbackURL}`);
-    }
+    // Always use the production domain since that's where users are logging in from
+    callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
+    console.log(`Running in Replit environment. Using production callback URL: ${callbackURL}`);
   } else if (process.env.GOOGLE_CALLBACK_URL) {
     callbackURL = process.env.GOOGLE_CALLBACK_URL;
     console.log(`Using callback URL from environment: ${callbackURL}`);

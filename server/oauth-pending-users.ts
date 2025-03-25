@@ -43,8 +43,9 @@ export function storePendingOAuthUser(user: PendingOAuthUser, req?: Request): vo
   // If request object is provided, store in session too
   if (req?.session) {
     console.log(`[OAUTH] Storing pending OAuth user in session: ${user.email}`);
-    req.session.pendingOAuthUsers = req.session.pendingOAuthUsers || {};
-    req.session.pendingOAuthUsers[user.id] = {
+    // Use bracket notation to avoid TypeScript errors
+    req.session['pendingOAuthUsers'] = req.session['pendingOAuthUsers'] || {};
+    req.session['pendingOAuthUsers'][user.id] = {
       ...userWithDate,
       createdAt: userWithDate.createdAt.toISOString() // Convert Date to string for session storage
     };
@@ -91,10 +92,10 @@ export function getPendingOAuthUser(googleId: string, req?: any): PendingOAuthUs
   let user = pendingOAuthUsers.get(googleId);
   
   // If not in memory, try to get from session
-  if (!user && req?.session?.pendingOAuthUsers && req.session.pendingOAuthUsers[googleId]) {
+  if (!user && req?.session && req.session['pendingOAuthUsers'] && req.session['pendingOAuthUsers'][googleId]) {
     console.log(`[OAUTH DEBUG] Pending user not found in memory, checking session for ${googleId}`);
     
-    const sessionUser = req.session.pendingOAuthUsers[googleId];
+    const sessionUser = req.session['pendingOAuthUsers'][googleId];
     if (sessionUser) {
       console.log(`[OAUTH DEBUG] Found pending user in session: ${sessionUser.email}`);
       
@@ -143,8 +144,8 @@ export function getPendingOAuthUser(googleId: string, req?: any): PendingOAuthUs
     
     // Clear from both memory and session
     pendingOAuthUsers.delete(googleId);
-    if (req?.session?.pendingOAuthUsers && req.session.pendingOAuthUsers[googleId]) {
-      delete req.session.pendingOAuthUsers[googleId];
+    if (req?.session && req.session['pendingOAuthUsers'] && req.session['pendingOAuthUsers'][googleId]) {
+      delete req.session['pendingOAuthUsers'][googleId];
       req.session.save();
     }
     
@@ -170,9 +171,9 @@ export function removePendingOAuthUser(googleId: string, req?: any): void {
   }
   
   // Also remove from session if available
-  if (req?.session?.pendingOAuthUsers && req.session.pendingOAuthUsers[googleId]) {
+  if (req?.session && req.session['pendingOAuthUsers'] && req.session['pendingOAuthUsers'][googleId]) {
     console.log(`[OAUTH] Removing pending OAuth user from session: ${googleId}`);
-    delete req.session.pendingOAuthUsers[googleId];
+    delete req.session['pendingOAuthUsers'][googleId];
     
     // Save session
     req.session.save((err: any) => {
@@ -216,9 +217,9 @@ export function cleanupExpiredPendingUsers(req?: any): void {
   }
   
   // Clean up session storage if available
-  if (req?.session?.pendingOAuthUsers) {
+  if (req?.session && req.session['pendingOAuthUsers']) {
     let sessionCleanupCount = 0;
-    const pendingUsers = req.session.pendingOAuthUsers;
+    const pendingUsers = req.session['pendingOAuthUsers'] as Record<string, any>;
     
     Object.keys(pendingUsers).forEach(id => {
       const user = pendingUsers[id];
