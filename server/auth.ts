@@ -94,12 +94,12 @@ export function configurePassport(storage: IStorage) {
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   
   // Determine the environment and set appropriate callback URL
-  let callbackURL = 'http://localhost:5000/api/auth/google/callback';
+  let callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
   
   // Check if we're running in Replit environment
   if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
     // Always use the production domain since that's where users are logging in from
-    callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
+    callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
     console.log(`Running in Replit environment. Using production callback URL: ${callbackURL}`);
   } else if (process.env.GOOGLE_CALLBACK_URL) {
     callbackURL = process.env.GOOGLE_CALLBACK_URL;

@@ -248,14 +248,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     let callbackURL = '';
     if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
       // Use the exact case from environment variables for callback
-      callbackURL = `https://workspace.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
+      callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
       
       // For production deployment
       if (process.env.NODE_ENV === 'production') {
         callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
       }
     } else {
-      callbackURL = 'http://localhost:5000/api/auth/google/callback';
+      callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
     }
     
     res.json({
@@ -270,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       },
       isReplit: !!process.env.REPL_ID,
       recommendedCallbackURLs: [
-        `https://workspace.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`, // Development with proper case
+        `https://smartwaterpools.replit.app/api/auth/google/callback`, // Development with proper case
         `https://workspace.${process.env.REPL_OWNER?.toLowerCase()}.repl.co/api/auth/google/callback`, // Development with lowercase
         `https://smartwaterpools.replit.app/api/auth/google/callback` // Production
       ],
