@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
-import { BillingCycle } from "../../shared/schema";
+import { BillingCycle } from "@/lib/types";
 import { apiRequest } from "../lib/queryClient";
 import PricingPlans from "../components/pricing/PricingPlans";
 import { Shield, CreditCard, CheckCircle } from "lucide-react";
@@ -37,26 +37,58 @@ export default function Pricing() {
   // Mutation for creating a Stripe checkout session
   const createCheckoutMutation = useMutation({
     mutationFn: (data: { planId: number; organizationName?: string; organizationSlug?: string }) => {
-      return apiRequest("/api/stripe/checkout-session", {
-        method: "POST",
-        data: {
-          planId: data.planId,
-          successUrl: `${window.location.origin}/subscription/success`,
-          cancelUrl: `${window.location.origin}/pricing`,
-        },
+      console.log("Creating checkout session with data:", data);
+      return apiRequest("/api/stripe/checkout-session", "POST", {
+        planId: data.planId,
+        successUrl: `${window.location.origin}/subscription/success`,
+        cancelUrl: `${window.location.origin}/pricing`,
       });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
+      console.log("Checkout session created successfully:", data);
+      if (!data.success) {
+        toast({
+          title: "Checkout Error",
+          description: data.message || "There was an error processing your request",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (!data.url) {
+        toast({
+          title: "Checkout Error",
+          description: "No checkout URL was returned. Please try again or contact support.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       // Redirect to the Stripe checkout URL
+      console.log("Redirecting to Stripe checkout:", data.url);
       window.location.href = data.url;
     },
-    onError: (error) => {
+    onError: (error: any) => {
+      console.error("Checkout error:", error);
+      
+      // Try to extract a more specific error message
+      let errorMessage = "There was an error creating your checkout session. Please try again.";
+      
+      if (error.response && error.response.data) {
+        // Extract error from response data if available
+        const responseData = error.response.data;
+        errorMessage = responseData.message || responseData.error || errorMessage;
+        console.log("Server returned error:", responseData);
+      } else if (error.message) {
+        // Use error message directly if available
+        errorMessage = error.message;
+      }
+      
       toast({
         title: "Checkout Failed",
-        description: "There was an error creating your checkout session. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
-      console.error("Checkout error:", error);
     },
   });
   
@@ -79,13 +111,13 @@ export default function Pricing() {
   };
   
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col overflow-x-hidden">
       {/* Hero Section */}
-      <div className="bg-primary/5 border-b">
-        <div className="container mx-auto py-16 px-4">
+      <div className="bg-blue-50 border-b border-blue-100">
+        <div className="container mx-auto py-8 px-4 sm:py-10">
           <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl font-bold mb-4">Choose Your Plan</h1>
-            <p className="text-xl text-muted-foreground mb-8">
+            <h1 className="text-3xl font-bold mb-3 text-blue-900">Choose Your Plan</h1>
+            <p className="text-lg text-blue-700 mb-4">
               Select the perfect plan for your pool service business needs
             </p>
           </div>
@@ -93,17 +125,17 @@ export default function Pricing() {
       </div>
       
       {/* Pricing Plans Section */}
-      <div className="py-16 container mx-auto px-4">
+      <div className="py-6 sm:py-8 container mx-auto px-4">
         <PricingPlans
           selectedCycle={selectedCycle}
           onCycleChange={setSelectedCycle}
           onSelectPlan={setSelectedPlanId}
         />
         
-        <div className="mt-12 flex justify-center">
+        <div className="mt-8 flex justify-center">
           <Button 
             size="lg" 
-            className="px-8"
+            className="px-8 bg-blue-600 hover:bg-blue-700 text-white border-transparent"
             onClick={handleCheckout}
             disabled={createCheckoutMutation.isPending || selectedPlanId === 0}
           >

@@ -12,6 +12,7 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
    */
   router.post("/checkout-session", isAuthenticated, async (req: Request, res: Response) => {
     try {
+      console.log("Checkout session request received:", req.body);
       const { planId, successUrl, cancelUrl } = req.body;
       
       if (!planId || !successUrl || !cancelUrl) {
@@ -23,6 +24,7 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
       
       const user = req.user as any;
       if (!user || !user.organizationId) {
+        console.log("User authentication issue:", { user });
         return res.status(401).json({ 
           success: false, 
           message: "User must be logged in and associated with an organization" 
@@ -32,6 +34,83 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
       // Get the subscription plan
       const plan = await storage.getSubscriptionPlan(Number(planId));
       if (!plan) {
+        console.log(`Subscription plan not found for ID: ${planId}`);
+        return res.status(404).json({ 
+          success: false, 
+          message: "Subscription plan not found" 
+        });
+      }
+      
+      // Make sure the plan has a valid stripePriceId
+      if (!plan.stripePriceId) {
+        console.error(`Missing stripePriceId for plan ID: ${planId}`);
+        return res.status(400).json({
+          success: false,
+          message: "This subscription plan is not properly configured for checkout."
+        });
+      }
+      
+      console.log(`Creating checkout session for plan: ${plan.name}, organizationId: ${user.organizationId}`);
+      
+      // Create checkout session
+      const checkoutUrl = await stripeService.createCheckoutSession(
+        Number(planId),
+        user.organizationId,
+        successUrl,
+        cancelUrl
+      );
+      
+      if (!checkoutUrl) {
+        return res.status(500).json({
+          success: false,
+          message: "Failed to create checkout URL"
+        });
+      }
+      
+      console.log("Checkout session created successfully, URL:", checkoutUrl);
+      
+      res.status(200).json({ 
+        success: true, 
+        url: checkoutUrl 
+      });
+    } catch (error) {
+      console.error("Error creating checkout session:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to create checkout session",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+  
+  /**
+   * Legacy endpoint - same functionality as checkout-session
+   * POST /api/stripe/checkout
+   */
+  router.post("/checkout", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("Legacy checkout endpoint called. Request body:", req.body);
+      const { planId, successUrl, cancelUrl } = req.body;
+      
+      if (!planId || !successUrl || !cancelUrl) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Missing required parameters: planId, successUrl, cancelUrl" 
+        });
+      }
+      
+      const user = req.user as any;
+      if (!user || !user.organizationId) {
+        console.log("Legacy checkout: User authentication issue");
+        return res.status(401).json({ 
+          success: false, 
+          message: "User must be logged in and associated with an organization" 
+        });
+      }
+      
+      const plan = await storage.getSubscriptionPlan(Number(planId));
+      if (!plan) {
+        console.log(`Legacy checkout: Plan not found for ID: ${planId}`);
         return res.status(404).json({ 
           success: false, 
           message: "Subscription plan not found" 
@@ -51,22 +130,13 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
         url: checkoutUrl 
       });
     } catch (error) {
-      console.error("Error creating checkout session:", error);
+      console.error("Error in legacy checkout endpoint:", error);
       res.status(500).json({ 
         success: false, 
         message: "Failed to create checkout session",
         error: error instanceof Error ? error.message : String(error)
       });
     }
-  });
-  
-  /**
-   * Legacy endpoint - redirect to checkout-session
-   * POST /api/stripe/checkout
-   */
-  router.post("/checkout", isAuthenticated, async (req: Request, res: Response) => {
-    // Forward to the new endpoint
-    return router.handle(req, res);
   });
   
   /**
@@ -98,7 +168,7 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
       
       // Create the stripe instance for webhook verification
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-        apiVersion: "2023-10-16"
+        apiVersion: "2022-11-15" // Use the same version as in stripe-service.ts
       });
       
       // Verify the webhook signature

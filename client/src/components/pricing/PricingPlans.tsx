@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { BillingCycle, SubscriptionPlan } from "../../../shared/schema";
+import { BillingCycle, SubscriptionPlan, PlansResponse } from "@/lib/types"; // Use local type definition instead of schema import
 import SubscriptionPlanCard from "./SubscriptionPlanCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
@@ -26,26 +26,10 @@ export default function PricingPlans({
   
   // Fetch all subscription plans
   console.log("Starting to fetch subscription plans...");
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error } = useQuery<PlansResponse>({
     queryKey: ['/api/stripe/plans'],
     retry: 3, // Retry failed requests 3 times
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
-    onSuccess: (data) => {
-      console.log("Subscription plans API response SUCCESS:", data);
-      if (!data?.plans || !Array.isArray(data.plans)) {
-        console.error("API responded with success but plans data is invalid:", data);
-      } else {
-        console.log(`Received ${data.plans.length} subscription plans from API`);
-      }
-    },
-    onError: (error: any) => {
-      console.error("Error fetching subscription plans:", error);
-      console.error("Error details:", {
-        message: error?.message,
-        status: error?.response?.status,
-        data: error?.response?.data
-      });
-    }
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000) // Exponential backoff
   });
   
   console.log("Query state:", { isLoading, error: error ? "Error occurred" : "No error" });
@@ -54,7 +38,7 @@ export default function PricingPlans({
   
   // Debug: Check the structure of each plan
   if (data?.plans) {
-    data.plans.forEach((plan: any, index: number) => {
+    data.plans.forEach((plan: SubscriptionPlan, index: number) => {
       console.log(`Plan ${index + 1} structure:`, JSON.stringify(plan));
     });
   }
@@ -171,8 +155,8 @@ export default function PricingPlans({
   return (
     <div>
       {/* Billing Cycle Toggle */}
-      <div className="flex justify-center items-center mb-12 space-x-2">
-        <Label htmlFor="billing-toggle" className="text-sm font-medium">
+      <div className="flex justify-center items-center mb-8 sm:mb-12 space-x-4">
+        <Label htmlFor="billing-toggle" className="text-sm font-medium text-blue-800">
           Monthly Billing
         </Label>
         
@@ -184,19 +168,19 @@ export default function PricingPlans({
           />
           
           {yearlyDiscount > 0 && (
-            <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+            <span className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full">
               Save {yearlyDiscount}%
             </span>
           )}
         </div>
         
-        <Label htmlFor="billing-toggle" className="text-sm font-medium">
+        <Label htmlFor="billing-toggle" className="text-sm font-medium text-blue-800">
           Annual Billing
         </Label>
       </div>
       
       {/* Plan Cards */}
-      <div className="grid md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 overflow-visible">
         {filteredPlans.length > 0 ? (
           filteredPlans.map((plan) => (
             <SubscriptionPlanCard 

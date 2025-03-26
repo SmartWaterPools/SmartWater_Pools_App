@@ -1,5 +1,5 @@
 import { Check, X } from "lucide-react";
-import { SubscriptionPlan } from "../../../shared/schema";
+import { SubscriptionPlan } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,13 +30,13 @@ export default function SubscriptionPlanCard({
   
   // Render feature availability indicator
   const renderFeatureStatus = (isAvailable: boolean, label: string) => (
-    <div className="flex items-start mb-3">
+    <div className="flex items-start mb-2 sm:mb-3">
       {isAvailable ? (
-        <Check className="h-5 w-5 text-green-500 mr-2 shrink-0 mt-0.5" />
+        <Check className="h-5 w-5 text-green-500 mr-2 shrink-0" />
       ) : (
-        <X className="h-5 w-5 text-muted-foreground/70 mr-2 shrink-0 mt-0.5" />
+        <X className="h-5 w-5 text-gray-400 mr-2 shrink-0" />
       )}
-      <span className={!isAvailable ? "text-muted-foreground" : ""}>
+      <span className={`text-sm sm:text-base ${!isAvailable ? "text-gray-500" : "text-blue-900"}`}>
         {label}
       </span>
     </div>
@@ -65,35 +65,31 @@ export default function SubscriptionPlanCard({
   };
 
   return (
-    <Card className={`overflow-hidden transition-all ${
-      isSelected ? 'border-primary ring-2 ring-primary/20' : 
-      isFeatured ? 'border-primary/50' : ''
+    <Card className={`overflow-hidden transition-all border ${
+      isSelected ? 'border-blue-500 ring-1 ring-blue-300' : 
+      'border-gray-200'
     }`}>
       {/* Plan Header */}
-      <CardHeader className={`pb-6 ${isFeatured ? 'bg-primary/10' : 'bg-muted/50'}`}>
-        {isFeatured && (
-          <Badge className="w-fit mb-2 bg-primary">Most Popular</Badge>
-        )}
-        
-        <h3 className="text-xl font-bold">
+      <CardHeader className="pb-3 pt-5 px-4 sm:pb-4 sm:pt-6 sm:px-6 bg-white">
+        <h3 className="text-xl font-bold text-blue-900">
           {plan.name}
         </h3>
         
-        <div className="mt-1">
-          <span className="text-3xl font-bold">{formatCurrency(plan.price)}</span>
-          <span className="text-muted-foreground ml-1">
+        <div className="mt-2">
+          <span className="text-3xl font-bold text-blue-900">{formatCurrency(plan.price)}</span>
+          <span className="text-gray-500 ml-1">
             /{plan.billingCycle === "monthly" ? "month" : "year"}
           </span>
         </div>
         
-        <p className="text-sm text-muted-foreground mt-2">
+        <p className="text-sm text-gray-600 mt-2">
           {plan.description}
         </p>
       </CardHeader>
       
       {/* Plan Features */}
-      <CardContent className="pt-6">
-        <div className="space-y-1">
+      <CardContent className="pt-3 px-4 sm:pt-4 sm:px-6 overflow-y-auto max-h-[360px] sm:max-h-full">
+        <div className="space-y-0.5">
           {getFeatures().map((feature, index) => (
             <div key={index}>
               {renderFeatureStatus(feature.available, feature.label)}
@@ -103,12 +99,15 @@ export default function SubscriptionPlanCard({
       </CardContent>
       
       {/* Plan Footer */}
-      <CardFooter className="pt-4 pb-6 flex justify-center">
+      <CardFooter className="pt-3 pb-5 px-4 sm:pt-4 sm:pb-6 sm:px-6 flex justify-center">
         <Button
           onClick={onSelect}
-          variant={isSelected ? "default" : isFeatured ? "default" : "outline"}
-          className={`w-full ${isSelected ? 'bg-primary hover:bg-primary/90' : 
-            isFeatured ? 'bg-primary hover:bg-primary/90' : ''}`}
+          variant={isSelected ? "default" : "outline"}
+          className={`w-full ${
+            isSelected 
+              ? 'bg-blue-600 hover:bg-blue-700 text-white border-transparent' 
+              : 'border-blue-600 text-blue-600 hover:bg-blue-50'
+          }`}
         >
           {isSelected ? "Selected" : "Select Plan"}
         </Button>

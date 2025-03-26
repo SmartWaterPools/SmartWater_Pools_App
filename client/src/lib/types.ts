@@ -1,160 +1,131 @@
-import { 
-  User, Client, Technician, 
-  Project, ProjectAssignment, 
-  Maintenance, Repair, Invoice,
-  PoolEquipment, PoolImage
-} from "@shared/schema";
+// Type definitions for subscription-related components
 
-// Re-export the pool-related types
-export type { PoolEquipment, PoolImage };
+export type BillingCycle = 'monthly' | 'yearly';
 
-// Enhanced types with relationships
-export interface ClientWithUser extends Omit<Client, 'latitude' | 'longitude'> {
-  user: User;
-  phone?: string;
-  address?: string;
-  latitude?: number | null;
-  longitude?: number | null;
+export type SubscriptionTier = 'basic' | 'professional' | 'enterprise';
+
+export interface SubscriptionPlan {
+  id: number;
+  name: string;
+  description: string;
+  tier: SubscriptionTier;
+  price: number;
+  billingCycle: BillingCycle;
+  features: string[];
+  active: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  stripePriceId?: string;
+  stripeProductId?: string;
+  maxTechnicians?: number;
+  maxClients?: number;
+  maxProjects?: number;
 }
 
-export interface TechnicianWithUser extends Technician {
-  user: User;
+export interface ApiResponse<T> {
+  success: boolean;
+  message?: string;
+  data?: T;
 }
 
-// This interface combines properties from Project with additional UI-specific properties
+export interface PlansResponse {
+  success: boolean;
+  plans: SubscriptionPlan[];
+}
+
+// Project Types
 export interface ProjectWithDetails {
   id: number;
   name: string;
-  description: string | null;
-  clientId: number;
-  client: ClientWithUser;
+  description: string;
   status: string;
-  budget: number | null;
-  assignments: Array<ProjectAssignmentWithTechnician>;
-  notes: string | null;
-  isArchived?: boolean;
-  // Additional properties used in the UI
+  startDate: string;
+  estimatedCompletionDate?: string;
+  actualCompletionDate?: string;
   completion: number;
-  deadline: string | Date;
-  startDate: string | Date;
-  estimatedCompletionDate: string | Date;
-  currentPhase: string | null;
-  projectType: string;
-  permitDetails: string | null;
-}
-
-export interface ProjectAssignmentWithTechnician extends ProjectAssignment {
-  technician: TechnicianWithUser;
-}
-
-export interface MaintenanceWithDetails extends Maintenance {
-  client: ClientWithUser;
-  technician: TechnicianWithUser | null;
-  // Support for snake_case properties from API
-  schedule_date?: string;
-}
-
-export interface RepairWithDetails extends Repair {
-  client: ClientWithUser;
-  technician: TechnicianWithUser | null;
-}
-
-export interface InvoiceWithDetails extends Invoice {
-  client: ClientWithUser;
-}
-
-// Dashboard summary type
-export interface DashboardSummary {
-  metrics: {
-    activeProjects: number;
-    maintenanceThisWeek: number;
-    pendingRepairs: number;
-    totalClients: number;
+  client: {
+    id: number;
+    user: {
+      id: number;
+      name: string;
+    };
+    companyName?: string;
   };
-  recentProjects: Array<ProjectWithDetails>;
-  upcomingMaintenances: Array<MaintenanceWithDetails>;
-  recentRepairs: Array<RepairWithDetails>;
 }
 
-// Status and priority types for display helpers
-export type ProjectStatus = "planning" | "in_progress" | "review" | "completed";
-export type MaintenanceStatus = "scheduled" | "in_progress" | "completed" | "cancelled";
-export type RepairStatus = "pending" | "assigned" | "scheduled" | "in_progress" | "completed";
-export type PriorityLevel = "low" | "medium" | "high";
-export type InvoiceStatus = "pending" | "paid" | "overdue";
-
-// Helper function to get status classes
-export const getStatusClasses = (status: string): { bg: string; text: string } => {
-  switch (status) {
-    case "planning":
-      return { bg: "bg-blue-100", text: "text-blue-800" };
-    case "in_progress":
-      return { bg: "bg-blue-100", text: "text-primary" };
-    case "review":
-      return { bg: "bg-green-100", text: "text-green-600" };
-    case "completed":
-      return { bg: "bg-green-100", text: "text-green-600" };
-    case "scheduled":
-      return { bg: "bg-blue-100", text: "text-primary" };
-    case "cancelled":
-      return { bg: "bg-gray-100", text: "text-gray-600" };
-    case "pending":
-      return { bg: "bg-blue-100", text: "text-blue-800" };
-    case "assigned":
-      return { bg: "bg-yellow-100", text: "text-yellow-800" };
-    case "paid":
-      return { bg: "bg-green-100", text: "text-green-600" };
-    case "overdue":
-      return { bg: "bg-red-100", text: "text-red-800" };
+// Helper functions for styling based on status
+export function getStatusClasses(status: string): { bg: string; text: string } {
+  switch (status.toLowerCase()) {
+    case 'planning':
+      return { bg: 'bg-blue-100', text: 'text-blue-800' };
+    case 'in_progress':
+      return { bg: 'bg-amber-100', text: 'text-amber-800' };
+    case 'on_hold':
+      return { bg: 'bg-orange-100', text: 'text-orange-800' };
+    case 'completed':
+      return { bg: 'bg-green-100', text: 'text-green-800' };
+    case 'cancelled':
+      return { bg: 'bg-red-100', text: 'text-red-800' };
     default:
-      return { bg: "bg-gray-100", text: "text-gray-800" };
+      return { bg: 'bg-gray-100', text: 'text-gray-800' };
   }
-};
+}
 
-// Helper function to get priority classes
-export const getPriorityClasses = (priority: PriorityLevel): { bg: string; text: string } => {
-  switch (priority) {
-    case "low":
-      return { bg: "bg-green-100", text: "text-green-800" };
-    case "medium":
-      return { bg: "bg-yellow-100", text: "text-yellow-800" };
-    case "high":
-      return { bg: "bg-red-100", text: "text-red-800" };
-    default:
-      return { bg: "bg-gray-100", text: "text-gray-800" };
+// Date formatting utility function
+export function formatDate(dateString: string | null | undefined): string {
+  if (!dateString) return 'N/A';
+  
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+  } catch (e) {
+    return 'Invalid date';
   }
-};
+}
 
-// Format date helper
-export const formatDate = (date: Date | string): string => {
-  if (!date) return "";
-  return new Date(date).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-};
+// Time formatting utility function
+export function formatTime(timeString: string | null | undefined): string {
+  if (!timeString) return 'N/A';
+  
+  try {
+    const date = new Date(timeString);
+    return date.toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  } catch (e) {
+    return 'Invalid time';
+  }
+}
 
-// Format time helper
-export const formatTime = (time: string): string => {
-  if (!time) return "";
-  // Convert 24h format (HH:MM:SS) to 12h format with AM/PM
-  const [hours, minutes] = time.split(":");
-  const h = parseInt(hours);
-  const m = minutes;
-  const ampm = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  return `${hour}:${m} ${ampm}`;
-};
-
-// Format currency helper
-export const formatCurrency = (amount: number | string): string => {
-  if (amount === null || amount === undefined) return "";
-  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+// Currency formatting utility function
+export function formatCurrency(amount: number | null | undefined): string {
+  if (amount === null || amount === undefined) return '$0.00';
+  
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(numAmount);
-};
+    minimumFractionDigits: 2
+  }).format(amount);
+}
+
+// Priority styling utility function
+export function getPriorityClasses(priority: string): { bg: string; text: string } {
+  switch (priority.toLowerCase()) {
+    case 'low':
+      return { bg: 'bg-blue-100', text: 'text-blue-800' };
+    case 'medium':
+      return { bg: 'bg-amber-100', text: 'text-amber-800' };
+    case 'high':
+      return { bg: 'bg-orange-100', text: 'text-orange-800' };
+    case 'urgent':
+      return { bg: 'bg-red-100', text: 'text-red-800' };
+    default:
+      return { bg: 'bg-gray-100', text: 'text-gray-800' };
+  }
+}

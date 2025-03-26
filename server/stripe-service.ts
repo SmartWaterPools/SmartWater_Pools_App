@@ -15,7 +15,7 @@ import { Subscription, SubscriptionPlan, InsertSubscription, PaymentRecord, Inse
 
 // Initialize Stripe with the secret key from environment variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-03-08' // Use the latest API version
+  apiVersion: '2022-11-15' // Use a stable API version that's compatible with our implementation
 });
 
 export class StripeService {
@@ -87,7 +87,9 @@ export class StripeService {
         metadata: {
           organizationId: organizationId.toString(),
           planId: planId.toString()
-        }
+        },
+        // Add client reference ID for better tracking
+        client_reference_id: organizationId.toString()
       });
 
       return session.url || '';
@@ -173,7 +175,8 @@ export class StripeService {
       const newSubscription: InsertSubscription = {
         organizationId,
         planId,
-        status: subscription.status,
+        // Map Stripe status to our status enum
+        status: this.mapStripeStatusToAppStatus(subscription.status),
         currentPeriodStart: new Date(subscription.current_period_start * 1000),
         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         cancelAtPeriodEnd: subscription.cancel_at_period_end,
@@ -219,7 +222,7 @@ export class StripeService {
 
       // Update the subscription
       await this.storage.updateSubscription(subscription.id, {
-        status: stripeSubscription.status,
+        status: this.mapStripeStatusToAppStatus(stripeSubscription.status),
         currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
         currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
         cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
@@ -495,6 +498,31 @@ export class StripeService {
     }
     
     return result;
+  }
+  
+  /**
+   * Map Stripe subscription status to our application status
+   * Handles conversion from Stripe status values to our supported statuses
+   */
+  private mapStripeStatusToAppStatus(stripeStatus: string): 'active' | 'inactive' | 'past_due' | 'canceled' | 'trialing' {
+    switch(stripeStatus) {
+      case 'active':
+        return 'active';
+      case 'trialing':
+        return 'trialing';
+      case 'past_due':
+        return 'past_due';
+      case 'canceled':
+        return 'canceled';
+      case 'incomplete':
+      case 'incomplete_expired':
+        return 'inactive';
+      case 'unpaid':
+        return 'past_due';
+      default:
+        console.warn(`Unknown Stripe status: ${stripeStatus}, mapping to inactive`);
+        return 'inactive';
+    }
   }
 }
 
