@@ -94,16 +94,35 @@ export function configurePassport(storage: IStorage) {
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   
   // Determine the environment and set appropriate callback URL
-  let callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
+  let callbackURL = '';
   
-  // Check if we're running in Replit environment
-  if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    // Always use the production domain since that's where users are logging in from
-    callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
-    console.log(`Running in Replit environment. Using production callback URL: ${callbackURL}`);
-  } else if (process.env.GOOGLE_CALLBACK_URL) {
+  // First priority: Use GOOGLE_CALLBACK_URL if explicitly set
+  if (process.env.GOOGLE_CALLBACK_URL) {
     callbackURL = process.env.GOOGLE_CALLBACK_URL;
-    console.log(`Using callback URL from environment: ${callbackURL}`);
+    console.log(`Using callback URL from GOOGLE_CALLBACK_URL: ${callbackURL}`);
+  } 
+  // Second priority: Use APP_URL if set
+  else if (process.env.APP_URL) {
+    callbackURL = `${process.env.APP_URL}/api/auth/google/callback`;
+    console.log(`Using callback URL based on APP_URL: ${callbackURL}`);
+  }
+  // Third priority: Use Replit environment if available
+  else if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    // Construct a dynamic URL based on the Replit environment
+    const replitDomain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    callbackURL = `https://${replitDomain}/api/auth/google/callback`;
+    
+    // If this is the smartwaterpools app specifically, use the production domain
+    if (process.env.REPL_SLUG === 'smartwaterpools' || process.env.REPL_SLUG === 'SmartWaterPools') {
+      callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
+    }
+    
+    console.log(`Running in Replit environment. Using callback URL: ${callbackURL}`);
+  }
+  // Fallback to production URL as last resort
+  else {
+    callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
+    console.log(`No environment variables found. Using production callback URL: ${callbackURL}`);
   }
   
   console.log(`Google OAuth callback URL configured as: ${callbackURL}`);

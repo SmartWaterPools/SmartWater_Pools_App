@@ -168,7 +168,7 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
       
       // Create the stripe instance for webhook verification
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-        apiVersion: "2022-11-15" // Use the same version as in stripe-service.ts
+        apiVersion: "2023-10-16" // Use the latest API version
       });
       
       // Verify the webhook signature

@@ -14,7 +14,7 @@ import { requireActiveSubscription } from "./subscription-middleware";
 
 // Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "", {
-  apiVersion: "2023-10-16",
+  apiVersion: "2022-11-15", // Use the same version consistently across the app
 });
 import { 
   insertUserSchema, 

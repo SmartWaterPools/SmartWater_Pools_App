@@ -15,7 +15,7 @@ import { Subscription, SubscriptionPlan, InsertSubscription, PaymentRecord, Inse
 
 // Initialize Stripe with the secret key from environment variables
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2022-11-15' // Use a stable API version that's compatible with our implementation
+  apiVersion: '2023-10-16' // Use the latest API version
 });
 
 export class StripeService {
