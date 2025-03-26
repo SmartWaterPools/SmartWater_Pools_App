@@ -41,8 +41,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Check if the user is authenticated on component mount
   useEffect(() => {
     const checkInitialSession = async () => {
-      await checkSession();
-      setSessionChecked(true);
+      console.log("Performing initial session check...");
+      try {
+        // Keep isLoading true during the entire session check
+        setIsLoading(true);
+        await checkSession();
+      } catch (error) {
+        console.error("Error during initial session check:", error);
+        // Make sure auth state is reset on error
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        // Complete the session check and update loading state
+        setSessionChecked(true);
+        setIsLoading(false);
+        console.log("Initial session check completed.");
+      }
     };
     
     checkInitialSession();
@@ -50,8 +64,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkSession = async (): Promise<boolean> => {
     try {
-      setIsLoading(true);
-      
+      // Don't set isLoading here, it's handled by the parent function
       console.log("Checking session...");
       const response = await fetch('/api/auth/session', {
         method: 'GET',
@@ -85,9 +98,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
       return false;
-    } finally {
-      setIsLoading(false);
     }
+    // Remove the finally block - we handle setting isLoading in the caller
   };
 
   const loginImpl = async (username: string, password: string): Promise<boolean> => {
@@ -107,6 +119,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (!response.ok) {
         console.warn(`Login failed with status: ${response.status}`);
+        setUser(null);
+        setIsAuthenticated(false);
         return false;
       }
       
@@ -119,10 +133,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         return true;
       } else {
         console.warn("Login returned success: false or no user data");
+        setUser(null);
+        setIsAuthenticated(false);
         return false;
       }
     } catch (error) {
       console.error('Login error:', error);
+      setUser(null);
+      setIsAuthenticated(false);
       return false;
     } finally {
       setIsLoading(false);
@@ -215,6 +233,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           description: errorData.message || 'Could not create account',
           variant: 'destructive',
         });
+        // Make sure auth state is cleared
+        setUser(null);
+        setIsAuthenticated(false);
         return false;
       }
       
@@ -230,6 +251,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         });
         return true;
       } else {
+        // Make sure auth state is cleared
+        setUser(null);
+        setIsAuthenticated(false);
         toast({
           title: 'Registration failed',
           description: data.message || 'Could not create account',
@@ -239,6 +263,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('Registration error:', error);
+      // Make sure auth state is cleared
+      setUser(null);
+      setIsAuthenticated(false);
       toast({
         title: 'Registration error',
         description: 'Could not connect to the server. Please try again.',

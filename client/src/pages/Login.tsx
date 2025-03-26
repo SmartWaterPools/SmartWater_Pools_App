@@ -136,6 +136,7 @@ export default function Login() {
     try {
       setError(null);
       
+      console.log("Login form submitted, sending credentials to server");
       // Use a modified login that returns the full response for subscription checking
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -150,11 +151,13 @@ export default function Login() {
       });
       
       const result = await response.json();
+      console.log("Login response from server:", { status: response.status, success: result.success });
       
       // Handle successful login
       if (response.ok && result.success) {
         // Check if user session exists and update auth state
         if (result.user) {
+          console.log("Login successful, updating auth state with user data");
           // Use the existing login success handler to update auth state
           login.onLoginSuccess(result.user);
           
@@ -163,13 +166,18 @@ export default function Login() {
             description: "Welcome to SmartWater Pools Management System",
           });
           
-          setLocation(redirectPath !== '/login' ? redirectPath : '/');
+          // Small delay before redirect to ensure auth state is fully processed
+          setTimeout(() => {
+            console.log("Redirecting to:", redirectPath !== '/login' ? redirectPath : '/');
+            setLocation(redirectPath !== '/login' ? redirectPath : '/');
+          }, 100);
           return;
         }
       }
       
       // Handle subscription errors (403 status with specific messages)
       if (response.status === 403 && result.requiresSubscription) {
+        console.log("Login failed due to subscription requirement");
         setError(result.message || "Your account requires an active subscription.");
         
         // Show toast with subscription message
@@ -181,12 +189,14 @@ export default function Login() {
         
         // Redirect to pricing page after a short delay
         setTimeout(() => {
+          console.log("Redirecting to:", result.redirectTo || '/pricing');
           setLocation(result.redirectTo || '/pricing');
         }, 2000);
         return;
       }
       
       // Handle regular login errors
+      console.log("Login failed with message:", result.message);
       setError(result.message || "Invalid email or password. Please try again.");
     } catch (error) {
       console.error("Login error:", error);
@@ -226,7 +236,7 @@ export default function Login() {
         toast({
           title: "Non-company Email",
           description: "You're registering with a non-SmartWaterPools email. Your account will have client-level access only.",
-          variant: "warning",
+          // The default variant is used for warnings
         });
       }
       

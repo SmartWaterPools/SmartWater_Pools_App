@@ -12,6 +12,8 @@ import { Toaster } from "./components/ui/toaster";
 import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
@@ -53,6 +55,148 @@ import OAuthConsent from "./pages/OAuthConsent";
 import InvitePage from "./pages/InvitePage";
 import OrganizationSelection from "./pages/OrganizationSelection";
 
+// App Content component that uses auth context
+function AppContent({ 
+  mobileMenuOpen, 
+  toggleMobileMenu, 
+  closeMobileMenu 
+}: { 
+  mobileMenuOpen: boolean; 
+  toggleMobileMenu: () => void; 
+  closeMobileMenu: () => void; 
+}) {
+  const { isLoading } = useAuth();
+  
+  // Show global loading state while initial authentication check is in progress
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  return (
+    <TabProvider>
+      <div className="flex h-screen overflow-hidden bg-background">
+        <Switch>
+          {/* Public routes */}
+          <Route path="/login">
+            <Login />
+          </Route>
+          <Route path="/register">
+            <Register />
+          </Route>
+          <Route path="/unauthorized">
+            <Unauthorized />
+          </Route>
+          <Route path="/privacy-policy">
+            <PrivacyPolicy />
+          </Route>
+          <Route path="/terms-of-service">
+            <TermsOfService />
+          </Route>
+          <Route path="/oauth-consent">
+            <OAuthConsent />
+          </Route>
+          <Route path="/invite">
+            <InvitePage />
+          </Route>
+          <Route path="/pricing">
+            <Pricing />
+          </Route>
+          <Route path="/subscription/success">
+            <SubscriptionSuccess />
+          </Route>
+          <Route path="/organization-selection/:googleId">
+            <OrganizationSelection />
+          </Route>
+          
+          {/* Protected routes */}
+          <Route>
+            <ProtectedRoute>
+              {/* Desktop Sidebar - hidden on mobile */}
+              <div className="hidden md:block">
+                <Sidebar />
+              </div>
+            
+              {/* Mobile menu (off-canvas) */}
+              <MobileSidebar isOpen={mobileMenuOpen} onClose={closeMobileMenu} />
+              
+              {/* Main content area */}
+              <div className="flex flex-col flex-1 w-full overflow-hidden">
+                {/* App Header */}
+                <Header toggleMobileMenu={toggleMobileMenu} />
+                
+                {/* Tab Manager - Now positioned above content */}
+                <EnhancedTabManager />
+                
+                {/* Main content */}
+                <main className="flex-1 overflow-y-auto bg-background p-4 pb-20 md:p-6 md:pb-6">
+                  {/* Breadcrumbs */}
+                  <EnhancedBreadcrumbs />
+                  
+                  <Switch>
+                    <Route path="/" component={Dashboard} />
+                    
+                    {/* Projects routes */}
+                    <Route path="/projects" component={Projects} />
+                    <Route path="/projects/:id" component={ProjectDetails} />
+                    
+                    {/* Maintenance routes */}
+                    <Route path="/maintenance" component={Maintenance} />
+                    <Route path="/maintenance/map" component={MaintenanceMap} />
+                    <Route path="/maintenance/list" component={MaintenanceList} />
+                    
+                    {/* Repairs route */}
+                    <Route path="/repairs" component={Repairs} />
+                    
+                    {/* Client routes */}
+                    <Route path="/clients" component={Clients} />
+                    <Route path="/clients/add" component={ClientAdd} />
+                    <Route path="/clients/:id/edit" component={ClientEdit} />
+                    <Route path="/clients/:id/pool-wizard" component={PoolWizardPage} />
+                    <Route path="/pool-wizard/:id" component={PoolWizardPage} />
+                    <Route path="/clients/:id" component={ClientDetails} />
+                    
+                    {/* Technician routes */}
+                    <Route path="/technicians" component={Technicians} />
+                    
+                    {/* Other routes */}
+                    <Route path="/client-portal" component={ClientPortal} />
+                    <Route path="/service-report/:id" component={ServiceReport} />
+                    <Route path="/service-report-page/:id" component={ServiceReportPage} />
+                    <Route path="/maintenance-report/:id" component={MaintenanceReportPage} />
+                    <Route path="/communications" component={Communications} />
+                    <Route path="/business" component={Business} />
+                    <Route path="/inventory" component={InventoryManagement} />
+                    <Route path="/inventory/transfers" component={InventoryTransfers} />
+                    <Route path="/inventory/barcode-demo" component={BarcodeDemo} />
+                    
+                    {/* Fleetmatics routes */}
+                    <Route path="/fleetmatics/settings" component={FleetmaticsSettings} />
+                    <Route path="/fleetmatics/vehicle-mapping" component={VehicleMapping} />
+                    <Route path="/fleetmatics/vehicle-tracking" component={VehicleTracking} />
+                    
+                    <Route path="/settings" component={Settings} />
+                    <Route path="/admin" component={Admin} />
+                    
+                    {/* Catch-all */}
+                    <Route component={NotFound} />
+                  </Switch>
+                </main>
+              </div>
+            </ProtectedRoute>
+          </Route>
+        </Switch>
+      </div>
+      
+      <Toaster />
+    </TabProvider>
+  );
+}
+
+// Main App component
 function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [location] = useLocation();
@@ -69,133 +213,16 @@ function App() {
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
   };
-
-  // Initialize app on load
-  useEffect(() => {
-    // App initialization code here if needed
-  }, []);
   
   return (
     <QueryClientProvider client={queryClient}>
       <GoogleMapsProvider>
         <AuthProvider>
-          <TabProvider>
-            <div className="flex h-screen overflow-hidden bg-background">
-              <Switch>
-                {/* Public routes */}
-                <Route path="/login">
-                  <Login />
-                </Route>
-                <Route path="/register">
-                  <Register />
-                </Route>
-                <Route path="/unauthorized">
-                  <Unauthorized />
-                </Route>
-                <Route path="/privacy-policy">
-                  <PrivacyPolicy />
-                </Route>
-                <Route path="/terms-of-service">
-                  <TermsOfService />
-                </Route>
-                <Route path="/oauth-consent">
-                  <OAuthConsent />
-                </Route>
-                {/* Route for OAuthDebug removed for production */}
-                <Route path="/invite">
-                  <InvitePage />
-                </Route>
-                <Route path="/pricing">
-                  <Pricing />
-                </Route>
-                <Route path="/subscription/success">
-                  <SubscriptionSuccess />
-                </Route>
-                <Route path="/organization-selection/:googleId">
-                  <OrganizationSelection />
-                </Route>
-                
-                {/* Protected routes */}
-                <Route>
-                  <ProtectedRoute>
-                    {/* Desktop Sidebar - hidden on mobile */}
-                    <div className="hidden md:block">
-                      <Sidebar />
-                    </div>
-                  
-                    {/* Mobile menu (off-canvas) */}
-                    <MobileSidebar isOpen={mobileMenuOpen} onClose={closeMobileMenu} />
-                    
-                    {/* Main content area */}
-                    <div className="flex flex-col flex-1 w-full overflow-hidden">
-                      {/* App Header */}
-                      <Header toggleMobileMenu={toggleMobileMenu} />
-                      
-                      {/* Tab Manager - Now positioned above content */}
-                      <EnhancedTabManager />
-                      
-                      {/* Main content */}
-                      <main className="flex-1 overflow-y-auto bg-background p-4 pb-20 md:p-6 md:pb-6">
-                        {/* Breadcrumbs */}
-                        <EnhancedBreadcrumbs />
-                        
-                        <Switch>
-                          <Route path="/" component={Dashboard} />
-                          
-                          {/* Projects routes */}
-                          <Route path="/projects" component={Projects} />
-                          <Route path="/projects/:id" component={ProjectDetails} />
-                          
-                          {/* Maintenance routes */}
-                          <Route path="/maintenance" component={Maintenance} />
-                          <Route path="/maintenance/map" component={MaintenanceMap} />
-                          <Route path="/maintenance/list" component={MaintenanceList} />
-                          
-                          {/* Repairs route */}
-                          <Route path="/repairs" component={Repairs} />
-                          
-                          {/* Client routes */}
-                          <Route path="/clients" component={Clients} />
-                          <Route path="/clients/add" component={ClientAdd} />
-                          <Route path="/clients/:id/edit" component={ClientEdit} />
-                          <Route path="/clients/:id/pool-wizard" component={PoolWizardPage} />
-                          <Route path="/pool-wizard/:id" component={PoolWizardPage} />
-                          <Route path="/clients/:id" component={ClientDetails} />
-                          
-                          {/* Technician routes */}
-                          <Route path="/technicians" component={Technicians} />
-                          
-                          {/* Other routes */}
-                          <Route path="/client-portal" component={ClientPortal} />
-                          <Route path="/service-report/:id" component={ServiceReport} />
-                          <Route path="/service-report-page/:id" component={ServiceReportPage} />
-                          <Route path="/maintenance-report/:id" component={MaintenanceReportPage} />
-                          <Route path="/communications" component={Communications} />
-                          <Route path="/business" component={Business} />
-                          <Route path="/inventory" component={InventoryManagement} />
-                          <Route path="/inventory/transfers" component={InventoryTransfers} />
-                          <Route path="/inventory/barcode-demo" component={BarcodeDemo} />
-                          
-                          {/* Fleetmatics routes */}
-                          <Route path="/fleetmatics/settings" component={FleetmaticsSettings} />
-                          <Route path="/fleetmatics/vehicle-mapping" component={VehicleMapping} />
-                          <Route path="/fleetmatics/vehicle-tracking" component={VehicleTracking} />
-                          
-                          <Route path="/settings" component={Settings} />
-                          <Route path="/admin" component={Admin} />
-                          
-                          {/* Catch-all */}
-                          <Route component={NotFound} />
-                        </Switch>
-                      </main>
-                    </div>
-                  </ProtectedRoute>
-                </Route>
-              </Switch>
-            </div>
-            
-            <Toaster />
-          </TabProvider>
+          <AppContent 
+            mobileMenuOpen={mobileMenuOpen}
+            toggleMobileMenu={toggleMobileMenu}
+            closeMobileMenu={closeMobileMenu}
+          />
         </AuthProvider>
       </GoogleMapsProvider>
     </QueryClientProvider>
