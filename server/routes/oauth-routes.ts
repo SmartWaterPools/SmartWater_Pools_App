@@ -38,11 +38,7 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
         });
       }
 
-      console.log(`Completing registration for pending OAuth user:`, {
-        googleId,
-        email: pendingUser.email,
-        action
-      });
+      // Process the registration for the pending OAuth user
 
       if (action === 'create') {
         // Creating a new organization
@@ -52,12 +48,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
             message: 'Organization name is required' 
           });
         }
-
-        console.log('[OAUTH DEBUG] Creating organization with following details:', {
-          name: organizationName,
-          type: organizationType || 'company',
-          email: pendingUser.email
-        });
 
         // Clean and prepare organization slug
         let slug = organizationName.toLowerCase()
@@ -69,8 +59,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
         if (!slug) {
           slug = 'org-' + Date.now();
         }
-          
-        console.log(`[OAUTH DEBUG] Creating organization with slug: ${slug}`);
         
         // Create a new organization with only the columns that exist in the database
         const organizationData = {
@@ -89,16 +77,11 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
         };
 
-        console.log('[OAUTH DEBUG] Creating organization with data:', JSON.stringify(organizationData, null, 2));
-        
         try {
           // Create the organization
-          console.log('[OAUTH DEBUG] Calling storage.createOrganization...');
           const newOrganization = await storage.createOrganization(organizationData);
-          console.log('[OAUTH DEBUG] Organization created successfully:', JSON.stringify(newOrganization, null, 2));
 
           if (!newOrganization) {
-            console.error('createOrganization returned null or undefined');
             return res.status(500).json({ 
               success: false, 
               message: 'Failed to create organization' 
@@ -124,7 +107,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
           // Log in the user
           req.login(newUser, (err) => {
             if (err) {
-              console.error('Error logging in new user:', err);
               return res.status(500).json({ 
                 success: false, 
                 message: 'Failed to log in' 
@@ -146,7 +128,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
             });
           });
         } catch (error) {
-          console.error('Error creating organization or user:', error);
           return res.status(500).json({ 
             success: false, 
             message: 'An unexpected error occurred while creating the organization: ' + (error instanceof Error ? error.message : String(error))
@@ -201,7 +182,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
           // Log in the user
           req.login(newUser, (err) => {
             if (err) {
-              console.error('Error logging in new user:', err);
               return res.status(500).json({ 
                 success: false, 
                 message: 'Failed to log in' 
@@ -223,7 +203,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
             });
           });
         } catch (error) {
-          console.error('Error joining organization:', error);
           return res.status(500).json({ 
             success: false, 
             message: 'An unexpected error occurred while joining the organization: ' + (error instanceof Error ? error.message : String(error))
@@ -236,7 +215,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
         });
       }
       } catch (error) {
-        console.error('Error completing OAuth registration:', error);
         return res.status(500).json({ 
           success: false, 
           message: 'An unexpected error occurred' 
@@ -279,7 +257,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
         }
       });
     } catch (error) {
-      console.error('Error fetching pending OAuth user:', error);
       return res.status(500).json({ 
         success: false, 
         message: 'An unexpected error occurred' 
@@ -319,7 +296,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
         invitationId: verificationResult.invitationId
       });
     } catch (error) {
-      console.error('Error verifying invitation token:', error);
       return res.status(500).json({ 
         success: false, 
         message: 'An unexpected error occurred while verifying the invitation' 
@@ -327,56 +303,7 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
     }
   });
 
-  /**
-   * Handle OAuth callback debug
-   * GET /api/oauth/debug
-   */
-  router.get('/debug', (req: Request, res: Response) => {
-    try {
-      // For debugging purposes, return details about available pending users
-      // Get all pending users from memory storage
-      const pendingUsersFromMemory = getAllPendingOAuthUsers();
-      
-      // Get session-based pending users if they exist
-      const pendingUsersFromSession = req.session && req.session['pendingOAuthUsers'] ? req.session['pendingOAuthUsers'] : {};
-      
-      // Full session debug info
-      const sessionInfo = {
-        id: req.sessionID,
-        cookie: req.session.cookie,
-        hasSession: !!req.session,
-        keys: req.session ? Object.keys(req.session) : []
-      };
-      
-      const debug = {
-        user: req.user,
-        isAuthenticated: req.isAuthenticated(),
-        pendingUsersFromMemory,
-        pendingUsersFromSession,
-        session: sessionInfo,
-        // Add request details that may affect cookies/session
-        requestInfo: {
-          host: req.headers.host,
-          origin: req.headers.origin,
-          referer: req.headers.referer,
-          userAgent: req.headers['user-agent']
-        }
-      };
-      
-      console.log('[OAUTH DEBUG] Debug endpoint accessed with session ID:', req.sessionID);
-      
-      return res.json({
-        success: true,
-        debug
-      });
-    } catch (error) {
-      console.error('Error in OAuth debug endpoint:', error);
-      return res.status(500).json({ 
-        success: false, 
-        message: 'An unexpected error occurred' 
-      });
-    }
-  });
+  // Debug endpoint removed for production
 
   return router;
 }

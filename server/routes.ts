@@ -233,65 +233,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Test route for OAuth callback URL
-  app.get('/api/auth/google-test', (req, res) => {
-    console.log('Google OAuth test route called with:', {
-      headers: {
-        host: req.headers.host,
-        referer: req.headers.referer || 'none',
-        userAgent: req.headers['user-agent'] || 'none'
-      },
-      query: req.query
-    });
-    
-    // Get the callback URL from env variables or build it
-    let callbackURL = '';
-    if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
-      // Use the exact case from environment variables for callback
-      callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
-      
-      // For production deployment
-      if (process.env.NODE_ENV === 'production') {
-        callbackURL = `https://smartwaterpools.replit.app/api/auth/google/callback`;
-      }
-    } else {
-      callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
-    }
-    
-    res.json({
-      success: true,
-      message: 'This is a test of the OAuth callback URL configuration',
-      currentUrl: `https://${req.headers.host}/api/auth/google/callback`,
-      expectedCallbackUrl: callbackURL,
-      environmentDetails: {
-        nodeEnv: process.env.NODE_ENV || 'development',
-        replSlug: process.env.REPL_SLUG,
-        replOwner: process.env.REPL_OWNER
-      },
-      isReplit: !!process.env.REPL_ID,
-      recommendedCallbackURLs: [
-        `https://smartwaterpools.replit.app/api/auth/google/callback`, // Development with proper case
-        `https://workspace.${process.env.REPL_OWNER?.toLowerCase()}.repl.co/api/auth/google/callback`, // Development with lowercase
-        `https://smartwaterpools.replit.app/api/auth/google/callback` // Production
-      ],
-      userDetails: req.user ? {
-        id: (req.user as any).id,
-        username: (req.user as any).username,
-        email: (req.user as any).email,
-        role: (req.user as any).role,
-        isAuthenticated: req.isAuthenticated()
-      } : {
-        isAuthenticated: req.isAuthenticated()
-      }
-    });
-  });
+  // Google OAuth routes setup for login
 
   // Google OAuth login route
   app.get('/api/auth/google', (req, res, next) => {
-    console.log('Google OAuth login route accessed');
-    console.log('Session before Google auth:', req.sessionID);
-    console.log('OAUTH DEBUG - Google Auth Route - Date & Time:', new Date().toISOString());
-    
     // Ensure session is saved before redirecting to Google
     if (req.session) {
       req.session.save((err) => {
@@ -319,30 +264,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Google OAuth callback route with enhanced error handling and logging
   app.get('/api/auth/google/callback', 
     (req, res, next) => {
-      console.log('Received Google OAuth callback request', {
-        path: req.path,
-        query: {
-          code: req.query.code ? `${req.query.code.toString().substring(0, 10)}...` : undefined,
-          state: req.query.state,
-          error: req.query.error
-        },
-        headers: {
-          host: req.headers.host,
-          referer: req.headers.referer,
-          origin: req.headers.origin
-        },
-        sessionID: req.sessionID
-      });
-      
-      console.log('OAUTH DEBUG - OAuth Callback - Date & Time:', new Date().toISOString());
-      
       if (req.query.error) {
-        console.error('Google OAuth error received:', req.query.error);
         return res.redirect(`/login?error=${encodeURIComponent(req.query.error as string)}`);
       }
       
       if (!req.query.code) {
-        console.error('No auth code received in Google OAuth callback');
         return res.redirect('/login?error=missing-auth-code');
       }
       
@@ -535,64 +461,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.get("/api/auth/google-test", async (req: Request, res: Response) => {
-    try {
-      // Get Replit environment variables for debugging
-      const nodeEnv = process.env.NODE_ENV || 'development';
-      const replId = process.env.REPL_ID || '';
-      const replSlug = process.env.REPL_SLUG || '';
-      const replOwner = process.env.REPL_OWNER || '';
-      const isReplit = !!process.env.REPL_ID && !!process.env.REPL_SLUG;
-      
-      // Determine the base URL
-      let baseUrl = '';
-      if (isReplit) {
-        baseUrl = `https://${replSlug}.${replOwner}.repl.co`;
-      } else if (process.env.NODE_ENV === 'production') {
-        baseUrl = 'https://smartwaterpools.replit.app';
-      } else {
-        baseUrl = 'http://localhost:5000';
-      }
-      
-      // Determine callback URL
-      const callbackUrl = `${baseUrl}/api/auth/google/callback`;
-      
-      // Generate recommended callback URLs
-      const recommendedCallbackURLs = [
-        `https://${replSlug}.${replOwner}.repl.co/api/auth/google/callback`,
-        `https://${replSlug.toLowerCase()}.${replOwner.toLowerCase()}.repl.co/api/auth/google/callback`,
-        'https://smartwaterpools.replit.app/api/auth/google/callback'
-      ];
-      
-      // Get user information if logged in
-      const userDetails = req.user ? {
-        id: (req.user as User).id,
-        username: (req.user as User).username,
-        email: (req.user as User).email,
-        role: (req.user as User).role,
-        isAuthenticated: true
-      } : undefined;
-      
-      // Build response object
-      const responseData = {
-        currentUrl: baseUrl,
-        expectedCallbackUrl: callbackUrl,
-        environmentDetails: {
-          nodeEnv,
-          replSlug,
-          replOwner
-        },
-        isReplit,
-        recommendedCallbackURLs,
-        userDetails
-      };
-      
-      res.json(responseData);
-    } catch (error) {
-      console.error('Error in Google OAuth test endpoint:', error);
-      res.status(500).json({ error: 'Failed to generate OAuth test information' });
-    }
-  });
+  // Google OAuth test endpoint removed for production
   
   // User registration endpoint (modified version of the existing user creation endpoint)
   app.post("/api/auth/register", async (req: Request, res: Response) => {
@@ -928,76 +797,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OAuth routes
   const oauthRouter = express.Router();
   app.use("/api/oauth", registerOAuthRoutes(oauthRouter, storage));
-  // We removed the duplicate Google OAuth routes - they're defined higher up in the file
-  
-  // OAuth debug route
-  app.get("/oauth-debug", (req: Request, res: Response) => {
-    const debugInfo = {
-      session: req.session,
-      isAuthenticated: req.isAuthenticated(),
-      user: req.user,
-      cookies: req.headers.cookie,
-      env: {
-        REPL_SLUG: process.env.REPL_SLUG,
-        REPL_OWNER: process.env.REPL_OWNER,
-        NODE_ENV: process.env.NODE_ENV,
-      }
-    };
-    
-    res.send(`
-      <html>
-        <head>
-          <title>OAuth Debug</title>
-          <style>
-            body { font-family: system-ui, sans-serif; line-height: 1.5; padding: 2rem; max-width: 800px; margin: 0 auto; }
-            pre { background: #f5f5f5; padding: 1rem; overflow: auto; border-radius: 4px; }
-            .card { border: 1px solid #ddd; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; }
-            h2 { margin-top: 0; color: #2563eb; }
-            .button { display: inline-block; background: #2563eb; color: white; padding: 0.5rem 1rem; text-decoration: none; border-radius: 4px; }
-            .info { color: #666; }
-          </style>
-        </head>
-        <body>
-          <h1>OAuth Debug Information</h1>
-          
-          <div class="card">
-            <h2>Authentication Status</h2>
-            <p>User is ${req.isAuthenticated() ? 'authenticated' : 'not authenticated'}</p>
-            ${req.user ? `<p>Logged in as: ${(req.user as any).username || 'Unknown'}</p>` : ''}
-          </div>
-          
-          <div class="card">
-            <h2>Environment</h2>
-            <pre>${JSON.stringify(debugInfo.env, null, 2)}</pre>
-          </div>
-          
-          <div class="card">
-            <h2>Session Data</h2>
-            <pre>${JSON.stringify(debugInfo.session, null, 2)}</pre>
-          </div>
-          
-          <div class="card">
-            <h2>User Object</h2>
-            <pre>${JSON.stringify(debugInfo.user, null, 2)}</pre>
-          </div>
-          
-          <div class="card">
-            <h2>Cookie Headers</h2>
-            <pre>${debugInfo.cookies || 'No cookies found'}</pre>
-          </div>
-          
-          <div class="card">
-            <h2>Actions</h2>
-            <p><a class="button" href="/api/auth/google">Sign in with Google</a></p>
-            <p><a class="button" href="/api/auth/logout">Logout</a></p>
-            <p><a class="button" href="/">Go to Home</a></p>
-          </div>
-          
-          <p class="info">Page generated at: ${new Date().toISOString()}</p>
-        </body>
-      </html>
-    `);
-  });
 
   // Enhanced health check endpoint with detailed diagnostics
   app.get("/api/health", (req: Request, res: Response) => {

@@ -49,11 +49,8 @@ export async function completeOAuthRegistration(
     const pendingUser = getPendingOAuthUser(googleId, req);
     
     if (!pendingUser) {
-      console.error(`Pending OAuth user not found for Google ID: ${googleId}`);
       return null;
     }
-    
-    console.log(`Completing OAuth registration for ${pendingUser.email} with organization ${organizationId}`);
     
     // Use email as username
     const username = pendingUser.email;
@@ -73,27 +70,14 @@ export async function completeOAuthRegistration(
     });
     
     if (newUser) {
-      console.log(`Successfully created user from OAuth:`, {
-        id: newUser.id,
-        username: newUser.username,
-        email: newUser.email,
-        role: newUser.role,
-        organizationId: newUser.organizationId
-      });
-      
       // Clean up the pending user data - pass req for session access
       removePendingOAuthUser(googleId, req);
       
       return newUser;
     } else {
-      console.error(`Failed to create user record for pending OAuth user:`, {
-        googleId,
-        email: pendingUser.email
-      });
       return null;
     }
   } catch (error) {
-    console.error(`Error in completeOAuthRegistration:`, error);
     return null;
   }
 }
@@ -114,7 +98,6 @@ export async function verifyInvitationToken(
     const invitation = await storage.getInvitationByToken(invitationToken);
     
     if (!invitation) {
-      console.log(`Invitation token not found: ${invitationToken}`);
       return {
         valid: false,
         message: 'Invitation not found'
@@ -126,7 +109,6 @@ export async function verifyInvitationToken(
     const expiryDate = new Date(invitation.expiresAt);
     
     if (now > expiryDate) {
-      console.log(`Invitation token expired: ${invitationToken}`);
       return {
         valid: false,
         message: 'Invitation has expired'
@@ -135,7 +117,6 @@ export async function verifyInvitationToken(
     
     // Check if the invitation has already been used
     if (invitation.status === 'accepted' as InvitationTokenStatus) {
-      console.log(`Invitation token already used: ${invitationToken}`);
       return {
         valid: false,
         message: 'Invitation has already been used'
@@ -146,14 +127,11 @@ export async function verifyInvitationToken(
     const organization = await storage.getOrganization(invitation.organizationId);
     
     if (!organization) {
-      console.log(`Organization not found for invitation: ${invitationToken}`);
       return {
         valid: false,
         message: 'Organization not found'
       };
     }
-    
-    console.log(`Invitation token valid: ${invitationToken} for organization ${organization.name}`);
     
     return {
       valid: true,
@@ -163,7 +141,6 @@ export async function verifyInvitationToken(
       invitationId: invitation.id
     };
   } catch (error) {
-    console.error(`Error verifying invitation token:`, error);
     return {
       valid: false,
       message: 'Error verifying invitation'

@@ -422,51 +422,7 @@ router.get('/providers', isAuthenticated, isAdmin, async (_req: Request, res: Re
   }
 });
 
-/**
- * Test API endpoint (no authentication required)
- * GET /api/email/email-test
- */
-router.get('/email-test', async (_req: Request, res: Response) => {
-  // Check if nodemailer and googleapis are available
-  let nodemailerAvailable = false;
-  let googleapisAvailable = false;
-  
-  // Use dynamic imports to check for package availability
-  try {
-    await import('nodemailer');
-    nodemailerAvailable = true;
-  } catch (error) {
-    console.log('Nodemailer is not available');
-  }
-  
-  try {
-    await import('googleapis');
-    googleapisAvailable = true;
-  } catch (error) {
-    console.log('Googleapis is not available');
-  }
-  
-  // Check email service configuration
-  const configured = emailService.hasCredentials();
-  
-  return res.json({
-    success: true,
-    emailServiceStatus: {
-      configured: configured,
-      dependencies: {
-        nodemailer: nodemailerAvailable ? 'installed' : 'missing',
-        googleapis: googleapisAvailable ? 'installed' : 'missing'
-      },
-      operationalStatus: configured && nodemailerAvailable && googleapisAvailable 
-        ? 'fully operational' 
-        : 'limited functionality',
-      statusMessage: configured 
-        ? 'Email service is configured' 
-        : 'Email service is not configured'
-    },
-    message: 'Email service test endpoint'
-  });
-});
+// Test API endpoint has been removed for production security
 
 /**
  * Send invitation email to join organization
