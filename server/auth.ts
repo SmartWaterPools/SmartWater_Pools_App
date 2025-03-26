@@ -82,32 +82,9 @@ export function configurePassport(storage: IStorage) {
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   
-  // Determine the environment and set appropriate callback URL
-  let callbackURL = '';
-  
-  // First priority: Use GOOGLE_CALLBACK_URL if explicitly set
-  if (process.env.GOOGLE_CALLBACK_URL) {
-    callbackURL = process.env.GOOGLE_CALLBACK_URL;
-  } 
-  // Second priority: Use APP_URL if set
-  else if (process.env.APP_URL) {
-    callbackURL = `${process.env.APP_URL}/api/auth/google/callback`;
-  }
-  // Third priority: Use Replit environment if available
-  else if (process.env.REPL_ID && process.env.REPL_SLUG && process.env.REPL_OWNER) {
-    // Construct a dynamic URL based on the Replit environment
-    const replitDomain = `${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-    callbackURL = `https://${replitDomain}/api/auth/google/callback`;
-    
-    // If this is the smartwaterpools app specifically, use the production domain
-    if (process.env.REPL_SLUG === 'smartwaterpools' || process.env.REPL_SLUG === 'SmartWaterPools') {
-      callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
-    }
-  }
-  // Fallback to production URL as last resort
-  else {
-    callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
-  }
+  // ALWAYS use the production URL for Google OAuth callback to ensure consistency
+  // This prevents issues with OAuth redirects going to the wrong domain
+  const callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
   
   if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     passport.use(

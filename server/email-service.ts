@@ -179,7 +179,27 @@ export class EmailService {
     
     try {
       const token = this.storeToken(user.id, user.email, 'password-reset');
-      const resetLink = `${process.env.APP_URL || ''}/reset-password?token=${token}`;
+      
+      // Always use the production URL for password reset
+      let baseUrl = 'https://smartwaterpools.replit.app';
+      
+      // If APP_URL is explicitly set, use that
+      if (process.env.APP_URL) {
+        baseUrl = process.env.APP_URL;
+      } else if (process.env.NODE_ENV !== 'production') {
+        // Only use localhost in explicit development mode
+        baseUrl = 'http://localhost:5000';
+        console.log('Using localhost URL for password reset in development');
+      }
+      
+      // Make sure baseUrl doesn't end with a slash
+      if (baseUrl.endsWith('/')) {
+        baseUrl = baseUrl.slice(0, -1);
+      }
+      
+      const resetLink = `${baseUrl}/reset-password?token=${token}`;
+      console.log('Generated password reset link:', resetLink);
+      
       const userName = user.name || user.username;
       
       // Create email content from template
@@ -441,18 +461,19 @@ export class EmailService {
 
     try {
       // Create invitation link using the invitation token
-      let baseUrl = process.env.APP_URL || '';
-      const isReplitEnv = !!process.env.REPL_ID;
+      // Always use the production URL for invitations
+      let baseUrl = 'https://smartwaterpools.replit.app';
       
-      // If no APP_URL is set but we're in Replit, construct the URL
-      if (!baseUrl && isReplitEnv && process.env.REPL_SLUG && process.env.REPL_OWNER) {
-        baseUrl = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
-        console.log('Constructed Replit URL for email:', baseUrl);
-      } else if (!baseUrl) {
-        // Local development fallback
+      // If APP_URL is explicitly set, use that
+      if (process.env.APP_URL) {
+        baseUrl = process.env.APP_URL;
+      } else if (process.env.NODE_ENV !== 'production') {
+        // Only use localhost in explicit development mode
         baseUrl = 'http://localhost:5000';
         console.log('Using localhost URL for email in development');
       }
+      
+      console.log('Using base URL for invitation emails:', baseUrl);
       
       // Make sure baseUrl doesn't end with a slash
       if (baseUrl.endsWith('/')) {

@@ -14,10 +14,11 @@ import { loadEmailConfigFromDatabase } from "./email-service";
 
 // Set up environment variables for Replit
 const isReplitEnv = !!process.env.REPL_ID;
-if (isReplitEnv && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+if (isReplitEnv) {
   // Set APP_URL for email links and other absolute URLs
   if (!process.env.APP_URL) {
-    process.env.APP_URL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+    // Always use production URL for consistency and security
+    process.env.APP_URL = 'https://smartwaterpools.replit.app';
     console.log(`Setting APP_URL for Replit environment: ${process.env.APP_URL}`);
   }
 }
@@ -211,8 +212,9 @@ app.use((req, res, next) => {
       log(`Network access URL: http://0.0.0.0:${port}`);
       
       // Display Replit-specific URLs when in Replit environment
-      if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
-        log(`Replit access URL: https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`);
+      if (isReplit) {
+        // Always use the production URL for consistency
+        log(`Replit access URL: https://smartwaterpools.replit.app`);
       }
       
       log(`Using port ${port} for server compatibility`);
