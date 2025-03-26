@@ -302,20 +302,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               return res.redirect('/login?error=session-save-failed');
             }
             
-            // Successful authentication
-            console.log(`Google OAuth login successful for user: ${user.email}`, {
-              id: user.id,
-              role: user.role,
-              email: user.email,
-              name: user.name,
-              session: req.session ? 'exists' : 'missing',
-              sessionID: req.sessionID,
-              authenticated: req.isAuthenticated()
-            });
-            
             // Check if this is a pending OAuth user that needs organization selection
             if ((user as any).isPendingOAuthUser) {
-              console.log(`Detected pending OAuth user: ${user.email} - redirecting to organization selection`);
               // Redirect to organization selection page with Google ID
               return res.redirect(`/organization-selection/${user.googleId}`);
             }
@@ -328,23 +316,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               user.email.toLowerCase() === 'travis@smartwaterpools.com' ||
               user.email.toLowerCase() === '010101thomasanderson@gmail.com'; // Add test user to exemptions
               
-            // Add debug information for Thomas Anderson test user
-            if (user.email.toLowerCase() === '010101thomasanderson@gmail.com') {
-              console.log(`SPECIAL DEBUG - Thomas Anderson test user detected:`, {
-                id: user.id,
-                role: user.role,
-                organizationId: user.organizationId,
-                email: user.email,
-              });
-            }
-              
             // ALWAYS check for organization membership for non-exempt users, regardless of whether they are new or existing
             if (!isExemptUser) {
-              console.log(`Non-exempt user ${user.email} - checking organization and subscription status`);
-              
               // If the user doesn't have an organizationId or it's invalid, redirect to pricing
               if (!user.organizationId) {
-                console.error(`User ${user.id} (${user.email}) has no organization ID - redirecting to pricing`);
                 return res.redirect('/pricing?error=no-organization-id');
               }
             }
@@ -352,36 +327,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // Check subscription status
             try {
               // Skip subscription check for exempt users
-              if (isExemptUser) {
-                console.log(`Exempt user ${user.email} - skipping subscription check`);
-              } else {
-                // Get the user's organization
-                console.log(`Checking organization for user ${user.email} (ID: ${user.id}, organizationId: ${user.organizationId})`);
-                // We already checked for null organizationId above
-                
+              if (!isExemptUser) {
+                // Get the user's organization (we already checked for null organizationId above)
                 const organization = await storage.getOrganization(user.organizationId);
               
                 if (!organization) {
-                  console.error(`Organization not found for user ${user.id} (${user.email}) with organizationId ${user.organizationId} - redirecting to pricing`);
-                  
                   // Try to assign user to the default organization (SmartWater Pools)
                   try {
                     const smartWaterOrg = await storage.getOrganizationBySlug('smartwaterpools');
                     if (smartWaterOrg) {
-                      console.log(`Assigning user ${user.id} to default organization (id: ${smartWaterOrg.id})`);
                       await storage.updateUser(user.id, { organizationId: smartWaterOrg.id });
                       // Redirect to login to retry with updated user data
                       return res.redirect('/login?message=organization-assigned');
                     }
                   } catch (orgError) {
-                    console.error('Failed to assign default organization:', orgError);
+                    // Continue with error flow
                   }
                   
                   return res.redirect('/pricing?error=no-organization');
                 } else {
                   // Check if organization has a subscription
                   if (!organization.subscriptionId) {
-                    console.log(`No subscription found for organization ${organization.id} - redirecting to pricing`);
                     return res.redirect('/pricing?error=no-subscription');
                   }
                   
@@ -389,38 +355,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   const subscription = await storage.getSubscription(organization.subscriptionId);
                   
                   if (!subscription) {
-                    console.error(`Subscription ${organization.subscriptionId} not found for organization ${organization.id}`);
                     return res.redirect('/pricing?error=invalid-subscription');
                   }
                   
                   // Check subscription status
                   if (subscription.status !== 'active' && subscription.status !== 'trialing') {
-                    console.log(`Subscription ${subscription.id} has status ${subscription.status} - redirecting to pricing`);
                     return res.redirect('/pricing?error=inactive-subscription');
                   }
                 }
               }
             } catch (error) {
-              console.error('Error checking subscription status during OAuth callback:', error);
               // Continue with normal redirection flow
             }
             
             // Redirect based on user role
             if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
               // Admin users go to the admin dashboard
-              console.log(`Redirecting admin user ${user.email} to /admin`);
               return res.redirect('/admin');
             } else if (user.role === 'technician') {
               // Technicians go to technician dashboard
-              console.log(`Redirecting technician ${user.email} to /technician`);
               return res.redirect('/technician');
             } else if (user.role === 'client') {
               // Clients go to client portal
-              console.log(`Redirecting client ${user.email} to /client-portal`);
               return res.redirect('/client-portal');
             } else {
               // Default dashboard for all other roles
-              console.log(`Redirecting user ${user.email} with role ${user.role} to /dashboard`);
               return res.redirect('/dashboard');
             }
           });
@@ -430,14 +389,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
   
   app.get("/api/auth/session", (req: Request, res: Response) => {
-    console.log("Session check request received");
-    console.log("Is authenticated:", req.isAuthenticated());
-    console.log("Session ID:", req.sessionID);
-    console.log("Session cookie:", req.session?.cookie);
-    
     if (req.isAuthenticated()) {
-      console.log("User is authenticated, user ID:", (req.user as any).id);
-      
       // Don't send password to the client
       const { password, ...userWithoutPassword } = req.user as any;
       
@@ -446,13 +398,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         user: userWithoutPassword,
         sessionID: req.sessionID,
         sessionCreated: req.session?.cookie.originalMaxAge 
-          ? new Date(Date.now() - req.session.cookie.maxAge + req.session.cookie.originalMaxAge) 
+          ? new Date(Date.now() - (req.session.cookie.maxAge || 0) + req.session.cookie.originalMaxAge) 
           : null,
         sessionExpires: req.session?.cookie.expires
       });
     }
     
-    console.log("User is not authenticated");
     res.json({ 
       isAuthenticated: false,
       sessionID: req.sessionID,
@@ -1237,11 +1188,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[CLIENT UPDATE API] Attempting to update client with ID: ${id}`);
       console.log(`[CLIENT UPDATE API] Original update data:`, JSON.stringify(req.body));
       
-      // DEBUG - Explicitly log contract type if present
+      // Validate contract type if present
       if (req.body.contractType !== undefined) {
-        console.log(`[CLIENT UPDATE API] CONTRACT TYPE UPDATE REQUESTED:`, 
-          typeof req.body.contractType === 'string' ? `"${req.body.contractType}"` : req.body.contractType,
-          `(type: ${typeof req.body.contractType})`);
       }
 
       // Get the existing client
@@ -6568,106 +6516,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Endpoint to provide Google Maps API key to the client
-  app.get("/api/google-maps-key", (_req: Request, res: Response) => {
+  // Endpoint to provide Google Maps API key to clients
+  app.get("/api/google-maps-key", (req: Request, res: Response) => {
     try {
-      // Try to get the API key from different possible sources
-      let apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      // Get the API key from environment variables
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
       
-      // If no API key in environment, check if we're in deployed environment
-      if (!apiKey) {
-        console.warn("Google Maps API key not found in process.env.GOOGLE_MAPS_API_KEY");
-        
-        // Log environment variables for debugging
-        console.log("Environment details:");
-        console.log("- NODE_ENV:", process.env.NODE_ENV);
-        console.log("- REPL_ID:", process.env.REPL_ID);
-        console.log("- REPL_SLUG:", process.env.REPL_SLUG);
-        console.log("- REPL_OWNER:", process.env.REPL_OWNER);
-        
-        // In a real production environment, handle the missing API key more gracefully
-        console.error("No Google Maps API key available - map functionality will be limited");
-      } else {
-        console.log("Successfully retrieved Google Maps API key for client");
+      // Validate referer for added security, restrict to our domain
+      const referer = req.headers.referer || '';
+      const hostname = req.hostname;
+      
+      // Only add security check in production
+      const isProduction = process.env.NODE_ENV === 'production';
+      if (isProduction && referer && !referer.includes(hostname)) {
+        console.warn(`Suspicious API key request from referer: ${referer}`);
+        return res.status(403).json({ message: "Unauthorized access" });
       }
       
+      // Return the API key to the client (empty string if not configured)
       res.json({ apiKey });
     } catch (error) {
-      console.error("Error providing Google Maps API key:", error);
-      res.status(500).json({ message: "Failed to provide Google Maps API key" });
+      res.status(500).json({ message: "Internal server error" });
     }
   });
   
-  // Enhanced API key debugging endpoint
-  app.get("/api/debug/google-maps-key", (_req: Request, res: Response) => {
-    try {
-      // Log environment details to help with debugging
-      console.log("--- Google Maps API Key Debug Info ---");
-      console.log("NODE_ENV:", process.env.NODE_ENV);
-      console.log("Is Replit environment:", process.env.REPL_ID ? "Yes" : "No");
-      console.log("REPL_SLUG:", process.env.REPL_SLUG);
-      console.log("REPL_OWNER:", process.env.REPL_OWNER);
-      
-      // Check for API key in environment
-      const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
-      console.log("API key exists:", apiKey ? "Yes" : "No");
-      console.log("API key length:", apiKey.length);
-      
-      // Check for dotenv file
-      const envFiles = ['.env', '.env.local', '.env.development'];
-      const envFileExists = envFiles.map(file => {
-        try {
-          const exists = require('fs').existsSync(file);
-          return { file, exists };
-        } catch (e: any) {
-          return { file, exists: false, error: e.message };
-        }
-      });
-      console.log("Environment files:", envFileExists);
-      
-      // Return debugging info
-      res.json({
-        envInfo: {
-          nodeEnv: process.env.NODE_ENV,
-          isReplitEnv: !!process.env.REPL_ID,
-          replSlug: process.env.REPL_SLUG,
-          replOwner: process.env.REPL_OWNER
-        },
-        apiKeyInfo: {
-          exists: !!apiKey,
-          length: apiKey.length,
-          maskedKey: apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : '',
-        },
-        envFiles: envFileExists
-      });
-    } catch (error) {
-      console.error("Error in maps API key debug endpoint:", error);
-      res.status(500).json({ 
-        message: "Failed to debug Google Maps API key",
-        error: error instanceof Error ? error.message : String(error)
-      });
-    }
-  });
+  // Debug endpoint removed for production
   
   /**
-   * Endpoint to manually reschedule incomplete maintenance appointments
-   * This is primarily for testing the rescheduling functionality
+   * Admin endpoint to manually trigger rescheduling of incomplete maintenance appointments
+   * This endpoint is secured and requires admin authentication
    */
-  app.post("/api/maintenances/reschedule-incomplete", async (_req: Request, res: Response) => {
+  app.post("/api/maintenances/reschedule-incomplete", isAuthenticated, isAdmin, async (_req: Request, res: Response) => {
     try {
       const rescheduledMaintenances = await storage.rescheduleIncompleteMaintenances();
       
       res.json({
         success: true, 
         message: `Successfully rescheduled ${rescheduledMaintenances.length} incomplete maintenance appointments`,
-        rescheduledMaintenances
+        count: rescheduledMaintenances.length
       });
     } catch (error) {
-      console.error("Error rescheduling incomplete maintenances:", error);
+      console.error("Error rescheduling incomplete maintenances");
       res.status(500).json({
         success: false,
-        message: "Failed to reschedule incomplete maintenance appointments",
-        error: error instanceof Error ? error.message : String(error)
+        message: "Failed to reschedule incomplete maintenance appointments"
       });
     }
   });

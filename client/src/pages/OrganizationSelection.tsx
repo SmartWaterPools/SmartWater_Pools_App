@@ -55,7 +55,6 @@ export default function OrganizationSelection() {
   const { data: pendingUserData, isLoading: isLoadingUser, isError: isErrorUser } = useQuery({
     queryKey: ['/api/oauth/pending', googleId],
     queryFn: async () => {
-      console.log(`Fetching pending OAuth user data for Google ID: ${googleId}`);
       return await apiRequest(`/api/oauth/pending/${googleId}`, 'GET');
     },
     retry: false,
@@ -65,7 +64,6 @@ export default function OrganizationSelection() {
   const handleVerifyInvitation = async (code: string) => {
     try {
       setIsLoading(true);
-      console.log(`Verifying invitation code: ${code}`);
       const data = await apiRequest(`/api/oauth/verify-invitation/${code}`, 'GET');
       
       if (data.success) {
@@ -87,7 +85,7 @@ export default function OrganizationSelection() {
         setVerifiedOrg(null);
       }
     } catch (error: any) {
-      console.error("Error verifying invitation:", error);
+      // Error handling
       
       let errorMessage = "Could not verify the invitation code";
       
@@ -111,12 +109,6 @@ export default function OrganizationSelection() {
   const onCreateOrgSubmit = async (values: z.infer<typeof createOrgSchema>) => {
     try {
       setIsLoading(true);
-      console.log('Creating organization with data:', {
-        googleId,
-        action: 'create',
-        organizationName: values.organizationName,
-        organizationType: values.organizationType,
-      });
       
       const response = await apiRequest(
         '/api/oauth/complete-registration', 
@@ -150,8 +142,7 @@ export default function OrganizationSelection() {
         });
       }
     } catch (error: any) {
-      console.error("Error creating organization:", error);
-      
+      // Handle error gracefully without logging
       let errorMessage = "An unexpected error occurred";
       
       // Try to extract a more specific error message
@@ -173,11 +164,6 @@ export default function OrganizationSelection() {
   const onJoinOrgSubmit = async (values: z.infer<typeof joinOrgSchema>) => {
     try {
       setIsLoading(true);
-      console.log('Joining organization with invitation code:', {
-        googleId,
-        action: 'join',
-        invitationCode: values.invitationCode
-      });
       
       const response = await apiRequest(
         '/api/oauth/complete-registration', 
@@ -210,8 +196,7 @@ export default function OrganizationSelection() {
         });
       }
     } catch (error: any) {
-      console.error("Error joining organization:", error);
-      
+      // Handle error gracefully without logging
       let errorMessage = "An unexpected error occurred";
       
       // Try to extract a more specific error message
@@ -229,24 +214,7 @@ export default function OrganizationSelection() {
     }
   };
 
-  // Debug function to check OAuth state
-  const checkOAuthDebug = async () => {
-    try {
-      console.log(`Current Google ID parameter: ${googleId}`);
-      const response = await apiRequest('/api/oauth/debug', 'GET');
-      console.log('OAuth Debug Info:', response);
-      return response;
-    } catch (error) {
-      console.error('Error fetching OAuth debug info:', error);
-    }
-  };
-  
-  // Check OAuth debug on load
-  useEffect(() => {
-    if (googleId) {
-      checkOAuthDebug();
-    }
-  }, [googleId]);
+  // Production code - Debug function removed
 
   // Verify invitation code when it changes
   useEffect(() => {
@@ -297,9 +265,9 @@ export default function OrganizationSelection() {
                 variant="outline" 
                 size="sm" 
                 className="mt-2"
-                onClick={checkOAuthDebug}
+                onClick={() => window.location.href = '/auth/login'}
               >
-                Check OAuth Debug Info
+                Return to Login
               </Button>
             </div>
           </CardContent>
@@ -460,14 +428,6 @@ export default function OrganizationSelection() {
           <div className="flex gap-2">
             <Button variant="link" onClick={() => window.location.href = '/auth/login'}>
               Back to Login
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={checkOAuthDebug}
-              className="text-xs text-muted-foreground"
-            >
-              Debug
             </Button>
           </div>
         </CardFooter>

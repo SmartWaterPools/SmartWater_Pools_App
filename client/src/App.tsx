@@ -39,7 +39,6 @@ import VehicleMapping from "./pages/VehicleMapping";
 import VehicleTracking from "./pages/VehicleTracking";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
-import ApiKeyDebug from "./pages/ApiKeyDebug";
 import BarcodeDemo from "./pages/BarcodeDemo";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -50,7 +49,7 @@ import NotFound from "./pages/not-found";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
-import OAuthDebug from "./pages/OAuthDebug";
+// import OAuthDebug from "./pages/OAuthDebug"; // Debug page removed for production
 import InvitePage from "./pages/InvitePage";
 import OrganizationSelection from "./pages/OrganizationSelection";
 
@@ -71,9 +70,9 @@ function App() {
     setMobileMenuOpen(false);
   };
 
-  // Log application startup for debugging
+  // Initialize app on load
   useEffect(() => {
-    console.log("Checking session...");
+    // App initialization code here if needed
   }, []);
   
   return (
@@ -102,9 +101,7 @@ function App() {
                 <Route path="/oauth-consent">
                   <OAuthConsent />
                 </Route>
-                <Route path="/oauth-debug">
-                  <OAuthDebug />
-                </Route>
+                {/* Route for OAuthDebug removed for production */}
                 <Route path="/invite">
                   <InvitePage />
                 </Route>
@@ -186,7 +183,6 @@ function App() {
                           
                           <Route path="/settings" component={Settings} />
                           <Route path="/admin" component={Admin} />
-                          <Route path="/api-key-debug" component={ApiKeyDebug} />
                           
                           {/* Catch-all */}
                           <Route component={NotFound} />
