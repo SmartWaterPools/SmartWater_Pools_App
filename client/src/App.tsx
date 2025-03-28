@@ -52,6 +52,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
 import OAuthDebug from "./pages/OAuthDebug"; // OAuth debugging page
+import DebugHome from "./pages/DebugHome"; // Debug home page
 import InvitePage from "./pages/InvitePage";
 import OrganizationSelection from "./pages/OrganizationSelection";
 
@@ -112,7 +113,10 @@ function AppContent({
             <OrganizationSelection />
           </Route>
           
-          {/* OAuth Debug page - accessible without authentication */}
+          {/* Debug pages - accessible without authentication */}
+          <Route path="/debug">
+            <DebugHome />
+          </Route>
           <Route path="/oauth-debug">
             <OAuthDebug />
           </Route>

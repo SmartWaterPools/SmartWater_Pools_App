@@ -97,6 +97,7 @@ export function configurePassport(storage: IStorage) {
   );
   
   // Configure Google OAuth strategy
+  // Fetch Google OAuth credentials from environment with careful error checking
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   const isReplit = !!process.env.REPL_ID;
@@ -105,14 +106,28 @@ export function configurePassport(storage: IStorage) {
   // This prevents issues with OAuth redirects going to the wrong domain
   let callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
   
-  // Add detailed logging about Google OAuth configuration
+  // More comprehensive logging of Google OAuth configuration
   console.log('Google OAuth Configuration:');
-  console.log(`- Client ID available: ${!!GOOGLE_CLIENT_ID}`);
-  console.log(`- Client Secret available: ${!!GOOGLE_CLIENT_SECRET}`);
+  if (!GOOGLE_CLIENT_ID) {
+    console.error('- ERROR: GOOGLE_CLIENT_ID is missing or empty in environment variables!');
+  } else {
+    const idLength = GOOGLE_CLIENT_ID.length;
+    const idStart = GOOGLE_CLIENT_ID.substring(0, 6);
+    const idEnd = GOOGLE_CLIENT_ID.substring(idLength - 4);
+    console.log(`- Client ID available: YES (length: ${idLength}, starts with: ${idStart}..., ends with: ...${idEnd})`);
+  }
+  
+  if (!GOOGLE_CLIENT_SECRET) {
+    console.error('- ERROR: GOOGLE_CLIENT_SECRET is missing or empty in environment variables!');
+  } else {
+    console.log(`- Client Secret available: YES (length: ${GOOGLE_CLIENT_SECRET.length})`);
+  }
+  
   console.log(`- Callback URL: ${callbackURL}`);
   console.log(`- Running in Replit: ${isReplit}`);
   
   if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+    console.log('Configuring Google OAuth strategy with available credentials');
     passport.use(
       new GoogleStrategy(
         {
@@ -130,16 +145,43 @@ export function configurePassport(storage: IStorage) {
         },
         async (req, accessToken, refreshToken, profile, done) => {
           try {
-            if (!profile || !profile.id) {
-              return done(new Error('Invalid Google profile'), false);
+            console.log('Google OAuth callback received - Processing authentication');
+            
+            // Log session information for debugging
+            if (req.session) {
+              console.log(`Google OAuth: Session exists (ID: ${req.sessionID})`);
+              console.log(`Google OAuth: Session state: ${req.session.oauthState || 'none'}`);
+              console.log(`Google OAuth: Session pending flag: ${req.session.oauthPending || false}`);
+            } else {
+              console.error('Google OAuth: No session found in request!');
             }
             
-            // Extract primary email from profile
-            const email = profile.emails && profile.emails[0] ? profile.emails[0].value.toLowerCase() : '';
+            // Enhanced profile validation
+            if (!profile) {
+              console.error('Google OAuth: No profile data received from Google');
+              return done(new Error('No profile data received from Google'), false);
+            }
+            
+            if (!profile.id) {
+              console.error('Google OAuth: Profile missing ID field', profile);
+              return done(new Error('Invalid Google profile - missing ID'), false);
+            }
+            
+            console.log(`Google OAuth: Received profile for Google ID: ${profile.id}`);
+            
+            // Extract and validate email from profile
+            const emails = profile.emails || [];
+            const hasEmails = emails.length > 0;
+            console.log(`Google OAuth: Profile has ${emails.length} email(s)`);
+            
+            const email = hasEmails ? emails[0].value.toLowerCase() : '';
             
             if (!email) {
+              console.error('Google OAuth: No email address in profile', emails);
               return done(new Error('No email address provided by Google'), false);
             }
+            
+            console.log(`Google OAuth: Using email ${email} for authentication`);
             
             // Step 1: Check if user already exists with this Google ID
             let existingUser = await storage.getUserByGoogleId(profile.id);

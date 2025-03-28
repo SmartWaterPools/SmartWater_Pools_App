@@ -53,11 +53,12 @@ type SignupFormValues = z.infer<typeof signupFormSchema>;
 
 export default function Login() {
   const { toast } = useToast();
-  const { login, register, isLoading, isAuthenticated } = useAuth();
+  const { login, register, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
   const [demoCredentials, setDemoCredentials] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("login");
+  const [isLoading, setIsLoading] = useState(false);
   const [isSignupLoading, setIsSignupLoading] = useState(false);
   
   // Check if there's a redirect URL in the query string
@@ -456,13 +457,18 @@ export default function Login() {
                   type="button"
                   onClick={() => {
                     // Log that user is attempting Google OAuth login
-                    console.log("Initiating Google OAuth login flow with enhanced session preparation");
+                    console.log("Initiating Google OAuth login flow with enhanced session preparation and error handling");
                     
                     // Add timestamp to prevent caching
                     const timestamp = Date.now();
                     
                     // Store origin path for potential redirect after login
                     const originPath = localStorage.getItem('pre_auth_redirect') || '/dashboard';
+                    localStorage.setItem('pre_auth_redirect', originPath);
+                    
+                    // Show loading state to user - set both states to avoid button conflicts
+                    setIsLoading(true);
+                    setIsSignupLoading(true);
                     
                     // Use the dedicated session preparation endpoint
                     fetch(`/api/auth/prepare-oauth?_t=${timestamp}&originPath=${encodeURIComponent(originPath)}`, { 
@@ -474,8 +480,18 @@ export default function Login() {
                         'Pragma': 'no-cache'
                       }
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                      // Check HTTP status first
+                      if (!response.ok) {
+                        throw new Error(`HTTP error: ${response.status}`);
+                      }
+                      return response.json();
+                    })
                     .then(data => {
+                      // Explicitly check for success flag from server
+                      if (!data.success) {
+                        throw new Error(data.message || 'Error preparing session for OAuth');
+                      }
                       console.log("Session prepared for Google OAuth:", data);
                       
                       if (!data.success) {
@@ -676,6 +692,10 @@ export default function Login() {
                     // Mark this as a signup flow
                     localStorage.setItem('oauth_signup', 'true');
                     
+                    // Show loading state to user - set both states to avoid conflicts
+                    setIsSignupLoading(true);
+                    setIsLoading(true);
+                    
                     // Use the dedicated session preparation endpoint
                     fetch(`/api/auth/prepare-oauth?_t=${timestamp}&originPath=${encodeURIComponent(originPath)}`, { 
                       method: 'GET',
@@ -686,7 +706,13 @@ export default function Login() {
                         'Pragma': 'no-cache'
                       }
                     })
-                    .then(response => response.json())
+                    .then(response => {
+                      // Check HTTP status first
+                      if (!response.ok) {
+                        throw new Error(`HTTP error: ${response.status}`);
+                      }
+                      return response.json();
+                    })
                     .then(data => {
                       console.log("Session prepared for Google OAuth signup:", data);
                       

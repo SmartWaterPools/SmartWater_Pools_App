@@ -24,54 +24,56 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [localLoading, setLocalLoading] = useState<boolean>(true);
 
   // Function to check if the current route is part of the OAuth callback flow
-  // This needs to be more comprehensive to catch all OAuth-related routes
+  // Only specific OAuth-related routes should bypass auth
   const isOAuthCallbackRoute = useCallback(() => {
-    // Complete list of all OAuth related paths that should bypass auth checks
-    const isOAuthPath = location.includes('/auth/callback') || 
+    // Strict list of actual OAuth callback paths (don't include dashboard or home root)
+    const isOAuthCallbackPath = 
+           // Only include actual callback routes
+           location.includes('/auth/callback') || 
            location.includes('/oauth/callback') ||
            location.includes('/api/auth/google/callback') || 
-           location.includes('/api/auth/google') ||
-           location.includes('/organization-selection') ||
-           location === '/oauth-debug' || // Add our debug page as an allowed route
-           location === '/debug.html' || // Debug page
-           // Include the query param cases where we might be in a redirect flow
+           // Explicit OAuth debug routes
+           location === '/oauth-debug' || 
+           location === '/debug.html';
+    
+    // Check for presence of actual OAuth parameters (not just any error or state param)
+    const hasOAuthParams =
+           // OAuth code parameter indicates callback from provider
            location.includes('?code=') ||
            location.includes('&code=') ||
-           // Also check for error states in OAuth flow
-           location.includes('?error=') || 
-           location.includes('&error=') ||
-           // Handle state param as well
-           location.includes('?state=') ||
-           location.includes('&state=') ||
-           // Handle dashboard path as that's where we redirect after OAuth success
-           location === '/dashboard' || 
-           location === '/';
+           // Error from OAuth provider 
+           (location.includes('?error=access_denied') || 
+            location.includes('&error=access_denied') ||
+            location.includes('?error=google-auth-failed') ||
+            location.includes('&error=google-auth-failed')) ||
+           // OAuth state parameter with specific format
+           (location.includes('?state=oauth_') || 
+            location.includes('&state=oauth_'));
     
-    // Also check browser storage for OAuth flow indicators
-    const hasOAuthCookie = document.cookie.includes('oauth_flow=');
-    const hasOAuthToken = document.cookie.includes('oauth_token=');
-    const hasOAuthState = localStorage.getItem('oauth_state') !== null;
-    
-    // Check localstorage timestamps for recent OAuth activity
-    const oauthTimestamp = localStorage.getItem('oauth_timestamp');
-    const isRecentOAuth = oauthTimestamp && 
-        (parseInt(oauthTimestamp) > Date.now() - (10 * 60 * 1000)); // Increased to 10 minutes
-    
-    // More aggressive detection of OAuth flow - consider active if any indicator exists
-    const isInOAuthFlow = hasOAuthCookie || hasOAuthToken || (hasOAuthState && isRecentOAuth);
-    const timestampStr = localStorage.getItem('oauth_timestamp');
-    
-    // Check if we're still within the OAuth flow timeout - extend to 10 minutes to be safe
-    if (timestampStr) {
-      const timestamp = parseInt(timestampStr);
-      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-      if (timestamp > tenMinutesAgo) {
-        // OAuth process started within last 10 minutes
-        return true;
-      }
+    // Only check browser storage for OAuth flow indicators if we're on an OAuth-related path
+    // or have OAuth parameters in the URL
+    if (isOAuthCallbackPath || hasOAuthParams) {
+      // Check for OAuth state indicators
+      const hasOAuthCookie = document.cookie.includes('oauth_flow=');
+      const hasOAuthToken = document.cookie.includes('oauth_token=');
+      
+      // Check if we have a valid OAuth state in localStorage
+      const oauthState = localStorage.getItem('oauth_state');
+      const hasValidOAuthState = oauthState && oauthState.startsWith('oauth_');
+      
+      // Check for recent OAuth activity (within 5 minutes)
+      const oauthTimestamp = localStorage.getItem('oauth_timestamp');
+      const isRecentOAuth = oauthTimestamp && 
+          (parseInt(oauthTimestamp) > Date.now() - (5 * 60 * 1000)); // 5 minutes
+      
+      // Only consider in OAuth flow if we have indicators AND recent timestamp
+      const isInOAuthFlow = (hasOAuthCookie || hasOAuthToken || hasValidOAuthState) && isRecentOAuth;
+      
+      return isInOAuthFlow || isOAuthCallbackPath || hasOAuthParams;
     }
     
-    return isOAuthPath || isInOAuthFlow;
+    // Not on OAuth path and no OAuth parameters - not in OAuth flow
+    return false;
   }, [location]);
 
   // Function to perform auth check and navigation
@@ -99,17 +101,21 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return true;
       }
       
-      // Backup check - look for OAuth indicators even if we're not on an OAuth path
+      // Backup check - only apply with strong evidence of recent OAuth activity 
       const hasOAuthToken = document.cookie.includes('oauth_token=');
       const hasOAuthCookie = document.cookie.includes('oauth_flow=');
       const oauthState = localStorage.getItem('oauth_state');
+      const hasValidOAuthState = oauthState && oauthState.startsWith('oauth_');
+      
       const oauthTimestamp = localStorage.getItem('oauth_timestamp');
       const isRecentOAuth = oauthTimestamp && 
-        (parseInt(oauthTimestamp) > Date.now() - (10 * 60 * 1000)); // Increased to 10 minutes
+        (parseInt(oauthTimestamp) > Date.now() - (5 * 60 * 1000)); // Reduced to 5 minutes
       
-      if ((oauthState && isRecentOAuth) || hasOAuthToken || hasOAuthCookie) {
-        console.log("ProtectedRoute: OAuth flow in progress (from cookies/localStorage), delaying redirect");
-        // Return true to allow rendering temporarily
+      // More strict rules - must have BOTH valid state AND recent timestamp
+      // plus either OAuth cookie or token
+      if (hasValidOAuthState && isRecentOAuth && (hasOAuthToken || hasOAuthCookie)) {
+        console.log("ProtectedRoute: OAuth flow in progress (strict verification), delaying redirect");
+        // Return true to allow rendering temporarily 
         // The auth state will update after OAuth completes
         return true;
       }
