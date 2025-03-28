@@ -8,6 +8,7 @@ import {
   CardHeader, 
   CardTitle 
 } from '@/components/ui/card';
+import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -25,11 +26,23 @@ import {
 
 export default function OAuthDebug() {
   const { user, isAuthenticated, isLoading, checkSession } = useAuth();
+  const [location, setLocation] = useLocation();
   const [sessionData, setSessionData] = useState<any>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [sessionDataHistory, setSessionDataHistory] = useState<any[]>([]);
   const [responseHeaders, setResponseHeaders] = useState<Record<string, string>>({});
+  
+  // Apply global styling for this page
+  useEffect(() => {
+    // Add a class to the body for full height scrolling
+    document.body.classList.add('h-full', 'overflow-auto');
+    
+    return () => {
+      // Clean up by removing the classes when component unmounts
+      document.body.classList.remove('h-full', 'overflow-auto');
+    };
+  }, []);
 
   // Function to check session directly
   const checkSessionManually = async () => {
@@ -87,8 +100,8 @@ export default function OAuthDebug() {
   }, []);
 
   return (
-    <div className="container mx-auto py-8 space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="container mx-auto py-8 space-y-8 pb-20 max-h-full">
+      <div className="flex justify-between items-center sticky top-0 bg-background z-10 py-2">
         <h1 className="text-3xl font-bold">OAuth Authentication Debug</h1>
         <Button 
           onClick={checkSessionManually} 

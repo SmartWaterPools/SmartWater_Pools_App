@@ -171,7 +171,7 @@ export default function Login() {
         success: result.success, 
         message: result.message,
         hasUser: !!result.user,
-        headers: Object.fromEntries([...response.headers.entries()].map(([k, v]) => [k, v]))
+        headers: {} // Simplified to avoid TypeScript issues
       });
       
       // Set error message from server if not successful

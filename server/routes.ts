@@ -394,12 +394,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Handle the authentication with a comprehensive error handler
+      console.log(`OAuth callback - Starting passport.authenticate with session ID: ${req.sessionID}`);
       passport.authenticate('google', { 
         failureRedirect: '/login?error=oauth-failed',
         failureMessage: true,
         session: true,
         keepSessionInfo: true // CRITICAL - prevent session reset during authentication
       }, async (err, user, info) => {
+        console.log(`OAuth callback verification - Session ID: ${req.sessionID}, Auth state: ${req.isAuthenticated()}`);
+        
         if (err) {
           console.error('Google OAuth authentication error:', err);
           return res.redirect(`/login?error=${encodeURIComponent(err.message)}`);
@@ -416,8 +419,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: user.email,
           role: user.role,
           googleId: user.googleId,
-          orgId: user.organizationId
+          orgId: user.organizationId,
+          sessionID: req.sessionID
         });
+        
+        // Verify the session is available - critical check
+        if (!req.session) {
+          console.error(`CRITICAL ERROR: Session unavailable in OAuth callback for user ${user.email}`);
+          return res.redirect('/login?error=session-lost-during-oauth');
+        }
+        
+        // Store session initial state for debugging
+        const initialSessionState = {
+          id: req.sessionID,
+          cookie: req.session.cookie ? {
+            maxAge: req.session.cookie.maxAge,
+            expires: req.session.cookie.expires,
+            secure: req.session.cookie.secure,
+            httpOnly: req.session.cookie.httpOnly,
+            sameSite: req.session.cookie.sameSite
+          } : 'no-cookie',
+          oauthState: req.session.oauthState,
+          oauthPending: req.session.oauthPending,
+          authenticated: req.isAuthenticated()
+        };
+        console.log('Initial session state in OAuth callback:', initialSessionState);
         
         // Clean up OAuth flags from session but maintain the session integrity
         req.session.OAuthAuthenticated = true; // Add a flag to show OAuth succeeded
@@ -438,19 +464,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         
         // First save the session with OAuth flags BEFORE login to prevent race conditions
-        await new Promise<void>((resolve) => {
+        await new Promise<void>((resolve, reject) => {
+          console.log(`OAuth callback - Saving pre-login session with ID: ${req.sessionID}`);
           req.session.save((err) => {
-            if (err) console.error('Error saving pre-login session:', err);
+            if (err) {
+              console.error('Error saving pre-login session:', err);
+              reject(err);
+              return;
+            }
+            console.log(`OAuth callback - Pre-login session saved successfully. ID: ${req.sessionID}`);
             resolve();
           });
+        }).catch(err => {
+          console.error('Failed to save pre-login session:', err);
+          // Continue despite error to attempt recovery
         });
         
         // IMPORTANT - Use a two-phase login approach to ensure session stability
         // First explicitly destroy any existing login data to prevent conflicts
         if (req.isAuthenticated()) {
+          console.log(`OAuth callback - User already authenticated, logging out first`);
           await new Promise<void>((resolve) => {
             req.logout((err) => {
               if (err) console.error('Error during pre-login logout:', err);
+              else console.log(`OAuth callback - Logout successful, preparing for new login`);
               resolve();
             });
           });
