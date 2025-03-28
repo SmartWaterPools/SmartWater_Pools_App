@@ -184,173 +184,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Session check endpoint - Restored from backup
+  // Session check endpoint - Simplified version
   app.get("/api/auth/session", (req: Request, res: Response) => {
     // Set headers to prevent caching of session information
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    // Enhanced debugging information to trace authentication issues
-    const authStatus = req.isAuthenticated() ? 'authenticated' : 'not-authenticated';
-    res.setHeader('X-Auth-Status', authStatus);
-    res.setHeader('X-Session-ID', req.sessionID || 'no-session');
-    
-    // Special diagnostic headers - removed in production
-    if (process.env.NODE_ENV !== 'production') {
-      res.setHeader('X-Session-Cookie', req.session ? 'exists' : 'missing');
-      res.setHeader('X-Session-New', req.session?.isNew ? 'true' : 'false');
-      
-      // If we have OAuth info in the session, include it
-      if (req.session?.OAuthAuthenticated) {
-        res.setHeader('X-OAuth-Auth', 'true');
-      }
-      
-      if (req.session?.OAuthUser) {
-        res.setHeader('X-OAuth-User-Email', (req.session.OAuthUser as any).email || 'none');
-      }
-    }
-    
     if (req.isAuthenticated()) {
       // Don't send password to the client
       const { password, ...userWithoutPassword } = req.user as any;
       
       // Log successful authentication
-      console.log(`Session check: AUTHENTICATED USER: ${userWithoutPassword.email} (${userWithoutPassword.id})`);
-      console.log(`Session details for ${userWithoutPassword.email}: ID=${req.sessionID}, role=${userWithoutPassword.role}`);
-      
-      // Add additional verification in logs for Travis account
-      if (userWithoutPassword.email?.toLowerCase() === 'travis@smartwaterpools.com') {
-        console.log(`*** TRAVIS AUTHENTICATION VERIFIED ***`);
-        console.log(`User data: ID=${userWithoutPassword.id}, Name=${userWithoutPassword.name}`);
-        console.log(`Auth provider: ${userWithoutPassword.authProvider}, Organization: ${userWithoutPassword.organizationId}`);
-      }
+      console.log(`Session check: Authenticated user: ${userWithoutPassword.email} (${userWithoutPassword.id})`);
       
       return res.json({ 
         isAuthenticated: true, 
         user: userWithoutPassword,
-        sessionID: req.sessionID,
-        sessionExists: true,
-        cookieMaxAge: req.session?.cookie?.maxAge,
-        cookieExpires: req.session?.cookie?.expires,
-        sessionCreated: req.session?.cookie?.originalMaxAge 
-          ? new Date(Date.now() - (req.session.cookie.maxAge || 0) + (req.session.cookie.originalMaxAge || 0)) 
-          : null,
       });
     } else {
       // Not authenticated
-      console.log(`Session check: NOT AUTHENTICATED (sessionID=${req.sessionID || 'none'})`);
+      console.log(`Session check: Not authenticated`);
       
-      // Include more debug info about the session state
       return res.json({
-        isAuthenticated: false,
-        sessionID: req.sessionID || null,
-        sessionExists: !!req.session,
-        isNew: req.session?.isNew || false,
-        cookieMaxAge: req.session?.cookie?.maxAge || 'not set',
-        cookieExpires: req.session?.cookie?.expires || 'not set',
+        isAuthenticated: false
       });
     }
   });
 
-  // Google OAuth endpoint with enhanced error handling
+  // Google OAuth endpoint - simplified version
   app.get("/api/auth/google", (req, res, next) => {
     console.log("Google OAuth initiation request received");
     
-    // Add better error handling for Google OAuth
+    // Basic error handling for Google OAuth
     const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
     
     // Check if Google credentials are configured
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-      console.error("Google OAuth credentials missing:", {
-        hasClientId: !!GOOGLE_CLIENT_ID,
-        hasClientSecret: !!GOOGLE_CLIENT_SECRET
-      });
+      console.error("Google OAuth credentials missing");
       return res.redirect('/login?error=google-credentials-missing');
     }
     
-    // Make session information available to Passport
-    if (req.query.state && req.session) {
-      // Store the state parameter in the session if provided
-      // Convert to string regardless of type
-      let stateParam: string = '';
-      
-      if (typeof req.query.state === 'string') {
-        stateParam = req.query.state;
-      } else if (Array.isArray(req.query.state)) {
-        // Force TypeScript to accept string or falsy value
-        const firstState = req.query.state[0] as unknown as string;
-        stateParam = firstState || '';
-      } else {
-        // Handle case when it's a ParsedQs object
-        // Use explicit casting to avoid TypeScript errors
-        stateParam = String(req.query.state as any);
-      }
-        
-      req.session.oauthState = stateParam;
-      req.session.oauthPending = true;
-      
-      // Explicitly save session before redirecting to Google
-      req.session.save((err) => {
-        if (err) {
-          console.error("Error saving session before Google redirect:", err);
-          return res.redirect('/login?error=session-save-error');
-        }
-        
-        // Continue with Google authentication
-        passport.authenticate("google", { 
-          scope: ["profile", "email"],
-          state: stateParam
-        })(req, res, next);
-      });
-    } else {
-      // Continue without explicit session save
-      passport.authenticate("google", { 
-        scope: ["profile", "email"] 
-      })(req, res, next);
-    }
+    // Continue with Google authentication
+    passport.authenticate("google", { 
+      scope: ["profile", "email"]
+    })(req, res, next);
   });
 
-  // Google OAuth callback endpoint with enhanced session handling
+  // Google OAuth callback endpoint - simplified version
   app.get("/api/auth/google/callback",
     passport.authenticate("google", { failureRedirect: "/login?error=google-auth-failed" }),
     (req: Request, res: Response) => {
       try {
         console.log("OAuth callback received, user authenticated");
         
-        // Log session and user details
+        // Log user details
         const userId = req.user ? (req.user as any).id : 'none';
-        const sessionID = req.sessionID || 'none';
-        const sessionExists = !!req.session;
-        const hasOAuthState = req.session ? !!req.session.oauthState : false;
-        const oauthPending = req.session ? !!req.session.oauthPending : false;
+        console.log(`OAuth login successful for user ${userId}, redirecting to dashboard`);
         
-        console.log(`OAuth callback details: userId=${userId}, sessionID=${sessionID}, sessionExists=${sessionExists}, hasOAuthState=${hasOAuthState}, oauthPending=${oauthPending}`);
-        
-        // Clear OAuth flags from session to prevent reuse
-        if (req.session) {
-          req.session.oauthState = undefined;
-          req.session.oauthPending = false;
-          req.session.oauthInitiatedAt = undefined;
-          
-          // Get preferred redirect path from session
-          const redirectPath = req.session.originPath || '/dashboard';
-          
-          // Explicitly save updated session with callback
-          req.session.save((err) => {
-            if (err) {
-              console.error("Error saving session in OAuth callback:", err);
-              return res.redirect('/dashboard'); // Default redirect
-            }
-            
-            console.log(`OAuth login successful for user ${userId}, redirecting to ${redirectPath}`);
-            res.redirect(redirectPath);
-          });
-        } else {
-          console.error("No session available in OAuth callback, using default redirect");
-          res.redirect('/dashboard');
-        }
+        // Always redirect to dashboard
+        res.redirect('/dashboard');
       } catch (error) {
         console.error("Error in OAuth callback handler:", error);
         // Fallback to dashboard on any error

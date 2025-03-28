@@ -1,0 +1,265 @@
+import express, { type Request, Response, NextFunction } from "express";
+import { registerRoutes } from "./routes";
+import { setupVite, serveStatic, log } from "./vite";
+import { Scheduler } from "./scheduler";
+import { storage, DatabaseStorage } from "./storage";
+import { HealthMonitor } from "./health-monitor";
+import session from "express-session";
+import passport from "passport";
+import { initializeAuthentication } from "./auth";
+import path from "path";
+import pg from "pg";
+const { Pool } = pg;
+import connectPgSimple from "connect-pg-simple";
+import { loadEmailConfigFromDatabase } from "./email-service";
+import cookieParser from "cookie-parser";
+
+// Set up environment variables for Replit
+const isReplitEnv = !!process.env.REPL_ID;
+if (isReplitEnv) {
+  // Set APP_URL for email links and other absolute URLs
+  if (!process.env.APP_URL) {
+    // Always use production URL for consistency and security
+    process.env.APP_URL = 'https://smartwaterpools.replit.app';
+    console.log(`Setting APP_URL for Replit environment: ${process.env.APP_URL}`);
+  }
+}
+
+const app = express();
+// Increase the payload size limit for JSON and URL-encoded data to handle larger images
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(cookieParser());
+
+// Configure session store with PostgreSQL
+const PgSession = connectPgSimple(session);
+const isProduction = process.env.NODE_ENV === 'production';
+const isReplit = !!process.env.REPL_ID;
+
+// Generate a more secure session secret that changes on server restart but remains consistent during a session
+const generateSessionSecret = () => {
+  const baseSecret = process.env.SESSION_SECRET || 'smart-water-pools-secret';
+  const randomPart = Math.random().toString(36).substring(2, 15);
+  const timestamp = Date.now().toString(36);
+  return `${baseSecret}-${randomPart}-${timestamp}`;
+};
+
+const sessionSecret = generateSessionSecret();
+console.log('Session middleware initialized with new secret');
+
+// Setup session middleware with enhanced configuration for OAuth flows
+app.use(
+  session({
+    store: new PgSession({
+      pool: new Pool({
+        connectionString: process.env.DATABASE_URL,
+      }),
+      tableName: 'session',
+      createTableIfMissing: true,
+    }),
+    secret: sessionSecret,
+    resave: false,
+    saveUninitialized: true, // Allow empty sessions for OAuth
+    cookie: {
+      secure: isProduction && !isReplit, // In production, require HTTPS except on Replit
+      httpOnly: true,
+      sameSite: isProduction ? 'lax' : 'lax', // Strict in production for security, lax for dev
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+    },
+    name: 'connect.sid',
+    // Don't use rolling sessions as they can interfere with OAuth redirects
+    rolling: false,
+  })
+);
+
+// Initialize Passport after the session middleware
+initializeAuthentication(app);
+
+// Add enhanced middleware for session tracking and debugging
+app.use((req, res, next) => {
+  // Enhanced debugging headers - always add these for API requests
+  // This helps with troubleshooting authentication issues, especially with OAuth
+  if (req.path.startsWith('/api/') || process.env.NODE_ENV !== 'production') {
+    // Include session ID in response headers
+    res.setHeader('X-Session-ID', req.sessionID || 'no-session');
+    
+    // Track authentication status
+    const authStatus = req.isAuthenticated ? (req.isAuthenticated() ? 'authenticated' : 'not-authenticated') : 'unknown';
+    res.setHeader('X-Auth-Status', authStatus);
+    
+    // Log detailed session information for OAuth-related endpoints
+    if (
+      req.path.includes('/auth/google') || 
+      req.path.includes('/auth/session') || 
+      req.path.includes('/auth/prepare-oauth')
+    ) {
+      console.log(`Session debug for ${req.method} ${req.path} - SessionID: ${req.sessionID}`);
+      console.log(`Session cookie details:`, {
+        exists: !!req.session,
+        oauthState: req.cookies?.oauth_state || 'none',
+        oauthPending: !!req.cookies?.oauth_pending,
+        isNew: req.session?.isNew || false,
+        cookieMaxAge: req.session?.cookie?.maxAge || 'not set',
+        cookieExpires: req.session?.cookie?.expires || 'not set',
+        authenticated: authStatus
+      });
+    }
+  }
+  next();
+});
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  const path = req.path;
+  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+
+  const originalResJson = res.json;
+  // Override res.json to capture response data before sending
+  res.json = function(body: any) {
+    capturedJsonResponse = body;
+    return originalResJson.call(this, body);
+  };
+
+  // When the response is complete
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    
+    // Only log API requests to keep the log cleaner
+    if (path.startsWith('/api/')) {
+      const userId = req.user ? (req.user as any).id : 'not-authenticated';
+      const method = req.method;
+      const size = res.getHeader('content-length') ? res.getHeader('content-length') + ' bytes' : 'unknown';
+      const status = res.statusCode;
+      
+      // Log all requests but with different formats based on the endpoint
+      if (
+        path.includes('/auth/') || 
+        path.includes('/login') || 
+        path.includes('/oauth') ||
+        path.includes('/user')
+      ) {
+        // Sensitive auth-related requests - limit what we log
+        let safeBody = { ...capturedJsonResponse };
+        
+        // Remove sensitive fields
+        if (safeBody?.user) {
+          safeBody.user = { 
+            id: safeBody.user.id,
+            email: safeBody.user.email,
+            role: safeBody.user.role,
+          };
+        }
+        
+        // Only log minimal info for security
+        log(`${method} ${path} ${status} in ${duration}ms :: ${JSON.stringify(safeBody).substring(0, 100)}…`);
+      } else {
+        // Regular API requests
+        log(`${method} ${path} ${status} in ${duration}ms :: ${JSON.stringify(capturedJsonResponse || {}).substring(0, 100)}…`);
+      }
+    }
+  });
+  
+  next();
+});
+
+async function startServer() {
+  try {
+    log("Initializing server...");
+    
+    await setupVite(app);
+    
+    // Create server instance with registered routes
+    const server = await registerRoutes(app);
+    
+    // Default port hierarchy: PORT env var > 5000 (for Replit workflow) > 3000 (local dev)
+    const defaultPort = isReplit ? 5000 : (isProduction ? 5000 : 3000);
+    const port = process.env.PORT ? parseInt(process.env.PORT, 10) : defaultPort;
+    
+    // Load email configuration from database
+    try {
+      // This might take a moment, but we don't need to wait for it to complete
+      // Email functionality will be enabled once this completes
+      loadEmailConfigFromDatabase().then(success => {
+        if (success) {
+          log('Email configuration successfully loaded from database');
+        } else {
+          log('No email provider configured. Email functionality will be disabled.');
+        }
+      }).catch(error => {
+        console.error('Error loading email configuration:', error);
+        log('Email functionality will be disabled due to configuration error');
+      });
+    } catch (error) {
+      console.error('Exception during email configuration setup:', error);
+      log('Email functionality will be disabled due to setup error');
+    }
+    
+    // Output the current environment details for easier debugging
+    console.log('Current environment details:');
+    console.log(`- NODE_ENV: ${process.env.NODE_ENV || 'not set'}`);
+    console.log(`- REPL_ID: ${process.env.REPL_ID || 'not set'}`);
+    console.log(`- REPL_SLUG: ${process.env.REPL_SLUG || 'not set'}`);
+    console.log(`- REPL_OWNER: ${process.env.REPL_OWNER || 'not set'}`);
+    console.log(`- PORT: ${process.env.PORT || 'not set'}`);
+    console.log(`- Selected Port: ${port}`);
+    console.log(`- Is Replit Environment: ${isReplit ? 'Yes' : 'No'}`);
+    
+    // Enhanced server setup with improved error handling for Cloud Run and Replit compatibility
+    const startServer = (port: number, attemptCount = 0) => {
+      // If we've tried too many ports, exit with error to allow the workflow to restart cleanly
+      if (attemptCount > 5) {
+        log(`Failed to find an available port after ${attemptCount} attempts`);
+        process.exit(1); // Exit with error code so workflow can restart properly
+      }
+      
+      try {
+        server.listen(port, "0.0.0.0", () => {
+          log(`🚀 Server is now listening on port ${port}`);
+          log(`Server accessible at http://0.0.0.0:${port}`);
+          
+          if (isReplitEnv) {
+            const replitDomain = process.env.REPLIT_APP_DOMAIN || 'smartwaterpools.replit.app';
+            log(`Replit environment detected. Replit URL: https://${replitDomain}`);
+          }
+          
+          log(`Server running on port ${port} - Environment: ${process.env.NODE_ENV || 'development'}`);
+          log(`Local access URL: http://localhost:${port}`);
+          log(`Network access URL: http://0.0.0.0:${port}`);
+          
+          if (isReplitEnv) {
+            log(`Replit access URL: https://smartwaterpools.replit.app`);
+          }
+          
+          log(`Using port ${port} for server compatibility`);
+          
+          if (isReplitEnv) {
+            log(`Running in Replit environment - make sure to use relative URLs in frontend`);
+          }
+          
+          log(`Server ready and accepting connections on port ${port}`);
+          
+          // Initialize scheduler
+          new Scheduler();
+          
+          // Initialize health monitor
+          if (process.env.HEALTH_MONITOR_ENABLED === 'true') {
+            new HealthMonitor();
+          }
+        });
+      } catch (error) {
+        log(`Error starting server on port ${port}: ${error}`);
+        // Try next port
+        startServer(port + 1, attemptCount + 1);
+      }
+    };
+    
+    startServer(port);
+  } catch (error) {
+    log(`Failed to initialize server: ${error}`);
+    console.error(error);
+    process.exit(1);
+  }
+}
+
+startServer();

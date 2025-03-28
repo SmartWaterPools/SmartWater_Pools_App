@@ -68,11 +68,15 @@ function AppContent({
 }) {
   const { isLoading } = useAuth();
   
-  // Show global loading state while initial authentication check is in progress
-  if (isLoading) {
+  // TEMPORARY: Skip loading state check to debug login screen
+  console.log("Auth loading state:", isLoading);
+  
+  // NOTE: We're bypassing the loading check temporarily to help debug
+  if (false && isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        <div className="ml-4 text-lg">Loading authentication state...</div>
       </div>
     );
   }

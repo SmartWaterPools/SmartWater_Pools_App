@@ -1,0 +1,177 @@
+import passport from 'passport';
+import { Strategy as LocalStrategy } from 'passport-local';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import bcrypt from 'bcrypt';
+import { Request, Response, NextFunction } from 'express';
+import { storage } from './storage';
+
+// ------ Configuration Setup ------
+
+// Google OAuth configuration
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
+let GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || '';
+
+// Determine if we're in a Replit environment
+const isReplitEnv = !!(
+  process.env.REPL_ID && 
+  process.env.REPL_OWNER && 
+  process.env.REPL_SLUG
+);
+
+// Set appropriate callback URL for Replit
+if (isReplitEnv && !GOOGLE_CALLBACK_URL) {
+  if (process.env.REPLIT_APP_DOMAIN) {
+    GOOGLE_CALLBACK_URL = `https://${process.env.REPLIT_APP_DOMAIN}/api/auth/google/callback`;
+  } else if (process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    GOOGLE_CALLBACK_URL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
+  } else {
+    GOOGLE_CALLBACK_URL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
+  }
+}
+
+// Log the OAuth configuration (with sensitive data masked)
+console.log('Google OAuth Configuration:');
+console.log(`- Client ID available: ${GOOGLE_CLIENT_ID ? 'YES' : 'NO'}${GOOGLE_CLIENT_ID ? ' (length: ' + GOOGLE_CLIENT_ID.length + ', starts with: ' + GOOGLE_CLIENT_ID.substring(0, 6) + '..., ends with: ....' + GOOGLE_CLIENT_ID.substring(GOOGLE_CLIENT_ID.length - 4) + ')' : ''}`);
+console.log(`- Client Secret available: ${GOOGLE_CLIENT_SECRET ? 'YES' : 'NO'}${GOOGLE_CLIENT_SECRET ? ' (length: ' + GOOGLE_CLIENT_SECRET.length + ')' : ''}`);
+console.log(`- Callback URL: ${GOOGLE_CALLBACK_URL}`);
+console.log(`- Running in Replit: ${isReplitEnv}`);
+
+// ------ Passport Configuration ------
+
+// Serialize user to session
+passport.serializeUser((user: any, done) => {
+  done(null, user.id);
+});
+
+// Deserialize user from session
+passport.deserializeUser(async (id: string, done) => {
+  try {
+    const user = await storage.getUserById(id);
+    done(null, user);
+  } catch (error) {
+    done(error, null);
+  }
+});
+
+// Configure Local Strategy for username/password login
+passport.use(new LocalStrategy(
+  async (username, password, done) => {
+    try {
+      // First try to find user by username
+      let user = await storage.getUserByUsername(username);
+      
+      // If not found, try by email (allow both username and email for login)
+      if (!user) {
+        user = await storage.getUserByEmail(username);
+      }
+      
+      // User not found
+      if (!user) {
+        return done(null, false, { message: 'Invalid username or password' });
+      }
+      
+      // Verify password
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return done(null, false, { message: 'Invalid username or password' });
+      }
+      
+      // Successful login
+      return done(null, user);
+    } catch (error) {
+      return done(error);
+    }
+  }
+));
+
+// Configure Google Strategy for OAuth login
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && GOOGLE_CALLBACK_URL) {
+  console.log('Configuring Google OAuth strategy with available credentials');
+  
+  passport.use(new GoogleStrategy({
+    clientID: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET,
+    callbackURL: GOOGLE_CALLBACK_URL,
+    scope: ['profile', 'email']
+  }, async (accessToken, refreshToken, profile, done) => {
+    try {
+      // Extract email from Google profile
+      const email = profile.emails && profile.emails[0] ? profile.emails[0].value : '';
+      
+      if (!email) {
+        return done(new Error('No email found in Google profile'), null);
+      }
+      
+      // Check if user exists with this email
+      let user = await storage.getUserByEmail(email);
+      
+      if (user) {
+        // Existing user: Update their Google ID if not already set
+        if (!user.googleId) {
+          user = await storage.updateUser(user.id, {
+            googleId: profile.id,
+            photoUrl: profile.photos?.[0]?.value || user.photoUrl,
+            authProvider: 'google'
+          });
+        }
+      } else {
+        // New user: Create user with Google credentials
+        const username = email.split('@')[0] + '_' + Math.floor(Math.random() * 10000);
+        
+        user = await storage.createUser({
+          username,
+          email,
+          googleId: profile.id,
+          name: profile.displayName || email.split('@')[0],
+          photoUrl: profile.photos?.[0]?.value,
+          role: 'client', // Default role for new Google users
+          authProvider: 'google',
+          active: true,
+          password: '', // No password for OAuth users
+        });
+      }
+      
+      return done(null, user);
+    } catch (error) {
+      return done(error, null);
+    }
+  }));
+} else {
+  console.warn('Google OAuth credentials missing. Google login will not function.');
+}
+
+// ------ Authentication Middleware ------
+
+// Middleware to check if user is authenticated
+export const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).json({ message: 'Unauthorized: Please login to access this resource' });
+};
+
+// Middleware to check if user has admin role
+export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (req.isAuthenticated() && req.user && 
+      ['admin', 'systemAdmin', 'organizationAdmin', 'officeAdmin'].includes((req.user as any).role)) {
+    return next();
+  }
+  res.status(403).json({ message: 'Forbidden: Admin privileges required' });
+};
+
+// Middleware to check if user is a system admin
+export const isSystemAdmin = (req: Request, res: Response, next: NextFunction) => {
+  if (req.isAuthenticated() && req.user && (req.user as any).role === 'systemAdmin') {
+    return next();
+  }
+  res.status(403).json({ message: 'Forbidden: System admin privileges required' });
+};
+
+// Initialize passport
+export const initializeAuthentication = (app: any) => {
+  app.use(passport.initialize());
+  app.use(passport.session());
+};
+
+export default passport;

@@ -1,0 +1,77 @@
+import express, { Express, Request, Response, NextFunction } from "express";
+import { createServer, type Server } from "http";
+import { storage } from "./storage";
+import emailRoutes from "./email-routes";
+import fleetmaticsRoutes from "./routes/fleetmatics-routes";
+import inventoryRoutes from "./routes/inventory-routes";
+import invitationRoutes from "./routes/invitation-routes";
+import stripeRoutes from "./routes/stripe-routes";
+import authRoutes from "./routes/auth-routes";
+import passport from "passport";
+import { isAuthenticated, isAdmin, isSystemAdmin } from "./auth";
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  const httpServer = createServer(app);
+  
+  // Serve static files for debugging
+  app.get("/debug", (req: Request, res: Response) => {
+    res.sendFile("debug.html", { root: "./public" });
+  });
+
+  // Health check endpoint
+  app.get("/api/health", (req: Request, res: Response) => {
+    res.json({ status: "ok" });
+  });
+
+  // Register authentication routes with /api/auth prefix
+  app.use("/api/auth", authRoutes);
+  
+  // Register other route groups
+  app.use("/api/email", emailRoutes);
+  app.use("/api/inventory", inventoryRoutes);
+  app.use("/api/invitations", invitationRoutes);
+  app.use("/api/fleetmatics", fleetmaticsRoutes);
+  app.use("/api/stripe", stripeRoutes);
+
+  // Protected API routes
+  app.use("/api/protected", isAuthenticated, (req: Request, res: Response) => {
+    res.json({ message: "This is a protected route", user: req.user });
+  });
+
+  // Admin-only routes
+  app.use("/api/admin", isAuthenticated, isAdmin, (req: Request, res: Response) => {
+    res.json({ message: "Admin route accessed successfully", user: req.user });
+  });
+
+  // System admin routes
+  app.use("/api/system", isAuthenticated, isSystemAdmin, (req: Request, res: Response) => {
+    res.json({ message: "System admin route accessed successfully", user: req.user });
+  });
+
+  // Get Google Maps API key
+  app.get("/api/google-maps-key", (req: Request, res: Response) => {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+    res.json({ apiKey });
+  });
+
+  // Get current user data
+  app.get("/api/user", isAuthenticated, (req: Request, res: Response) => {
+    // Remove sensitive info before sending to client
+    const user = req.user as any;
+    const safeUser = { ...user };
+    delete safeUser.password;
+    
+    res.json(safeUser);
+  });
+
+  // Error handler
+  app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error(err);
+    res.status(err.status || 500).json({
+      message: err.message || 'Internal Server Error',
+      error: process.env.NODE_ENV === 'development' ? err : {}
+    });
+  });
+
+  return httpServer;
+}

@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect, useState, useCallback } from 'react';
+import React, { ReactNode, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
@@ -18,123 +18,34 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { isAuthenticated, isLoading, user } = useAuth();
   const [, navigate] = useLocation();
   const [location] = useLocation();
-  // Additional protection against race condition - when true, we've confirmed auth and are allowed to render
-  const [renderConfirmed, setRenderConfirmed] = useState<boolean>(false);
-  // Add another local loading state to delay showing content
-  const [localLoading, setLocalLoading] = useState<boolean>(true);
 
-  // Function to check if the current route is part of the OAuth callback flow
-  // Only specific OAuth-related routes should bypass auth
-  const isOAuthCallbackRoute = useCallback(() => {
-    // Strict list of actual OAuth callback paths (don't include dashboard or home root)
-    const isOAuthCallbackPath = 
-           // Only include actual callback routes
-           location.includes('/auth/callback') || 
-           location.includes('/oauth/callback') ||
-           location.includes('/api/auth/google/callback') || 
-           // Explicit OAuth debug routes
-           location === '/oauth-debug' || 
-           location === '/debug.html';
-    
-    // Check for presence of actual OAuth parameters (not just any error or state param)
-    const hasOAuthParams =
-           // OAuth code parameter indicates callback from provider
-           location.includes('?code=') ||
-           location.includes('&code=') ||
-           // Error from OAuth provider 
-           (location.includes('?error=access_denied') || 
-            location.includes('&error=access_denied') ||
-            location.includes('?error=google-auth-failed') ||
-            location.includes('&error=google-auth-failed')) ||
-           // OAuth state parameter with specific format
-           (location.includes('?state=oauth_') || 
-            location.includes('&state=oauth_'));
-    
-    // Only check browser storage for OAuth flow indicators if we're on an OAuth-related path
-    // or have OAuth parameters in the URL
-    if (isOAuthCallbackPath || hasOAuthParams) {
-      // Check for OAuth state indicators
-      const hasOAuthCookie = document.cookie.includes('oauth_flow=');
-      const hasOAuthToken = document.cookie.includes('oauth_token=');
-      
-      // Check if we have a valid OAuth state in localStorage
-      const oauthState = localStorage.getItem('oauth_state');
-      const hasValidOAuthState = oauthState && oauthState.startsWith('oauth_');
-      
-      // Check for recent OAuth activity (within 5 minutes)
-      const oauthTimestamp = localStorage.getItem('oauth_timestamp');
-      const isRecentOAuth = oauthTimestamp && 
-          (parseInt(oauthTimestamp) > Date.now() - (5 * 60 * 1000)); // 5 minutes
-      
-      // Only consider in OAuth flow if we have indicators AND recent timestamp
-      const isInOAuthFlow = (hasOAuthCookie || hasOAuthToken || hasValidOAuthState) && isRecentOAuth;
-      
-      return isInOAuthFlow || isOAuthCallbackPath || hasOAuthParams;
-    }
-    
-    // Not on OAuth path and no OAuth parameters - not in OAuth flow
-    return false;
-  }, [location]);
-
-  // Function to perform auth check and navigation
-  const checkAuthAndNavigate = useCallback(() => {
-    // Don't redirect during OAuth callbacks to prevent interruption of the auth flow
-    if (isOAuthCallbackRoute()) {
-      console.log("ProtectedRoute: On OAuth callback route, allowing without auth check:", location);
-      setRenderConfirmed(true);
-      return true;
+  // Simple effect to check authentication status and redirect if needed
+  useEffect(() => {
+    // Skip auth check during loading
+    if (isLoading) {
+      return;
     }
 
-    // Not authenticated - redirect to login (but avoid redirect loops)
+    // If not authenticated and not on login page, redirect to login
     if (!isAuthenticated) {
-      // Don't redirect if we're already on the login page or during OAuth flow
       if (location.startsWith('/login') || location === '/') {
         console.log("ProtectedRoute: Already on login page, not redirecting");
-        return true; // Allow login page to render
-      }
-      
-      // Use our improved OAuth flow detection logic
-      if (isOAuthCallbackRoute()) {
-        console.log("ProtectedRoute: OAuth flow in progress (from function), delaying redirect");
-        // Return true to allow rendering temporarily
-        // The auth state will update after OAuth completes
-        return true;
-      }
-      
-      // Backup check - only apply with strong evidence of recent OAuth activity 
-      const hasOAuthToken = document.cookie.includes('oauth_token=');
-      const hasOAuthCookie = document.cookie.includes('oauth_flow=');
-      const oauthState = localStorage.getItem('oauth_state');
-      const hasValidOAuthState = oauthState && oauthState.startsWith('oauth_');
-      
-      const oauthTimestamp = localStorage.getItem('oauth_timestamp');
-      const isRecentOAuth = oauthTimestamp && 
-        (parseInt(oauthTimestamp) > Date.now() - (5 * 60 * 1000)); // Reduced to 5 minutes
-      
-      // More strict rules - must have BOTH valid state AND recent timestamp
-      // plus either OAuth cookie or token
-      if (hasValidOAuthState && isRecentOAuth && (hasOAuthToken || hasOAuthCookie)) {
-        console.log("ProtectedRoute: OAuth flow in progress (strict verification), delaying redirect");
-        // Return true to allow rendering temporarily 
-        // The auth state will update after OAuth completes
-        return true;
+        return;
       }
       
       console.log("ProtectedRoute: Not authenticated, redirecting to login from:", location);
       navigate(`/login?redirect=${encodeURIComponent(location)}`);
-      return false;
+      return;
     }
 
-    // Authenticated with user data
+    // Check permissions if user is authenticated
     if (isAuthenticated && user) {
       let accessDenied = false;
-      let reason = '';
       
       // First check permissions if specified (new permission system)
       if (permissions.length > 0) {
         if (!canAccessRoute(user, permissions)) {
           accessDenied = true;
-          reason = `Permission-based check failed: User has role '${user.role}' but lacks required permissions`;
           console.warn(`Access denied for user ${user.username} (ID: ${user.id}) with role ${user.role} - required permissions:`, 
             permissions.map(([resource, action]) => `${action} ${resource}`).join(', '));
         }
@@ -142,63 +53,26 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       // Fall back to legacy role-based check if no permissions are specified but roles are
       else if (roles.length > 0 && !roles.includes(user.role)) {
         accessDenied = true;
-        reason = `Role-based check failed: User has role '${user.role}' but needs one of: ${roles.join(', ')}`;
         console.warn(`Access denied for user ${user.username} (ID: ${user.id}) with role ${user.role} - required roles:`, roles);
       }
       
       // If access was denied, redirect to unauthorized page
       if (accessDenied) {
-        console.error(`Route access denied to ${location}: ${reason}`);
         navigate('/unauthorized');
-        return false;
       }
-      
-      // If we reached here, user is authenticated and authorized - confirm rendering
-      console.log("ProtectedRoute: Auth confirmed, rendering content");
-      return true;
     }
     
-    return false;
-  }, [isAuthenticated, user, location, navigate, permissions, roles, isOAuthCallbackRoute]);
-
-  useEffect(() => {
     console.log("ProtectedRoute: Auth state changed", { 
       isAuthenticated, 
       isLoading, 
       hasUser: !!user, 
       location, 
-      isOAuthRoute: isOAuthCallbackRoute() 
+      isOAuthRoute: false 
     });
-    
-    // Reset render confirmation whenever auth state changes
-    setRenderConfirmed(false);
-    
-    // Add a slight delay to prevent flashing content and give time for auth state to stabilize
-    const localLoadingTimeout = setTimeout(() => {
-      setLocalLoading(false);
-      
-      // Only proceed with auth check if loading is complete
-      if (!isLoading) {
-        const authCheckResult = checkAuthAndNavigate();
-        setRenderConfirmed(authCheckResult);
-      }
-    }, 200); // Slightly longer delay to ensure auth state has settled
-    
-    // Special handling for potential OAuth callback routes
-    if (isOAuthCallbackRoute()) {
-      // For OAuth routes, we want to be extra careful not to disrupt the flow
-      console.log("ProtectedRoute: Detected OAuth callback route, proceeding with caution");
-      
-      // For these routes, we allow rendering even if auth check is pending
-      // This prevents disruption of the OAuth flow by premature redirects
-      setRenderConfirmed(true);
-    }
-    
-    return () => clearTimeout(localLoadingTimeout);
-  }, [isLoading, isAuthenticated, user, checkAuthAndNavigate, isOAuthCallbackRoute]);
+  }, [isLoading, isAuthenticated, user, location, navigate, permissions, roles]);
 
-  // Show loading spinner while checking authentication or during local loading delay
-  if (isLoading || localLoading) {
+  // Show loading spinner while checking authentication
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -206,17 +80,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // Special handling for OAuth callback routes - allow rendering without strict auth checks
-  // This is necessary because during OAuth flow there's a period where the user might not
-  // be fully authenticated yet (between callback and session establishment)
-  if (isOAuthCallbackRoute() && renderConfirmed) {
-    console.log("ProtectedRoute: Rendering OAuth callback route without strict auth checks");
-    return <>{children}</>;
-  }
-
-  // Standard case: render content if authentication is confirmed AND we've confirmed we can render
-  if (isAuthenticated && renderConfirmed && user) {
-    // Double-check permissions one more time before rendering
+  // Show content if authenticated and authorized
+  if (isAuthenticated && user) {
+    // Check if user has required role or permissions
     const hasRequiredRole = roles.length === 0 || roles.includes(user.role);
     const hasRequiredPermissions = permissions.length === 0 || canAccessRoute(user, permissions);
     
@@ -225,7 +91,12 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }
 
-  // Show temporary loading for any other case
+  // Default case: if we're on login page or unprotected route, render children
+  if (location.startsWith('/login') || location === '/') {
+    return <>{children}</>;
+  }
+
+  // Otherwise show loading while redirect happens
   return (
     <div className="flex items-center justify-center min-h-screen">
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
