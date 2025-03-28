@@ -455,20 +455,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Continue with normal redirection flow
             }
             
-            // Redirect based on user role
-            if (user.role === 'system_admin' || user.role === 'admin' || user.role === 'org_admin') {
-              // Admin users go to the admin dashboard
-              return res.redirect('/admin');
-            } else if (user.role === 'technician') {
-              // Technicians go to technician dashboard
-              return res.redirect('/technician');
-            } else if (user.role === 'client') {
-              // Clients go to client portal
-              return res.redirect('/client-portal');
-            } else {
-              // Default dashboard for all other roles
-              return res.redirect('/dashboard');
-            }
+            // Always redirect to dashboard regardless of user role
+            // This change was made per user request
+            return res.redirect('/dashboard');
           });
         });
       })(req, res, next);

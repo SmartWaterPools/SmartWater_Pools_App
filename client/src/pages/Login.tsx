@@ -96,7 +96,8 @@ export default function Login() {
   // If already authenticated, redirect to homepage
   useEffect(() => {
     if (isAuthenticated) {
-      setLocation(redirectPath !== '/login' ? redirectPath : '/');
+      // Always redirect to dashboard per user request
+      setLocation('/dashboard');
     }
   }, [isAuthenticated, setLocation, redirectPath]);
   
@@ -220,8 +221,9 @@ export default function Login() {
           
           // Small delay before redirect to ensure auth state is fully processed
           setTimeout(() => {
-            console.log("Redirecting to:", redirectPath !== '/login' ? redirectPath : '/');
-            setLocation(redirectPath !== '/login' ? redirectPath : '/');
+            // Always redirect to dashboard per user request
+            console.log("Redirecting to dashboard regardless of role");
+            setLocation('/dashboard');
           }, 100);
           return;
         }
@@ -300,7 +302,8 @@ export default function Login() {
           title: "Registration successful",
           description: "Your account has been created. You are now logged in.",
         });
-        setLocation(redirectPath !== '/login' ? redirectPath : '/');
+        // Always redirect to dashboard per user request
+        setLocation('/dashboard');
       }
       // Toast notifications for failures are handled in the AuthContext register function
     } catch (error) {

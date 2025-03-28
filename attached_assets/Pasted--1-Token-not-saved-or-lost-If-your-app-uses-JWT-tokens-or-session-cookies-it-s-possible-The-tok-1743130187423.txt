@@ -1,0 +1,85 @@
+✅ 1. Token not saved or lost
+If your app uses JWT tokens or session cookies, it's possible:
+
+The token isn't being saved to localStorage/sessionStorage
+
+Or it's being wiped/refreshed too early
+
+Or the backend expects a cookie-based auth, but you’re using localStorage
+
+Fix: Check the callback handler (usually in the OAuth success response handler):
+
+js
+Copy
+Edit
+// Example
+const token = response.credential;
+localStorage.setItem('auth_token', token);
+If you're using next-auth or Firebase Auth, check that useSession() or your authProvider hook properly updates the app state.
+
+✅ 2. CORS or Secure Cookie Issue
+If your backend sets the auth token via HTTP-only cookies, and:
+
+The backend is hosted on a different domain, and
+
+Cookies are not configured with credentials: 'include' and proper CORS headers
+
+Then the cookie might not be set or read properly.
+
+Fix:
+
+In your fetch/Axios request:
+
+js
+Copy
+Edit
+fetch('/api/session', {
+  credentials: 'include'
+});
+And server should return:
+
+http
+Copy
+Edit
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Origin: smartwaterpools.replit.app
+✅ 3. Auth State Not Persisted
+If you're using a provider like Firebase or Auth0:
+
+Make sure the Google auth session is persisted (setPersistence)
+
+Also verify the redirect flow: you might need to use a pop-up method instead of redirect.
+
+✅ 4. Callback Route Not Handled
+Sometimes, after Google login, the app redirects to /auth/callback?... and it’s not handled or parsed correctly.
+
+Fix:
+
+Check if there's a route/component to handle the Google callback
+
+Log any query params returned
+
+Make sure your ProtectedRoute logic waits for auth state check to complete before redirecting
+
+✅ 5. App Redirect Loop Logic
+If your app checks if (!auth) immediately on load and redirects without checking authLoading === true, then even successful logins will trigger a redirect loop.
+
+Fix: Make sure your <ProtectedRoute> logic waits for auth check to finish:
+
+js
+Copy
+Edit
+if (authLoading) return <LoadingSpinner />;
+if (!auth) return <Navigate to="/login" />;
+🔧 What to check in your code:
+Where are you storing the Google auth token?
+
+How is the token/session being validated?
+
+Does the auth state update properly after Google login?
+
+Do you have any logs for auth state changed after Google login?
+
+If you want, I can look at your auth provider code or ProtectedRoute logic and help you step-by-step.
+
+Let me know what you're using for auth (Firebase, Supabase, custom backend, etc.), and I’ll tailor the fix.
