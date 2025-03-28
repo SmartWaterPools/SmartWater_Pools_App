@@ -67,11 +67,8 @@ export function requireActiveSubscription(storage: IStorage) {
         // If the exempt user somehow doesn't have an organizationId, we'll try to assign one
         if (!user.organizationId) {
           try {
-            // Try both possible slugs
-            let defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
-            if (!defaultOrg) {
-              defaultOrg = await storage.getOrganizationBySlug('smartwaterpools');
-            }
+            // Only use the slug that exists in the database
+            const defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
             
             if (defaultOrg) {
               console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);

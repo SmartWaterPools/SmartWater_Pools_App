@@ -369,16 +369,30 @@ export default function Login() {
                 </div>
               </div>
               
-              <a href="/api/auth/google" className="w-full">
-                <Button 
+              <Button 
                   variant="outline" 
                   className="w-full flex items-center justify-center" 
                   type="button"
+                  onClick={() => {
+                    // Ensure we save any existing session state before redirecting
+                    fetch('/api/auth/session', { 
+                      method: 'GET',
+                      credentials: 'include' 
+                    })
+                    .then(() => {
+                      // Then redirect to Google OAuth endpoint
+                      window.location.href = '/api/auth/google';
+                    })
+                    .catch(err => {
+                      console.error('Error preparing session for OAuth:', err);
+                      // Fallback to direct navigation if fetch fails
+                      window.location.href = '/api/auth/google';
+                    });
+                  }}
                 >
                   <FcGoogle className="mr-2 h-5 w-5" />
                   Sign in with Google
                 </Button>
-              </a>
               
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
@@ -524,16 +538,30 @@ export default function Login() {
                 </div>
               </div>
               
-              <a href="/api/auth/google" className="w-full">
-                <Button 
+              <Button 
                   variant="outline" 
                   className="w-full flex items-center justify-center" 
                   type="button"
+                  onClick={() => {
+                    // Ensure we save any existing session state before redirecting
+                    fetch('/api/auth/session', { 
+                      method: 'GET',
+                      credentials: 'include' 
+                    })
+                    .then(() => {
+                      // Then redirect to Google OAuth signup endpoint
+                      window.location.href = '/api/auth/google/signup';
+                    })
+                    .catch(err => {
+                      console.error('Error preparing session for OAuth signup:', err);
+                      // Fallback to direct navigation if fetch fails
+                      window.location.href = '/api/auth/google/signup';
+                    });
+                  }}
                 >
                   <FcGoogle className="mr-2 h-5 w-5" />
                   Sign up with Google
                 </Button>
-              </a>
             </TabsContent>
           </Tabs>
         </CardContent>

@@ -233,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Google OAuth routes setup for login
+  // Google OAuth routes setup for login and signup
 
   // Google OAuth login route
   app.get('/api/auth/google', (req, res, next) => {
@@ -244,6 +244,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Error saving session before OAuth redirect:', err);
         }
         // Continue with Google authentication
+        passport.authenticate('google', { 
+          scope: ['profile', 'email'],
+          // Force approval screen
+          prompt: 'select_account',
+          session: true
+        })(req, res, next);
+      });
+    } else {
+      console.error('No session object available before Google auth');
+      passport.authenticate('google', { 
+        scope: ['profile', 'email'],
+        prompt: 'select_account',
+        session: true
+      })(req, res, next);
+    }
+  });
+  
+  // Google OAuth signup route - functionally the same as login but tracked separately
+  app.get('/api/auth/google/signup', (req, res, next) => {
+    // Ensure session is saved before redirecting to Google
+    if (req.session) {
+      req.session.save((err) => {
+        if (err) {
+          console.error('Error saving session before OAuth redirect:', err);
+        }
+        // Continue with Google authentication - same as login
         passport.authenticate('google', { 
           scope: ['profile', 'email'],
           // Force approval screen
@@ -331,11 +357,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             // For exempt users, ensure they have an organization ID
             if (isExemptUser && !user.organizationId) {
               try {
-                // Try both slugs to be sure we find the organization
-                let defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
-                if (!defaultOrg) {
-                  defaultOrg = await storage.getOrganizationBySlug('smartwaterpools');
-                }
+                // Only use the slug that exists in the database
+                const defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
                 
                 if (defaultOrg) {
                   console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
@@ -388,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (!organization) {
                   // Try to assign user to the default organization (SmartWater Pools)
                   try {
-                    const smartWaterOrg = await storage.getOrganizationBySlug('smartwaterpools');
+                    const smartWaterOrg = await storage.getOrganizationBySlug('smartwater-pools');
                     if (smartWaterOrg) {
                       await storage.updateUser(user.id, { organizationId: smartWaterOrg.id });
                       // Redirect to login to retry with updated user data
@@ -493,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (email.endsWith('@smartwaterpools.com')) {
         // Allow requested role
         // Get SmartWater Pools organization
-        const smartWaterOrg = await storage.getOrganizationBySlug('smartwaterpools');
+        const smartWaterOrg = await storage.getOrganizationBySlug('smartwater-pools');
         if (smartWaterOrg) {
           organizationId = smartWaterOrg.id;
         }

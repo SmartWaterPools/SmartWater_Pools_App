@@ -72,7 +72,6 @@ export default function registerOAuthRoutes(router: Router, storage: IStorage) {
           state: null,
           zipCode: null,
           logo: null,
-          type: organizationType || 'company',
           // Explicitly set the trial end date (14 days from now)
           trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
         };
