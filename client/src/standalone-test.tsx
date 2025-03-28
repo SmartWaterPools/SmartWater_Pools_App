@@ -1,73 +1,66 @@
-import { createRoot } from "react-dom/client";
+// This is a completely self-contained test React app to isolate rendering issues
+// It has absolutely no dependencies on other project files
 
-// A completely standalone React component that doesn't use any project styles
-function StandaloneTestApp() {
+import React from 'react';
+import { createRoot } from 'react-dom/client';
+
+// Simple standalone component with no dependencies
+function TestApp() {
   return (
     <div style={{ 
-      padding: '20px',
-      backgroundColor: 'white', 
-      color: 'black',
       fontFamily: 'Arial, sans-serif',
       maxWidth: '800px',
-      margin: '20px auto',
+      margin: '0 auto',
+      padding: '20px',
+      background: '#f5f5f5',
       borderRadius: '8px',
-      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+      boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
     }}>
-      <h1 style={{ 
-        fontSize: '28px',
-        fontWeight: 'bold',
-        marginBottom: '16px',
-        color: '#0047AB',
-        borderBottom: '2px solid #0047AB',
-        paddingBottom: '8px'
-      }}>
-        Standalone Test Application
-      </h1>
-      <p style={{ marginBottom: '16px', lineHeight: '1.5' }}>
-        If you can see this, the React application is rendering correctly.
-        The main app might have rendering issues with the authentication flow or component dependencies.
-      </p>
-      <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
-        <button 
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#0047AB',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-          onClick={() => alert('Test button clicked!')}
-        >
-          Test Button
-        </button>
-        <button 
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#FFFFFF',
-            color: '#0047AB',
-            border: '1px solid #0047AB',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontWeight: 'bold'
-          }}
-          onClick={() => {
-            document.body.style.backgroundColor = 
-              document.body.style.backgroundColor === 'black' ? 'white' : 'black';
-          }}
-        >
-          Toggle Background
-        </button>
+      <h1 style={{ color: '#0066cc' }}>SmartWater Pools Test Page</h1>
+      <p>This is a simple test page to verify React rendering is working correctly.</p>
+      <button 
+        style={{ 
+          background: '#0066cc', 
+          color: 'white', 
+          padding: '10px 15px', 
+          border: 'none', 
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}
+        onClick={() => alert('Button clicked!')}
+      >
+        Click Me
+      </button>
+      <div style={{ marginTop: '20px' }}>
+        <h2 style={{ color: '#0066cc' }}>System Status</h2>
+        <ul>
+          <li>React Rendering: <span style={{ color: 'green', fontWeight: 'bold' }}>Working</span></li>
+          <li>JavaScript: <span style={{ color: 'green', fontWeight: 'bold' }}>Working</span></li>
+          <li>DOM Events: <span style={{ color: 'green', fontWeight: 'bold' }}>Working</span></li>
+        </ul>
       </div>
     </div>
   );
 }
 
-// Direct render without any context providers or other dependencies
-const rootElement = document.getElementById("root");
-if (rootElement) {
-  createRoot(rootElement).render(<StandaloneTestApp />);
+// Directly render to DOM with no dependencies on project files
+const container = document.getElementById('root');
+
+if (container) {
+  const root = createRoot(container);
+  root.render(
+    <React.StrictMode>
+      <TestApp />
+    </React.StrictMode>
+  );
 } else {
-  console.error("Root element not found!");
+  console.error('Root element not found! DOM mounting failed.');
+  // Add visible error element to body if container doesn't exist
+  const errorElement = document.createElement('div');
+  errorElement.style.color = 'red';
+  errorElement.style.padding = '20px';
+  errorElement.style.margin = '20px';
+  errorElement.style.border = '2px solid red';
+  errorElement.textContent = 'ERROR: Could not find #root element for mounting React app!';
+  document.body.appendChild(errorElement);
 }

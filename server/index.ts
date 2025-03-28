@@ -244,14 +244,16 @@ app.use((req, res, next) => {
     };
     
     // Start listening on the specified port
-    return server.listen({
-      port,
-      host: "0.0.0.0", // Bind to all network interfaces for both local and production
-    }, () => {
+    // Use simpler server.listen syntax for compatibility with Replit environment
+    return server.listen(port, "0.0.0.0", () => {
       // Special log statement for Replit workflow to detect port 5000
       // This is essential for Replit to detect that our server is running
-      if (isReplit && port === 5000) {
-        console.log(`🚀 Server is now listening on port 5000`);
+      console.log(`🚀 Server is now listening on port ${port}`);
+      
+      // Log connection URLs for easier debugging in Replit
+      console.log(`Server accessible at http://0.0.0.0:${port}`);
+      if (isReplit) {
+        console.log(`Replit environment detected. Replit URL: https://smartwaterpools.replit.app`);
       }
       
       log(`Server running on port ${port} - Environment: ${isProduction ? 'production' : 'development'}`);
