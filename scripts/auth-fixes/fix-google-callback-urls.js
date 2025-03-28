@@ -30,13 +30,14 @@ async function fixGoogleCallbackUrls() {
   
   // 2. Update auth.ts file
   try {
-    const authFile = path.join(process.cwd(), 'server/auth.ts');
+    // Fix the path to be relative to the root of the project, not the script directory
+    const authFile = path.join(process.cwd(), '../../server/auth.ts');
     console.log(`Updating file: ${authFile}`);
     
     let content = readFileSync(authFile, 'utf-8');
     
     // Look for the callback URL line and update it
-    const callbackUrlPattern = /let callbackURL = [^;]+;/;
+    const callbackUrlPattern = /const callbackURL = [^;]+;/;
     const updatedContent = content.replace(
       callbackUrlPattern,
       `let callbackURL = '${correctCallbackUrl}';`
@@ -62,7 +63,7 @@ async function fixGoogleCallbackUrls() {
   
   // 3. Update routes.ts to ensure consistent callback URLs
   try {
-    const routesFile = path.join(process.cwd(), 'server/routes.ts');
+    const routesFile = path.join(process.cwd(), '../../server/routes.ts');
     console.log(`Updating file: ${routesFile}`);
     
     let content = readFileSync(routesFile, 'utf-8');

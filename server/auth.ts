@@ -102,7 +102,7 @@ export function configurePassport(storage: IStorage) {
   
   // ALWAYS use the production URL for Google OAuth callback to ensure consistency
   // This prevents issues with OAuth redirects going to the wrong domain
-  const callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
+  let callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
   
   if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     passport.use(
