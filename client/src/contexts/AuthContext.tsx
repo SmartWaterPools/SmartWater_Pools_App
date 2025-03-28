@@ -69,6 +69,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Add a timestamp to bust cache
       const timestamp = new Date().getTime();
+      
+      // Use more aggressive cache-busting headers
       const response = await fetch(`/api/auth/session?_t=${timestamp}`, {
         method: 'GET',
         credentials: 'include',
@@ -76,6 +78,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate',
           'Pragma': 'no-cache',
+          'X-Requested-With': 'XMLHttpRequest'
         }
       });
       
@@ -95,10 +98,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log("Session response:", data, "Status:", response.status);
 
       if (data.isAuthenticated && data.user) {
+        // Found authenticated user
+        console.log("Session contains authenticated user:", data.user.email);
         setUser(data.user);
         setIsAuthenticated(true);
         return true;
       } else {
+        // Not authenticated
+        console.log("Session check: Not authenticated", 
+          data.sessionID ? `(session ID: ${data.sessionID})` : "(no session ID)");
+        
+        // Try a second check if session exists but no auth
+        if (data.sessionExists && data.sessionID) {
+          console.log("Session exists but not authenticated, retrying check once...");
+          
+          // Small delay before retry
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const retryTimestamp = new Date().getTime();
+          const retryResponse = await fetch(`/api/auth/session?_t=${retryTimestamp}`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache',
+              'X-Requested-With': 'XMLHttpRequest'
+            }
+          });
+          
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            console.log("Session retry response:", retryData);
+            
+            if (retryData.isAuthenticated && retryData.user) {
+              console.log("Session retry: Found authenticated user");
+              setUser(retryData.user);
+              setIsAuthenticated(true);
+              return true;
+            }
+          }
+        }
+        
+        // Reset auth state if not authenticated
         setUser(null);
         setIsAuthenticated(false);
         return false;

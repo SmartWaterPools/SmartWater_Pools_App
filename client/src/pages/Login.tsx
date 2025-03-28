@@ -430,19 +430,31 @@ export default function Login() {
                   className="w-full flex items-center justify-center" 
                   type="button"
                   onClick={() => {
+                    // Log that user is attempting Google OAuth login
+                    console.log("Initiating Google OAuth login flow");
+                    
+                    // Add timestamp to prevent caching
+                    const timestamp = Date.now();
+                    
                     // Ensure we save any existing session state before redirecting
-                    fetch('/api/auth/session', { 
+                    fetch(`/api/auth/session?_t=${timestamp}`, { 
                       method: 'GET',
-                      credentials: 'include' 
+                      credentials: 'include',
+                      headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                      }
                     })
-                    .then(() => {
-                      // Then redirect to Google OAuth endpoint
-                      window.location.href = '/api/auth/google';
+                    .then(response => response.json())
+                    .then(data => {
+                      console.log("Session state before Google OAuth:", data);
+                      // Then redirect to Google OAuth endpoint with cache buster
+                      window.location.href = `/api/auth/google?_t=${timestamp}`;
                     })
                     .catch(err => {
                       console.error('Error preparing session for OAuth:', err);
                       // Fallback to direct navigation if fetch fails
-                      window.location.href = '/api/auth/google';
+                      window.location.href = `/api/auth/google?_t=${timestamp}`;
                     });
                   }}
                 >
@@ -599,19 +611,31 @@ export default function Login() {
                   className="w-full flex items-center justify-center" 
                   type="button"
                   onClick={() => {
+                    // Log that user is attempting Google OAuth signup
+                    console.log("Initiating Google OAuth signup flow");
+                    
+                    // Add timestamp to prevent caching
+                    const timestamp = Date.now();
+                    
                     // Ensure we save any existing session state before redirecting
-                    fetch('/api/auth/session', { 
+                    fetch(`/api/auth/session?_t=${timestamp}`, { 
                       method: 'GET',
-                      credentials: 'include' 
+                      credentials: 'include',
+                      headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache'
+                      }
                     })
-                    .then(() => {
-                      // Then redirect to Google OAuth signup endpoint
-                      window.location.href = '/api/auth/google/signup';
+                    .then(response => response.json())
+                    .then(data => {
+                      console.log("Session state before Google OAuth signup:", data);
+                      // Then redirect to Google OAuth signup endpoint with cache buster
+                      window.location.href = `/api/auth/google/signup?_t=${timestamp}`;
                     })
                     .catch(err => {
                       console.error('Error preparing session for OAuth signup:', err);
                       // Fallback to direct navigation if fetch fails
-                      window.location.href = '/api/auth/google/signup';
+                      window.location.href = `/api/auth/google/signup?_t=${timestamp}`;
                     });
                   }}
                 >

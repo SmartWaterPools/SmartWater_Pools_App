@@ -457,7 +457,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             
             // Always redirect to dashboard regardless of user role
             // This change was made per user request
-            return res.redirect('/dashboard');
+            console.log(`Google OAuth login completed successfully, redirecting user ${user.email} to dashboard`);
+            
+            // Save session again explicitly before redirect to ensure cookie is set
+            req.session.save((finalErr) => {
+              if (finalErr) {
+                console.error('Final session save error before redirect:', finalErr);
+              }
+              // Log user data and session state as a diagnostic measure
+              console.log('User authenticated and redirecting with session ID:', req.sessionID);
+              console.log('Session cookie details:', {
+                originalMaxAge: req.session.cookie.originalMaxAge,
+                expires: req.session.cookie.expires,
+                secure: req.session.cookie.secure,
+                httpOnly: req.session.cookie.httpOnly,
+                domain: req.session.cookie.domain,
+                sameSite: req.session.cookie.sameSite
+              });
+              
+              return res.redirect('/dashboard');
+            });
           });
         });
       })(req, res, next);
@@ -465,14 +484,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
   
   app.get("/api/auth/session", (req: Request, res: Response) => {
+    // Set headers to prevent caching of session information
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
+    // Set a custom header to indicate auth status for debugging
+    res.setHeader('X-Auth-Status', req.isAuthenticated() ? 'authenticated' : 'not-authenticated');
+    res.setHeader('X-Session-ID', req.sessionID || 'no-session');
+    
     if (req.isAuthenticated()) {
       // Don't send password to the client
       const { password, ...userWithoutPassword } = req.user as any;
+      
+      console.log(`Session check for authenticated user ${userWithoutPassword.email} (ID: ${userWithoutPassword.id}), session ID: ${req.sessionID}`);
       
       return res.json({ 
         isAuthenticated: true, 
         user: userWithoutPassword,
         sessionID: req.sessionID,
+        sessionExists: true,
+        cookieMaxAge: req.session?.cookie?.maxAge,
         sessionCreated: req.session?.cookie.originalMaxAge 
           ? new Date(Date.now() - (req.session.cookie.maxAge || 0) + req.session.cookie.originalMaxAge) 
           : null,
@@ -480,11 +512,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     }
     
+    // Log detailed information about the unauthenticated session
+    console.log(`Session check for unauthenticated request, session ID: ${req.sessionID || 'none'}, session exists: ${!!req.session}`);
+    
+    // For debugging, add details about cookie and headers
+    const cookies = req.headers.cookie || 'no cookies';
+    console.log(`Cookies in request: ${cookies.substring(0, 100)}${cookies.length > 100 ? '...' : ''}`);
+    
+    // Identify which session cookie name is being used
+    const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'swp.sid';
+    const connectSidCookieName = 'connect.sid';
+    
     res.json({ 
       isAuthenticated: false,
       sessionID: req.sessionID,
       sessionExists: !!req.session,
-      cookieMaxAge: req.session?.cookie?.maxAge
+      cookieMaxAge: req.session?.cookie?.maxAge,
+      // Add more details for debugging
+      hasSessionId: !!req.sessionID,
+      hasSwpSidCookie: cookies.includes(sessionCookieName),
+      hasConnectSidCookie: cookies.includes(connectSidCookieName),
+      cookieExpires: req.session?.cookie?.expires || null,
+      cookieHttpOnly: req.session?.cookie?.httpOnly,
+      cookieSecure: req.session?.cookie?.secure,
+      sessionCookieName: sessionCookieName
     });
   });
   
