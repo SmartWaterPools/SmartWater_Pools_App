@@ -369,5 +369,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.use("/api/oauth", registerOAuthRoutes(oauthRouter, typeSafeStorage));
 
+  // Google Maps API key endpoint
+  app.get("/api/google-maps-key", (req: Request, res: Response) => {
+    try {
+      // Set appropriate cache headers
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      
+      // Get Google Maps API key from environment variable
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY || '';
+      
+      if (!apiKey) {
+        console.warn('GoogleMapsContext: API key not found in environment variables');
+      } else {
+        console.log(`GoogleMapsContext: API key loaded: ${apiKey.substring(0, 5)}...${apiKey.substring(apiKey.length - 5)}`);
+      }
+      
+      return res.json({ apiKey });
+    } catch (error) {
+      console.error('Error serving Google Maps API key:', error);
+      return res.status(500).json({ error: 'Failed to retrieve Google Maps API key' });
+    }
+  });
+
   return httpServer;
 }
