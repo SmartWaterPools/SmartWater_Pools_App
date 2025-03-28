@@ -42,24 +42,36 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
            location.includes('&error=') ||
            // Handle state param as well
            location.includes('?state=') ||
-           location.includes('&state=');
+           location.includes('&state=') ||
+           // Handle dashboard path as that's where we redirect after OAuth success
+           location === '/dashboard' || 
+           location === '/';
     
     // Also check browser storage for OAuth flow indicators
     const hasOAuthCookie = document.cookie.includes('oauth_flow=');
+    const hasOAuthToken = document.cookie.includes('oauth_token=');
     const hasOAuthState = localStorage.getItem('oauth_state') !== null;
+    
+    // Check localstorage timestamps for recent OAuth activity
+    const oauthTimestamp = localStorage.getItem('oauth_timestamp');
+    const isRecentOAuth = oauthTimestamp && 
+        (parseInt(oauthTimestamp) > Date.now() - (10 * 60 * 1000)); // Increased to 10 minutes
+    
+    // More aggressive detection of OAuth flow - consider active if any indicator exists
+    const isInOAuthFlow = hasOAuthCookie || hasOAuthToken || (hasOAuthState && isRecentOAuth);
     const timestampStr = localStorage.getItem('oauth_timestamp');
     
-    // Check if we're still within the OAuth flow timeout
+    // Check if we're still within the OAuth flow timeout - extend to 10 minutes to be safe
     if (timestampStr) {
       const timestamp = parseInt(timestampStr);
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-      if (timestamp > fiveMinutesAgo) {
-        // OAuth process started within last 5 minutes
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      if (timestamp > tenMinutesAgo) {
+        // OAuth process started within last 10 minutes
         return true;
       }
     }
     
-    return isOAuthPath || hasOAuthCookie || hasOAuthState;
+    return isOAuthPath || isInOAuthFlow;
   }, [location]);
 
   // Function to perform auth check and navigation
@@ -79,15 +91,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return true; // Allow login page to render
       }
       
-      // Check if we're in the middle of an OAuth flow before redirecting
-      // This helps prevent issues where OAuth window is open but the main window redirects
+      // Use our improved OAuth flow detection logic
+      if (isOAuthCallbackRoute()) {
+        console.log("ProtectedRoute: OAuth flow in progress (from function), delaying redirect");
+        // Return true to allow rendering temporarily
+        // The auth state will update after OAuth completes
+        return true;
+      }
+      
+      // Backup check - look for OAuth indicators even if we're not on an OAuth path
+      const hasOAuthToken = document.cookie.includes('oauth_token=');
+      const hasOAuthCookie = document.cookie.includes('oauth_flow=');
       const oauthState = localStorage.getItem('oauth_state');
       const oauthTimestamp = localStorage.getItem('oauth_timestamp');
       const isRecentOAuth = oauthTimestamp && 
-        (parseInt(oauthTimestamp) > Date.now() - (5 * 60 * 1000));
+        (parseInt(oauthTimestamp) > Date.now() - (10 * 60 * 1000)); // Increased to 10 minutes
       
-      if (oauthState && isRecentOAuth) {
-        console.log("ProtectedRoute: OAuth flow in progress, delaying redirect");
+      if ((oauthState && isRecentOAuth) || hasOAuthToken || hasOAuthCookie) {
+        console.log("ProtectedRoute: OAuth flow in progress (from cookies/localStorage), delaying redirect");
         // Return true to allow rendering temporarily
         // The auth state will update after OAuth completes
         return true;

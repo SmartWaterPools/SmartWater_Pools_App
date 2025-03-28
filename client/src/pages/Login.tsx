@@ -487,7 +487,7 @@ export default function Login() {
                       localStorage.setItem('oauth_timestamp', timestamp.toString());
                       
                       // Set a cookie specifically for tracking the OAuth flow (as a backup)
-                      document.cookie = `oauth_flow=login;path=/;max-age=300;SameSite=Lax`;
+                      document.cookie = `oauth_flow=login;path=/;max-age=600;SameSite=None;Secure`;
                       
                       // Then redirect to Google OAuth endpoint with state parameter
                       const redirectUrl = `/api/auth/google?state=${data.state}&_t=${timestamp}`;
@@ -502,7 +502,7 @@ export default function Login() {
                       localStorage.setItem('oauth_state', fallbackState);
                       
                       // Set a cookie for tracking
-                      document.cookie = `oauth_flow=login;path=/;max-age=300;SameSite=Lax`;
+                      document.cookie = `oauth_flow=login;path=/;max-age=600;SameSite=None;Secure`;
                       
                       // Fallback to direct navigation if fetch fails
                       const fallbackUrl = `/api/auth/google?state=${fallbackState}&_t=${timestamp}`;
@@ -699,7 +699,7 @@ export default function Login() {
                       localStorage.setItem('oauth_timestamp', timestamp.toString());
                       
                       // Set a cookie specifically for tracking the OAuth flow (as a backup)
-                      document.cookie = `oauth_flow=signup;path=/;max-age=300;SameSite=Lax`;
+                      document.cookie = `oauth_flow=signup;path=/;max-age=600;SameSite=None;Secure`;
                       
                       // Then redirect to Google OAuth signup endpoint with state parameter
                       const redirectUrl = `/api/auth/google/signup?state=${data.state}&_t=${timestamp}`;
@@ -714,7 +714,7 @@ export default function Login() {
                       localStorage.setItem('oauth_state', fallbackState);
                       
                       // Set a cookie for tracking
-                      document.cookie = `oauth_flow=signup;path=/;max-age=300;SameSite=Lax`;
+                      document.cookie = `oauth_flow=signup;path=/;max-age=600;SameSite=None;Secure`;
                       
                       // Fallback to direct navigation if fetch fails
                       const fallbackUrl = `/api/auth/google/signup?state=${fallbackState}&_t=${timestamp}`;

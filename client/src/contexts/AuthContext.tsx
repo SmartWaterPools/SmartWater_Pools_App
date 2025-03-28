@@ -40,15 +40,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Check for OAuth callback state to trigger additional session checks if needed
   const [oauthRetryCount, setOauthRetryCount] = useState(0);
-  const MAX_OAUTH_RETRIES = 3;
+  const MAX_OAUTH_RETRIES = 5; // Increased from 3 to 5 to allow more retries
   
-  // Check if the current URL is an OAuth callback URL
+  // Enhanced function to check if the current URL is an OAuth callback URL
+  // or if there are other indicators of OAuth flow in progress
   const isOAuthCallback = (): boolean => {
     const pathname = window.location.pathname;
-    return pathname.includes('/api/auth/google/callback') || 
-           // Also handle frontend routes that handle OAuth state
+    const url = window.location.href;
+    
+    // Check URL path for OAuth routes
+    const isOAuthPath = pathname.includes('/api/auth/google/callback') || 
            pathname.includes('/oauth/callback') ||
-           pathname.includes('/organization-selection');
+           pathname.includes('/organization-selection') ||
+           pathname === '/dashboard' || // Dashboard is where we redirect after successful OAuth
+           pathname === '/oauth-debug';
+           
+    // Also check URL parameters that might indicate OAuth flow
+    const hasOAuthParams = url.includes('?code=') || 
+                          url.includes('&code=') ||
+                          url.includes('?state=') || 
+                          url.includes('&state=') ||
+                          url.includes('?error=') ||
+                          url.includes('&error=');
+                          
+    // Check for OAuth indicators in cookies and localStorage
+    const hasOAuthCookie = document.cookie.includes('oauth_flow=') || 
+                          document.cookie.includes('oauth_token=');
+    const hasOAuthState = localStorage.getItem('oauth_state') !== null;
+    const oauthTimestamp = localStorage.getItem('oauth_timestamp');
+    const isRecentOAuth = oauthTimestamp && 
+                           (parseInt(oauthTimestamp) > Date.now() - (10 * 60 * 1000));
+    
+    return isOAuthPath || hasOAuthParams || (hasOAuthCookie && hasOAuthState) || (hasOAuthState && isRecentOAuth);
   };
   
   // Check if the user is authenticated on component mount with enhanced OAuth handling
@@ -100,6 +123,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Don't set isLoading here, it's handled by the parent function
       console.log("Checking session...");
       
+      // Check for OAuth flow indicators that might help us detect a pending OAuth login
+      const isInOAuthFlow = isOAuthCallback();
+      const hasOAuthCookie = document.cookie.includes('oauth_flow=');
+      const hasOAuthToken = document.cookie.includes('oauth_token=');
+      
+      if (isInOAuthFlow || hasOAuthCookie || hasOAuthToken) {
+        console.log("OAuth indicators detected during session check:", {
+          isInOAuthFlow,
+          hasOAuthCookie,
+          hasOAuthToken,
+          pathname: window.location.pathname
+        });
+      }
+      
       // Add a timestamp to bust cache
       const timestamp = new Date().getTime();
       
@@ -141,39 +178,103 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log("Session check: Not authenticated", 
           data.sessionID ? `(session ID: ${data.sessionID})` : "(no session ID)");
         
-        // Try a second check if session exists but no auth
+        // Check if we're in an OAuth flow - if so, we should retry more aggressively
+        const maxRetries = isInOAuthFlow ? 3 : 1;
+        
+        // Try up to maxRetries times if session exists but no auth
         if (data.sessionExists && data.sessionID) {
-          console.log("Session exists but not authenticated, retrying check once...");
-          
-          // Small delay before retry
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          const retryTimestamp = new Date().getTime();
-          const retryResponse = await fetch(`/api/auth/session?_t=${retryTimestamp}`, {
-            method: 'GET',
-            credentials: 'include',
-            headers: {
-              'Accept': 'application/json',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'Pragma': 'no-cache',
-              'X-Requested-With': 'XMLHttpRequest'
-            }
-          });
-          
-          if (retryResponse.ok) {
-            const retryData = await retryResponse.json();
-            console.log("Session retry response:", retryData);
+          for (let i = 0; i < maxRetries; i++) {
+            console.log(`Session exists but not authenticated, retry attempt ${i + 1} of ${maxRetries}...`);
             
-            if (retryData.isAuthenticated && retryData.user) {
-              console.log("Session retry: Found authenticated user");
-              setUser(retryData.user);
-              setIsAuthenticated(true);
-              return true;
+            // Exponential backoff for retries
+            const delayMs = Math.min(500 * Math.pow(2, i), 2000);
+            console.log(`Waiting ${delayMs}ms before retry...`);
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            
+            const retryTimestamp = new Date().getTime();
+            const retryResponse = await fetch(`/api/auth/session?_t=${retryTimestamp}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'X-Requested-With': 'XMLHttpRequest'
+              }
+            });
+            
+            if (retryResponse.ok) {
+              const retryData = await retryResponse.json();
+              console.log(`Session retry ${i + 1} response:`, retryData);
+              
+              if (retryData.isAuthenticated && retryData.user) {
+                console.log("Session retry: Found authenticated user");
+                setUser(retryData.user);
+                setIsAuthenticated(true);
+                return true;
+              }
+              
+              // Special check for OAuth indicators in the response
+              if (retryData.hasPendingOAuthUser || retryData.isPartialLogin) {
+                console.log("Session has pending OAuth user or partial login, continuing retries...");
+                continue;
+              }
+            } else {
+              console.warn(`Session retry ${i + 1} failed with status:`, retryResponse.status);
             }
           }
         }
         
-        // Reset auth state if not authenticated
+        // Add a special check for OAuth flow with indicators but no session
+        if ((isInOAuthFlow || hasOAuthCookie || hasOAuthToken) && !data.hasSessionId) {
+          console.log("OAuth flow detected but no session ID found. Attempting emergency session creation...");
+          
+          try {
+            // Try to start a new session via the prepare-oauth endpoint
+            const prepareResponse = await fetch(`/api/auth/prepare-oauth?_t=${Date.now()}`, {
+              method: 'GET',
+              credentials: 'include',
+              headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
+              }
+            });
+            
+            if (prepareResponse.ok) {
+              console.log("Successfully created emergency session, rechecking session...");
+              
+              // Wait a moment for the session to be fully established
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Make one final check
+              const finalCheckResponse = await fetch(`/api/auth/session?_t=${Date.now()}`, {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                  'Accept': 'application/json',
+                  'Cache-Control': 'no-cache, no-store, must-revalidate',
+                  'Pragma': 'no-cache'
+                }
+              });
+              
+              if (finalCheckResponse.ok) {
+                const finalData = await finalCheckResponse.json();
+                console.log("Final session check after emergency session creation:", finalData);
+                
+                if (finalData.isAuthenticated && finalData.user) {
+                  setUser(finalData.user);
+                  setIsAuthenticated(true);
+                  return true;
+                }
+              }
+            }
+          } catch (emergencyError) {
+            console.error("Emergency session creation failed:", emergencyError);
+          }
+        }
+        
+        // Reset auth state if not authenticated after all retries
         setUser(null);
         setIsAuthenticated(false);
         return false;

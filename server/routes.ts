@@ -438,6 +438,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Callback query parameters:', req.query);
       console.log('Callback cookies:', req.cookies);
       
+      // Modify cookie settings to improve cross-site compatibility for the callback phase
+      if (req.session && req.session.cookie) {
+        // Set more permissive SameSite policy for the callback phase
+        req.session.cookie.sameSite = 'none';
+        console.log("Updated session cookie sameSite to 'none' for OAuth callback");
+        
+        // Ensure secure flag is set (required for SameSite=None)
+        req.session.cookie.secure = true;
+        
+        // Extend cookie duration to prevent expiration during auth process
+        const oneHour = 60 * 60 * 1000;
+        req.session.cookie.maxAge = Math.max(req.session.cookie.maxAge || 0, oneHour);
+        
+        // Add other debugging flags to the session
+        req.session.oauthCallbackVisited = true;
+        req.session.oauthCallbackTime = new Date().toISOString();
+      }
+      
       // Check for OAuth errors first
       if (req.query.error) {
         console.error(`OAuth error: ${req.query.error}`);
@@ -455,17 +473,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (stateParam && storedState && stateParam !== storedState) {
         // Instead of rejecting, we log the mismatch but continue
         console.warn(`OAuth state mismatch but proceeding. Received: ${stateParam}, Expected: ${storedState}`);
+        
+        // Add the mismatch to session for debugging
+        if (req.session) {
+          req.session.oauthStateMismatch = {
+            received: stateParam,
+            expected: storedState,
+            time: new Date().toISOString()
+          };
+        }
       }
       
-      // Handle the authentication with a comprehensive error handler
-      console.log(`OAuth callback - Starting passport.authenticate with session ID: ${req.sessionID}`);
-      passport.authenticate('google', { 
-        failureRedirect: '/login?error=oauth-failed',
-        failureMessage: true,
-        session: true,
-        keepSessionInfo: true // CRITICAL - prevent session reset during authentication
+      // Set additional cookies to help with OAuth flow tracking in case session is lost
+      // These are non-httpOnly cookies that can be read by the frontend
+      res.cookie('oauth_callback_visited', 'true', {
+        maxAge: 5 * 60 * 1000, // 5 minutes
+        httpOnly: false,
+        secure: true,
+        sameSite: 'none',
+        path: '/'
+      });
+      
+      // Include session ID in the cookie to help with session recovery
+      res.cookie('oauth_session_id', req.sessionID, {
+        maxAge: 5 * 60 * 1000, // 5 minutes
+        httpOnly: false,
+        secure: true,
+        sameSite: 'none',
+        path: '/'
+      });
+      
+      // Save the session changes before continuing to authentication
+      console.log(`OAuth callback - Saving session before authentication with ID: ${req.sessionID}`);
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('Error saving session before OAuth authentication:', saveErr);
+          // Continue despite error (trying to authenticate might still work)
+        } else {
+          console.log('Session successfully saved before OAuth authentication');
+        }
+        
+        // Handle the authentication with a comprehensive error handler
+        console.log(`OAuth callback - Starting passport.authenticate with session ID: ${req.sessionID}`);
+        
+        passport.authenticate('google', { 
+          failureRedirect: '/login?error=oauth-failed',
+          failureMessage: true,
+          session: true,
+          keepSessionInfo: true // CRITICAL - prevent session reset during authentication
       }, async (err, user, info) => {
         console.log(`OAuth callback verification - Session ID: ${req.sessionID}, Auth state: ${req.isAuthenticated()}`);
+        console.log('OAuth callback cookies:', req.cookies || 'none');
+        console.log('OAuth callback session cookie maxAge:', req.session?.cookie?.maxAge || 'none');
+        console.log('OAuth callback session cookie sameSite:', req.session?.cookie?.sameSite || 'none');
         
         if (err) {
           console.error('Google OAuth authentication error:', err);
@@ -569,6 +629,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Add a timestamp for the login
           req.session.loginTime = Date.now();
+          
+          // Critical login verification - verify session flag is set
+          if (!req.isAuthenticated()) {
+            console.error('CRITICAL ERROR: User still not authenticated after login!');
+            console.log('Attempting direct session repair...');
+            
+            // Try to directly force Passport to authenticate this user with async/await pattern
+            try {
+              await new Promise<void>((resolve, reject) => {
+                (req as any).login(user, { session: true }, (loginErr: any) => {
+                  if (loginErr) {
+                    console.error('Emergency login attempt failed:', loginErr);
+                    reject(loginErr);
+                  } else {
+                    console.log('Emergency direct login succeeded');
+                    resolve();
+                  }
+                });
+              });
+              
+              // Emergency session save after forced login
+              if (req.isAuthenticated()) {
+                console.log('Emergency authentication successful, saving session immediately');
+                await new Promise<void>((resolve, reject) => {
+                  req.session.save((saveErr) => {
+                    if (saveErr) {
+                      console.error('Emergency session save failed:', saveErr);
+                      reject(saveErr);
+                    } else {
+                      console.log('Emergency session save succeeded');
+                      resolve();
+                    }
+                  });
+                });
+              } else {
+                console.error('CRITICAL: User still not authenticated after emergency login!');
+              }
+            } catch (err) {
+              console.error('Exception during emergency authentication attempt:', err);
+            }
+          }
           
           // Handle special cases that bypass subscription check (admin users or Travis)
           // Make comparison case insensitive for email addresses
@@ -816,14 +917,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // OAuth session preparation endpoint - creates and prepares a session before redirecting to Google
   app.get('/api/auth/prepare-oauth', (req: Request, res: Response) => {
     try {
+      console.log("Starting OAuth session preparation");
+      
+      // Log session and cookie details for debugging
+      const sessionExists = !!req.session;
+      const sessionID = req.sessionID || 'none';
+      const hasExistingCookies = Object.keys(req.cookies || {}).length > 0;
+      const cookies = Object.keys(req.cookies || {}).join(', ');
+      
+      console.log(`OAuth preparation details: sessionExists=${sessionExists}, sessionID=${sessionID}, hasExistingCookies=${hasExistingCookies}, cookies=[${cookies}]`);
+      
       // Ensure a session exists and is saved
       if (!req.session) {
         console.error('No session object available for OAuth preparation');
         return res.status(500).json({ 
           success: false, 
-          message: 'Failed to prepare session for OAuth flow' 
+          message: 'Failed to prepare session for OAuth flow',
+          details: {
+            sessionExists,
+            sessionID,
+            hasExistingCookies,
+            cookies
+          }
         });
       }
+      
+      // Store session status before changes
+      const initialSessionData = {
+        id: req.sessionID,
+        isNew: req.session.isNew,
+        previousOAuthState: req.session.oauthState,
+        hasPreviousOAuthFlag: !!req.session.oauthPending
+      };
       
       // Generate a unique state parameter to verify the OAuth callback
       const state = `oauth_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -839,13 +964,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const originPath = req.query.originPath || '/';
       req.session.originPath = originPath;
       
-      // Set a special cookie to help with OAuth flow
-      // This is an additional measure to ensure the session persists
+      // Add multiple redundant cookies with different settings to help with OAuth flow persistence
+      // This gives us multiple chances to recover the state if one cookie type fails
+      
+      // 1. Primary OAuth token cookie - with SameSite=None for cross-origin requests
       res.cookie('oauth_token', state, {
         maxAge: 15 * 60 * 1000, // 15 minutes
         httpOnly: false, // Allow JavaScript to read this cookie
         secure: true,
         sameSite: 'none', // Allow cross-site requests
+        path: '/'
+      });
+      
+      // 2. Secondary OAuth flow cookie - with SameSite=None
+      res.cookie('oauth_flow', 'login', {
+        maxAge: 15 * 60 * 1000, // 15 minutes
+        httpOnly: false, // Allow JavaScript access
+        secure: true,
+        sameSite: 'none', // Allow cross-site requests
+        path: '/'
+      });
+      
+      // 3. Strict cookie with timestamp - for JavaScript detection
+      res.cookie('oauth_timestamp', Date.now().toString(), {
+        maxAge: 15 * 60 * 1000, // 15 minutes
+        httpOnly: false, // Allow JavaScript access
+        secure: true,
+        sameSite: 'strict',
         path: '/'
       });
       
@@ -860,9 +1005,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.session.save((err) => {
         if (err) {
           console.error('Error saving session during OAuth preparation:', err);
+          
+          // Log additional error details
+          const errorDetails = {
+            message: err.message,
+            name: err.name,
+            stack: err.stack,
+            initialSessionData
+          };
+          
           return res.status(500).json({ 
             success: false, 
-            message: 'Failed to save session for OAuth flow' 
+            message: 'Failed to save session for OAuth flow',
+            error: err.message,
+            details: errorDetails
           });
         }
         
@@ -871,14 +1027,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: true,
           message: 'Session prepared for OAuth',
           state: state,
-          sessionID: req.sessionID
+          sessionID: req.sessionID,
+          initialSessionData,
+          cookies: {
+            set: ['oauth_token', 'oauth_flow', 'oauth_timestamp'],
+            values: {
+              state,
+              flow: 'login',
+              timestamp: Date.now()
+            }
+          }
         });
       });
     } catch (error) {
-      console.error('Error in OAuth session preparation:', error);
+      // Enhanced error logging
+      const errorObj = error as Error;
+      console.error('Error in OAuth session preparation:', {
+        message: errorObj.message,
+        name: errorObj.name,
+        stack: errorObj.stack
+      });
+      
       return res.status(500).json({ 
         success: false, 
-        message: 'Internal server error during OAuth preparation' 
+        message: 'Internal server error during OAuth preparation',
+        error: errorObj.message || 'Unknown error',
+        errorType: errorObj.name || 'Error'
       });
     }
   });
