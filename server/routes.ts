@@ -117,6 +117,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
   
   // Serve static files from the root directory
+  // Explicitly serve static HTML files for debugging and diagnostics
+  app.get('/debug.html', (req, res) => {
+    res.sendFile(path.resolve(rootDir, 'public', 'debug.html'));
+  });
+  
+  app.get('/diagnostic.html', (req, res) => {
+    res.sendFile(path.resolve(rootDir, 'public', 'diagnostic.html'));
+  });
+  
+  // Add an API endpoint to check session status for debugging
+  app.get('/api/auth/debug', (req, res) => {
+    res.json({
+      success: true,
+      time: new Date().toISOString(),
+      session: {
+        id: req.sessionID,
+        authenticated: req.isAuthenticated(),
+        hasSession: !!req.session,
+        cookieInfo: req.session ? {
+          maxAge: req.session.cookie.maxAge,
+          expires: req.session.cookie.expires,
+          secure: req.session.cookie.secure,
+          httpOnly: req.session.cookie.httpOnly,
+          sameSite: req.session.cookie.sameSite
+        } : null,
+        user: req.user ? {
+          id: (req.user as any).id,
+          email: (req.user as any).email,
+          role: (req.user as any).role
+        } : null
+      }
+    });
+  });
 
   // Authentication Routes
   app.post("/api/auth/login", (req: Request, res: Response, next: NextFunction) => {

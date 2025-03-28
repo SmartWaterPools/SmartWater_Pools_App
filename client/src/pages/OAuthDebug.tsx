@@ -88,6 +88,27 @@ export default function OAuthDebug() {
     }
   };
 
+  // Add global styles to fix scrolling
+  useEffect(() => {
+    // Create a style element to fix scrolling
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = `
+      html, body, #root {
+        height: auto !important;
+        min-height: 100%;
+        overflow: auto !important;
+      }
+      .overflow-hidden {
+        overflow: visible !important;
+      }
+    `;
+    document.head.appendChild(styleEl);
+    
+    return () => {
+      document.head.removeChild(styleEl);
+    };
+  }, []);
+
   // Initial check on component mount
   useEffect(() => {
     checkSessionManually();
@@ -100,7 +121,14 @@ export default function OAuthDebug() {
   }, []);
 
   return (
-    <div className="container mx-auto py-8 space-y-8 pb-20 max-h-full">
+    <div className="container mx-auto py-8 space-y-8 pb-20" style={{ 
+      maxHeight: "none", 
+      overflow: "auto", 
+      height: "auto", 
+      minHeight: "100vh",
+      position: "relative",
+      zIndex: 10
+    }}>
       <div className="flex justify-between items-center sticky top-0 bg-background z-10 py-2">
         <h1 className="text-3xl font-bold">OAuth Authentication Debug</h1>
         <Button 
