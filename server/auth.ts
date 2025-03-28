@@ -37,39 +37,57 @@ export function configurePassport(storage: IStorage) {
       },
       async (username, password, done) => {
         try {
+          console.log(`LocalStrategy: Authenticating user with username '${username}'`);
+          
           // Find the user by username
           const user = await storage.getUserByUsername(username);
           
           // If user not found or inactive
-          if (!user || !user.active) {
+          if (!user) {
+            console.log(`LocalStrategy: User '${username}' not found in database`);
             return done(null, false, { message: 'Invalid username or password' });
           }
+          
+          if (!user.active) {
+            console.log(`LocalStrategy: User '${username}' found but is inactive`);
+            return done(null, false, { message: 'Account is inactive' });
+          }
+          
+          console.log(`LocalStrategy: User '${username}' found with id=${user.id}, email=${user.email}, role=${user.role}`);
           
           // Check if the stored password is a bcrypt hash
           let isValidPassword = false;
           
-          if (user.password && (user.password.startsWith('$2b$') || user.password.startsWith('$2a$'))) {
+          if (!user.password) {
+            console.log(`LocalStrategy: User '${username}' has no password set (OAuth user?)`);
+            isValidPassword = false;
+          } else if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
             // Use bcrypt comparison for hashed passwords
+            console.log(`LocalStrategy: User '${username}' has bcrypt password hash, comparing...`);
             isValidPassword = await bcrypt.compare(password, user.password);
-          } else if (user.password) {
+            console.log(`LocalStrategy: Password comparison result for '${username}': ${isValidPassword}`);
+          } else {
             // For plain text passwords (temporary during migration)
+            console.log(`LocalStrategy: User '${username}' has plain text password, comparing...`);
             isValidPassword = password === user.password;
+            console.log(`LocalStrategy: Plain text password comparison result for '${username}': ${isValidPassword}`);
             
             // If password is correct, update it to a hashed version
             if (isValidPassword) {
+              console.log(`LocalStrategy: Upgrading plain text password to bcrypt hash for '${username}'`);
               const hashedPassword = await hashPassword(password);
               await storage.updateUser(user.id, { password: hashedPassword });
+              console.log(`LocalStrategy: Password hash upgrade completed for '${username}'`);
             }
-          } else {
-            // No password set (OAuth user)
-            isValidPassword = false;
           }
           
           if (!isValidPassword) {
+            console.log(`LocalStrategy: Invalid password for user '${username}'`);
             return done(null, false, { message: 'Invalid username or password' });
           }
           
           // Authentication successful
+          console.log(`LocalStrategy: Authentication successful for user '${username}'`);
           return done(null, user);
         } catch (error) {
           return done(error);

@@ -66,13 +66,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // Don't set isLoading here, it's handled by the parent function
       console.log("Checking session...");
-      const response = await fetch('/api/auth/session', {
+      
+      // Add a timestamp to bust cache
+      const timestamp = new Date().getTime();
+      const response = await fetch(`/api/auth/session?_t=${timestamp}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
         }
       });
+      
+      // Log response headers for debugging
+      console.log("Session check response headers:", 
+        Object.fromEntries([...response.headers.entries()].map(([k, v]) => [k, v]))
+      );
       
       if (!response.ok) {
         console.warn(`Session check failed with status: ${response.status}`);
@@ -82,7 +92,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       
       const data = await response.json();
-      console.log("Session response:", data);
+      console.log("Session response:", data, "Status:", response.status);
 
       if (data.isAuthenticated && data.user) {
         setUser(data.user);

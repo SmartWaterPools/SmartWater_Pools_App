@@ -139,7 +139,8 @@ export default function Login() {
       console.log("Login form submitted, sending credentials to server", {
         username: data.username,
         passwordLength: data.password ? data.password.length : 0,
-        currentTime: new Date().toISOString()
+        currentTime: new Date().toISOString(),
+        formState: loginForm.formState
       });
       
       // Add a random cache-busting parameter
@@ -163,67 +164,68 @@ export default function Login() {
       
       console.log("Login response received with status:", response.status);
       
-      const result = await response.json();
-      console.log("Login response parsed from server:", { 
-        status: response.status, 
-        statusText: response.statusText,
-        success: result.success, 
-        message: result.message,
-        hasUser: !!result.user,
-        headers: Object.fromEntries([...response.headers.entries()].map(([k, v]) => [k, v]))
-      });
-      
-      // Set error message from server if not successful
-      if (!result.success) {
-        setError(result.message || "Login failed");
-        toast({
-          title: "Login failed",
-          description: result.message || "Authentication failed. Please check your credentials.",
-          variant: "destructive",
+      try {
+        const result = await response.json();
+        console.log("Login response parsed from server:", { 
+          status: response.status, 
+          statusText: response.statusText,
+          success: result.success, 
+          message: result.message,
+          hasUser: !!result.user,
+          headers: Object.fromEntries([...response.headers.entries()].map(([k, v]) => [k, v]))
         });
-        return;
-      }
-      
-      // Handle successful login
-      if (response.ok && result.success) {
-        // Check if user session exists and update auth state
-        if (result.user) {
-          console.log("Login successful, updating auth state with user data:", {
-            userId: result.user.id,
-            role: result.user.role,
-            email: result.user.email,
-            organizationId: result.user.organizationId
-          });
-          
-          // Use the existing login success handler to update auth state
-          login.onLoginSuccess(result.user);
-          
+        
+        // Set error message from server if not successful
+        if (!result.success) {
+          setError(result.message || "Login failed");
           toast({
-            title: "Login successful",
-            description: "Welcome to SmartWater Pools Management System",
+            title: "Login failed",
+            description: result.message || "Authentication failed. Please check your credentials.",
+            variant: "destructive",
           });
-          
-          // Check the session immediately to verify it was set properly
-          try {
-            const sessionResponse = await fetch(`/api/auth/session?_t=${new Date().getTime()}`, {
-              credentials: 'include',
-              headers: {
-                'Accept': 'application/json',
-                'Cache-Control': 'no-cache',
-              }
-            });
-            const sessionData = await sessionResponse.json();
-            console.log("Session check after login:", sessionData);
-          } catch (sessionError) {
-            console.error("Error checking session after login:", sessionError);
-          }
-          
-          // Small delay before redirect to ensure auth state is fully processed
-          setTimeout(() => {
-            console.log("Redirecting to:", redirectPath !== '/login' ? redirectPath : '/');
-            setLocation(redirectPath !== '/login' ? redirectPath : '/');
-          }, 100);
           return;
+        }
+        
+        // Handle successful login
+        if (response.ok && result.success) {
+          // Check if user session exists and update auth state
+          if (result.user) {
+            console.log("Login successful, updating auth state with user data:", {
+              userId: result.user.id,
+              role: result.user.role,
+              email: result.user.email,
+              organizationId: result.user.organizationId
+            });
+            
+            // Use the existing login success handler to update auth state
+            login.onLoginSuccess(result.user);
+            
+            toast({
+              title: "Login successful",
+              description: "Welcome to SmartWater Pools Management System",
+            });
+            
+            // Check the session immediately to verify it was set properly
+            try {
+              const sessionResponse = await fetch(`/api/auth/session?_t=${new Date().getTime()}`, {
+                credentials: 'include',
+                headers: {
+                  'Accept': 'application/json',
+                  'Cache-Control': 'no-cache',
+                }
+              });
+              const sessionData = await sessionResponse.json();
+              console.log("Session check after login:", sessionData);
+            } catch (sessionError) {
+              console.error("Error checking session after login:", sessionError);
+            }
+            
+            // Small delay before redirect to ensure auth state is fully processed
+            setTimeout(() => {
+              console.log("Redirecting to:", redirectPath !== '/login' ? redirectPath : '/');
+              setLocation(redirectPath !== '/login' ? redirectPath : '/');
+            }, 100);
+            return;
         }
       }
       
@@ -250,7 +252,6 @@ export default function Login() {
       // Handle regular login errors
       console.log("Login failed with message:", result.message);
       setError(result.message || "Invalid email or password. Please try again.");
-      
     } catch (error) {
       console.error("Login error:", error);
       setError("An unexpected error occurred. Please try again.");
