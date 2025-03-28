@@ -366,7 +366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Google OAuth callback route with comprehensive error handling and session management
+  // Google OAuth callback route with enhanced session handling and two-phase login
   app.get('/api/auth/google/callback', 
     (req, res, next) => {
       // Extract and verify state parameter
@@ -397,7 +397,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       passport.authenticate('google', { 
         failureRedirect: '/login?error=oauth-failed',
         failureMessage: true,
-        session: true
+        session: true,
+        keepSessionInfo: true // CRITICAL - prevent session reset during authentication
       }, async (err, user, info) => {
         if (err) {
           console.error('Google OAuth authentication error:', err);
@@ -409,182 +410,194 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.redirect('/login?error=authentication-failed');
         }
         
-        // Clean up OAuth flags from session
-        if (req.session) {
-          delete req.session.oauthState;
-          delete req.session.oauthPending;
-          delete req.session.oauthInitiatedAt;
-          
-          // Keep originPath for potential redirection
-          const originPath = req.session.originPath;
-          if (originPath) {
-            delete req.session.originPath;
-          }
-          
-          // Save changes before login to avoid race conditions
-          await new Promise<void>((resolve, reject) => {
-            req.session.save((err) => {
-              if (err) {
-                console.error('Error cleaning session before login:', err);
-              }
+        // Log detailed user information for debugging
+        console.log('OAUTH AUTH SUCCESS - User authenticated:', { 
+          id: user.id, 
+          email: user.email,
+          role: user.role,
+          googleId: user.googleId,
+          orgId: user.organizationId
+        });
+        
+        // Clean up OAuth flags from session but maintain the session integrity
+        req.session.OAuthAuthenticated = true; // Add a flag to show OAuth succeeded
+        req.session.OAuthUser = {  // Store minimal user info in session for verification
+          id: user.id,
+          email: user.email,
+          role: user.role
+        };
+        
+        if (req.session.oauthState) delete req.session.oauthState;
+        if (req.session.oauthPending) delete req.session.oauthPending;
+        if (req.session.oauthInitiatedAt) delete req.session.oauthInitiatedAt;
+        
+        // Keep originPath for potential redirection
+        const originPath = req.session.originPath;
+        if (originPath) {
+          delete req.session.originPath;
+        }
+        
+        // First save the session with OAuth flags BEFORE login to prevent race conditions
+        await new Promise<void>((resolve) => {
+          req.session.save((err) => {
+            if (err) console.error('Error saving pre-login session:', err);
+            resolve();
+          });
+        });
+        
+        // IMPORTANT - Use a two-phase login approach to ensure session stability
+        // First explicitly destroy any existing login data to prevent conflicts
+        if (req.isAuthenticated()) {
+          await new Promise<void>((resolve) => {
+            req.logout((err) => {
+              if (err) console.error('Error during pre-login logout:', err);
               resolve();
             });
           });
         }
         
-        // Log in the user manually with explicit session handling
-        req.login(user, (loginErr) => {
+        // Now create a fresh login with the user data
+        req.login(user, async (loginErr) => {
           if (loginErr) {
             console.error('Failed to create session after Google OAuth:', loginErr);
             return res.redirect('/login?error=session-creation-failed');
           }
           
-          // Make sure session is saved before redirect
-          req.session.save(async (saveErr) => {
-            if (saveErr) {
-              console.error('Error saving session after Google OAuth login:', saveErr);
-              return res.redirect('/login?error=session-save-failed');
-            }
+          // LOG IN SUCCESSFUL - Now handle data verification and processing
+          console.log(`OAUTH LOGIN SUCCESSFUL for user ${user.email} (${user.id})`);
+          
+          // Add a timestamp for the login
+          req.session.loginTime = Date.now();
+          
+          // Handle special cases that bypass subscription check (admin users or Travis)
+          // Make comparison case insensitive for email addresses
+          const specialEmails = ['travis@smartwaterpools.com', '010101thomasanderson@gmail.com'];
+          const userEmailLower = user.email ? user.email.toLowerCase() : '';
+          
+          const isExemptUser = 
+            user.role === 'system_admin' || 
+            user.role === 'admin' || 
+            user.role === 'org_admin' ||
+            specialEmails.includes(userEmailLower);
+          
+          console.log(`Google OAuth login for ${user.email} (${user.id}), role: ${user.role}, exempt: ${isExemptUser}`);
+          
+          // Special handling for Travis and admin accounts - ensure they're properly marked as exempt
+          if (userEmailLower === 'travis@smartwaterpools.com' && user.role !== 'system_admin') {
+            console.log(`Updating ${user.email} to have system_admin role`);
+            await storage.updateUser(user.id, { role: 'system_admin' });
+            user.role = 'system_admin'; // Update in-memory user object too
+          }
             
-            // Check if this is a pending OAuth user that needs organization selection
-            if ((user as any).isPendingOAuthUser) {
-              // Redirect to organization selection page with Google ID
-              return res.redirect(`/organization-selection/${user.googleId}`);
-            }
-            
-            // Handle special cases that bypass subscription check (admin users or Travis)
-            // Make comparison case insensitive for email addresses
-            const specialEmails = ['travis@smartwaterpools.com', '010101thomasanderson@gmail.com'];
-            const userEmailLower = user.email ? user.email.toLowerCase() : '';
-            
-            const isExemptUser = 
-              user.role === 'system_admin' || 
-              user.role === 'admin' || 
-              user.role === 'org_admin' ||
-              specialEmails.includes(userEmailLower);
-            
-            console.log(`Google OAuth login for ${user.email} (${user.id}), role: ${user.role}, exempt: ${isExemptUser}`);
-            
-            // Special handling for Travis and admin accounts - ensure they're properly marked as exempt
-            if (userEmailLower === 'travis@smartwaterpools.com' && user.role !== 'system_admin') {
-              console.log(`Updating ${user.email} to have system_admin role`);
-              await storage.updateUser(user.id, { role: 'system_admin' });
-              user.role = 'system_admin'; // Update in-memory user object too
-            }
+          // For exempt users, ensure they have an organization ID
+          if (isExemptUser && !user.organizationId) {
+            try {
+              // Only use the slug that exists in the database
+              const defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
               
-            // For exempt users, ensure they have an organization ID
-            if (isExemptUser && !user.organizationId) {
-              try {
-                // Only use the slug that exists in the database
-                const defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
-                
-                if (defaultOrg) {
-                  console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
-                  await storage.updateUser(user.id, { organizationId: defaultOrg.id });
-                  // Update the user object in memory with the organization ID
-                  user.organizationId = defaultOrg.id;
-                } else {
-                  // If we can't find the default org, create one for admin users
-                  if (user.role === 'system_admin' || user.role === 'admin') {
-                    console.log(`Creating default organization for admin user ${user.email}`);
-                    const newOrg = await storage.createOrganization({
-                      name: 'SmartWater Pools',
-                      slug: 'smartwater-pools',
-                      active: true,
-                      email: user.email,
-                      phone: null,
-                      address: null,
-                      city: null,
-                      state: null,
-                      zipCode: null,
-                      logo: null
-                    });
-                    
-                    if (newOrg) {
-                      await storage.updateUser(user.id, { organizationId: newOrg.id });
-                      user.organizationId = newOrg.id;
-                    }
+              if (defaultOrg) {
+                console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
+                await storage.updateUser(user.id, { organizationId: defaultOrg.id });
+                // Update the user object in memory with the organization ID
+                user.organizationId = defaultOrg.id;
+              } else {
+                // If we can't find the default org, create one for admin users
+                if (user.role === 'system_admin' || user.role === 'admin') {
+                  console.log(`Creating default organization for admin user ${user.email}`);
+                  const newOrg = await storage.createOrganization({
+                    name: 'SmartWater Pools',
+                    slug: 'smartwater-pools',
+                    active: true,
+                    email: user.email,
+                    phone: null,
+                    address: null,
+                    city: null,
+                    state: null,
+                    zipCode: null,
+                    logo: null
+                  });
+                  
+                  if (newOrg) {
+                    await storage.updateUser(user.id, { organizationId: newOrg.id });
+                    user.organizationId = newOrg.id;
                   }
                 }
-              } catch (err) {
-                console.error(`Failed to assign organization to exempt user ${user.email}:`, err);
               }
+            } catch (err) {
+              console.error(`Failed to assign organization to exempt user ${user.email}:`, err);
             }
-            
-            // ALWAYS check for organization membership for non-exempt users, regardless of whether they are new or existing
+          }
+          
+          // Process subscription/organization requirements
+          try {
+            // Skip checks for Travis and admin users
             if (!isExemptUser) {
-              // If the user doesn't have an organizationId or it's invalid, redirect to pricing
+              // Check for organization membership
               if (!user.organizationId) {
                 return res.redirect('/pricing?error=no-organization-id');
               }
+              
+              // Get the user's organization
+              const organization = await storage.getOrganization(user.organizationId);
+              
+              if (!organization) {
+                return res.redirect('/pricing?error=no-organization');
+              }
+              
+              // Check if organization has a subscription
+              if (!organization.subscriptionId) {
+                return res.redirect('/pricing?error=no-subscription');
+              }
+              
+              // Get subscription details
+              const subscription = await storage.getSubscription(organization.subscriptionId);
+              
+              if (!subscription) {
+                return res.redirect('/pricing?error=invalid-subscription');
+              }
+              
+              // Check subscription status
+              if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+                return res.redirect('/pricing?error=inactive-subscription');
+              }
+            }
+          } catch (error) {
+            console.error('Error in subscription check:', error);
+            // Continue with login for exempt users, redirect others to pricing
+            if (!isExemptUser) {
+              return res.redirect('/pricing?error=subscription-error');
+            }
+          }
+          
+          // Final session save before redirect
+          console.log(`Saving session before final redirect for user ${user.email} (${user.id})`);
+          req.session.save((finalErr) => {
+            if (finalErr) {
+              console.error('Final session save error before redirect:', finalErr);
             }
             
-            // Check subscription status
-            try {
-              // Skip subscription check for exempt users
-              if (!isExemptUser) {
-                // Get the user's organization (we already checked for null organizationId above)
-                const organization = await storage.getOrganization(user.organizationId);
-              
-                if (!organization) {
-                  // Try to assign user to the default organization (SmartWater Pools)
-                  try {
-                    const smartWaterOrg = await storage.getOrganizationBySlug('smartwater-pools');
-                    if (smartWaterOrg) {
-                      await storage.updateUser(user.id, { organizationId: smartWaterOrg.id });
-                      // Redirect to login to retry with updated user data
-                      return res.redirect('/login?message=organization-assigned');
-                    }
-                  } catch (orgError) {
-                    // Continue with error flow
-                  }
-                  
-                  return res.redirect('/pricing?error=no-organization');
-                } else {
-                  // Check if organization has a subscription
-                  if (!organization.subscriptionId) {
-                    return res.redirect('/pricing?error=no-subscription');
-                  }
-                  
-                  // Get subscription details
-                  const subscription = await storage.getSubscription(organization.subscriptionId);
-                  
-                  if (!subscription) {
-                    return res.redirect('/pricing?error=invalid-subscription');
-                  }
-                  
-                  // Check subscription status
-                  if (subscription.status !== 'active' && subscription.status !== 'trialing') {
-                    return res.redirect('/pricing?error=inactive-subscription');
-                  }
-                }
-              }
-            } catch (error) {
-              // Continue with normal redirection flow
-            }
-            
-            // Always redirect to dashboard regardless of user role
-            // This change was made per user request
-            console.log(`Google OAuth login completed successfully, redirecting user ${user.email} to dashboard`);
-            
-            // Save session again explicitly before redirect to ensure cookie is set
-            req.session.save((finalErr) => {
-              if (finalErr) {
-                console.error('Final session save error before redirect:', finalErr);
-              }
-              // Log user data and session state as a diagnostic measure
-              console.log('User authenticated and redirecting with session ID:', req.sessionID);
-              console.log('Session cookie details:', {
-                originalMaxAge: req.session.cookie.originalMaxAge,
-                expires: req.session.cookie.expires,
-                secure: req.session.cookie.secure,
-                httpOnly: req.session.cookie.httpOnly,
-                domain: req.session.cookie.domain,
-                sameSite: req.session.cookie.sameSite
-              });
-              
-              return res.redirect('/dashboard');
+            // Debug info to help trace session persistence issues
+            console.log('Session saved with ID:', req.sessionID);
+            console.log('User authentication state:', req.isAuthenticated());
+            console.log('Session cookie details:', {
+              maxAge: req.session.cookie.maxAge,
+              expires: req.session.cookie.expires,
+              secure: req.session.cookie.secure,
+              httpOnly: req.session.cookie.httpOnly,
+              sameSite: req.session.cookie.sameSite
             });
+            
+            // Send clear instructions to the browser for cookie handling
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            
+            // Additional debugging header to help track the redirect
+            res.setHeader('X-OAuth-Redirect', 'dashboard');
+            res.setHeader('X-Auth-User', user.email);
+            
+            // Successful login redirect to dashboard
+            console.log(`Google OAuth complete - redirecting to dashboard for ${user.email}`);
+            return res.redirect('/dashboard');
           });
         });
       })(req, res, next);
@@ -597,15 +610,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    // Set a custom header to indicate auth status for debugging
-    res.setHeader('X-Auth-Status', req.isAuthenticated() ? 'authenticated' : 'not-authenticated');
+    // Enhanced debugging information to trace authentication issues
+    const authStatus = req.isAuthenticated() ? 'authenticated' : 'not-authenticated';
+    res.setHeader('X-Auth-Status', authStatus);
     res.setHeader('X-Session-ID', req.sessionID || 'no-session');
+    
+    // Special diagnostic headers - removed in production
+    if (process.env.NODE_ENV !== 'production') {
+      res.setHeader('X-Session-Cookie', req.session ? 'exists' : 'missing');
+      res.setHeader('X-Session-New', req.session?.isNew ? 'true' : 'false');
+      
+      // If we have OAuth info in the session, include it
+      if (req.session?.OAuthAuthenticated) {
+        res.setHeader('X-OAuth-Auth', 'true');
+      }
+      
+      if (req.session?.OAuthUser) {
+        res.setHeader('X-OAuth-User-Email', (req.session.OAuthUser as any).email || 'none');
+      }
+    }
     
     if (req.isAuthenticated()) {
       // Don't send password to the client
       const { password, ...userWithoutPassword } = req.user as any;
       
-      console.log(`Session check for authenticated user ${userWithoutPassword.email} (ID: ${userWithoutPassword.id}), session ID: ${req.sessionID}`);
+      // Log successful authentication
+      console.log(`Session check: AUTHENTICATED USER: ${userWithoutPassword.email} (${userWithoutPassword.id})`);
+      console.log(`Session details for ${userWithoutPassword.email}: ID=${req.sessionID}, role=${userWithoutPassword.role}`);
+      
+      // Add additional verification in logs for Travis account
+      if (userWithoutPassword.email?.toLowerCase() === 'travis@smartwaterpools.com') {
+        console.log(`*** TRAVIS AUTHENTICATION VERIFIED ***`);
+        console.log(`User data: ID=${userWithoutPassword.id}, Name=${userWithoutPassword.name}`);
+        console.log(`Auth provider: ${userWithoutPassword.authProvider}, Organization: ${userWithoutPassword.organizationId}`);
+      }
       
       return res.json({ 
         isAuthenticated: true, 
@@ -613,37 +651,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
         sessionID: req.sessionID,
         sessionExists: true,
         cookieMaxAge: req.session?.cookie?.maxAge,
-        sessionCreated: req.session?.cookie.originalMaxAge 
-          ? new Date(Date.now() - (req.session.cookie.maxAge || 0) + req.session.cookie.originalMaxAge) 
+        cookieExpires: req.session?.cookie?.expires,
+        sessionCreated: req.session?.cookie?.originalMaxAge 
+          ? new Date(Date.now() - (req.session.cookie.maxAge || 0) + (req.session.cookie.originalMaxAge || 0)) 
           : null,
-        sessionExpires: req.session?.cookie.expires
+        authProvider: userWithoutPassword.authProvider || 'local',
+        sessionStatus: 'active',
+        // Additional debug info
+        isNew: req.session?.isNew || false,
+        loginTime: req.session?.loginTime || null
       });
     }
     
-    // Log detailed information about the unauthenticated session
-    console.log(`Session check for unauthenticated request, session ID: ${req.sessionID || 'none'}, session exists: ${!!req.session}`);
+    // For unauthenticated requests, provide detailed information for debugging
+    console.log(`Session check: NOT AUTHENTICATED, session ID: ${req.sessionID || 'none'}`);
     
-    // For debugging, add details about cookie and headers
+    // Check if we have a pending OAuth user in the session
+    const pendingOAuthUser = req.session?.OAuthUser as any;
+    if (pendingOAuthUser) {
+      console.log(`Session has pending OAuth user data: ${pendingOAuthUser.email} (${pendingOAuthUser.id}), but not authenticated`);
+    }
+    
+    // List all cookies for debugging
     const cookies = req.headers.cookie || 'no cookies';
-    console.log(`Cookies in request: ${cookies.substring(0, 100)}${cookies.length > 100 ? '...' : ''}`);
+    console.log(`Cookies in request: ${cookies}`);
     
-    // Identify which session cookie name is being used
+    // Identify which session cookie is being used
     const sessionCookieName = process.env.SESSION_COOKIE_NAME || 'swp.sid';
     const connectSidCookieName = 'connect.sid';
     
+    // Check if there's a partial session or conflicting state
+    const partialLogin = req.session?.OAuthAuthenticated && !req.isAuthenticated();
+    if (partialLogin) {
+      console.log(`WARNING: Session marked as OAuth authenticated, but passport reports not authenticated. Partial login state detected.`);
+    }
+    
+    // Send detailed response for client-side debugging
     res.json({ 
       isAuthenticated: false,
       sessionID: req.sessionID,
       sessionExists: !!req.session,
       cookieMaxAge: req.session?.cookie?.maxAge,
-      // Add more details for debugging
+      cookieExpires: req.session?.cookie?.expires || null,
+      // Enhanced debugging details
       hasSessionId: !!req.sessionID,
       hasSwpSidCookie: cookies.includes(sessionCookieName),
       hasConnectSidCookie: cookies.includes(connectSidCookieName),
-      cookieExpires: req.session?.cookie?.expires || null,
       cookieHttpOnly: req.session?.cookie?.httpOnly,
       cookieSecure: req.session?.cookie?.secure,
-      sessionCookieName: sessionCookieName
+      sessionCookieName: sessionCookieName,
+      isPartialLogin: partialLogin,
+      hasPendingOAuthUser: !!pendingOAuthUser,
+      oauthEmail: pendingOAuthUser?.email || null,
+      sessionStore: 'PostgreSQL',
+      // Session flags for debugging
+      isNew: req.session?.isNew || false,
+      oauthState: req.session?.oauthState || null,
+      oauthPending: req.session?.oauthPending || false,
+      oauthInitiatedAt: req.session?.oauthInitiatedAt || null
     });
   });
   

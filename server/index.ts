@@ -44,7 +44,7 @@ const generateSessionSecret = () => {
 const sessionSecret = generateSessionSecret();
 console.log('Session middleware initialized with new secret');
 
-// Setup session middleware with optimized configuration for OAuth flows
+// Setup session middleware with enhanced configuration for OAuth flows
 app.use(
   session({
     store: new PgSession({
@@ -52,35 +52,33 @@ app.use(
       tableName: 'session', // Name of the session table
       createTableIfMissing: true,
       // Cleanup expired sessions periodically (every 24 hours)
-      pruneSessionInterval: 24 * 60 * 60
+      pruneSessionInterval: 24 * 60 * 60,
+      // Optimize connection pool to prevent database connection exhaustion
+      errorLog: console.error,
+      serializer: JSON
     }),
     secret: sessionSecret,
-    resave: false, // Only save session when modified
+    resave: false,       // Only save session when modified
     saveUninitialized: true, // Create session for all requests (needed for OAuth)
-    rolling: true, // Reset cookie maxAge on each response
+    rolling: true,       // Reset cookie maxAge on each response
+    proxy: true,         // Trust the reverse proxy for secure cookies
+    unset: 'keep',       // Keep session in store even if unset
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      httpOnly: true, // Prevent JavaScript access to the cookie
-      path: '/', // Ensure cookie is available for the entire site
+      httpOnly: true,    // Prevent JavaScript access to the cookie
+      path: '/',         // Ensure cookie is available for the entire site
+
+      // ALWAYS use secure cookies for Replit deployments (HTTPS environment)
+      secure: true,
       
-      // Determine if we should use secure cookies based on environment
-      // In production/Replit with HTTPS, set secure:true - otherwise use false to work in HTTP
-      secure: isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https')),
+      // For OAuth compatibility, we need SameSite=none to allow cross-domain redirects
+      // This is critical for Google OAuth flow to maintain session across redirects
+      sameSite: 'none',
       
-      // Configure SameSite setting for optimal OAuth compatibility:
-      // - For OAuth flows in secure environments: 'none' allows cross-origin cookies
-      // - For local development or HTTP: 'lax' is more secure while still allowing redirects
-      // 
-      // When secure:true and sameSite:'none', cookies work for cross-origin OAuth
-      // When secure:false, cookies work best with sameSite:'lax' 
-      sameSite: isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https'))
-        ? 'none'  // In secure HTTPS environments, use 'none' for OAuth compatibility
-        : 'lax',  // In non-secure environments, fall back to 'lax'
-      
-      // Additional session cookie settings
-      domain: undefined, // Use default domain - will be the domain where the cookie was created
+      // Domain should be undefined to use the current domain
+      domain: undefined,
     },
-    name: 'swp.sid', // Custom name to avoid conflicts
+    name: 'swp.sid',     // Custom name to avoid conflicts with other cookies
   })
 );
 

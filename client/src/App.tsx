@@ -51,7 +51,7 @@ import NotFound from "./pages/not-found";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
-// import OAuthDebug from "./pages/OAuthDebug"; // Debug page removed for production
+import OAuthDebug from "./pages/OAuthDebug"; // OAuth debugging page
 import InvitePage from "./pages/InvitePage";
 import OrganizationSelection from "./pages/OrganizationSelection";
 
@@ -110,6 +110,11 @@ function AppContent({
           </Route>
           <Route path="/organization-selection/:googleId">
             <OrganizationSelection />
+          </Route>
+          
+          {/* OAuth Debug page - accessible without authentication */}
+          <Route path="/oauth-debug">
+            <OAuthDebug />
           </Route>
           
           {/* Protected routes */}

@@ -713,6 +713,13 @@ export default function Login() {
                 : "Already have an account? Click Login above"}
             </span>
           </div>
+          
+          {/* Add link to OAuth debug page for testing */}
+          <div className="text-xs text-center text-muted-foreground">
+            <a href="/oauth-debug" className="text-primary hover:text-primary/80 hover:underline">
+              OAuth Debugging Page
+            </a>
+          </div>
         </CardFooter>
       </Card>
     </div>

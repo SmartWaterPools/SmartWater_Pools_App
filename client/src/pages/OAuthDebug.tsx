@@ -1,359 +1,493 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
-import { useLocation, Link } from 'wouter';
-
-interface SessionInfo {
-  isAuthenticated: boolean;
-  user: {
-    id: number;
-    username: string;
-    name: string;
-    email: string;
-    role: string;
-    googleId?: string;
-    photoUrl?: string;
-    authProvider?: string;
-  } | null;
-  cookies: string | null;
-}
-
-interface OAuthParams {
-  code?: string;
-  state?: string;
-  error?: string;
-  error_description?: string;
-}
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { 
+  AlertCircle, 
+  AlertTriangle, 
+  CheckCircle2, 
+  Cookie, 
+  Database, 
+  Key,
+  RefreshCw,
+  ShieldAlert,
+  UserCheck
+} from 'lucide-react';
 
 export default function OAuthDebug() {
-  const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [oauthParams, setOAuthParams] = useState<OAuthParams>({});
-  const [location] = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [showDebugHelp, setShowDebugHelp] = useState(false);
+  const { user, isAuthenticated, isLoading, checkSession } = useAuth();
+  const [sessionData, setSessionData] = useState<any>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [lastChecked, setLastChecked] = useState<Date | null>(null);
+  const [sessionDataHistory, setSessionDataHistory] = useState<any[]>([]);
+  const [responseHeaders, setResponseHeaders] = useState<Record<string, string>>({});
 
-  // Parse URL parameters related to OAuth
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const params: OAuthParams = {};
-
-    // Extract OAuth-related parameters
-    if (urlParams.has('code')) params.code = urlParams.get('code') || undefined;
-    if (urlParams.has('state')) params.state = urlParams.get('state') || undefined;
-    if (urlParams.has('error')) params.error = urlParams.get('error') || undefined;
-    if (urlParams.has('error_description')) 
-      params.error_description = urlParams.get('error_description') || undefined;
-
-    setOAuthParams(params);
-
-    // If we have an OAuth error, display it
-    if (params.error) {
-      setError(`OAuth Error: ${params.error}${params.error_description ? ` - ${params.error_description}` : ''}`);
-    }
-  }, [location]);
-
-  useEffect(() => {
-    const fetchSessionInfo = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get('/api/auth/session');
-        
-        setSessionInfo({
-          isAuthenticated: response.data.isAuthenticated,
-          user: response.data.user || null,
-          cookies: document.cookie || null,
-        });
-        
-        console.log('Session response:', response.data);
-      } catch (err: any) {
-        console.error('Error fetching session info:', err);
-        setError(err.message || 'Failed to fetch session information');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSessionInfo();
-  }, [location]);
-
-  const handleGoogleLogin = () => {
-    window.location.href = '/api/auth/google';
-  };
-
-  const handleLogout = async () => {
+  // Function to check session directly
+  const checkSessionManually = async () => {
+    setIsChecking(true);
     try {
-      await axios.post('/api/auth/logout');
-      
-      // Refresh session info after logout
-      const response = await axios.get('/api/auth/session');
-      setSessionInfo({
-        isAuthenticated: response.data.isAuthenticated,
-        user: response.data.user || null,
-        cookies: document.cookie || null,
+      const response = await fetch('/api/auth/session', {
+        method: 'GET',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
       });
       
-      console.log('Logged out successfully');
-    } catch (err: any) {
-      console.error('Error during logout:', err);
-      setError(err.message || 'Failed to logout');
-    }
-  };
-
-  const refreshSession = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get('/api/auth/session');
-      
-      setSessionInfo({
-        isAuthenticated: response.data.isAuthenticated,
-        user: response.data.user || null,
-        cookies: document.cookie || null,
+      // Extract and save headers
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
       });
+      setResponseHeaders(headers);
       
-      console.log('Session refreshed:', response.data);
-    } catch (err: any) {
-      console.error('Error refreshing session:', err);
-      setError(err.message || 'Failed to refresh session information');
+      const data = await response.json();
+      setSessionData(data);
+      
+      // Store this check in history
+      setSessionDataHistory(prev => [
+        { 
+          timestamp: new Date(),
+          data,
+          headers
+        },
+        ...prev.slice(0, 9) // Keep last 10 checks
+      ]);
+      
+      setLastChecked(new Date());
+      
+      // Trigger auth context refresh
+      checkSession();
+    } catch (error) {
+      console.error('Error checking session:', error);
     } finally {
-      setLoading(false);
+      setIsChecking(false);
     }
   };
 
-  const renderUserInfo = () => {
-    if (!sessionInfo?.user) {
-      return <p>No user logged in</p>;
-    }
-
-    return (
-      <div className="mt-4">
-        <h3 className="text-lg font-medium">User Details:</h3>
-        <div className="bg-slate-50 p-4 rounded-md mt-2 overflow-x-auto">
-          <table className="min-w-full">
-            <tbody>
-              <tr>
-                <td className="pr-4 py-2 font-medium">ID:</td>
-                <td>{sessionInfo.user.id}</td>
-              </tr>
-              <tr>
-                <td className="pr-4 py-2 font-medium">Username:</td>
-                <td>{sessionInfo.user.username}</td>
-              </tr>
-              <tr>
-                <td className="pr-4 py-2 font-medium">Name:</td>
-                <td>{sessionInfo.user.name}</td>
-              </tr>
-              <tr>
-                <td className="pr-4 py-2 font-medium">Email:</td>
-                <td>{sessionInfo.user.email}</td>
-              </tr>
-              <tr>
-                <td className="pr-4 py-2 font-medium">Role:</td>
-                <td>{sessionInfo.user.role}</td>
-              </tr>
-              <tr>
-                <td className="pr-4 py-2 font-medium">Auth Provider:</td>
-                <td>{sessionInfo.user.authProvider || 'local'}</td>
-              </tr>
-              {sessionInfo.user.googleId && (
-                <tr>
-                  <td className="pr-4 py-2 font-medium">Google ID:</td>
-                  <td>
-                    <span className="font-mono text-xs bg-gray-100 p-1 rounded">
-                      {sessionInfo.user.googleId}
-                    </span>
-                  </td>
-                </tr>
-              )}
-              {sessionInfo.user.photoUrl && (
-                <tr>
-                  <td className="pr-4 py-2 font-medium">Photo:</td>
-                  <td>
-                    <img 
-                      src={sessionInfo.user.photoUrl} 
-                      alt="Profile" 
-                      className="h-10 w-10 rounded-full"
-                    />
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
+  // Initial check on component mount
+  useEffect(() => {
+    checkSessionManually();
+    // Set up periodic check every 15 seconds
+    const interval = setInterval(() => {
+      checkSessionManually();
+    }, 15000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <h1 className="text-3xl font-bold mb-6">OAuth Debug Page</h1>
+    <div className="container mx-auto py-8 space-y-8">
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">OAuth Authentication Debug</h1>
+        <Button 
+          onClick={checkSessionManually} 
+          disabled={isChecking}
+          variant="outline"
+        >
+          {isChecking ? (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              Checking...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Refresh Session
+            </>
+          )}
+        </Button>
+      </div>
       
-      {loading ? (
-        <div className="text-center py-8">
-          <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-slate-200 rounded w-3/4 mx-auto"></div>
-            <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto"></div>
-            <div className="h-4 bg-slate-200 rounded w-2/3 mx-auto"></div>
-          </div>
-          <p className="mt-4">Loading session information...</p>
-        </div>
-      ) : (
-        <>
-          <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Authentication Status</h2>
-            <p className="mb-4">
-              Status: <span className={`font-medium ${sessionInfo?.isAuthenticated ? 'text-green-600' : 'text-red-600'}`}>
-                {sessionInfo?.isAuthenticated ? 'Authenticated' : 'Not Authenticated'}
-              </span>
-            </p>
-            
-            {renderUserInfo()}
-            
-            <div className="mt-6 space-x-4">
-              {!sessionInfo?.isAuthenticated ? (
-                <button
-                  onClick={handleGoogleLogin}
-                  className="px-4 py-2 flex items-center bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Authentication Status Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center">
+              <ShieldAlert className="mr-2 h-5 w-5 text-primary" />
+              Authentication Status
+            </CardTitle>
+            <CardDescription>
+              Current authentication state from context
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Status:</span>
+                <Badge 
+                  variant={isAuthenticated ? "default" : "destructive"}
+                  className="ml-2"
                 >
-                  <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path fill="#ffffff" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#ffffff" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#ffffff" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                    <path fill="#ffffff" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                  </svg>
-                  Sign in with Google
-                </button>
-              ) : (
-                <button
-                  onClick={handleLogout}
-                  className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+                  {isAuthenticated ? "Authenticated" : "Not Authenticated"}
+                </Badge>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Loading:</span>
+                <Badge 
+                  variant={isLoading ? "outline" : "secondary"}
+                  className="ml-2"
                 >
-                  Logout
-                </button>
-              )}
+                  {isLoading ? "Loading..." : "Completed"}
+                </Badge>
+              </div>
               
-              <button
-                onClick={refreshSession}
-                className="px-4 py-2 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 transition"
-                disabled={loading}
-              >
-                Refresh Session Info
-              </button>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">User ID:</span>
+                <span className="text-sm font-mono bg-muted px-2 py-1 rounded">
+                  {user?.id || "None"}
+                </span>
+              </div>
               
-              <Link href="/"
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition inline-block"
-              >
-                Back to Home
-              </Link>
-            </div>
-          </div>
-          
-          {/* OAuth Parameters if present */}
-          {(oauthParams.code || oauthParams.error) && (
-            <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-              <h2 className="text-xl font-semibold mb-4">OAuth Response Parameters</h2>
-              <div className="bg-yellow-50 p-4 rounded overflow-x-auto border border-yellow-200">
-                <table className="min-w-full">
-                  <tbody>
-                    {oauthParams.code && (
-                      <tr>
-                        <td className="pr-4 py-2 font-medium">Auth Code:</td>
-                        <td>
-                          <span className="font-mono text-xs bg-gray-100 p-1 rounded">
-                            {oauthParams.code.substring(0, 10)}...
-                          </span>
-                          <span className="text-gray-500 text-xs ml-2">(Showing partial code for security)</span>
-                        </td>
-                      </tr>
-                    )}
-                    {oauthParams.state && (
-                      <tr>
-                        <td className="pr-4 py-2 font-medium">State:</td>
-                        <td>{oauthParams.state}</td>
-                      </tr>
-                    )}
-                    {oauthParams.error && (
-                      <tr>
-                        <td className="pr-4 py-2 font-medium">Error:</td>
-                        <td className="text-red-600">{oauthParams.error}</td>
-                      </tr>
-                    )}
-                    {oauthParams.error_description && (
-                      <tr>
-                        <td className="pr-4 py-2 font-medium">Error Description:</td>
-                        <td className="text-red-600">{oauthParams.error_description}</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Email:</span>
+                <span className="text-sm">
+                  {user?.email || "None"}
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="font-medium">Auth Provider:</span>
+                <Badge 
+                  variant={user?.authProvider === 'google' ? "default" : "secondary"}
+                  className="ml-2"
+                >
+                  {user?.authProvider || "None"}
+                </Badge>
               </div>
             </div>
-          )}
-          
-          <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-            <h2 className="text-xl font-semibold mb-4">Session Cookie</h2>
-            <div className="bg-gray-50 p-4 rounded overflow-x-auto">
-              <code className="text-sm whitespace-pre-wrap break-all">
-                {sessionInfo?.cookies || 'No cookies found'}
-              </code>
-            </div>
-          </div>
-          
-          <div className="bg-white shadow-md rounded-lg p-6 mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Debug Information</h2>
-              <button 
-                className="text-sm text-blue-600 hover:text-blue-800"
-                onClick={() => setShowDebugHelp(!showDebugHelp)}
-              >
-                {showDebugHelp ? 'Hide Help' : 'Show Help'}
-              </button>
-            </div>
-            
-            {showDebugHelp && (
-              <div className="bg-blue-50 p-4 rounded mb-4 border border-blue-100">
-                <h3 className="font-semibold mb-2">OAuth Debugging Tips</h3>
-                <ul className="list-disc pl-5 space-y-1 text-sm">
-                  <li>Verify Google credentials in environment variables are correct</li>
-                  <li>Check callback URL matches exactly with Google Console configuration</li>
-                  <li>Session persistence requires properly configured cookies</li>
-                  <li>Use browser dev tools to check for CORS or cookie issues</li>
-                  <li>Clear browser cookies if experiencing persistent issues</li>
-                </ul>
+          </CardContent>
+          <CardFooter className="pt-0 text-xs text-muted-foreground">
+            {lastChecked ? `Last checked: ${lastChecked.toLocaleTimeString()}` : 'Not checked yet'}
+          </CardFooter>
+        </Card>
+        
+        {/* Session Status Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center">
+              <Database className="mr-2 h-5 w-5 text-primary" />
+              Session Details
+            </CardTitle>
+            <CardDescription>
+              Raw session data from server
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sessionData ? (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Session ID:</span>
+                  <span className="text-xs font-mono bg-muted px-2 py-1 rounded truncate max-w-[180px]" title={sessionData.sessionID}>
+                    {sessionData.sessionID?.substring(0, 12)}...
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Session Exists:</span>
+                  <Badge 
+                    variant={sessionData.sessionExists ? "default" : "destructive"}
+                  >
+                    {sessionData.sessionExists ? "Yes" : "No"}
+                  </Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Authenticated:</span>
+                  <Badge 
+                    variant={sessionData.isAuthenticated ? "default" : "destructive"}
+                  >
+                    {sessionData.isAuthenticated ? "Yes" : "No"}
+                  </Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">OAuth Pending:</span>
+                  <Badge 
+                    variant={sessionData.oauthPending ? "default" : "secondary"}
+                  >
+                    {sessionData.oauthPending ? "Yes" : "No"}
+                  </Badge>
+                </div>
+                
+                {sessionData.hasPendingOAuthUser && (
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">OAuth Email:</span>
+                    <span className="text-sm font-medium">
+                      {sessionData.oauthEmail}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Session Store:</span>
+                  <span className="text-sm">
+                    {sessionData.sessionStore || "Unknown"}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">New Session:</span>
+                  <Badge 
+                    variant={sessionData.isNew ? "outline" : "secondary"}
+                  >
+                    {sessionData.isNew ? "Yes" : "No"}
+                  </Badge>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-48">
+                <p className="text-muted-foreground">Loading session data...</p>
               </div>
             )}
-            
-            <p className="mb-2">
-              Current URL: <code className="bg-gray-100 px-2 py-1 rounded">{window.location.href}</code>
-            </p>
-            <p className="mb-2">
-              OAuth Redirect URL: <code className="bg-gray-100 px-2 py-1 rounded">/api/auth/google/callback</code>
-            </p>
-            <p className="mb-2">
-              Environment: <code className="bg-gray-100 px-2 py-1 rounded">
-                {process.env.NODE_ENV || "development"}
-              </code>
-            </p>
-            <p>
-              Page generated at: <span className="font-mono">{new Date().toISOString()}</span>
-            </p>
-          </div>
-        </>
-      )}
+          </CardContent>
+          <CardFooter className="pt-0 text-xs text-muted-foreground">
+            Cookie: {sessionData?.sessionCookieName || "Unknown"}
+          </CardFooter>
+        </Card>
+        
+        {/* Cookie Info Card */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center">
+              <Cookie className="mr-2 h-5 w-5 text-primary" />
+              Cookie Configuration
+            </CardTitle>
+            <CardDescription>
+              Session cookie settings from server
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {sessionData ? (
+              <>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Max Age:</span>
+                  <span className="text-sm">
+                    {sessionData.cookieMaxAge 
+                      ? `${Math.round(sessionData.cookieMaxAge / 86400)}d ${Math.round((sessionData.cookieMaxAge % 86400) / 3600)}h` 
+                      : "None"}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Expires:</span>
+                  <span className="text-sm">
+                    {sessionData.cookieExpires 
+                      ? new Date(sessionData.cookieExpires).toLocaleDateString() 
+                      : "None"}
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">HttpOnly:</span>
+                  <Badge 
+                    variant={sessionData.cookieHttpOnly ? "default" : "destructive"}
+                  >
+                    {sessionData.cookieHttpOnly ? "Yes" : "No"}
+                  </Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Secure:</span>
+                  <Badge 
+                    variant={sessionData.cookieSecure ? "default" : "destructive"}
+                  >
+                    {sessionData.cookieSecure ? "Yes" : "No"}
+                  </Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">SameSite:</span>
+                  <Badge 
+                    variant={responseHeaders['set-cookie']?.includes('SameSite=None') ? "default" : "outline"}
+                  >
+                    {responseHeaders['set-cookie']?.includes('SameSite=None') 
+                      ? "None" 
+                      : responseHeaders['set-cookie']?.includes('SameSite=Lax')
+                        ? "Lax"
+                        : responseHeaders['set-cookie']?.includes('SameSite=Strict')
+                          ? "Strict"
+                          : "Unknown"}
+                  </Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Cookie Found:</span>
+                  <Badge 
+                    variant={sessionData.hasSwpSidCookie ? "default" : "destructive"}
+                  >
+                    {sessionData.hasSwpSidCookie ? "Yes" : "No"}
+                  </Badge>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Cookie Name:</span>
+                  <span className="text-sm font-mono">
+                    {sessionData.sessionCookieName || "Unknown"}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-48">
+                <p className="text-muted-foreground">Loading cookie data...</p>
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="pt-0 flex space-x-2">
+            {sessionData?.cookieSecure === true && (
+              <Badge variant="outline" className="bg-green-50">
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                Secure
+              </Badge>
+            )}
+            {sessionData?.cookieHttpOnly === true && (
+              <Badge variant="outline" className="bg-green-50">
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                HttpOnly
+              </Badge>
+            )}
+            {responseHeaders['set-cookie']?.includes('SameSite=None') && (
+              <Badge variant="outline" className="bg-green-50">
+                <CheckCircle2 className="mr-1 h-3 w-3" />
+                SameSite=None
+              </Badge>
+            )}
+          </CardFooter>
+        </Card>
+      </div>
       
-      {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mt-6" role="alert">
-          <p className="font-bold">Error</p>
-          <p>{error}</p>
-          <div className="mt-2">
-            <button 
-              className="text-sm underline hover:no-underline"
-              onClick={() => setError(null)}
-            >
-              Dismiss
-            </button>
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Key className="mr-2 h-5 w-5 text-primary" />
+            Response Headers
+          </CardTitle>
+          <CardDescription>
+            Headers from session response
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="bg-muted rounded-md p-4 overflow-auto max-h-[200px]">
+            <pre className="text-xs font-mono whitespace-pre-wrap">
+              {JSON.stringify(responseHeaders, null, 2)}
+            </pre>
           </div>
-        </div>
-      )}
+        </CardContent>
+      </Card>
+      
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <UserCheck className="mr-2 h-5 w-5 text-primary" />
+            OAuth Status
+          </CardTitle>
+          <CardDescription>
+            Special route for testing Google OAuth authentication
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-6">
+            <p className="text-sm">Test your OAuth authentication by going through the full authentication flow.</p>
+            
+            <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-6">
+              <div className="rounded-lg border bg-card p-4 flex-1">
+                <h3 className="font-semibold text-lg mb-2 flex items-center">
+                  <AlertCircle className="mr-2 h-4 w-4 text-primary" />
+                  Test OAuth Login
+                </h3>
+                <p className="text-sm mb-4">Authenticate with Google through the standard login process.</p>
+                <Button 
+                  variant="default" 
+                  className="w-full"
+                  onClick={() => window.location.href = '/login?source=oauthdebug'}
+                >
+                  Go to Login Page
+                </Button>
+              </div>
+              
+              <div className="rounded-lg border bg-card p-4 flex-1">
+                <h3 className="font-semibold text-lg mb-2 flex items-center">
+                  <AlertTriangle className="mr-2 h-4 w-4 text-primary" />
+                  Direct OAuth Attempt
+                </h3>
+                <p className="text-sm mb-4">Directly trigger the Google OAuth flow, bypassing the login page.</p>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={async () => {
+                    // First, prepare the session
+                    try {
+                      const prepResult = await fetch('/api/auth/prepare-oauth');
+                      const data = await prepResult.json();
+                      if (data.success) {
+                        // If successfully prepared, redirect to Google OAuth
+                        window.location.href = `/api/auth/google?state=${data.state}&originPath=/oauth-debug`;
+                      } else {
+                        alert('Failed to prepare OAuth session: ' + data.message);
+                      }
+                    } catch (error) {
+                      console.error('Error preparing OAuth:', error);
+                      alert('Error preparing OAuth session');
+                    }
+                  }}
+                >
+                  Test Direct OAuth
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+      
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Session History</CardTitle>
+          <CardDescription>
+            Track changes in your session over time
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {sessionDataHistory.length > 0 ? (
+            <div className="space-y-4">
+              {sessionDataHistory.map((entry, index) => (
+                <div key={index} className="rounded-lg border p-4">
+                  <div className="flex justify-between mb-2">
+                    <h4 className="font-medium">{entry.timestamp.toLocaleTimeString()}</h4>
+                    <Badge variant={entry.data.isAuthenticated ? "default" : "secondary"}>
+                      {entry.data.isAuthenticated ? "Authenticated" : "Not Authenticated"}
+                    </Badge>
+                  </div>
+                  <Separator className="my-2" />
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Session ID:</span> {entry.data.sessionID?.substring(0, 10)}...
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Auth Headers:</span> {entry.headers['x-auth-status']}
+                  </div>
+                  {entry.data.hasPendingOAuthUser && (
+                    <div className="text-xs font-medium text-amber-600 mt-1">
+                      Has pending OAuth user: {entry.data.oauthEmail}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground">No history recorded yet</p>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
