@@ -2,12 +2,33 @@ import { createRoot } from "react-dom/client";
 
 function SimpleTestApp() {
   return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold mb-4">Application Test Page</h1>
-      <p className="mb-4">If you can see this, the React application is rendering correctly.</p>
-      <div className="flex space-x-4">
+    <div className="p-8" style={{ 
+      backgroundColor: 'white', 
+      color: 'black',
+      fontFamily: 'Arial, sans-serif'
+    }}>
+      <h1 style={{ 
+        fontSize: '24px',
+        fontWeight: 'bold',
+        marginBottom: '16px',
+        color: '#0047AB'
+      }}>
+        Simple Test Application
+      </h1>
+      <p style={{ marginBottom: '16px' }}>
+        If you can see this, the React application is rendering correctly.
+        The main app might have rendering issues with the authentication flow.
+      </p>
+      <div style={{ display: 'flex', gap: '8px' }}>
         <button 
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#0047AB',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
           onClick={() => alert('Button clicked!')}
         >
           Test Button
@@ -17,5 +38,5 @@ function SimpleTestApp() {
   );
 }
 
-// Create a new entry point
+// Create a new entry point for testing
 createRoot(document.getElementById("root")!).render(<SimpleTestApp />);
