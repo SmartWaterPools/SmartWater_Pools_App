@@ -32,6 +32,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
            location.includes('/api/auth/google/callback') || 
            location.includes('/api/auth/google') ||
            location.includes('/organization-selection') ||
+           location === '/oauth-debug' || // Add our debug page as an allowed route
            // Include the query param cases where we might be in a redirect flow
            location.includes('?code=') ||
            location.includes('&code=') ||
