@@ -521,286 +521,286 @@ export async function registerRoutes(app: Express): Promise<Server> {
           failureMessage: true,
           session: true,
           keepSessionInfo: true // CRITICAL - prevent session reset during authentication
-      }, async (err, user, info) => {
-        console.log(`OAuth callback verification - Session ID: ${req.sessionID}, Auth state: ${req.isAuthenticated()}`);
-        console.log('OAuth callback cookies:', req.cookies || 'none');
-        console.log('OAuth callback session cookie maxAge:', req.session?.cookie?.maxAge || 'none');
-        console.log('OAuth callback session cookie sameSite:', req.session?.cookie?.sameSite || 'none');
+        }, async (err, user, info) => {
+          console.log(`OAuth callback verification - Session ID: ${req.sessionID}, Auth state: ${req.isAuthenticated()}`);
+          console.log('OAuth callback cookies:', req.cookies || 'none');
+          console.log('OAuth callback session cookie maxAge:', req.session?.cookie?.maxAge || 'none');
+          console.log('OAuth callback session cookie sameSite:', req.session?.cookie?.sameSite || 'none');
         
-        if (err) {
-          console.error('Google OAuth authentication error:', err);
-          return res.redirect(`/login?error=${encodeURIComponent(err.message)}`);
-        }
+          if (err) {
+            console.error('Google OAuth authentication error:', err);
+            return res.redirect(`/login?error=${encodeURIComponent(err.message)}`);
+          }
         
-        if (!user) {
-          console.error('Google OAuth authentication failed:', info);
-          return res.redirect('/login?error=authentication-failed');
-        }
+          if (!user) {
+            console.error('Google OAuth authentication failed:', info);
+            return res.redirect('/login?error=authentication-failed');
+          }
         
-        // Log detailed user information for debugging
-        console.log('OAUTH AUTH SUCCESS - User authenticated:', { 
-          id: user.id, 
-          email: user.email,
-          role: user.role,
-          googleId: user.googleId,
-          orgId: user.organizationId,
-          sessionID: req.sessionID
-        });
-        
-        // Verify the session is available - critical check
-        if (!req.session) {
-          console.error(`CRITICAL ERROR: Session unavailable in OAuth callback for user ${user.email}`);
-          return res.redirect('/login?error=session-lost-during-oauth');
-        }
-        
-        // Store session initial state for debugging
-        const initialSessionState = {
-          id: req.sessionID,
-          cookie: req.session.cookie ? {
-            maxAge: req.session.cookie.maxAge,
-            expires: req.session.cookie.expires,
-            secure: req.session.cookie.secure,
-            httpOnly: req.session.cookie.httpOnly,
-            sameSite: req.session.cookie.sameSite
-          } : 'no-cookie',
-          oauthState: req.session.oauthState,
-          oauthPending: req.session.oauthPending,
-          authenticated: req.isAuthenticated()
-        };
-        console.log('Initial session state in OAuth callback:', initialSessionState);
-        
-        // Clean up OAuth flags from session but maintain the session integrity
-        req.session.OAuthAuthenticated = true; // Add a flag to show OAuth succeeded
-        req.session.OAuthUser = {  // Store minimal user info in session for verification
-          id: user.id,
-          email: user.email,
-          role: user.role
-        };
-        
-        if (req.session.oauthState) delete req.session.oauthState;
-        if (req.session.oauthPending) delete req.session.oauthPending;
-        if (req.session.oauthInitiatedAt) delete req.session.oauthInitiatedAt;
-        
-        // Keep originPath for potential redirection
-        const originPath = req.session.originPath;
-        if (originPath) {
-          delete req.session.originPath;
-        }
-        
-        // First save the session with OAuth flags BEFORE login to prevent race conditions
-        await new Promise<void>((resolve, reject) => {
-          console.log(`OAuth callback - Saving pre-login session with ID: ${req.sessionID}`);
-          req.session.save((err) => {
-            if (err) {
-              console.error('Error saving pre-login session:', err);
-              reject(err);
-              return;
-            }
-            console.log(`OAuth callback - Pre-login session saved successfully. ID: ${req.sessionID}`);
-            resolve();
+          // Log detailed user information for debugging
+          console.log('OAUTH AUTH SUCCESS - User authenticated:', { 
+            id: user.id, 
+            email: user.email,
+            role: user.role,
+            googleId: user.googleId,
+            orgId: user.organizationId,
+            sessionID: req.sessionID
           });
-        }).catch(err => {
-          console.error('Failed to save pre-login session:', err);
-          // Continue despite error to attempt recovery
-        });
         
-        // IMPORTANT - Use a two-phase login approach to ensure session stability
-        // First explicitly destroy any existing login data to prevent conflicts
-        if (req.isAuthenticated()) {
-          console.log(`OAuth callback - User already authenticated, logging out first`);
-          await new Promise<void>((resolve) => {
-            req.logout((err) => {
-              if (err) console.error('Error during pre-login logout:', err);
-              else console.log(`OAuth callback - Logout successful, preparing for new login`);
-              resolve();
-            });
-          });
-        }
+          // Verify the session is available - critical check
+          if (!req.session) {
+            console.error(`CRITICAL ERROR: Session unavailable in OAuth callback for user ${user.email}`);
+            return res.redirect('/login?error=session-lost-during-oauth');
+          }
         
-        // Now create a fresh login with the user data
-        req.login(user, async (loginErr) => {
-          if (loginErr) {
-            console.error('Failed to create session after Google OAuth:', loginErr);
-            return res.redirect('/login?error=session-creation-failed');
-          }
-          
-          // LOG IN SUCCESSFUL - Now handle data verification and processing
-          console.log(`OAUTH LOGIN SUCCESSFUL for user ${user.email} (${user.id})`);
-          
-          // Add a timestamp for the login
-          req.session.loginTime = Date.now();
-          
-          // Critical login verification - verify session flag is set
-          if (!req.isAuthenticated()) {
-            console.error('CRITICAL ERROR: User still not authenticated after login!');
-            console.log('Attempting direct session repair...');
-            
-            // Try to directly force Passport to authenticate this user with async/await pattern
-            try {
-              await new Promise<void>((resolve, reject) => {
-                (req as any).login(user, { session: true }, (loginErr: any) => {
-                  if (loginErr) {
-                    console.error('Emergency login attempt failed:', loginErr);
-                    reject(loginErr);
-                  } else {
-                    console.log('Emergency direct login succeeded');
-                    resolve();
-                  }
-                });
-              });
-              
-              // Emergency session save after forced login
-              if (req.isAuthenticated()) {
-                console.log('Emergency authentication successful, saving session immediately');
-                await new Promise<void>((resolve, reject) => {
-                  req.session.save((saveErr) => {
-                    if (saveErr) {
-                      console.error('Emergency session save failed:', saveErr);
-                      reject(saveErr);
-                    } else {
-                      console.log('Emergency session save succeeded');
-                      resolve();
-                    }
-                  });
-                });
-              } else {
-                console.error('CRITICAL: User still not authenticated after emergency login!');
-              }
-            } catch (err) {
-              console.error('Exception during emergency authentication attempt:', err);
-            }
-          }
-          
-          // Handle special cases that bypass subscription check (admin users or Travis)
-          // Make comparison case insensitive for email addresses
-          const specialEmails = ['travis@smartwaterpools.com', '010101thomasanderson@gmail.com'];
-          const userEmailLower = user.email ? user.email.toLowerCase() : '';
-          
-          const isExemptUser = 
-            user.role === 'system_admin' || 
-            user.role === 'admin' || 
-            user.role === 'org_admin' ||
-            specialEmails.includes(userEmailLower);
-          
-          console.log(`Google OAuth login for ${user.email} (${user.id}), role: ${user.role}, exempt: ${isExemptUser}`);
-          
-          // Special handling for Travis and admin accounts - ensure they're properly marked as exempt
-          if (userEmailLower === 'travis@smartwaterpools.com' && user.role !== 'system_admin') {
-            console.log(`Updating ${user.email} to have system_admin role`);
-            await storage.updateUser(user.id, { role: 'system_admin' });
-            user.role = 'system_admin'; // Update in-memory user object too
-          }
-            
-          // For exempt users, ensure they have an organization ID
-          if (isExemptUser && !user.organizationId) {
-            try {
-              // Only use the slug that exists in the database
-              const defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
-              
-              if (defaultOrg) {
-                console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
-                await storage.updateUser(user.id, { organizationId: defaultOrg.id });
-                // Update the user object in memory with the organization ID
-                user.organizationId = defaultOrg.id;
-              } else {
-                // If we can't find the default org, create one for admin users
-                if (user.role === 'system_admin' || user.role === 'admin') {
-                  console.log(`Creating default organization for admin user ${user.email}`);
-                  const newOrg = await storage.createOrganization({
-                    name: 'SmartWater Pools',
-                    slug: 'smartwater-pools',
-                    active: true,
-                    email: user.email,
-                    phone: null,
-                    address: null,
-                    city: null,
-                    state: null,
-                    zipCode: null,
-                    logo: null
-                  });
-                  
-                  if (newOrg) {
-                    await storage.updateUser(user.id, { organizationId: newOrg.id });
-                    user.organizationId = newOrg.id;
-                  }
-                }
-              }
-            } catch (err) {
-              console.error(`Failed to assign organization to exempt user ${user.email}:`, err);
-            }
-          }
-          
-          // Process subscription/organization requirements
-          try {
-            // Skip checks for Travis and admin users
-            if (!isExemptUser) {
-              // Check for organization membership
-              if (!user.organizationId) {
-                return res.redirect('/pricing?error=no-organization-id');
-              }
-              
-              // Get the user's organization
-              const organization = await storage.getOrganization(user.organizationId);
-              
-              if (!organization) {
-                return res.redirect('/pricing?error=no-organization');
-              }
-              
-              // Check if organization has a subscription
-              if (!organization.subscriptionId) {
-                return res.redirect('/pricing?error=no-subscription');
-              }
-              
-              // Get subscription details
-              const subscription = await storage.getSubscription(organization.subscriptionId);
-              
-              if (!subscription) {
-                return res.redirect('/pricing?error=invalid-subscription');
-              }
-              
-              // Check subscription status
-              if (subscription.status !== 'active' && subscription.status !== 'trialing') {
-                return res.redirect('/pricing?error=inactive-subscription');
-              }
-            }
-          } catch (error) {
-            console.error('Error in subscription check:', error);
-            // Continue with login for exempt users, redirect others to pricing
-            if (!isExemptUser) {
-              return res.redirect('/pricing?error=subscription-error');
-            }
-          }
-          
-          // Final session save before redirect
-          console.log(`Saving session before final redirect for user ${user.email} (${user.id})`);
-          req.session.save((finalErr) => {
-            if (finalErr) {
-              console.error('Final session save error before redirect:', finalErr);
-            }
-            
-            // Debug info to help trace session persistence issues
-            console.log('Session saved with ID:', req.sessionID);
-            console.log('User authentication state:', req.isAuthenticated());
-            console.log('Session cookie details:', {
+          // Store session initial state for debugging
+          const initialSessionState = {
+            id: req.sessionID,
+            cookie: req.session.cookie ? {
               maxAge: req.session.cookie.maxAge,
               expires: req.session.cookie.expires,
               secure: req.session.cookie.secure,
               httpOnly: req.session.cookie.httpOnly,
               sameSite: req.session.cookie.sameSite
+            } : 'no-cookie',
+            oauthState: req.session.oauthState,
+            oauthPending: req.session.oauthPending,
+            authenticated: req.isAuthenticated()
+          };
+          console.log('Initial session state in OAuth callback:', initialSessionState);
+        
+          // Clean up OAuth flags from session but maintain the session integrity
+          req.session.OAuthAuthenticated = true; // Add a flag to show OAuth succeeded
+          req.session.OAuthUser = {  // Store minimal user info in session for verification
+            id: user.id,
+            email: user.email,
+            role: user.role
+          };
+        
+          if (req.session.oauthState) delete req.session.oauthState;
+          if (req.session.oauthPending) delete req.session.oauthPending;
+          if (req.session.oauthInitiatedAt) delete req.session.oauthInitiatedAt;
+        
+          // Keep originPath for potential redirection
+          const originPath = req.session.originPath;
+          if (originPath) {
+            delete req.session.originPath;
+          }
+        
+          // First save the session with OAuth flags BEFORE login to prevent race conditions
+          await new Promise<void>((resolve, reject) => {
+            console.log(`OAuth callback - Saving pre-login session with ID: ${req.sessionID}`);
+            req.session.save((err) => {
+              if (err) {
+                console.error('Error saving pre-login session:', err);
+                reject(err);
+                return;
+              }
+              console.log(`OAuth callback - Pre-login session saved successfully. ID: ${req.sessionID}`);
+              resolve();
             });
-            
-            // Send clear instructions to the browser for cookie handling
-            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
-            res.setHeader('Pragma', 'no-cache');
-            
-            // Additional debugging header to help track the redirect
-            res.setHeader('X-OAuth-Redirect', 'dashboard');
-            res.setHeader('X-Auth-User', user.email);
-            
-            // Successful login redirect to dashboard
-            console.log(`Google OAuth complete - redirecting to dashboard for ${user.email}`);
-            return res.redirect('/dashboard');
+          }).catch(err => {
+            console.error('Failed to save pre-login session:', err);
+            // Continue despite error to attempt recovery
           });
+        
+          // IMPORTANT - Use a two-phase login approach to ensure session stability
+          // First explicitly destroy any existing login data to prevent conflicts
+          if (req.isAuthenticated()) {
+            console.log(`OAuth callback - User already authenticated, logging out first`);
+            await new Promise<void>((resolve) => {
+              req.logout((err) => {
+                if (err) console.error('Error during pre-login logout:', err);
+                else console.log(`OAuth callback - Logout successful, preparing for new login`);
+                resolve();
+              });
+            });
+          }
+        
+          // Now create a fresh login with the user data
+          req.login(user, async (loginErr) => {
+            if (loginErr) {
+              console.error('Failed to create session after Google OAuth:', loginErr);
+              return res.redirect('/login?error=session-creation-failed');
+            }
+            
+            // LOG IN SUCCESSFUL - Now handle data verification and processing
+            console.log(`OAUTH LOGIN SUCCESSFUL for user ${user.email} (${user.id})`);
+            
+            // Add a timestamp for the login
+            req.session.loginTime = Date.now();
+            
+            // Critical login verification - verify session flag is set
+            if (!req.isAuthenticated()) {
+              console.error('CRITICAL ERROR: User still not authenticated after login!');
+              console.log('Attempting direct session repair...');
+              
+              // Try to directly force Passport to authenticate this user with async/await pattern
+              try {
+                await new Promise<void>((resolve, reject) => {
+                  (req as any).login(user, { session: true }, (loginErr: any) => {
+                    if (loginErr) {
+                      console.error('Emergency login attempt failed:', loginErr);
+                      reject(loginErr);
+                    } else {
+                      console.log('Emergency direct login succeeded');
+                      resolve();
+                    }
+                  });
+                });
+                
+                // Emergency session save after forced login
+                if (req.isAuthenticated()) {
+                  console.log('Emergency authentication successful, saving session immediately');
+                  await new Promise<void>((resolve, reject) => {
+                    req.session.save((saveErr) => {
+                      if (saveErr) {
+                        console.error('Emergency session save failed:', saveErr);
+                        reject(saveErr);
+                      } else {
+                        console.log('Emergency session save succeeded');
+                        resolve();
+                      }
+                    });
+                  });
+                } else {
+                  console.error('CRITICAL: User still not authenticated after emergency login!');
+                }
+              } catch (err) {
+                console.error('Exception during emergency authentication attempt:', err);
+              }
+            }
+            
+            // Handle special cases that bypass subscription check (admin users or Travis)
+            // Make comparison case insensitive for email addresses
+            const specialEmails = ['travis@smartwaterpools.com', '010101thomasanderson@gmail.com'];
+            const userEmailLower = user.email ? user.email.toLowerCase() : '';
+            
+            const isExemptUser = 
+              user.role === 'system_admin' || 
+              user.role === 'admin' || 
+              user.role === 'org_admin' ||
+              specialEmails.includes(userEmailLower);
+            
+            console.log(`Google OAuth login for ${user.email} (${user.id}), role: ${user.role}, exempt: ${isExemptUser}`);
+            
+            // Special handling for Travis and admin accounts - ensure they're properly marked as exempt
+            if (userEmailLower === 'travis@smartwaterpools.com' && user.role !== 'system_admin') {
+              console.log(`Updating ${user.email} to have system_admin role`);
+              await storage.updateUser(user.id, { role: 'system_admin' });
+              user.role = 'system_admin'; // Update in-memory user object too
+            }
+              
+            // For exempt users, ensure they have an organization ID
+            if (isExemptUser && !user.organizationId) {
+              try {
+                // Only use the slug that exists in the database
+                const defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
+                
+                if (defaultOrg) {
+                  console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
+                  await storage.updateUser(user.id, { organizationId: defaultOrg.id });
+                  // Update the user object in memory with the organization ID
+                  user.organizationId = defaultOrg.id;
+                } else {
+                  // If we can't find the default org, create one for admin users
+                  if (user.role === 'system_admin' || user.role === 'admin') {
+                    console.log(`Creating default organization for admin user ${user.email}`);
+                    const newOrg = await storage.createOrganization({
+                      name: 'SmartWater Pools',
+                      slug: 'smartwater-pools',
+                      active: true,
+                      email: user.email,
+                      phone: null,
+                      address: null,
+                      city: null,
+                      state: null,
+                      zipCode: null,
+                      logo: null
+                    });
+                    
+                    if (newOrg) {
+                      await storage.updateUser(user.id, { organizationId: newOrg.id });
+                      user.organizationId = newOrg.id;
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error(`Failed to assign organization to exempt user ${user.email}:`, err);
+              }
+            }
+            
+            // Process subscription/organization requirements
+            try {
+              // Skip checks for Travis and admin users
+              if (!isExemptUser) {
+                // Check for organization membership
+                if (!user.organizationId) {
+                  return res.redirect('/pricing?error=no-organization-id');
+                }
+                
+                // Get the user's organization
+                const organization = await storage.getOrganization(user.organizationId);
+                
+                if (!organization) {
+                  return res.redirect('/pricing?error=no-organization');
+                }
+                
+                // Check if organization has a subscription
+                if (!organization.subscriptionId) {
+                  return res.redirect('/pricing?error=no-subscription');
+                }
+                
+                // Get subscription details
+                const subscription = await storage.getSubscription(organization.subscriptionId);
+                
+                if (!subscription) {
+                  return res.redirect('/pricing?error=invalid-subscription');
+                }
+                
+                // Check subscription status
+                if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+                  return res.redirect('/pricing?error=inactive-subscription');
+                }
+              }
+            } catch (error) {
+              console.error('Error in subscription check:', error);
+              // Continue with login for exempt users, redirect others to pricing
+              if (!isExemptUser) {
+                return res.redirect('/pricing?error=subscription-error');
+              }
+            }
+            
+            // Final session save before redirect
+            console.log(`Saving session before final redirect for user ${user.email} (${user.id})`);
+            req.session.save((finalErr) => {
+              if (finalErr) {
+                console.error('Final session save error before redirect:', finalErr);
+              }
+              
+              // Debug info to help trace session persistence issues
+              console.log('Session saved with ID:', req.sessionID);
+              console.log('User authentication state:', req.isAuthenticated());
+              console.log('Session cookie details:', {
+                maxAge: req.session.cookie.maxAge,
+                expires: req.session.cookie.expires,
+                secure: req.session.cookie.secure,
+                httpOnly: req.session.cookie.httpOnly,
+                sameSite: req.session.cookie.sameSite
+              });
+              
+              // Send clear instructions to the browser for cookie handling
+              res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+              res.setHeader('Pragma', 'no-cache');
+              
+              // Additional debugging header to help track the redirect
+              res.setHeader('X-OAuth-Redirect', 'dashboard');
+              res.setHeader('X-Auth-User', user.email);
+              
+              // Successful login redirect to dashboard
+              console.log(`Google OAuth complete - redirecting to dashboard for ${user.email}`);
+              return res.redirect('/dashboard');
+            });
         });
       })(req, res, next);
     }
