@@ -245,24 +245,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Google OAuth routes setup for login and signup
 
-  // Google OAuth login route
+  // Google OAuth login route with enhanced session handling
   app.get('/api/auth/google', (req, res, next) => {
+    // Use the state parameter if provided to link with a prepared session
+    const stateParam = req.query.state as string | undefined;
+    const originPath = req.query.originPath as string | undefined || '/';
+    
+    // If there's no session or the state parameter isn't connected to our session
+    if (!req.session || (stateParam && req.session.oauthState !== stateParam)) {
+      console.log(`Google OAuth login: Creating new session state. Current state: ${stateParam || 'none'}, Session state: ${req.session?.oauthState || 'none'}`);
+      
+      // Set OAuth flags in the session if it exists
+      if (req.session) {
+        req.session.oauthPending = true;
+        req.session.oauthInitiatedAt = new Date().toISOString();
+        req.session.originPath = originPath;
+        
+        // Generate a state parameter if none was provided
+        if (!stateParam) {
+          req.session.oauthState = `auto_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        }
+      }
+    }
+    
     // Ensure session is saved before redirecting to Google
     if (req.session) {
+      console.log(`Google OAuth login: Saving session ID ${req.sessionID} before redirect`);
+      
       req.session.save((err) => {
         if (err) {
           console.error('Error saving session before OAuth redirect:', err);
+          return res.status(500).send('Error preparing authentication session. Please try again.');
         }
+        
+        // Construct authentication options with state parameter if we have one
+        const authOptions: any = { 
+          scope: ['profile', 'email'],
+          prompt: 'select_account',
+          session: true
+        };
+        
+        // Add state parameter from session if available
+        if (req.session.oauthState) {
+          authOptions.state = req.session.oauthState;
+        }
+        
         // Continue with Google authentication
-        passport.authenticate('google', { 
-          scope: ['profile', 'email'],
-          // Force approval screen
-          prompt: 'select_account',
-          session: true
-        })(req, res, next);
+        console.log(`Initiating Google OAuth with options:`, authOptions);
+        passport.authenticate('google', authOptions)(req, res, next);
       });
     } else {
       console.error('No session object available before Google auth');
+      // Fallback to basic authentication if no session is available
       passport.authenticate('google', { 
         scope: ['profile', 'email'],
         prompt: 'select_account',
@@ -271,24 +305,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Google OAuth signup route - functionally the same as login but tracked separately
+  // Google OAuth signup route - similar to login but tracked separately for analytics
   app.get('/api/auth/google/signup', (req, res, next) => {
+    // Use the state parameter if provided to link with a prepared session
+    const stateParam = req.query.state as string | undefined;
+    const originPath = req.query.originPath as string | undefined || '/pricing'; // Default to pricing for signup
+    
+    // If there's no session or the state parameter isn't connected to our session
+    if (!req.session || (stateParam && req.session.oauthState !== stateParam)) {
+      console.log(`Google OAuth signup: Creating new session state. Current state: ${stateParam || 'none'}, Session state: ${req.session?.oauthState || 'none'}`);
+      
+      // Set OAuth flags in the session if it exists
+      if (req.session) {
+        req.session.oauthPending = true;
+        req.session.oauthInitiatedAt = new Date().toISOString();
+        req.session.originPath = originPath;
+        req.session.isSignup = true; // Mark this as a signup flow
+        
+        // Generate a state parameter if none was provided
+        if (!stateParam) {
+          req.session.oauthState = `signup_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        }
+      }
+    }
+    
     // Ensure session is saved before redirecting to Google
     if (req.session) {
+      console.log(`Google OAuth signup: Saving session ID ${req.sessionID} before redirect`);
+      
       req.session.save((err) => {
         if (err) {
-          console.error('Error saving session before OAuth redirect:', err);
+          console.error('Error saving session before OAuth signup redirect:', err);
+          return res.status(500).send('Error preparing authentication session. Please try again.');
         }
-        // Continue with Google authentication - same as login
-        passport.authenticate('google', { 
+        
+        // Construct authentication options with state parameter if we have one
+        const authOptions: any = { 
           scope: ['profile', 'email'],
-          // Force approval screen
           prompt: 'select_account',
           session: true
-        })(req, res, next);
+        };
+        
+        // Add state parameter from session if available
+        if (req.session.oauthState) {
+          authOptions.state = req.session.oauthState;
+        }
+        
+        // Continue with Google authentication
+        console.log(`Initiating Google OAuth signup with options:`, authOptions);
+        passport.authenticate('google', authOptions)(req, res, next);
       });
     } else {
-      console.error('No session object available before Google auth');
+      console.error('No session object available before Google auth signup');
+      // Fallback to basic authentication if no session is available
       passport.authenticate('google', { 
         scope: ['profile', 'email'],
         prompt: 'select_account',
@@ -297,18 +366,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Google OAuth callback route with enhanced error handling and logging
+  // Google OAuth callback route with comprehensive error handling and session management
   app.get('/api/auth/google/callback', 
     (req, res, next) => {
+      // Extract and verify state parameter
+      const stateParam = req.query.state as string | undefined;
+      const storedState = req.session?.oauthState;
+      
+      console.log(`OAuth callback received with state: ${stateParam || 'none'}, stored state: ${storedState || 'none'}`);
+      
+      // Check for OAuth errors first
       if (req.query.error) {
+        console.error(`OAuth error: ${req.query.error}`);
         return res.redirect(`/login?error=${encodeURIComponent(req.query.error as string)}`);
       }
       
+      // Verify we have an auth code
       if (!req.query.code) {
+        console.error('OAuth callback missing auth code');
         return res.redirect('/login?error=missing-auth-code');
       }
       
-      // Handle the authentication with a more robust error handler
+      // State validation - a mismatch indicates potential CSRF
+      if (stateParam && storedState && stateParam !== storedState) {
+        console.error(`OAuth state mismatch. Received: ${stateParam}, Expected: ${storedState}`);
+        return res.redirect('/login?error=invalid-oauth-state');
+      }
+      
+      // Handle the authentication with a comprehensive error handler
       passport.authenticate('google', { 
         failureRedirect: '/login?error=oauth-failed',
         failureMessage: true,
@@ -324,7 +409,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.redirect('/login?error=authentication-failed');
         }
         
-        // Log in the user manually to ensure session is created
+        // Clean up OAuth flags from session
+        if (req.session) {
+          delete req.session.oauthState;
+          delete req.session.oauthPending;
+          delete req.session.oauthInitiatedAt;
+          
+          // Keep originPath for potential redirection
+          const originPath = req.session.originPath;
+          if (originPath) {
+            delete req.session.originPath;
+          }
+          
+          // Save changes before login to avoid race conditions
+          await new Promise<void>((resolve, reject) => {
+            req.session.save((err) => {
+              if (err) {
+                console.error('Error cleaning session before login:', err);
+              }
+              resolve();
+            });
+          });
+        }
+        
+        // Log in the user manually with explicit session handling
         req.login(user, (loginErr) => {
           if (loginErr) {
             console.error('Failed to create session after Google OAuth:', loginErr);
@@ -539,7 +647,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  // Google OAuth test endpoint removed for production
+  // OAuth session preparation endpoint - creates and prepares a session before redirecting to Google
+  app.get('/api/auth/prepare-oauth', (req: Request, res: Response) => {
+    try {
+      // Ensure a session exists and is saved
+      if (!req.session) {
+        console.error('No session object available for OAuth preparation');
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Failed to prepare session for OAuth flow' 
+        });
+      }
+      
+      // Generate a unique state parameter to verify the OAuth callback
+      const state = `oauth_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      
+      // Store the state in the session to verify later
+      req.session.oauthState = state;
+      
+      // Set flags to indicate this is an OAuth session
+      req.session.oauthPending = true;
+      req.session.oauthInitiatedAt = new Date().toISOString();
+      
+      // Store any origin path for potential redirection after authentication
+      const originPath = req.query.originPath || '/';
+      req.session.originPath = originPath;
+      
+      // Save the session with explicit callback
+      req.session.save((err) => {
+        if (err) {
+          console.error('Error saving session during OAuth preparation:', err);
+          return res.status(500).json({ 
+            success: false, 
+            message: 'Failed to save session for OAuth flow' 
+          });
+        }
+        
+        // Return success with the state parameter to be used in the OAuth redirect
+        return res.status(200).json({
+          success: true,
+          message: 'Session prepared for OAuth',
+          state: state,
+          sessionID: req.sessionID
+        });
+      });
+    } catch (error) {
+      console.error('Error in OAuth session preparation:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error during OAuth preparation' 
+      });
+    }
+  });
   
   // User registration endpoint (modified version of the existing user creation endpoint)
   app.post("/api/auth/register", async (req: Request, res: Response) => {

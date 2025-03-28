@@ -44,7 +44,7 @@ const generateSessionSecret = () => {
 const sessionSecret = generateSessionSecret();
 console.log('Session middleware initialized with new secret');
 
-// Setup session middleware with improved configuration
+// Setup session middleware with optimized configuration for OAuth flows
 app.use(
   session({
     store: new PgSession({
@@ -60,16 +60,25 @@ app.use(
     rolling: true, // Reset cookie maxAge on each response
     cookie: {
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
-      // When using HTTPS URLs (like in Replit deployment), secure should be true
-      secure: !!(isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https'))),
       httpOnly: true, // Prevent JavaScript access to the cookie
-      // For OAuth flows involving third party authentication like Google,
-      // we need to use 'none' to allow cookies to be sent during redirects
-      // However, 'none' requires 'secure: true', so we only set it in secure environments
-      sameSite: !!(isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https'))) 
+      path: '/', // Ensure cookie is available for the entire site
+      
+      // Determine if we should use secure cookies based on environment
+      // In production/Replit with HTTPS, set secure:true - otherwise use false to work in HTTP
+      secure: isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https')),
+      
+      // Configure SameSite setting for optimal OAuth compatibility:
+      // - For OAuth flows in secure environments: 'none' allows cross-origin cookies
+      // - For local development or HTTP: 'lax' is more secure while still allowing redirects
+      // 
+      // When secure:true and sameSite:'none', cookies work for cross-origin OAuth
+      // When secure:false, cookies work best with sameSite:'lax' 
+      sameSite: isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https'))
         ? 'none'  // In secure HTTPS environments, use 'none' for OAuth compatibility
         : 'lax',  // In non-secure environments, fall back to 'lax'
-      path: '/', // Ensure cookie is available for the entire site
+      
+      // Additional session cookie settings
+      domain: undefined, // Use default domain - will be the domain where the cookie was created
     },
     name: 'swp.sid', // Custom name to avoid conflicts
   })
@@ -80,12 +89,46 @@ const passport = configurePassport(storage);
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Add middleware to attach session ID to response headers for debugging
+// Add enhanced middleware for session tracking and debugging
 app.use((req, res, next) => {
-  // Only in development, add session info to response headers
-  if (process.env.NODE_ENV !== 'production') {
+  // Enhanced debugging headers - always add these for API requests
+  // This helps with troubleshooting authentication issues, especially with OAuth
+  if (req.path.startsWith('/api/') || process.env.NODE_ENV !== 'production') {
+    // Include session ID in response headers
     res.setHeader('X-Session-ID', req.sessionID || 'no-session');
-    res.setHeader('X-Auth-Status', req.isAuthenticated ? (req.isAuthenticated() ? 'authenticated' : 'not-authenticated') : 'unknown');
+    
+    // Track authentication status
+    const authStatus = req.isAuthenticated ? (req.isAuthenticated() ? 'authenticated' : 'not-authenticated') : 'unknown';
+    res.setHeader('X-Auth-Status', authStatus);
+    
+    // Add OAuth-specific details when present
+    if (req.session?.oauthPending) {
+      res.setHeader('X-OAuth-Pending', 'true');
+      if (req.session.oauthState) {
+        res.setHeader('X-OAuth-State', req.session.oauthState);
+      }
+      if (req.session.oauthInitiatedAt) {
+        res.setHeader('X-OAuth-Initiated', req.session.oauthInitiatedAt);
+      }
+    }
+    
+    // Log detailed session information for OAuth-related endpoints
+    if (
+      req.path.includes('/auth/google') || 
+      req.path.includes('/auth/session') || 
+      req.path.includes('/auth/prepare-oauth')
+    ) {
+      console.log(`Session debug for ${req.method} ${req.path} - SessionID: ${req.sessionID}`);
+      console.log(`Session cookie details:`, {
+        exists: !!req.session,
+        oauthState: req.session?.oauthState || 'none',
+        oauthPending: req.session?.oauthPending || false,
+        isNew: req.session?.isNew || false,
+        cookieMaxAge: req.session?.cookie?.maxAge || 'not set',
+        cookieExpires: req.session?.cookie?.expires || 'not set',
+        authenticated: authStatus
+      });
+    }
   }
   next();
 });

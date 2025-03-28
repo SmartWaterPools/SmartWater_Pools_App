@@ -431,42 +431,58 @@ export default function Login() {
                   type="button"
                   onClick={() => {
                     // Log that user is attempting Google OAuth login
-                    console.log("Initiating Google OAuth login flow");
+                    console.log("Initiating Google OAuth login flow with enhanced session preparation");
                     
                     // Add timestamp to prevent caching
                     const timestamp = Date.now();
                     
-                    // Create and store a unique state parameter to validate OAuth roundtrip
-                    const oauthState = `login_${Math.random().toString(36).substring(2, 15)}`;
-                    localStorage.setItem('oauth_state', oauthState);
+                    // Store origin path for potential redirect after login
+                    const originPath = localStorage.getItem('pre_auth_redirect') || '/dashboard';
                     
-                    // Store current page for potential redirect after login
-                    localStorage.setItem('pre_auth_path', window.location.pathname);
-                    
-                    // Ensure we save any existing session state before redirecting
-                    fetch(`/api/auth/session?_t=${timestamp}`, { 
+                    // Use the dedicated session preparation endpoint
+                    fetch(`/api/auth/prepare-oauth?_t=${timestamp}&originPath=${encodeURIComponent(originPath)}`, { 
                       method: 'GET',
                       credentials: 'include',
                       headers: {
+                        'Accept': 'application/json',
                         'Cache-Control': 'no-cache, no-store, must-revalidate',
                         'Pragma': 'no-cache'
                       }
                     })
                     .then(response => response.json())
                     .then(data => {
-                      console.log("Session state before Google OAuth:", data);
+                      console.log("Session prepared for Google OAuth:", data);
                       
-                      // Set a cookie specifically for tracking the OAuth flow
-                      document.cookie = `oauth_flow=true;path=/;max-age=300`;
+                      if (!data.success) {
+                        throw new Error(data.message || 'Failed to prepare session');
+                      }
                       
-                      // Then redirect to Google OAuth endpoint with cache buster and state
-                      window.location.href = `/api/auth/google?_t=${timestamp}&state=${oauthState}`;
+                      // Store the state locally as a fallback
+                      localStorage.setItem('oauth_state', data.state);
+                      localStorage.setItem('oauth_timestamp', timestamp.toString());
+                      
+                      // Set a cookie specifically for tracking the OAuth flow (as a backup)
+                      document.cookie = `oauth_flow=login;path=/;max-age=300;SameSite=Lax`;
+                      
+                      // Then redirect to Google OAuth endpoint with state parameter
+                      const redirectUrl = `/api/auth/google?state=${data.state}&_t=${timestamp}`;
+                      console.log(`Redirecting to: ${redirectUrl}`);
+                      window.location.href = redirectUrl;
                     })
                     .catch(err => {
                       console.error('Error preparing session for OAuth:', err);
+                      
+                      // Create a fallback state parameter
+                      const fallbackState = `fallback_${Math.random().toString(36).substring(2, 15)}`;
+                      localStorage.setItem('oauth_state', fallbackState);
+                      
+                      // Set a cookie for tracking
+                      document.cookie = `oauth_flow=login;path=/;max-age=300;SameSite=Lax`;
+                      
                       // Fallback to direct navigation if fetch fails
-                      document.cookie = `oauth_flow=true;path=/;max-age=300`;
-                      window.location.href = `/api/auth/google?_t=${timestamp}&state=${oauthState}`;
+                      const fallbackUrl = `/api/auth/google?state=${fallbackState}&_t=${timestamp}`;
+                      console.log(`Fallback redirect to: ${fallbackUrl}`);
+                      window.location.href = fallbackUrl;
                     });
                   }}
                 >
@@ -624,43 +640,61 @@ export default function Login() {
                   type="button"
                   onClick={() => {
                     // Log that user is attempting Google OAuth signup
-                    console.log("Initiating Google OAuth signup flow");
+                    console.log("Initiating Google OAuth signup flow with enhanced session preparation");
                     
                     // Add timestamp to prevent caching
                     const timestamp = Date.now();
                     
-                    // Create and store a unique state parameter to validate OAuth roundtrip
-                    const oauthState = `signup_${Math.random().toString(36).substring(2, 15)}`;
-                    localStorage.setItem('oauth_state', oauthState);
+                    // Store origin path for potential redirect after signup
+                    const originPath = '/pricing'; // Default redirect for new signups
+                    
+                    // Mark this as a signup flow
                     localStorage.setItem('oauth_signup', 'true');
                     
-                    // Store current page for potential redirect after signup
-                    localStorage.setItem('pre_auth_path', window.location.pathname);
-                    
-                    // Ensure we save any existing session state before redirecting
-                    fetch(`/api/auth/session?_t=${timestamp}`, { 
+                    // Use the dedicated session preparation endpoint
+                    fetch(`/api/auth/prepare-oauth?_t=${timestamp}&originPath=${encodeURIComponent(originPath)}`, { 
                       method: 'GET',
                       credentials: 'include',
                       headers: {
+                        'Accept': 'application/json',
                         'Cache-Control': 'no-cache, no-store, must-revalidate',
                         'Pragma': 'no-cache'
                       }
                     })
                     .then(response => response.json())
                     .then(data => {
-                      console.log("Session state before Google OAuth signup:", data);
+                      console.log("Session prepared for Google OAuth signup:", data);
                       
-                      // Set a cookie specifically for tracking the OAuth signup flow
-                      document.cookie = `oauth_flow=signup;path=/;max-age=300`;
+                      if (!data.success) {
+                        throw new Error(data.message || 'Failed to prepare session');
+                      }
                       
-                      // Then redirect to Google OAuth signup endpoint with cache buster and state
-                      window.location.href = `/api/auth/google/signup?_t=${timestamp}&state=${oauthState}`;
+                      // Store the state locally as a fallback
+                      localStorage.setItem('oauth_state', data.state);
+                      localStorage.setItem('oauth_timestamp', timestamp.toString());
+                      
+                      // Set a cookie specifically for tracking the OAuth flow (as a backup)
+                      document.cookie = `oauth_flow=signup;path=/;max-age=300;SameSite=Lax`;
+                      
+                      // Then redirect to Google OAuth signup endpoint with state parameter
+                      const redirectUrl = `/api/auth/google/signup?state=${data.state}&_t=${timestamp}`;
+                      console.log(`Redirecting to: ${redirectUrl}`);
+                      window.location.href = redirectUrl;
                     })
                     .catch(err => {
                       console.error('Error preparing session for OAuth signup:', err);
+                      
+                      // Create a fallback state parameter
+                      const fallbackState = `fallback_signup_${Math.random().toString(36).substring(2, 15)}`;
+                      localStorage.setItem('oauth_state', fallbackState);
+                      
+                      // Set a cookie for tracking
+                      document.cookie = `oauth_flow=signup;path=/;max-age=300;SameSite=Lax`;
+                      
                       // Fallback to direct navigation if fetch fails
-                      document.cookie = `oauth_flow=signup;path=/;max-age=300`;
-                      window.location.href = `/api/auth/google/signup?_t=${timestamp}&state=${oauthState}`;
+                      const fallbackUrl = `/api/auth/google/signup?state=${fallbackState}&_t=${timestamp}`;
+                      console.log(`Fallback redirect to: ${fallbackUrl}`);
+                      window.location.href = fallbackUrl;
                     });
                   }}
                 >
