@@ -73,7 +73,8 @@ app.use(
       
       // For OAuth compatibility, we need SameSite=none to allow cross-domain redirects
       // This is critical for Google OAuth flow to maintain session across redirects
-      sameSite: 'none',
+      // Force SameSite to "None" to ensure OAuth redirects work properly
+      sameSite: isReplit ? 'none' : 'lax',
       
       // Domain should be undefined to use the current domain
       domain: undefined,

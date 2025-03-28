@@ -27,12 +27,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // This needs to be more comprehensive to catch all OAuth-related routes
   const isOAuthCallbackRoute = useCallback(() => {
     // Complete list of all OAuth related paths that should bypass auth checks
-    return location.includes('/auth/callback') || 
+    const isOAuthPath = location.includes('/auth/callback') || 
            location.includes('/oauth/callback') ||
            location.includes('/api/auth/google/callback') || 
            location.includes('/api/auth/google') ||
            location.includes('/organization-selection') ||
            location === '/oauth-debug' || // Add our debug page as an allowed route
+           location === '/debug.html' || // Debug page
            // Include the query param cases where we might be in a redirect flow
            location.includes('?code=') ||
            location.includes('&code=') ||
@@ -42,6 +43,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
            // Handle state param as well
            location.includes('?state=') ||
            location.includes('&state=');
+    
+    // Also check browser storage for OAuth flow indicators
+    const hasOAuthCookie = document.cookie.includes('oauth_flow=');
+    const hasOAuthState = localStorage.getItem('oauth_state') !== null;
+    const timestampStr = localStorage.getItem('oauth_timestamp');
+    
+    // Check if we're still within the OAuth flow timeout
+    if (timestampStr) {
+      const timestamp = parseInt(timestampStr);
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+      if (timestamp > fiveMinutesAgo) {
+        // OAuth process started within last 5 minutes
+        return true;
+      }
+    }
+    
+    return isOAuthPath || hasOAuthCookie || hasOAuthState;
   }, [location]);
 
   // Function to perform auth check and navigation
@@ -53,8 +71,28 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return true;
     }
 
-    // Not authenticated - redirect to login
+    // Not authenticated - redirect to login (but avoid redirect loops)
     if (!isAuthenticated) {
+      // Don't redirect if we're already on the login page or during OAuth flow
+      if (location.startsWith('/login') || location === '/') {
+        console.log("ProtectedRoute: Already on login page, not redirecting");
+        return true; // Allow login page to render
+      }
+      
+      // Check if we're in the middle of an OAuth flow before redirecting
+      // This helps prevent issues where OAuth window is open but the main window redirects
+      const oauthState = localStorage.getItem('oauth_state');
+      const oauthTimestamp = localStorage.getItem('oauth_timestamp');
+      const isRecentOAuth = oauthTimestamp && 
+        (parseInt(oauthTimestamp) > Date.now() - (5 * 60 * 1000));
+      
+      if (oauthState && isRecentOAuth) {
+        console.log("ProtectedRoute: OAuth flow in progress, delaying redirect");
+        // Return true to allow rendering temporarily
+        // The auth state will update after OAuth completes
+        return true;
+      }
+      
       console.log("ProtectedRoute: Not authenticated, redirecting to login from:", location);
       navigate(`/login?redirect=${encodeURIComponent(location)}`);
       return false;

@@ -95,8 +95,33 @@ export default function Login() {
   
   // If already authenticated, redirect to homepage
   useEffect(() => {
+    // Check if we're currently in the OAuth process
+    const isInOAuthProcess = () => {
+      // Check for OAuth-related cookies or localStorage
+      const oauthFlowCookie = document.cookie.includes('oauth_flow=');
+      const oauthState = localStorage.getItem('oauth_state');
+      const oauthTimestamp = localStorage.getItem('oauth_timestamp');
+      
+      // If OAuth process was started in the last 5 minutes, consider it active
+      const timestamp = oauthTimestamp ? parseInt(oauthTimestamp) : 0;
+      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+      const isRecentOAuth = timestamp > fiveMinutesAgo;
+      
+      return oauthFlowCookie || (oauthState && isRecentOAuth);
+    };
+    
     if (isAuthenticated) {
+      // Check if we came from OAuth process
+      if (isInOAuthProcess()) {
+        console.log("Login: OAuth login successful, clearing OAuth state before redirect");
+        // Clear OAuth state to prevent future conflicts
+        localStorage.removeItem('oauth_state');
+        localStorage.removeItem('oauth_timestamp');
+        document.cookie = 'oauth_flow=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT';
+      }
+      
       // Always redirect to dashboard per user request
+      console.log("Login: User authenticated, redirecting to dashboard");
       setLocation('/dashboard');
     }
   }, [isAuthenticated, setLocation, redirectPath]);
