@@ -309,13 +309,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             
             // Handle special cases that bypass subscription check (admin users or Travis)
+            // Make comparison case insensitive for email addresses
+            const specialEmails = ['travis@smartwaterpools.com', '010101thomasanderson@gmail.com'];
+            const userEmailLower = user.email ? user.email.toLowerCase() : '';
+            
             const isExemptUser = 
               user.role === 'system_admin' || 
               user.role === 'admin' || 
               user.role === 'org_admin' ||
-              user.email.toLowerCase() === 'travis@smartwaterpools.com' ||
-              user.email.toLowerCase() === '010101thomasanderson@gmail.com'; // Add test user to exemptions
+              specialEmails.includes(userEmailLower);
+            
+            console.log(`Google OAuth login for ${user.email} (${user.id}), role: ${user.role}, exempt: ${isExemptUser}`);
+            
+            // Special handling for Travis and admin accounts - ensure they're properly marked as exempt
+            if (userEmailLower === 'travis@smartwaterpools.com' && user.role !== 'system_admin') {
+              console.log(`Updating ${user.email} to have system_admin role`);
+              await storage.updateUser(user.id, { role: 'system_admin' });
+              user.role = 'system_admin'; // Update in-memory user object too
+            }
               
+            // For exempt users, ensure they have an organization ID
+            if (isExemptUser && !user.organizationId) {
+              try {
+                // Try both slugs to be sure we find the organization
+                let defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
+                if (!defaultOrg) {
+                  defaultOrg = await storage.getOrganizationBySlug('smartwaterpools');
+                }
+                
+                if (defaultOrg) {
+                  console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
+                  await storage.updateUser(user.id, { organizationId: defaultOrg.id });
+                  // Update the user object in memory with the organization ID
+                  user.organizationId = defaultOrg.id;
+                } else {
+                  // If we can't find the default org, create one for admin users
+                  if (user.role === 'system_admin' || user.role === 'admin') {
+                    console.log(`Creating default organization for admin user ${user.email}`);
+                    const newOrg = await storage.createOrganization({
+                      name: 'SmartWater Pools',
+                      slug: 'smartwater-pools',
+                      active: true,
+                      email: user.email,
+                      phone: null,
+                      address: null,
+                      city: null,
+                      state: null,
+                      zipCode: null,
+                      logo: null
+                    });
+                    
+                    if (newOrg) {
+                      await storage.updateUser(user.id, { organizationId: newOrg.id });
+                      user.organizationId = newOrg.id;
+                    }
+                  }
+                }
+              } catch (err) {
+                console.error(`Failed to assign organization to exempt user ${user.email}:`, err);
+              }
+            }
+            
             // ALWAYS check for organization membership for non-exempt users, regardless of whether they are new or existing
             if (!isExemptUser) {
               // If the user doesn't have an organizationId or it's invalid, redirect to pricing

@@ -209,7 +209,29 @@ export function configurePassport(storage: IStorage) {
                 // Get SmartWater Pools organization
                 const organization = await storage.getOrganizationBySlug('smartwater-pools');
                 if (!organization) {
-                  return done(new Error('Default organization not found'), false);
+                  // Attempt to find any available organization as a fallback
+                  const organizations = await storage.getAllOrganizations();
+                  if (organizations && organizations.length > 0) {
+                    // Use the first available organization
+                    console.log(`Using first available organization for Travis: ${organizations[0].name} (ID: ${organizations[0].id})`);
+                    
+                    const newAdmin = await storage.createUser({
+                      username,
+                      password: null,
+                      name: displayName,
+                      email: email,
+                      role: 'system_admin',
+                      googleId: profile.id,
+                      photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                      authProvider: 'google',
+                      organizationId: organizations[0].id,
+                      active: true
+                    });
+                    
+                    return done(null, newAdmin);
+                  }
+                  
+                  return done(new Error('Default organization not found and no fallback organization available'), false);
                 }
                 
                 const newAdmin = await storage.createUser({
@@ -225,8 +247,11 @@ export function configurePassport(storage: IStorage) {
                   active: true
                 });
                 
+                console.log(`Created Travis account with system_admin role. User ID: ${newAdmin.id}, Organization: ${organization.name} (${organization.id})`);
+                
                 return done(null, newAdmin);
               } catch (error) {
+                console.error('Error creating Travis admin account:', error);
                 return done(error, false);
               }
             }

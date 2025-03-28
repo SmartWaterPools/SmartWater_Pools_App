@@ -38,8 +38,74 @@ export function requireActiveSubscription(storage: IStorage) {
     try {
       const user = req.user as any;
       
-      // System admin and admin users bypass the subscription check
-      if (user.role === 'system_admin' || (user.email && user.email.toLowerCase() === 'travis@smartwaterpools.com')) {
+      // Create an array of special exempt emails (lowercase for case-insensitive comparison)
+      const specialEmails = ['travis@smartwaterpools.com', '010101thomasanderson@gmail.com'];
+      const userEmailLower = user.email ? user.email.toLowerCase() : '';
+      
+      // System admin, admin users, org_admin, and special users bypass the subscription check
+      const isExemptUser = 
+        user.role === 'system_admin' || 
+        user.role === 'admin' || 
+        user.role === 'org_admin' || 
+        specialEmails.includes(userEmailLower);
+      
+      if (isExemptUser) {
+        console.log(`Subscription check bypassed for exempt user: ${user.email} (role: ${user.role})`);
+        
+        // Special handling for Travis - force the system_admin role
+        if (userEmailLower === 'travis@smartwaterpools.com' && user.role !== 'system_admin') {
+          console.log(`Ensuring ${user.email} has system_admin role`);
+          try {
+            await storage.updateUser(user.id, { role: 'system_admin' });
+            // Note: we don't update the user object in the request because this middleware
+            // only checks auth, it doesn't modify the session
+          } catch (err) {
+            console.error(`Failed to update role for exempt user ${user.email}:`, err);
+          }
+        }
+        
+        // If the exempt user somehow doesn't have an organizationId, we'll try to assign one
+        if (!user.organizationId) {
+          try {
+            // Try both possible slugs
+            let defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
+            if (!defaultOrg) {
+              defaultOrg = await storage.getOrganizationBySlug('smartwaterpools');
+            }
+            
+            if (defaultOrg) {
+              console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
+              await storage.updateUser(user.id, { organizationId: defaultOrg.id });
+            } else {
+              console.warn(`Could not find default organization for exempt user ${user.email}`);
+              
+              // For admin users, create a default organization if needed
+              if (user.role === 'system_admin' || user.role === 'admin') {
+                console.log(`Creating default organization for admin user ${user.email}`);
+                const newOrg = await storage.createOrganization({
+                  name: 'SmartWater Pools',
+                  slug: 'smartwater-pools',
+                  active: true,
+                  email: user.email,
+                  phone: null,
+                  address: null,
+                  city: null,
+                  state: null,
+                  zipCode: null,
+                  logo: null
+                });
+                
+                if (newOrg) {
+                  await storage.updateUser(user.id, { organizationId: newOrg.id });
+                  console.log(`Created organization ${newOrg.id} and assigned to user ${user.id}`);
+                }
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to assign organization to exempt user ${user.email}:`, err);
+          }
+        }
+        
         return next();
       }
       
