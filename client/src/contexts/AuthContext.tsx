@@ -38,29 +38,62 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [sessionChecked, setSessionChecked] = useState<boolean>(false);
   const { toast } = useToast();
 
-  // Check if the user is authenticated on component mount
+  // Check for OAuth callback state to trigger additional session checks if needed
+  const [oauthRetryCount, setOauthRetryCount] = useState(0);
+  const MAX_OAUTH_RETRIES = 3;
+  
+  // Check if the current URL is an OAuth callback URL
+  const isOAuthCallback = (): boolean => {
+    const pathname = window.location.pathname;
+    return pathname.includes('/api/auth/google/callback') || 
+           // Also handle frontend routes that handle OAuth state
+           pathname.includes('/oauth/callback') ||
+           pathname.includes('/organization-selection');
+  };
+  
+  // Check if the user is authenticated on component mount with enhanced OAuth handling
   useEffect(() => {
     const checkInitialSession = async () => {
       console.log("Performing initial session check...");
       try {
         // Keep isLoading true during the entire session check
         setIsLoading(true);
-        await checkSession();
+        
+        const isAuthenticated = await checkSession();
+        
+        // Special handling for OAuth callback paths - retry session check multiple times with delay
+        // This helps with race conditions where the server-side session might not be fully established
+        if (!isAuthenticated && isOAuthCallback() && oauthRetryCount < MAX_OAUTH_RETRIES) {
+          console.log(`OAuth path detected, scheduling retry ${oauthRetryCount + 1} of ${MAX_OAUTH_RETRIES}`);
+          
+          // Schedule a retry after a delay (exponential backoff)
+          const delayMs = Math.min(1000 * Math.pow(2, oauthRetryCount), 5000);
+          
+          setTimeout(() => {
+            setOauthRetryCount(prev => prev + 1);
+            // Will trigger this effect again with increased retry count
+          }, delayMs);
+          
+          // Keep loading state while we wait for retry
+          return;
+        }
       } catch (error) {
         console.error("Error during initial session check:", error);
         // Make sure auth state is reset on error
         setUser(null);
         setIsAuthenticated(false);
       } finally {
-        // Complete the session check and update loading state
-        setSessionChecked(true);
-        setIsLoading(false);
-        console.log("Initial session check completed.");
+        // Only mark session as checked if we're not planning more retries
+        if (!isOAuthCallback() || oauthRetryCount >= MAX_OAUTH_RETRIES) {
+          setSessionChecked(true);
+          setIsLoading(false);
+          console.log("Initial session check completed.");
+        }
       }
     };
     
     checkInitialSession();
-  }, []);
+  }, [oauthRetryCount]); // Re-run when oauthRetryCount changes
 
   const checkSession = async (): Promise<boolean> => {
     try {

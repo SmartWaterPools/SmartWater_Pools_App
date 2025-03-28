@@ -99,10 +99,18 @@ export function configurePassport(storage: IStorage) {
   // Configure Google OAuth strategy
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+  const isReplit = !!process.env.REPL_ID;
   
   // ALWAYS use the production URL for Google OAuth callback to ensure consistency
   // This prevents issues with OAuth redirects going to the wrong domain
   let callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
+  
+  // Add detailed logging about Google OAuth configuration
+  console.log('Google OAuth Configuration:');
+  console.log(`- Client ID available: ${!!GOOGLE_CLIENT_ID}`);
+  console.log(`- Client Secret available: ${!!GOOGLE_CLIENT_SECRET}`);
+  console.log(`- Callback URL: ${callbackURL}`);
+  console.log(`- Running in Replit: ${isReplit}`);
   
   if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     passport.use(
@@ -114,7 +122,11 @@ export function configurePassport(storage: IStorage) {
           scope: ['profile', 'email'],
           // Enable both proxy trust and pass request object for better session handling
           proxy: true,
-          passReqToCallback: true
+          passReqToCallback: true,
+          // State parameter for CSRF protection and session preservation
+          state: true,
+          // Handle user cancellation better
+          userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo'
         },
         async (req, accessToken, refreshToken, profile, done) => {
           try {

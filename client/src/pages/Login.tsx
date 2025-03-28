@@ -436,6 +436,13 @@ export default function Login() {
                     // Add timestamp to prevent caching
                     const timestamp = Date.now();
                     
+                    // Create and store a unique state parameter to validate OAuth roundtrip
+                    const oauthState = `login_${Math.random().toString(36).substring(2, 15)}`;
+                    localStorage.setItem('oauth_state', oauthState);
+                    
+                    // Store current page for potential redirect after login
+                    localStorage.setItem('pre_auth_path', window.location.pathname);
+                    
                     // Ensure we save any existing session state before redirecting
                     fetch(`/api/auth/session?_t=${timestamp}`, { 
                       method: 'GET',
@@ -448,13 +455,18 @@ export default function Login() {
                     .then(response => response.json())
                     .then(data => {
                       console.log("Session state before Google OAuth:", data);
-                      // Then redirect to Google OAuth endpoint with cache buster
-                      window.location.href = `/api/auth/google?_t=${timestamp}`;
+                      
+                      // Set a cookie specifically for tracking the OAuth flow
+                      document.cookie = `oauth_flow=true;path=/;max-age=300`;
+                      
+                      // Then redirect to Google OAuth endpoint with cache buster and state
+                      window.location.href = `/api/auth/google?_t=${timestamp}&state=${oauthState}`;
                     })
                     .catch(err => {
                       console.error('Error preparing session for OAuth:', err);
                       // Fallback to direct navigation if fetch fails
-                      window.location.href = `/api/auth/google?_t=${timestamp}`;
+                      document.cookie = `oauth_flow=true;path=/;max-age=300`;
+                      window.location.href = `/api/auth/google?_t=${timestamp}&state=${oauthState}`;
                     });
                   }}
                 >
@@ -617,6 +629,14 @@ export default function Login() {
                     // Add timestamp to prevent caching
                     const timestamp = Date.now();
                     
+                    // Create and store a unique state parameter to validate OAuth roundtrip
+                    const oauthState = `signup_${Math.random().toString(36).substring(2, 15)}`;
+                    localStorage.setItem('oauth_state', oauthState);
+                    localStorage.setItem('oauth_signup', 'true');
+                    
+                    // Store current page for potential redirect after signup
+                    localStorage.setItem('pre_auth_path', window.location.pathname);
+                    
                     // Ensure we save any existing session state before redirecting
                     fetch(`/api/auth/session?_t=${timestamp}`, { 
                       method: 'GET',
@@ -629,13 +649,18 @@ export default function Login() {
                     .then(response => response.json())
                     .then(data => {
                       console.log("Session state before Google OAuth signup:", data);
-                      // Then redirect to Google OAuth signup endpoint with cache buster
-                      window.location.href = `/api/auth/google/signup?_t=${timestamp}`;
+                      
+                      // Set a cookie specifically for tracking the OAuth signup flow
+                      document.cookie = `oauth_flow=signup;path=/;max-age=300`;
+                      
+                      // Then redirect to Google OAuth signup endpoint with cache buster and state
+                      window.location.href = `/api/auth/google/signup?_t=${timestamp}&state=${oauthState}`;
                     })
                     .catch(err => {
                       console.error('Error preparing session for OAuth signup:', err);
                       // Fallback to direct navigation if fetch fails
-                      window.location.href = `/api/auth/google/signup?_t=${timestamp}`;
+                      document.cookie = `oauth_flow=signup;path=/;max-age=300`;
+                      window.location.href = `/api/auth/google/signup?_t=${timestamp}&state=${oauthState}`;
                     });
                   }}
                 >

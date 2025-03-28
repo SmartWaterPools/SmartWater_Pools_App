@@ -24,10 +24,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [localLoading, setLocalLoading] = useState<boolean>(true);
 
   // Function to check if the current route is part of the OAuth callback flow
+  // This needs to be more comprehensive to catch all OAuth-related routes
   const isOAuthCallbackRoute = useCallback(() => {
+    // Complete list of all OAuth related paths that should bypass auth checks
     return location.includes('/auth/callback') || 
+           location.includes('/oauth/callback') ||
            location.includes('/api/auth/google/callback') || 
-           location.includes('/organization-selection');
+           location.includes('/api/auth/google') ||
+           location.includes('/organization-selection') ||
+           // Include the query param cases where we might be in a redirect flow
+           location.includes('?code=') ||
+           location.includes('&code=') ||
+           // Also check for error states in OAuth flow
+           location.includes('?error=') || 
+           location.includes('&error=') ||
+           // Handle state param as well
+           location.includes('?state=') ||
+           location.includes('&state=');
   }, [location]);
 
   // Function to perform auth check and navigation

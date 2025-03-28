@@ -63,7 +63,12 @@ app.use(
       // When using HTTPS URLs (like in Replit deployment), secure should be true
       secure: !!(isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https'))),
       httpOnly: true, // Prevent JavaScript access to the cookie
-      sameSite: 'lax', // Use 'lax' instead of 'none' for better compatibility
+      // For OAuth flows involving third party authentication like Google,
+      // we need to use 'none' to allow cookies to be sent during redirects
+      // However, 'none' requires 'secure: true', so we only set it in secure environments
+      sameSite: !!(isProduction || (isReplit && process.env.APP_URL && process.env.APP_URL.startsWith('https'))) 
+        ? 'none'  // In secure HTTPS environments, use 'none' for OAuth compatibility
+        : 'lax',  // In non-secure environments, fall back to 'lax'
       path: '/', // Ensure cookie is available for the entire site
     },
     name: 'swp.sid', // Custom name to avoid conflicts
