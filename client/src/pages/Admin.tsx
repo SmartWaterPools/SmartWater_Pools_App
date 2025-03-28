@@ -1,25 +1,61 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "../contexts/AuthContext";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { OrganizationManagement } from "@/components/settings/OrganizationManagement";
-import { Shield, Users, Building } from "lucide-react";
+import { Shield, Users, Building, Loader2 } from "lucide-react";
 
 export default function Admin() {
   const [, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  const [accessVerified, setAccessVerified] = useState(false);
+  const [localLoading, setLocalLoading] = useState(true);
   
-  // Redirect non-admin users
+  // First check - verify authentication and redirect non-admin users
   useEffect(() => {
-    if (user && !['admin', 'system_admin', 'org_admin'].includes(user.role)) {
-      setLocation('/unauthorized');
+    // Start with local loading state to prevent flashing
+    setLocalLoading(true);
+    
+    // Only proceed if auth checking is complete
+    if (!isLoading) {
+      console.log("Admin page: Auth check complete", { isAuthenticated, user });
+      
+      // If not authenticated, redirect to login
+      if (!isAuthenticated) {
+        console.log("Admin page: Not authenticated, redirecting to login");
+        setLocation('/login?redirect=/admin');
+        return;
+      }
+      
+      // If authenticated but not admin, redirect to unauthorized
+      if (user && !['admin', 'system_admin', 'org_admin'].includes(user.role)) {
+        console.log("Admin page: Unauthorized role, redirecting");
+        setLocation('/unauthorized');
+        return;
+      }
+      
+      // If authenticated and has admin role, verify access
+      if (isAuthenticated && user && ['admin', 'system_admin', 'org_admin'].includes(user.role)) {
+        console.log("Admin page: Access verified");
+        
+        // Add a deliberate delay before showing content to avoid flashing
+        setTimeout(() => {
+          setAccessVerified(true);
+          setLocalLoading(false);
+        }, 100);
+      }
     }
-  }, [user, setLocation]);
+  }, [isLoading, isAuthenticated, user, setLocation]);
   
-  if (!user || !['admin', 'system_admin', 'org_admin'].includes(user.role)) {
-    return null; // Don't render anything while redirecting
+  // Don't render anything until we've verified access and completed local loading delay
+  if (isLoading || localLoading || !accessVerified || !user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
   }
   
   return (

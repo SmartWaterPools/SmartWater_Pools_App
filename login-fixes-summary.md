@@ -48,6 +48,15 @@
   - Fixed case-sensitivity issues in email comparison
   - Added special handling for admin roles and specific emails
 
+### 7. Authentication Race Condition
+- **Problem**: Admin page briefly loads then redirects back to login due to race condition
+- **Root Cause**: Route rendering before authentication check completes
+- **Solution**:
+  - Enhanced Admin.tsx with multi-layered protection against premature rendering
+  - Added a local loading state and deliberate delay to prevent UI flashing
+  - Improved authentication state checking and verification process
+  - Added better logging for authentication state transitions
+
 ## Implementation Details
 
 ### Client-Side Changes
@@ -59,6 +68,12 @@
 2. **Fixed OrganizationSelection.tsx**:
    - Corrected apiRequest usage pattern for organization creation
    - Enhanced error handling for organization creation and joining
+   
+3. **Enhanced Admin.tsx**:
+   - Added multi-layered protection against authentication race conditions
+   - Implemented local loading state with deliberate delay
+   - Added comprehensive authentication and role verification
+   - Improved logging of authentication state transitions
 
 ### Server-Side Changes
 1. **Updated auth.ts**:
@@ -85,3 +100,4 @@ These issues have been verified by:
 3. Verifying proper authentication for travis@smartwaterpools.com
 4. Testing subscription middleware exemption logic
 5. Implementing cross-browser authentication fixes
+6. Confirming Admin page authentication race condition is resolved with loading state

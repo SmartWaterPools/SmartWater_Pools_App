@@ -388,7 +388,14 @@ export function requirePermission(resource: ResourceType, action: ActionType) {
       return next();
     }
     
-    if (hasPermission(user.role, resource, action)) {
+    // Verify user.role is a valid UserRole
+    const validRoles: UserRole[] = [
+      'system_admin', 'org_admin', 'admin', 'manager', 'technician', 
+      'client', 'office_staff'
+    ];
+    
+    if (validRoles.includes(user.role as UserRole) && 
+        hasPermission(user.role as UserRole, resource, action)) {
       return next();
     }
     
