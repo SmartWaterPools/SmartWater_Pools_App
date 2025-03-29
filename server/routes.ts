@@ -25,6 +25,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Google OAuth routes setup for login and signup
+  
+  // OAuth state clearing endpoint for switching accounts
+  app.post('/api/auth/clear-oauth-state', (req: Request, res: Response) => {
+    try {
+      console.log("Clearing OAuth state for account switching");
+      
+      // Clear session OAuth-related data
+      if (req.session) {
+        delete req.session.oauthState;
+        delete req.session.oauthPending;
+        delete req.session.oauthInitiatedAt;
+        delete req.session.originPath;
+        
+        // Save session explicitly to ensure changes are persisted
+        req.session.save((err) => {
+          if (err) {
+            console.error("Error clearing OAuth session state:", err);
+            return res.status(500).json({ 
+              success: false, 
+              message: 'Failed to clear OAuth state',
+              error: err.message
+            });
+          }
+          
+          // Clear OAuth cookies too
+          res.clearCookie('oauth_token');
+          res.clearCookie('oauth_flow');
+          res.clearCookie('oauth_timestamp');
+          
+          return res.json({ 
+            success: true, 
+            message: 'OAuth state cleared successfully'
+          });
+        });
+      } else {
+        // Even if there's no session, clear cookies
+        res.clearCookie('oauth_token');
+        res.clearCookie('oauth_flow');
+        res.clearCookie('oauth_timestamp');
+        
+        res.json({ 
+          success: true, 
+          message: 'No active session, cookies cleared'
+        });
+      }
+    } catch (error) {
+      console.error("Error clearing OAuth state:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: 'Internal server error during OAuth state clearing'
+      });
+    }
+  });
+  
   // OAuth session preparation endpoint
   app.get('/api/auth/prepare-oauth', (req: Request, res: Response) => {
     try {
@@ -212,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Google OAuth endpoint - simplified version
+  // Google OAuth endpoint - enhanced version with improved state handling
   app.get("/api/auth/google", (req, res, next) => {
     console.log("Google OAuth initiation request received");
     
@@ -226,29 +280,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.redirect('/login?error=google-credentials-missing');
     }
     
-    // Continue with Google authentication
-    passport.authenticate("google", { 
+    // Get state parameter from query string
+    const state = req.query.state as string;
+    const promptValue = req.query.prompt as string;
+    
+    // Create authentication options
+    const authOptions: any = {
       scope: ["profile", "email"]
-    })(req, res, next);
+    };
+    
+    // Add state parameter if it exists
+    if (state) {
+      authOptions.state = state;
+      console.log(`Using provided OAuth state: ${state}`);
+      
+      // Store state parameter in session if available
+      if (req.session) {
+        req.session.oauthState = state;
+        req.session.oauthPending = true;
+      }
+    }
+    
+    // Add prompt parameter if it exists (for account selection)
+    if (promptValue === 'select_account') {
+      authOptions.prompt = 'select_account';
+      console.log('Using select_account prompt for Google OAuth');
+    }
+    
+    // Log request details for debugging
+    console.log('Google OAuth request details:');
+    console.log('- Headers:', JSON.stringify(req.headers, null, 2).substring(0, 500) + '...');
+    console.log('- Query params:', JSON.stringify(req.query, null, 2));
+    console.log('- Auth options:', JSON.stringify(authOptions, null, 2));
+    
+    // Continue with Google authentication, now using our enhanced options
+    passport.authenticate("google", authOptions)(req, res, next);
   });
 
-  // Google OAuth callback endpoint - simplified version
+  // Google OAuth callback endpoint - enhanced version with improved token handling and timeout fixes
   app.get("/api/auth/google/callback",
-    passport.authenticate("google", { failureRedirect: "/login?error=google-auth-failed" }),
+    (req: Request, res: Response, next: NextFunction) => {
+      try {
+        // Log information about the callback state
+        console.log("OAuth callback received, processing authentication");
+        console.log("- Session exists:", !!req.session);
+        console.log("- Session ID:", req.sessionID || "none");
+        console.log("- OAuth state from query:", req.query.state || "none");
+        console.log("- OAuth state in session:", req.session?.oauthState || "none");
+        console.log("- OAuth pending flag:", req.session?.oauthPending || false);
+        console.log("- Headers present:", Object.keys(req.headers).join(", "));
+        console.log("- Cookies from header:", req.headers.cookie?.substring(0, 100) || "none");
+        
+        // Check for the presence of error params from Google
+        if (req.query.error) {
+          console.error(`Google OAuth error: ${req.query.error}`);
+          if (req.query.error === 'access_denied') {
+            return res.redirect('/login?error=access-denied');
+          }
+          return res.redirect('/login?error=google-error');
+        }
+        
+        // Attempt to recover state from various sources
+        // 1. Try to get from query parameter
+        const queryState = req.query.state as string;
+        // 2. Try to get from session
+        let sessionState = req.session?.oauthState;
+        // 3. Try to get from cookies
+        const cookieState = req.cookies?.oauth_token;
+        
+        // If we don't have state in session but have it elsewhere, restore it
+        if (!sessionState) {
+          if (cookieState) {
+            console.log("Restoring OAuth state from cookie:", cookieState);
+            if (req.session) req.session.oauthState = cookieState;
+            sessionState = cookieState;
+          } else if (queryState) {
+            console.log("Using query state as fallback:", queryState);
+            if (req.session) req.session.oauthState = queryState;
+            sessionState = queryState;
+          }
+        }
+        
+        // Log state comparison for debugging
+        console.log("State comparison:");
+        console.log("- Query state:", queryState || "none");
+        console.log("- Session state:", sessionState || "none");
+        console.log("- Cookie state:", cookieState || "none");
+        
+        // Check if we have a code but no state (common edge case)
+        if (req.query.code && !queryState) {
+          console.log("OAuth callback has code but no state, proceeding anyway");
+        }
+        
+        // Ensure session exists before proceeding
+        if (!req.session) {
+          console.error("No session object in callback request - creating new one");
+          // We'll continue and let passport handle it, but log the error
+        }
+        
+        // Set a short timeout for the auth process to avoid hanging
+        res.setTimeout(10000, () => {
+          console.error("Google OAuth callback timed out");
+          res.redirect('/login?error=authentication-timeout');
+        });
+        
+        next();
+      } catch (error) {
+        console.error("Error in OAuth callback preprocessing:", error);
+        return res.redirect('/login?error=oauth-process-error');
+      }
+    },
+    passport.authenticate("google", { 
+      failureRedirect: "/login?error=google-auth-failed",
+      failureMessage: "Failed to authenticate with Google",
+      // Add session: true to ensure we're using session-based auth
+      session: true
+    }),
     (req: Request, res: Response) => {
       try {
-        console.log("OAuth callback received, user authenticated");
+        console.log("OAuth authentication successful, processing user data");
         
-        // Log user details
-        const userId = req.user ? (req.user as any).id : 'none';
-        console.log(`OAuth login successful for user ${userId}, redirecting to dashboard`);
+        // Log authentication state in detail
+        console.log("- Is Authenticated:", req.isAuthenticated ? req.isAuthenticated() : "function not available");
+        console.log("- User object present:", !!req.user);
+        if (req.user) {
+          const user = req.user as any;
+          console.log("- User ID:", user.id);
+          console.log("- User email:", user.email);
+          console.log("- User role:", user.role);
+        }
         
-        // Always redirect to dashboard
-        res.redirect('/dashboard');
+        // Clear OAuth state and related cookies
+        if (req.session) {
+          delete req.session.oauthState;
+          delete req.session.oauthPending;
+          delete req.session.oauthInitiatedAt;
+        }
+        
+        // Clear all OAuth-related cookies
+        res.clearCookie('oauth_token');
+        res.clearCookie('oauth_flow');
+        res.clearCookie('oauth_timestamp');
+        
+        // Verify user data is present
+        if (!req.user) {
+          console.error("No user object found after successful OAuth authentication");
+          return res.redirect('/login?error=missing-user-data');
+        }
+        
+        // Get user details
+        const user = req.user as any;
+        console.log(`OAuth login successful for user ${user.email} (${user.id})`);
+        
+        // Check if user has required data
+        if (!user.email) {
+          console.error("User missing required email field");
+          return res.redirect('/login?error=incomplete-user-data');
+        }
+        
+        // Save session explicitly to ensure user data persistence
+        req.session.save((err) => {
+          if (err) {
+            console.error("Error saving session after OAuth login:", err);
+            return res.redirect('/login?error=session-save-failed');
+          }
+          
+          console.log("Session saved successfully after OAuth login");
+          console.log("- Session ID:", req.sessionID);
+          console.log("- Cookie data sent:", !!res.getHeader('Set-Cookie'));
+          
+          // Refresh the session data to ensure it's completely saved
+          req.session.touch();
+          
+          // Redirect to appropriate page based on user role or organization status
+          if (user.role === 'system_admin') {
+            console.log("Redirecting system admin to admin dashboard");
+            return res.redirect('/admin/dashboard');
+          } else if (!user.organizationId) {
+            console.log("User has no organization, redirecting to organization setup");
+            return res.redirect('/subscription/setup');
+          } else {
+            console.log("Redirecting to main dashboard");
+            return res.redirect('/dashboard');
+          }
+        });
       } catch (error) {
         console.error("Error in OAuth callback handler:", error);
-        // Fallback to dashboard on any error
-        res.redirect('/dashboard');
+        // Log the full error stack
+        if (error instanceof Error) {
+          console.error("Error stack:", error.stack);
+        }
+        // Redirect to login with error message
+        res.redirect('/login?error=oauth-callback-error');
       }
     }
   );

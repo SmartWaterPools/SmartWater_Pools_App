@@ -1,0 +1,212 @@
+// src/server/middleware/auth.js
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const Tenant = require('../models/Tenant');
+const Subscription = require('../models/Subscription');
+
+// Middleware to verify JWT access token
+const authenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN format
+    
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Access token required' });
+    }
+    
+    jwt.verify(token, process.env.JWT_SECRET, async (err, decoded) => {
+      if (err) {
+        return res.status(403).json({ success: false, message: 'Invalid or expired token' });
+      }
+      
+      // Find the user to ensure they exist and are active
+      const user = await User.findById(decoded.userId);
+      
+      if (!user || !user.isActive) {
+        return res.status(403).json({ success: false, message: 'User not found or inactive' });
+      }
+      
+      // Add user and tenant information to request object
+      req.user = decoded;
+      req.tenantId = decoded.tenantId;
+      
+      next();
+    });
+  } catch (error) {
+    console.error('Authentication error:', error);
+    res.status(500).json({ success: false, message: 'Authentication failed' });
+  }
+};
+
+// Middleware to check subscription status
+const checkSubscription = async (req, res, next) => {
+  try {
+    const { tenantId } = req.user;
+    
+    // Check if tenant exists
+    const tenant = await Tenant.findById(tenantId);
+    
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: 'Tenant not found' });
+    }
+    
+    // Check if tenant has an active subscription
+    const subscription = await Subscription.findOne({
+      tenantId,
+      isActive: true,
+      expiresAt: { $gt: new Date() }
+    });
+    
+    if (!subscription) {
+      return res.status(403).json({
+        success: false,
+        message: 'Subscription expired or not found',
+        redirectTo: '/subscription/expired'
+      });
+    }
+    
+    // Add subscription information to request
+    req.subscription = subscription;
+    
+    next();
+  } catch (error) {
+    console.error('Subscription check error:', error);
+    res.status(500).json({ success: false, message: 'Failed to verify subscription' });
+  }
+};
+
+// Middleware to check user permissions based on roles
+const authorize = (allowedRoles) => {
+  return (req, res, next) => {
+    const { role } = req.user;
+    
+    if (!allowedRoles.includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to access this resource'
+      });
+    }
+    
+    next();
+  };
+};
+
+// Middleware to ensure user belongs to specific tenant
+const ensureTenant = (req, res, next) => {
+  const requestedTenantId = req.params.tenantId || req.query.tenantId || req.body.tenantId;
+  const userTenantId = req.user.tenantId;
+  
+  // If specific tenant is requested, ensure it matches user's tenant
+  if (requestedTenantId && requestedTenantId !== userTenantId) {
+    return res.status(403).json({
+      success: false,
+      message: 'You do not have permission to access data from this organization'
+    });
+  }
+  
+  next();
+};
+
+// Middleware to check if the requested feature is available in the subscription tier
+const checkFeatureAccess = (requiredFeature) => {
+  return async (req, res, next) => {
+    try {
+      const { subscriptionTier } = req.user;
+      
+      // Get features included in the subscription tier
+      const tierConfig = await getTierConfiguration(subscriptionTier);
+      
+      if (!tierConfig.features.includes(requiredFeature)) {
+        return res.status(403).json({
+          success: false,
+          message: 'This feature is not available in your current subscription plan',
+          upgradeInfo: {
+            currentTier: subscriptionTier,
+            requiredTier: getMinimumTierForFeature(requiredFeature),
+            upgradeUrl: '/subscription/upgrade'
+          }
+        });
+      }
+      
+      next();
+    } catch (error) {
+      console.error('Feature access check error:', error);
+      res.status(500).json({ success: false, message: 'Failed to verify feature access' });
+    }
+  };
+};
+
+// Helper function to get tier configuration
+// In a real application, this would likely fetch from a database
+const getTierConfiguration = async (tier) => {
+  const tierConfigs = {
+    'free': {
+      features: ['basic_dashboard', 'limited_reports']
+    },
+    'standard': {
+      features: ['basic_dashboard', 'full_reports', 'api_access', 'export_data']
+    },
+    'premium': {
+      features: ['basic_dashboard', 'full_reports', 'api_access', 'export_data', 'advanced_analytics', 'white_labeling']
+    },
+    'enterprise': {
+      features: ['basic_dashboard', 'full_reports', 'api_access', 'export_data', 'advanced_analytics', 'white_labeling', 'sso', 'dedicated_support']
+    }
+  };
+  
+  return tierConfigs[tier] || tierConfigs.free;
+};
+
+// Helper function to determine minimum tier required for a feature
+const getMinimumTierForFeature = (feature) => {
+  const featureToTierMap = {
+    'basic_dashboard': 'free',
+    'limited_reports': 'free',
+    'full_reports': 'standard',
+    'api_access': 'standard',
+    'export_data': 'standard',
+    'advanced_analytics': 'premium',
+    'white_labeling': 'premium',
+    'sso': 'enterprise',
+    'dedicated_support': 'enterprise'
+  };
+  
+  return featureToTierMap[feature] || 'enterprise';
+};
+
+module.exports = {
+  authenticateToken,
+  checkSubscription,
+  authorize,
+  ensureTenant,
+  checkFeatureAccess
+};
+
+// Example usage in routes:
+// const { authenticateToken, checkSubscription, authorize, checkFeatureAccess } = require('../middleware/auth');
+// 
+// router.get('/dashboard', 
+//   authenticateToken, 
+//   checkSubscription,
+//   (req, res) => {
+//     // Route handler...
+//   }
+// );
+// 
+// router.get('/admin/users',
+//   authenticateToken,
+//   checkSubscription,
+//   authorize(['admin']),
+//   (req, res) => {
+//     // Route handler...
+//   }
+// );
+// 
+// router.get('/reports/advanced',
+//   authenticateToken,
+//   checkSubscription,
+//   checkFeatureAccess('advanced_analytics'),
+//   (req, res) => {
+//     // Route handler...
+//   }
+// );

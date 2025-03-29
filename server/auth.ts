@@ -147,8 +147,12 @@ export function configurePassport(storage: IStorage) {
           state: true,
           // Handle user cancellation better
           userProfileURL: 'https://www.googleapis.com/oauth2/v3/userinfo'
+          // Note: We're not setting prompt or sessionMaxAge here because the
+          // type definition doesn't include these properties.
+          // Instead, we pass 'prompt=select_account' in the URL directly
+          // on the client side.
         },
-        async (req, accessToken, refreshToken, profile, done) => {
+        async (req: any, accessToken: string, refreshToken: string, profile: any, done: (error: any, user?: any, info?: any) => void) => {
           try {
             console.log('Google OAuth callback received - Processing authentication');
             

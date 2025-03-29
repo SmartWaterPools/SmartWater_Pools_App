@@ -128,9 +128,135 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const googleLogin = () => {
-    // Simply redirect to Google OAuth endpoint
-    window.location.href = '/api/auth/google';
+  const googleLogin = async () => {
+    try {
+      console.log("Preparing for Google OAuth login");
+      
+      // Generate a client-side state token to use as our fallback
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 10);
+      const clientState = `client_${timestamp}_${randomString}`;
+      
+      // Save this in localStorage first as insurance in case of redirect issues
+      localStorage.setItem('oauth_client_state', clientState);
+      localStorage.setItem('oauth_timestamp', timestamp.toString());
+      
+      // Step 1: Clear any existing OAuth state from previous attempts
+      try {
+        console.log("Clearing previous OAuth state");
+        const clearResponse = await fetch('/api/auth/clear-oauth-state', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          // Set a timeout to avoid hanging
+          signal: AbortSignal.timeout(5000)
+        });
+        
+        if (clearResponse.ok) {
+          const clearData = await clearResponse.json();
+          console.log("OAuth state cleared:", clearData.message);
+        } else {
+          console.warn("Failed to clear OAuth state (HTTP error):", clearResponse.status);
+        }
+      } catch (clearErr) {
+        // Check if it's an AbortError (timeout)
+        if (clearErr.name === 'AbortError' || clearErr.name === 'TimeoutError') {
+          console.warn("Timeout while clearing OAuth state");
+        } else {
+          console.warn("Error in OAuth state clearing:", clearErr);
+        }
+        // Continue even if clearing fails
+      }
+      
+      // Step 2: Try to prepare OAuth session with server (with timeout protection)
+      let serverState = null;
+      let useServerState = false;
+      
+      try {
+        console.log("Preparing OAuth session with server");
+        const prepResponse = await fetch('/api/auth/prepare-oauth', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          },
+          // Set a timeout to avoid hanging
+          signal: AbortSignal.timeout(5000)
+        });
+        
+        if (prepResponse.ok) {
+          const data = await prepResponse.json();
+          if (data.success && data.state) {
+            console.log("Server prepared OAuth session successfully");
+            serverState = data.state;
+            useServerState = true;
+            
+            // Store server state in localStorage as backup
+            localStorage.setItem('oauth_server_state', serverState);
+          } else {
+            console.warn("Server returned success=false for OAuth preparation:", data.message);
+          }
+        } else {
+          console.warn("OAuth preparation endpoint returned error:", prepResponse.status);
+        }
+      } catch (prepErr) {
+        // Check if it's an AbortError (timeout)
+        if (prepErr.name === 'AbortError' || prepErr.name === 'TimeoutError') {
+          console.warn("Timeout while preparing OAuth session");
+        } else {
+          console.error("Error preparing OAuth with server:", prepErr);
+        }
+      }
+      
+      // Step 3: Determine which state to use and redirect
+      if (useServerState && serverState) {
+        console.log("Using server-generated state for OAuth:", serverState);
+        
+        // Add a query param to track OAuth source
+        const redirectUrl = `/api/auth/google?state=${serverState}&prompt=select_account&source=server`;
+        
+        // Also store this in cookies in case localStorage gets cleared
+        document.cookie = `oauth_token=${serverState}; path=/; max-age=900; SameSite=Lax`;
+        document.cookie = `oauth_source=server; path=/; max-age=900; SameSite=Lax`;
+        
+        window.location.href = redirectUrl;
+      } else {
+        console.log("Using client-generated state for OAuth:", clientState);
+        
+        // Add a query param to track OAuth source
+        const redirectUrl = `/api/auth/google?state=${clientState}&prompt=select_account&source=client`;
+        
+        // Also store this in cookies in case localStorage gets cleared
+        document.cookie = `oauth_token=${clientState}; path=/; max-age=900; SameSite=Lax`;
+        document.cookie = `oauth_source=client; path=/; max-age=900; SameSite=Lax`;
+        
+        window.location.href = redirectUrl;
+      }
+    } catch (error) {
+      console.error("Fatal error in Google OAuth preparation:", error);
+      
+      try {
+        // Attempt to create a safe fallback state
+        const emergencyState = `emergency_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+        
+        // Store the emergency state in multiple places
+        localStorage.setItem('oauth_emergency_state', emergencyState);
+        document.cookie = `oauth_token=${emergencyState}; path=/; max-age=900; SameSite=Lax`;
+        document.cookie = `oauth_source=emergency; path=/; max-age=900; SameSite=Lax`;
+        
+        // Last resort fallback with emergency state
+        console.warn("Using emergency fallback for Google OAuth");
+        window.location.href = `/api/auth/google?state=${emergencyState}&prompt=select_account&source=emergency`;
+      } catch (e) {
+        // If even that fails, go with absolute minimal params
+        console.error("Emergency fallback failed, using minimal OAuth redirect");
+        window.location.href = '/api/auth/google?prompt=select_account';
+      }
+    }
   };
 
   const logout = async (): Promise<void> => {

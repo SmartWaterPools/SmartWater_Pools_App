@@ -201,18 +201,72 @@ export default function Login() {
     }
   }
   
-  function handleGoogleLogin() {
+  async function handleGoogleLogin() {
     try {
       console.log("Initiating Google OAuth login flow");
-      googleLogin();
+      setIsLoading(true);
+      
+      // Clear any previous error state
+      setError(null);
+      
+      // Clear any stored state from localStorage (previous failed attempts)
+      if (localStorage.getItem('oauth_client_state')) {
+        console.log("Clearing previous oauth state from localStorage");
+        localStorage.removeItem('oauth_client_state');
+        localStorage.removeItem('oauth_server_state');
+        localStorage.removeItem('oauth_timestamp');
+      }
+      
+      // Check for error parameters in URL that might indicate previous OAuth failures
+      const urlParams = new URLSearchParams(window.location.search);
+      const errorParam = urlParams.get('error');
+      
+      if (errorParam) {
+        console.log(`Detected error parameter in URL: ${errorParam}`);
+        
+        // Handle specific error types
+        if (errorParam === 'authentication-timeout') {
+          console.error("Previous authentication attempt timed out");
+          setError("Authentication attempt timed out. Please try again.");
+          toast({
+            title: "Authentication timed out",
+            description: "Your previous sign-in attempt took too long. Please try again.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        if (errorParam === 'google-auth-failed') {
+          console.error("Previous Google authentication failed");
+          setError("Google authentication failed. Please try again with a different account.");
+          toast({
+            title: "Authentication failed",
+            description: "Google authentication was unsuccessful. Please try again.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+      }
+      
+      // Show toast to inform user about redirect
+      toast({
+        title: "Google Sign-In",
+        description: "Redirecting to Google for authentication...",
+      });
+      
+      // Call the enhanced googleLogin function
+      await googleLogin();
     } catch (error) {
       console.error("Google login error:", error);
-      setError("An error occurred with Google login. Please try again.");
+      setError("An error occurred preparing for Google login. Please try again.");
       toast({
         title: "Google login error",
-        description: "An error occurred with Google login. Please try again.",
+        description: "An error occurred preparing for Google login. Please try again.",
         variant: "destructive",
       });
+      setIsLoading(false);
     }
   }
 
@@ -258,6 +312,9 @@ export default function Login() {
                 <FcGoogle className="mr-2 h-5 w-5" />
                 Sign in with Google
               </Button>
+              <p className="text-xs text-center text-muted-foreground mt-1">
+                You can select between multiple Google accounts
+              </p>
               
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
@@ -325,6 +382,9 @@ export default function Login() {
                 <FcGoogle className="mr-2 h-5 w-5" />
                 Sign up with Google
               </Button>
+              <p className="text-xs text-center text-muted-foreground mt-1">
+                You can select between multiple Google accounts
+              </p>
               
               <div className="relative my-4">
                 <div className="absolute inset-0 flex items-center">
