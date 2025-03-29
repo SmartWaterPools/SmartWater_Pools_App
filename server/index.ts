@@ -264,11 +264,38 @@ app.use((req, res, next) => {
       // This is essential for Replit to detect that our server is running
       console.log(`🚀 Server is now listening on port ${port}`);
       
-      // Log connection URLs for easier debugging in Replit
-      console.log(`Server accessible at http://0.0.0.0:${port}`);
-      if (isReplit) {
-        console.log(`Replit environment detected. Replit URL: https://smartwaterpools.replit.app`);
+      // Enhanced logging for Replit troubleshooting
+      console.log(`================================================`);
+      console.log(`SERVER CONFIGURATION DETAILS:`);
+      console.log(`- Server binding hostname: 0.0.0.0`);
+      console.log(`- Server binding port: ${port}`);
+      console.log(`- Direct access URL: http://0.0.0.0:${port}`);
+      console.log(`- Server IP addresses:`);
+      
+      // Try to output network information
+      try {
+        import('os').then(os => {
+          const nets = os.networkInterfaces();
+          Object.keys(nets).forEach(netInterface => {
+            nets[netInterface].forEach(net => {
+              if (net.family === 'IPv4') {
+                console.log(`  - ${netInterface}: ${net.address}`);
+              }
+            });
+          });
+        }).catch(err => {
+          console.log(`  - Unable to import os module: ${err.message}`);
+        });
+      } catch (err) {
+        console.log(`  - Unable to retrieve network interfaces: ${err.message}`);
       }
+      
+      if (isReplit) {
+        console.log(`- Replit environment detected`);
+        console.log(`- Replit URL: https://smartwaterpools.replit.app`);
+        console.log(`- Replit ID: ${process.env.REPL_ID || 'unknown'}`);
+      }
+      console.log(`================================================`);
       
       log(`Server running on port ${port} - Environment: ${isProduction ? 'production' : 'development'}`);
       log(`Local access URL: http://localhost:${port}`);
