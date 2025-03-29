@@ -67,12 +67,31 @@ function AppContent({
   closeMobileMenu: () => void; 
 }) {
   const { isLoading } = useAuth();
+  const [loadingTimeout, setLoadingTimeout] = useState<boolean>(false);
   
   // Check auth loading state for proper UI rendering
   console.log("Auth loading state:", isLoading);
   
-  // Show loading spinner while authentication state is being determined
-  if (isLoading) {
+  // Set a timeout to prevent showing loading spinner for too long
+  // This helps prevent the UI from getting stuck in loading state indefinitely
+  useEffect(() => {
+    if (isLoading) {
+      // Start with no timeout
+      setLoadingTimeout(false);
+      
+      // Set a timeout to stop showing loading after 10 seconds maximum
+      const timer = setTimeout(() => {
+        console.log("Auth loading timeout reached, forcing UI to render");
+        setLoadingTimeout(true);
+      }, 10000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading]);
+  
+  // Only show loading spinner for a reasonable amount of time
+  // to prevent getting stuck in loading state
+  if (isLoading && !loadingTimeout) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />

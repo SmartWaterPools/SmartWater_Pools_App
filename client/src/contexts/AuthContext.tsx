@@ -34,11 +34,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [sessionCheckAttempts, setSessionCheckAttempts] = useState<number>(0);
+  const [lastCheckTime, setLastCheckTime] = useState<number>(0);
   const { toast } = useToast();
 
   // Check session when the component mounts
   useEffect(() => {
     console.log("Auth provider initialized, checking session");
+    
+    // Set initial loading state
+    setIsLoading(true);
+    
     checkSession().then(authenticated => {
       console.log("Initial session check complete:", authenticated ? "Authenticated" : "Not authenticated");
     }).catch(error => {
@@ -48,8 +54,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkSession = async (): Promise<boolean> => {
     try {
+      // Prevent too many rapid checks that could cause an infinite loop
+      const now = Date.now();
+      const timeSinceLastCheck = now - lastCheckTime;
+      
+      // Skip this check if it's happening too quickly after the last one
+      if (timeSinceLastCheck < 500 && sessionCheckAttempts > 3) {
+        console.warn(`Too many session checks in rapid succession (${sessionCheckAttempts} attempts in ${timeSinceLastCheck}ms), skipping to prevent loop`);
+        // Continue showing the last known authentication state
+        return isAuthenticated;
+      }
+      
+      // Update session check tracking info
+      setSessionCheckAttempts(prev => prev + 1);
+      setLastCheckTime(now);
+      
       setIsLoading(true);
-      console.log("Checking session...");
+      console.log(`Checking session... (attempt ${sessionCheckAttempts + 1})`);
       
       const response = await fetch('/api/auth/session', {
         method: 'GET',
@@ -64,6 +85,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.warn(`Session check failed with status: ${response.status}`);
         setUser(null);
         setIsAuthenticated(false);
+        
+        // Reset attempts counter after a failed session check
+        if (sessionCheckAttempts > 5) {
+          console.warn("Too many failed session checks, resetting counter");
+          setSessionCheckAttempts(0);
+        }
+        
         return false;
       }
       
@@ -74,17 +102,35 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log("Session contains authenticated user:", data.user.email);
         setUser(data.user);
         setIsAuthenticated(true);
+        
+        // Reset attempts counter after a successful session check
+        setSessionCheckAttempts(0);
+        
         return true;
       } else {
         console.log("Not authenticated");
         setUser(null);
         setIsAuthenticated(false);
+        
+        // Increment failed auth check counter to help detect auth loops
+        if (sessionCheckAttempts > 5) {
+          console.warn("Too many failed session checks, resetting counter");
+          setSessionCheckAttempts(0);
+        }
+        
         return false;
       }
     } catch (error) {
       console.error('Session check error:', error);
       setUser(null);
       setIsAuthenticated(false);
+      
+      // Reset attempts counter after a session check error
+      if (sessionCheckAttempts > 5) {
+        console.warn("Too many failed session checks, resetting counter");
+        setSessionCheckAttempts(0);
+      }
+      
       return false;
     } finally {
       setIsLoading(false);

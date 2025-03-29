@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '../contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
@@ -19,13 +19,24 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const [, navigate] = useLocation();
   const [location] = useLocation();
 
+  // Track the number of redirects to prevent loops
+  const [redirectCount, setRedirectCount] = useState<number>(0);
+  const [lastRedirectTime, setLastRedirectTime] = useState<number>(0);
+  
   // Simple effect to check authentication status and redirect if needed
   useEffect(() => {
     // Skip auth check during loading
     if (isLoading) {
       return;
     }
-
+    
+    // Prevent redirect loops
+    const now = Date.now();
+    const timeSinceLastRedirect = now - lastRedirectTime;
+    
+    // If we've redirected too many times in a short period, stop redirecting
+    const isTooManyRedirects = redirectCount > 3 && timeSinceLastRedirect < 5000;
+    
     // If not authenticated and not on login page, redirect to login
     if (!isAuthenticated) {
       if (location.startsWith('/login') || location === '/') {
@@ -33,9 +44,21 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return;
       }
       
+      if (isTooManyRedirects) {
+        console.warn(`ProtectedRoute: Too many redirects (${redirectCount}) in ${timeSinceLastRedirect}ms, preventing redirect loop`);
+        return;
+      }
+      
       console.log("ProtectedRoute: Not authenticated, redirecting to login from:", location);
+      setRedirectCount(prev => prev + 1);
+      setLastRedirectTime(now);
       navigate(`/login?redirect=${encodeURIComponent(location)}`);
       return;
+    }
+    
+    // Reset redirect counter when authenticated
+    if (isAuthenticated && redirectCount > 0) {
+      setRedirectCount(0);
     }
 
     // Check permissions if user is authenticated

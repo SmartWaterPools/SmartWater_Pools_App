@@ -9,6 +9,7 @@ import inventoryRoutes from "./routes/inventory-routes";
 import invitationRoutes from "./routes/invitation-routes";
 import stripeRoutes from "./routes/stripe-routes";
 import registerOAuthRoutes from "./routes/oauth-routes";
+import registerUserOrgRoutes from "./routes/user-org-routes";
 import authRoutes from "./routes/auth-routes";
 import passport from "passport";
 import { isAuthenticated, isAdmin, isSystemAdmin } from "./auth";
@@ -563,6 +564,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const typeSafeStorage = storage as unknown as IStorage;
   
   app.use("/api/oauth", registerOAuthRoutes(oauthRouter, typeSafeStorage));
+
+  // User and Organization management routes
+  const userRouter = express.Router();
+  app.use("/api/users", registerUserOrgRoutes(userRouter, typeSafeStorage, true));
+
+  // Organization management routes
+  const organizationRouter = express.Router();
+  app.use("/api/organizations", registerUserOrgRoutes(organizationRouter, typeSafeStorage, false));
 
   // Google Maps API key endpoint
   app.get("/api/google-maps-key", (req: Request, res: Response) => {
