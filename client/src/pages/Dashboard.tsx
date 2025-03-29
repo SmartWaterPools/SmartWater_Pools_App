@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { MaintenanceItem } from "@/components/dashboard/MaintenanceItem";
+import { UserManagementCard } from "@/components/dashboard/UserManagementCard";
 import { 
   DashboardSummary, 
   getStatusClasses, 
@@ -280,6 +281,11 @@ export default function Dashboard() {
         </div>
       </div>
       
+      {/* User Management and Authentication */}
+      <div className="mt-6 mb-6">
+        <UserManagementCard />
+      </div>
+
       {/* Recent Repair Requests */}
       <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-100">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">

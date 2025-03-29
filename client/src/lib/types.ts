@@ -129,3 +129,18 @@ export function getPriorityClasses(priority: string): { bg: string; text: string
       return { bg: 'bg-gray-100', text: 'text-gray-800' };
   }
 }
+
+// Dashboard Summary types
+export interface DashboardMetrics {
+  activeProjects: number;
+  maintenanceThisWeek: number;
+  pendingRepairs: number;
+  totalClients: number;
+}
+
+export interface DashboardSummary {
+  metrics: DashboardMetrics;
+  recentProjects: any[];
+  upcomingMaintenances: any[];
+  recentRepairs: any[];
+}
