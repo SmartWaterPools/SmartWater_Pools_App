@@ -22,6 +22,8 @@ import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { MaintenanceItem } from "@/components/dashboard/MaintenanceItem";
 import { UserManagementCard } from "@/components/dashboard/UserManagementCard";
+import LoginCard from "@/components/dashboard/LoginCard";
+import { useAuth } from "../contexts/AuthContext";
 import { 
   DashboardSummary, 
   getStatusClasses, 
@@ -43,8 +45,10 @@ const getApiUrl = (endpoint: string) => {
 };
 
 export default function Dashboard() {
-  // Use explicit 'any' type to avoid TypeScript errors with dynamic data
-  const { data: apiData, isLoading, error } = useQuery<any>({
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Only fetch dashboard data if authenticated
+  const { data: apiData, isLoading: dashboardLoading, error } = useQuery<any>({
     queryKey: ["/api/dashboard/summary"],
     queryFn: async () => {
       console.log("Fetching data from:", "/api/dashboard/summary");
@@ -57,8 +61,12 @@ export default function Dashboard() {
       }
       
       return response.json();
-    }
+    },
+    enabled: isAuthenticated // Only run this query if the user is authenticated
   });
+  
+  // Combine loading states
+  const isLoading = authLoading || dashboardLoading;
   
   // Create a more safely typed summary with defaults for missing values
   const summary: DashboardSummary = {
@@ -108,6 +116,14 @@ export default function Dashboard() {
         </div>
       </div>
       
+      {/* Login Card - only shown when not authenticated */}
+      {!isAuthenticated && !authLoading && (
+        <LoginCard />
+      )}
+      
+      {/* Dashboard content - only shown when authenticated */}
+      {isAuthenticated && (
+        <>
       {/* Metrics/KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {isLoading ? (
@@ -407,6 +423,8 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

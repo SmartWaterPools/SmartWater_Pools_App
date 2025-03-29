@@ -104,10 +104,7 @@ function AppContent({
     <TabProvider>
       <div className="flex h-screen overflow-hidden bg-background">
         <Switch>
-          {/* Public routes */}
-          <Route path="/login">
-            <Login />
-          </Route>
+          {/* Public routes, no login page required as it will be a card on dashboard */}
           <Route path="/register">
             <Register />
           </Route>
@@ -144,7 +141,7 @@ function AppContent({
             <OAuthDebug />
           </Route>
           
-          {/* Protected routes */}
+          {/* All routes including dashboard with login card */}
           <Route>
             <ProtectedRoute>
               {/* Desktop Sidebar - hidden on mobile */}

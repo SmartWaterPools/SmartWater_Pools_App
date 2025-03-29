@@ -37,22 +37,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     // If we've redirected too many times in a short period, stop redirecting
     const isTooManyRedirects = redirectCount > 3 && timeSinceLastRedirect < 5000;
     
-    // If not authenticated and not on login page, redirect to login
+    // We are no longer redirecting to the login page since login is directly integrated into the dashboard
     if (!isAuthenticated) {
-      if (location.startsWith('/login') || location === '/') {
-        console.log("ProtectedRoute: Already on login page, not redirecting");
-        return;
-      }
-      
-      if (isTooManyRedirects) {
-        console.warn(`ProtectedRoute: Too many redirects (${redirectCount}) in ${timeSinceLastRedirect}ms, preventing redirect loop`);
-        return;
-      }
-      
-      console.log("ProtectedRoute: Not authenticated, redirecting to login from:", location);
-      setRedirectCount(prev => prev + 1);
-      setLastRedirectTime(now);
-      navigate(`/login?redirect=${encodeURIComponent(location)}`);
+      // Log for debug purposes but don't redirect
+      console.log("ProtectedRoute: Not authenticated, allowing access to the route to show login card");
+      // Simply return, allowing the main app to render the appropriate component with login card
       return;
     }
     
@@ -121,17 +110,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }
 
-  // Default case: if we're on login page or unprotected route, render children
-  if (location.startsWith('/login') || location === '/') {
-    return <>{children}</>;
-  }
-
-  // Otherwise show loading while redirect happens
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
-    </div>
-  );
+  // For our new approach, we always render children and let the components handle authentication state
+  // This allows showing the login card on the Dashboard when not authenticated
+  return <>{children}</>;
 };
 
 export default ProtectedRoute;
