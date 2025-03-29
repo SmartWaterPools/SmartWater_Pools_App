@@ -90,20 +90,12 @@ function AppContent({
     }
   }, [isLoading]);
   
-  // Only show loading spinner for a reasonable amount of time
-  // to prevent getting stuck in loading state
-  if (isLoading && !loadingTimeout) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <div className="ml-4 text-lg">Loading authentication state...</div>
-      </div>
-    );
-  }
-  
-  // Force-continue even if auth is still loading but timeout is reached
-  if (isLoading && loadingTimeout) {
-    console.log("Forcing UI to render despite auth still loading");
+  // Force-continue immediately, no waiting for loading state
+  // This completely bypasses the loading spinner for dashboard
+  // because we've seen it gets stuck
+  if (isLoading) {
+    console.log("Auth is still loading, but we're rendering UI anyway to avoid getting stuck");
+    // No longer showing a loading spinner at all, just proceed with rendering the app
   }
   
   return (

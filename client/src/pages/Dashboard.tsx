@@ -46,25 +46,25 @@ const getApiUrl = (endpoint: string) => {
 
 export default function Dashboard() {
   const { isAuthenticated, isLoading: authLoading, checkSession } = useAuth();
-  const [shouldRenderContent, setShouldRenderContent] = useState(false);
+  // Set to true right away - we'll always render content regardless of auth state
+  const [shouldRenderContent, setShouldRenderContent] = useState(true);
   
-  // Re-check the session when the dashboard loads
+  // Re-check the session when the dashboard loads, but no longer wait on it
   useEffect(() => {
     console.log("Dashboard: Checking authentication status");
-    checkSession().then(success => {
-      console.log("Dashboard: Authentication check result:", success ? "Authenticated" : "Not authenticated");
-      setShouldRenderContent(true);
-    });
     
-    // Safety timeout to ensure content renders even if auth check hangs
-    const timeout = setTimeout(() => {
-      if (!shouldRenderContent) {
-        console.log("Dashboard: Forcing content to render after timeout");
-        setShouldRenderContent(true);
-      }
-    }, 3000);
+    try {
+      // Catch potential errors in checkSession
+      checkSession().then(success => {
+        console.log("Dashboard: Authentication check result:", success ? "Authenticated" : "Not authenticated");
+      }).catch(error => {
+        console.error("Dashboard: Error checking session:", error);
+      });
+    } catch (error) {
+      console.error("Dashboard: Critical error in session check:", error);
+    }
     
-    return () => clearTimeout(timeout);
+    // No longer need a timeout since we're always showing content
   }, []);
 
   // Only fetch dashboard data if authenticated
@@ -136,8 +136,8 @@ export default function Dashboard() {
         </div>
       </div>
       
-      {/* Login Card - only shown when not authenticated */}
-      {!isAuthenticated && !authLoading && (
+      {/* Login Card - shown when not authenticated, even if still loading */}
+      {!isAuthenticated && (
         <LoginCard />
       )}
       

@@ -83,13 +83,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     });
   }, [isLoading, isAuthenticated, user, location, navigate, permissions, roles]);
 
-  // Show loading spinner while checking authentication
+  // Skip loading spinner entirely to avoid getting stuck
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
+    console.log("ProtectedRoute: Auth is loading but showing content to prevent getting stuck");
+    // No longer showing a loading spinner
+    return <>{children}</>;
   }
 
   // Show content if authenticated and authorized
