@@ -341,9 +341,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (req.query.error) {
           console.error(`Google OAuth error: ${req.query.error}`);
           if (req.query.error === 'access_denied') {
-            return res.redirect('/login?error=access-denied');
+            return res.redirect('/?error=access-denied');
           }
-          return res.redirect('/login?error=google-error');
+          return res.redirect('/?error=google-error');
         }
         
         // Attempt to recover state from various sources
@@ -387,17 +387,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Set a short timeout for the auth process to avoid hanging
         res.setTimeout(10000, () => {
           console.error("Google OAuth callback timed out");
-          res.redirect('/login?error=authentication-timeout');
+          res.redirect('/?error=authentication-timeout');
         });
         
         next();
       } catch (error) {
         console.error("Error in OAuth callback preprocessing:", error);
-        return res.redirect('/login?error=oauth-process-error');
+        return res.redirect('/?error=oauth-process-error');
       }
     },
     passport.authenticate("google", { 
-      failureRedirect: "/login?error=google-auth-failed",
+      failureRedirect: "/?error=google-auth-failed",
       failureMessage: "Failed to authenticate with Google",
       // Add session: true to ensure we're using session-based auth
       session: true
@@ -432,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Verify user data is present
         if (!req.user) {
           console.error("No user object found after successful OAuth authentication");
-          return res.redirect('/login?error=missing-user-data');
+          return res.redirect('/?error=missing-user-data');
         }
         
         // Get user details
@@ -442,7 +442,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if user has required data
         if (!user.email) {
           console.error("User missing required email field");
-          return res.redirect('/login?error=incomplete-user-data');
+          return res.redirect('/?error=incomplete-user-data');
         }
         
         // Now we need to verify the user exists in our database and has valid organization access
@@ -455,7 +455,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             console.log("Database user lookup result:", dbUser ? "Found" : "Not Found");
             if (!dbUser) {
               console.error(`User ID ${user.id} not found in database after Google OAuth`);
-              return res.redirect('/login?error=user-not-found');
+              return res.redirect('/?error=user-not-found');
             }
             
             console.log("User verified in database:", dbUser.id);
@@ -468,7 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   console.log("Database organization lookup result:", org ? "Found" : "Not Found");
                   if (!org) {
                     console.error(`Organization ID ${dbUser.organizationId} not found for user ${dbUser.id}`);
-                    return res.redirect('/login?error=organization-not-found');
+                    return res.redirect('/?error=organization-not-found');
                   }
                   
                   console.log("Organization verified in database:", org.id, org.name);
@@ -496,7 +496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .catch((error: unknown) => {
             console.error("Error verifying user in database:", error);
-            return res.redirect('/login?error=database-verification-failed');
+            return res.redirect('/?error=database-verification-failed');
           });
       } catch (error) {
         console.error("Error in OAuth callback handler:", error);
@@ -504,8 +504,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (error instanceof Error) {
           console.error("Error stack:", error.stack);
         }
-        // Redirect to login with error message
-        res.redirect('/login?error=oauth-callback-error');
+        // Redirect to root path with error message
+        res.redirect('/?error=oauth-callback-error');
       }
     }
   );
@@ -516,7 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     req.session.save((err) => {
       if (err) {
         console.error("Error saving session after OAuth login:", err);
-        return res.redirect('/login?error=session-save-failed');
+        return res.redirect('/?error=session-save-failed');
       }
       
       console.log("Session saved successfully after OAuth login");
