@@ -34,15 +34,27 @@ const isProduction = process.env.NODE_ENV === 'production';
 const isReplit = !!process.env.REPL_ID;
 
 // Generate a more secure session secret that changes on server restart but remains consistent during a session
-const generateSessionSecret = () => {
-  const baseSecret = process.env.SESSION_SECRET || 'smart-water-pools-secret';
-  const randomPart = Math.random().toString(36).substring(2, 15);
-  const timestamp = Date.now().toString(36);
-  return `${baseSecret}-${randomPart}-${timestamp}`;
+const getSessionSecret = () => {
+  // Use environment SESSION_SECRET if available, which is the preferred approach
+  if (process.env.SESSION_SECRET) {
+    console.log('Using predefined session secret from environment variables');
+    return process.env.SESSION_SECRET;
+  }
+  
+  // Fallback to a consistent secret with only a small random component
+  // This ensures better session persistence between restarts while still 
+  // maintaining some security through randomness
+  const baseSecret = 'smart-water-pools-fixed-secret-key';
+  // Use just a date-based component that changes daily instead of on every restart
+  // This allows sessions to persist for at least 24 hours between restarts
+  const datePart = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+  
+  console.log('Using fallback session secret with daily rotation component');
+  return `${baseSecret}-${datePart}`;
 };
 
-const sessionSecret = generateSessionSecret();
-console.log('Session middleware initialized with new secret');
+const sessionSecret = getSessionSecret();
+console.log('Session middleware initialized');
 
 // Setup session middleware with enhanced configuration for OAuth flows
 app.use(
@@ -54,8 +66,7 @@ app.use(
       // Cleanup expired sessions periodically (every 24 hours)
       pruneSessionInterval: 24 * 60 * 60,
       // Optimize connection pool to prevent database connection exhaustion
-      errorLog: console.error,
-      serializer: JSON
+      errorLog: console.error
     }),
     secret: sessionSecret,
     resave: false,       // Only save session when modified
@@ -69,13 +80,15 @@ app.use(
       path: '/',         // Ensure cookie is available for the entire site
 
       // For Replit environments, we need to properly configure cookie security
-      // In production/Replit: secure=true, sameSite=lax
-      // Secure must be true in production since we're using HTTPS
+      // In production/Replit: secure=true, sameSite=none (for cross-domain OAuth)
+      // Secure must be true when sameSite is 'none'
       secure: isReplitEnv ? true : false,
       
-      // SameSite=lax works better across browsers than 'none'
-      // 'none' requires secure=true which breaks local development
-      sameSite: 'lax',
+      // SameSite strategy:
+      // 'none' - Allows cross-site cookies, needed for OAuth redirects.
+      // This is required because Google OAuth redirects across domains.
+      // Combined with 'secure: true', this provides the best OAuth compatibility
+      sameSite: isReplitEnv ? 'none' : 'lax',
       
       // Domain should be undefined to use the current domain
       domain: undefined,

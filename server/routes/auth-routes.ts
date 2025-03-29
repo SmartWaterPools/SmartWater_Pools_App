@@ -1,9 +1,37 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import passport from 'passport';
 import bcrypt from 'bcrypt';
 import { storage } from '../storage';
 import { z } from 'zod';
 import { insertUserSchema } from '@shared/schema';
+
+// Timeout middleware specifically for OAuth requests
+// This prevents requests from hanging indefinitely
+const oauthTimeoutMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const OAUTH_TIMEOUT_MS = 60000; // 60 seconds
+  
+  // Set a timeout for the request
+  const timeoutId = setTimeout(() => {
+    console.error(`OAuth request timed out after ${OAUTH_TIMEOUT_MS}ms: ${req.path}`);
+    // Only send response if headers haven't been sent yet
+    if (!res.headersSent) {
+      res.status(504).json({ 
+        error: 'Google authentication request timed out',
+        message: 'Please try again or use username/password login'
+      });
+    }
+  }, OAUTH_TIMEOUT_MS);
+  
+  // Clear the timeout when the response is sent
+  res.on('finish', () => {
+    clearTimeout(timeoutId);
+  });
+  
+  // Store the timeout in the request so we can cancel it manually if needed
+  (req as any).oauthTimeout = timeoutId;
+  
+  next();
+};
 
 const router = express.Router();
 
@@ -175,12 +203,16 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// Google OAuth start route
-router.get('/google', (req: Request, res: Response, next) => {
+// Google OAuth start route with timeout protection
+router.get('/google', oauthTimeoutMiddleware, (req: Request, res: Response, next) => {
   // Store the requested redirect path in the session
   if (req.query.redirectTo) {
     req.session.redirectTo = req.query.redirectTo as string;
   }
+  
+  // Track OAuth initiation time for timeout tracking
+  req.session.oauthInitiatedAt = new Date().toISOString();
+  console.log("Starting Google OAuth authentication flow");
   
   passport.authenticate('google', { 
     scope: ['profile', 'email'],
@@ -188,8 +220,9 @@ router.get('/google', (req: Request, res: Response, next) => {
   })(req, res, next);
 });
 
-// Google OAuth callback route - enhanced with debugging
+// Google OAuth callback route - enhanced with debugging and timeout protection
 router.get('/google/callback', 
+  oauthTimeoutMiddleware, // Add timeout middleware
   (req: Request, res: Response, next: NextFunction) => {
     // Debug logs before authentication
     console.log("Google OAuth callback received, session details:");
@@ -197,6 +230,13 @@ router.get('/google/callback',
     console.log("- Is Authenticated:", req.isAuthenticated ? req.isAuthenticated() : "function not available");
     console.log("- Has user object:", !!req.user);
     console.log("- Cookies:", req.headers.cookie || "none");
+    
+    // Calculate elapsed time since OAuth flow started (if available)
+    if (req.session?.oauthInitiatedAt) {
+      const startTime = new Date(req.session.oauthInitiatedAt).getTime();
+      const elapsedMs = Date.now() - startTime;
+      console.log(`- OAuth flow elapsed time: ${elapsedMs}ms`);
+    }
     
     next();
   },
@@ -234,8 +274,8 @@ router.get('/google/callback',
   }
 );
 
-// Extra route to prepare OAuth session - simplified version
-router.get('/prepare-oauth', (req: Request, res: Response) => {
+// Extra route to prepare OAuth session - simplified version with timeout protection
+router.get('/prepare-oauth', oauthTimeoutMiddleware, (req: Request, res: Response) => {
   try {
     console.log("OAuth session preparation requested");
     
