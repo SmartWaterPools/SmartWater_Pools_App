@@ -9,6 +9,7 @@ import inventoryRoutes from "./routes/inventory-routes";
 import invitationRoutes from "./routes/invitation-routes";
 import stripeRoutes from "./routes/stripe-routes";
 import registerOAuthRoutes from "./routes/oauth-routes";
+import authRoutes from "./routes/auth-routes";
 import passport from "passport";
 import { isAuthenticated, isAdmin, isSystemAdmin } from "./auth";
 
@@ -24,6 +25,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/health", (req: Request, res: Response) => {
     res.json({ status: "ok" });
   });
+
+  // Register authentication routes with /api/auth prefix
+  app.use("/api/auth", authRoutes);
 
   // Google OAuth routes setup for login and signup
   

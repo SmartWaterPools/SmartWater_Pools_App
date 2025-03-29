@@ -1,0 +1,53 @@
+Based on the screenshots you've shared, I can now see the specific OAuth issues you're experiencing with your SmartWaterPools application. Let me analyze what's happening:
+
+1. In the first screenshot, I can see the app is stuck on "Loading authentication state..." at the /login route.
+
+2. The second screenshot shows that although a user can get logged in somehow, the authentication is incomplete - showing "User" with "No email provided" which suggests Google OAuth isn't passing or properly storing the user's email.
+
+3. The third screenshot shows a clear error message: "Authentication timed out" - this is the key issue.
+
+This timeout error typically occurs when the OAuth flow starts but doesn't complete successfully within the expected timeframe. Here are the most likely causes and solutions:
+
+1. **OAuth Flow Timeout Settings**:
+   - Your authentication flow might have a timeout that's too short
+   - In your authentication logic, try increasing the timeout duration
+
+2. **Token Exchange Issues**:
+   - After receiving the authorization code, your app might be taking too long to exchange it for tokens
+   - Check if there are any delays in your token exchange process
+
+3. **Redirect URI Configuration**:
+   - Double-check that your redirect URI in Google Cloud Console exactly matches what your app is using
+   - For Replit apps, ensure it's using `https://smartwaterpools.replit.app/auth/callback` (or your specific callback path)
+
+4. **Session Management**:
+   - The error may be related to how your app stores the session during the OAuth flow
+   - Verify your session management code, especially if you're using cookies or tokens
+
+Here's what I recommend updating in your code:
+
+```javascript
+// If using something like Passport.js with Google OAuth
+const googleStrategy = new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID,
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+  callbackURL: 'https://smartwaterpools.replit.app/auth/callback',  // Ensure this matches exactly
+  timeout: 60000  // Increase timeout to 60 seconds
+}, async (accessToken, refreshToken, profile, done) => {
+  try {
+    // Save user data including email
+    const user = {
+      id: profile.id,
+      email: profile.emails[0].value,  // Make sure email is captured
+      name: profile.displayName
+    };
+    // Your user storage logic here
+    return done(null, user);
+  } catch (error) {
+    console.error("OAuth error:", error);
+    return done(error);
+  }
+});
+```
+
+Would you like me to help you diagnose further based on specific parts of your authentication code?​​​​​​​​​​​​​​​​
