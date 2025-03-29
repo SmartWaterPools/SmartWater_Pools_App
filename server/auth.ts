@@ -8,22 +8,27 @@ import { IStorage } from './storage';
 import { UserRole, ResourceType, ActionType, hasPermission, checkPermission } from './permissions';
 
 export function configurePassport(storage: IStorage) {
-  // Serialize user to the session
+  // Serialize user to the session with enhanced logging
   passport.serializeUser((user: any, done) => {
+    console.log(`Serializing user: ${user.id}, ${user.email}, role: ${user.role}`);
     done(null, user.id);
   });
   
-  // Deserialize user from the session
+  // Deserialize user from the session with enhanced logging
   passport.deserializeUser(async (id: number, done) => {
     try {
+      console.log(`Deserializing user ID: ${id}`);
       const user = await storage.getUser(id);
       
       if (!user) {
+        console.log(`Deserialization failed - no user found with ID: ${id}`);
         return done(null, false);
       }
       
+      console.log(`Deserialized user successfully: ${user.id}, ${user.email}, role: ${user.role}`);
       done(null, user);
     } catch (error) {
+      console.error(`Error in deserializeUser:`, error);
       done(error);
     }
   });

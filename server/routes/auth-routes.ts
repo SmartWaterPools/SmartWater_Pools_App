@@ -188,18 +188,45 @@ router.get('/google', (req: Request, res: Response, next) => {
   })(req, res, next);
 });
 
-// Google OAuth callback route - simplified version
+// Google OAuth callback route - enhanced with debugging
 router.get('/google/callback', 
+  (req: Request, res: Response, next: NextFunction) => {
+    // Debug logs before authentication
+    console.log("Google OAuth callback received, session details:");
+    console.log("- Session ID:", req.sessionID || "none");
+    console.log("- Is Authenticated:", req.isAuthenticated ? req.isAuthenticated() : "function not available");
+    console.log("- Has user object:", !!req.user);
+    console.log("- Cookies:", req.headers.cookie || "none");
+    
+    next();
+  },
   passport.authenticate('google', { 
     failureRedirect: '/login?error=google-auth-failed',
     session: true
   }),
   (req: Request, res: Response) => {
     try {
-      console.log("Google OAuth login successful, redirecting to dashboard");
+      // Log authentication result
+      console.log("Google OAuth login completed, authentication result:");
+      console.log("- Is authenticated after Google auth:", req.isAuthenticated ? req.isAuthenticated() : "function not available");
+      console.log("- User object present:", !!req.user);
+      if (req.user) {
+        const user = req.user as any;
+        console.log("- User ID:", user.id);
+        console.log("- User email:", user.email);
+        console.log("- User role:", user.role);
+      }
       
-      // Simply redirect to dashboard
-      res.redirect('/dashboard');
+      // Save session explicitly to ensure user is stored
+      req.session.save((err) => {
+        if (err) {
+          console.error("Error saving session after Google auth:", err);
+          return res.redirect('/login?error=session-error');
+        }
+        
+        console.log("Session saved successfully, redirecting to dashboard");
+        res.redirect('/dashboard');
+      });
     } catch (error) {
       console.error("Google OAuth callback error:", error);
       res.redirect('/login?error=callback-error');

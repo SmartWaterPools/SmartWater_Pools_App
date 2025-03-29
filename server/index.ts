@@ -68,13 +68,14 @@ app.use(
       httpOnly: true,    // Prevent JavaScript access to the cookie
       path: '/',         // Ensure cookie is available for the entire site
 
-      // ALWAYS use secure cookies for Replit deployments (HTTPS environment)
-      secure: true,
+      // For Replit environments, we need to properly configure cookie security
+      // In production/Replit: secure=true, sameSite=lax
+      // Secure must be true in production since we're using HTTPS
+      secure: isReplitEnv ? true : false,
       
-      // For OAuth compatibility, we need SameSite=none to allow cross-domain redirects
-      // This is critical for Google OAuth flow to maintain session across redirects
-      // Force SameSite to "None" to ensure OAuth redirects work properly
-      sameSite: 'none',
+      // SameSite=lax works better across browsers than 'none'
+      // 'none' requires secure=true which breaks local development
+      sameSite: 'lax',
       
       // Domain should be undefined to use the current domain
       domain: undefined,
