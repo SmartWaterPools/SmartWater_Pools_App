@@ -112,21 +112,85 @@ const getTitleForPath = (path: string): string => {
 };
 
 // Provider component to wrap the application
+// Helper function to deduplicate dashboard tabs
+const deduplicateDashboardTabs = (tabList: TabItem[]): TabItem[] => {
+  const dashboardTabs = tabList.filter(tab => tab.path === '/' || tab.id === 'dashboard');
+  
+  // If we only have 0 or 1 dashboard tabs, no need to deduplicate
+  if (dashboardTabs.length <= 1) return tabList;
+  
+  // Keep only the original dashboard tab (the one with id 'dashboard') or the first one if not found
+  const originalDashboardTab = dashboardTabs.find(tab => tab.id === 'dashboard') || dashboardTabs[0];
+  
+  // Filter out all other dashboard tabs
+  return tabList.filter(tab => 
+    tab.id === originalDashboardTab.id || (tab.path !== '/' && tab.id !== 'dashboard')
+  );
+};
+
 export function TabProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   
-  // Initialize with dashboard tab
-  const [tabs, setTabs] = useState<TabItem[]>([
-    { 
+  // Initialize tabs from localStorage or use default dashboard tab
+  const [tabs, setTabs] = useState<TabItem[]>(() => {
+    // Try to load tabs from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const savedTabs = localStorage.getItem('smartwater_tabs');
+        if (savedTabs) {
+          const parsedTabs = JSON.parse(savedTabs);
+          
+          // Ensure we have valid tabs and deduplicate any dashboard tabs
+          if (Array.isArray(parsedTabs) && parsedTabs.length > 0) {
+            // When deserializing, we need to re-add the React elements for icons
+            const restoredTabs = parsedTabs.map((tab: Omit<TabItem, 'icon'> & { iconName?: string }) => {
+              // Restore the icon based on the path or iconName
+              const icon = tab.iconName === 'dashboard' ? 
+                <LayoutDashboard className="h-4 w-4" /> : 
+                getIconForPath(tab.path);
+              
+              return {
+                ...tab,
+                icon
+              };
+            });
+            
+            // Make sure we deduplicate dashboard tabs on load
+            return deduplicateDashboardTabs(restoredTabs);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading tabs from localStorage:', error);
+      }
+    }
+    
+    // Fallback to default dashboard tab
+    return [{ 
       id: 'dashboard', 
       title: 'Dashboard', 
       path: '/', 
       icon: <LayoutDashboard className="h-4 w-4" />,
       lastAccessed: Date.now()
-    }
-  ]);
+    }];
+  });
   
-  const [activeTabId, setActiveTabId] = useState<string>('dashboard');
+  // Initialize activeTabId from localStorage or default to dashboard
+  const [activeTabId, setActiveTabId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedActiveTabId = localStorage.getItem('smartwater_active_tab');
+        if (savedActiveTabId) {
+          // Make sure the tab with this ID exists
+          if (tabs.some(tab => tab.id === savedActiveTabId)) {
+            return savedActiveTabId;
+          }
+        }
+      } catch (error) {
+        console.error('Error loading active tab from localStorage:', error);
+      }
+    }
+    return 'dashboard';
+  });
   
   // Get a tab by ID
   const getTabById = useCallback((id: string): TabItem | undefined => {
@@ -156,6 +220,15 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   
   // Add a new tab or switch to existing one
   const addTab = useCallback((path: string, title?: string, forceNew: boolean = false): string => {
+    // Special case for dashboard - always reuse the dashboard tab
+    if (path === '/') {
+      const dashboardTab = tabs.find(tab => tab.id === 'dashboard' || tab.path === '/');
+      if (dashboardTab) {
+        navigateToTab(dashboardTab.id);
+        return dashboardTab.id;
+      }
+    }
+    
     // If not forcing a new tab, check if tab already exists
     if (!forceNew) {
       const existingTab = getTabByPath(path);
@@ -166,7 +239,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     }
     
     // Create a new tab
-    const newTabId = `tab-${Date.now()}`;
+    const newTabId = path === '/' ? 'dashboard' : `tab-${Date.now()}`;
     const newTab: TabItem = {
       id: newTabId,
       title: title || getTitleForPath(path),
@@ -175,10 +248,22 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       lastAccessed: Date.now()
     };
     
-    setTabs(currentTabs => [...currentTabs, newTab]);
+    // Add the new tab and run deduplication to prevent any dashboard tab duplicates
+    setTabs(currentTabs => {
+      // Add the new tab
+      const tabsWithNewTab = [...currentTabs, newTab];
+      
+      // If the new tab is a dashboard tab, deduplicate to ensure only one dashboard tab
+      if (path === '/') {
+        return deduplicateDashboardTabs(tabsWithNewTab);
+      }
+      
+      return tabsWithNewTab;
+    });
+    
     navigateToTab(newTabId);
     return newTabId;
-  }, [getTabByPath, navigateToTab]);
+  }, [getTabByPath, navigateToTab, tabs]);
   
   // Close a tab
   const closeTab = useCallback((id: string) => {
@@ -227,6 +312,32 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // Create a list of recent tabs sorted by last accessed time
   const recentTabs = [...tabs].sort((a, b) => b.lastAccessed - a.lastAccessed);
   
+  // Clean up any duplicate dashboard tabs
+  useEffect(() => {
+    const dashboardTabs = tabs.filter(tab => tab.path === '/' || tab.id === 'dashboard');
+    
+    // If we have more than one dashboard tab, keep only the first one (original 'dashboard' tab)
+    if (dashboardTabs.length > 1) {
+      console.log('Detected duplicate dashboard tabs. Cleaning up...');
+      // Find the original dashboard tab
+      const originalDashboardTab = dashboardTabs.find(tab => tab.id === 'dashboard') || dashboardTabs[0];
+      
+      // Use our helper function to remove duplicate dashboard tabs
+      const dedupedTabs = deduplicateDashboardTabs(tabs);
+      
+      // Update tabs and navigate to the original dashboard tab if it was active
+      setTabs(dedupedTabs);
+      
+      // Find the dashboard tab in the deduped list
+      const newDashboardTab = dedupedTabs.find(tab => tab.path === '/' || tab.id === 'dashboard');
+      
+      // If we were on a dashboard tab, make sure we're on the correct one
+      if (newDashboardTab && dashboardTabs.some(tab => tab.id === activeTabId)) {
+        setActiveTabId(newDashboardTab.id);
+      }
+    }
+  }, [tabs, activeTabId]);
+  
   // Watch for location changes to sync tabs
   useEffect(() => {
     // If the location doesn't match any tab, create a new one
@@ -238,20 +349,46 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
+      // Special case for dashboard - always use the dashboard tab or create one if it doesn't exist
+      if (location === '/') {
+        const dashboardTab = tabs.find(tab => tab.id === 'dashboard' || tab.path === '/');
+        if (dashboardTab) {
+          navigateToTab(dashboardTab.id);
+          return;
+        }
+      }
+      
       addTab(location);
     } else if (matchingTab.id !== activeTabId) {
       // If the matching tab is not the active one, activate it
       navigateToTab(matchingTab.id);
     }
-  }, [location, getTabByPath, addTab, activeTabId, navigateToTab]);
+  }, [location, getTabByPath, addTab, activeTabId, navigateToTab, tabs]);
   
   // Listen for custom addTab events
   useEffect(() => {
     const handleAddTabEvent = (event: CustomEvent) => {
       if (event.detail) {
-        const { path, title, icon } = event.detail;
+        const { path, title, icon, forceNew = false } = event.detail;
         if (path) {
-          const tabId = addTab(path, title, true);
+          // Special handling for dashboard to prevent duplicates
+          if (path === '/') {
+            // First, deduplicate any dashboard tabs
+            const dashboardTabs = tabs.filter(tab => tab.path === '/' || tab.id === 'dashboard');
+            if (dashboardTabs.length > 0) {
+              // Use our helper function to ensure we have only one dashboard tab
+              const dedupedTabs = deduplicateDashboardTabs(tabs);
+              // Find the remaining dashboard tab
+              const dashboardTab = dedupedTabs.find(tab => tab.path === '/' || tab.id === 'dashboard');
+              if (dashboardTab) {
+                // If we found a dashboard tab, update the tabs and navigate to it
+                setTabs(dedupedTabs);
+                navigateToTab(dashboardTab.id);
+                return;
+              }
+            }
+          }
+          const tabId = addTab(path, title, forceNew);
           navigateToTab(tabId);
         }
       }
@@ -264,7 +401,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('addTab', handleAddTabEvent as EventListener);
     };
-  }, [addTab, navigateToTab]);
+  }, [addTab, navigateToTab, tabs]);
   
   // Extract client ID for client-related pages to update tab titles
   const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
@@ -296,6 +433,41 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       );
     }
   }, [clientData, clientId]);
+  
+  // Save tabs to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== 'undefined' && tabs.length > 0) {
+      try {
+        // We need to serialize the tabs without the React elements (icons)
+        const tabsToSave = tabs.map(tab => {
+          // Extract the iconName for dashboard tab to help with restoring
+          const iconName = tab.id === 'dashboard' ? 'dashboard' : undefined;
+          
+          // Create a serializable version without the icon React element
+          const { icon, ...rest } = tab;
+          return {
+            ...rest,
+            iconName
+          };
+        });
+        
+        localStorage.setItem('smartwater_tabs', JSON.stringify(tabsToSave));
+      } catch (error) {
+        console.error('Error saving tabs to localStorage:', error);
+      }
+    }
+  }, [tabs]);
+  
+  // Save activeTabId to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activeTabId) {
+      try {
+        localStorage.setItem('smartwater_active_tab', activeTabId);
+      } catch (error) {
+        console.error('Error saving active tab to localStorage:', error);
+      }
+    }
+  }, [activeTabId]);
   
   // Make the context available globally to allow direct access from components
   // that don't have direct access to the context
@@ -407,8 +579,24 @@ export function EnhancedTabManager() {
   };
   
   const handleNewTab = () => {
-    // Open a new dashboard tab by default
-    addTab('/', 'New Tab', true);
+    // First clean up any duplicate dashboard tabs
+    const dashboardTabs = tabs.filter(tab => tab.path === '/' || tab.id === 'dashboard');
+    
+    if (dashboardTabs.length > 0) {
+      // We have at least one dashboard tab, deduplicate first
+      const dedupedTabs = deduplicateDashboardTabs(tabs);
+      setTabs(dedupedTabs);
+      
+      // Find the dashboard tab in the deduplicated list
+      const dashboardTab = dedupedTabs.find(tab => tab.path === '/' || tab.id === 'dashboard');
+      if (dashboardTab) {
+        navigateToTab(dashboardTab.id);
+        return;
+      }
+    } else {
+      // No dashboard tab exists, create one
+      addTab('/', 'Dashboard', false);
+    }
   };
   
   // Scroll active tab into view when it changes
