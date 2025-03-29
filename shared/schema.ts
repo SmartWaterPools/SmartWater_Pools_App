@@ -155,6 +155,7 @@ export type ContractType = typeof CONTRACT_TYPES[number] | null;
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).notNull(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   companyName: text("company_name"),
   contractType: text("contract_type"), // Should always be one of CONTRACT_TYPES or null
   latitude: doublePrecision("latitude"),

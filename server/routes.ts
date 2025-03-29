@@ -565,6 +565,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.use("/api/oauth", registerOAuthRoutes(oauthRouter, typeSafeStorage));
 
+  // Dashboard summary data endpoint
+  app.get("/api/dashboard/summary", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const reqUser = req.user as any;
+      let projects, maintenances, repairs, clients;
+      
+      // Filter by organization if user is not system_admin
+      if (reqUser && reqUser.organizationId && reqUser.role !== 'system_admin') {
+        console.log(`Fetching dashboard data for organization ${reqUser.organizationId}`);
+        
+        // Get organization-specific data using Promise.all for parallel execution
+        const [allProjects, allMaintenances, allRepairs] = await Promise.all([
+          typeSafeStorage.getAllProjects(),
+          typeSafeStorage.getUpcomingMaintenances(7),
+          typeSafeStorage.getRecentRepairs(5)
+        ]);
+        
+        // Get relevant clients
+        clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+        
+        // Filter projects by matching clients from the same organization
+        const clientIds = new Set(clients.map(client => client.id));
+        projects = allProjects.filter(project => clientIds.has(project.clientId));
+        
+        // Filter maintenances by matching clients from the same organization
+        maintenances = allMaintenances.filter(maintenance => clientIds.has(maintenance.clientId));
+        
+        // Filter repairs by matching clients from the same organization
+        repairs = allRepairs.filter(repair => clientIds.has(repair.clientId));
+        
+        console.log(`Found ${projects.length} projects, ${maintenances.length} maintenances, ${repairs.length} repairs, ${clients.length} clients`);
+      } else {
+        // System admin gets all data
+        console.log("Fetching all dashboard data (system admin)");
+        [projects, maintenances, repairs, clients] = await Promise.all([
+          typeSafeStorage.getAllProjects(),
+          typeSafeStorage.getUpcomingMaintenances(7),
+          typeSafeStorage.getRecentRepairs(5),
+          typeSafeStorage.getAllClients()
+        ]);
+      }
+      
+      const summary = {
+        metrics: {
+          activeProjects: projects.filter(p => p.status !== "completed").length,
+          maintenanceThisWeek: maintenances.length,
+          pendingRepairs: repairs.filter(r => r.status !== "completed").length,
+          totalClients: clients.length
+        },
+        recentProjects: await Promise.all(
+          projects
+            .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+            .slice(0, 5)
+            .map(async (project) => {
+              const clientWithUser = await typeSafeStorage.getClientWithUser(project.clientId);
+              const assignments = await typeSafeStorage.getProjectAssignments(project.id);
+
+              return {
+                ...project,
+                client: clientWithUser,
+                assignmentCount: assignments.length
+              };
+            })
+        ),
+        upcomingMaintenances: await Promise.all(
+          maintenances.slice(0, 5).map(async (maintenance) => {
+            const clientWithUser = await typeSafeStorage.getClientWithUser(maintenance.clientId);
+            let technicianWithUser = null;
+
+            if (maintenance.technicianId) {
+              technicianWithUser = await typeSafeStorage.getTechnicianWithUser(maintenance.technicianId);
+            }
+
+            return {
+              ...maintenance,
+              client: clientWithUser,
+              technician: technicianWithUser
+            };
+          })
+        ),
+        recentRepairs: await Promise.all(
+          repairs.map(async (repair) => {
+            const clientWithUser = await typeSafeStorage.getClientWithUser(repair.clientId);
+            let technicianWithUser = null;
+
+            if (repair.technicianId) {
+              technicianWithUser = await typeSafeStorage.getTechnicianWithUser(repair.technicianId);
+            }
+
+            return {
+              ...repair,
+              client: clientWithUser,
+              technician: technicianWithUser
+            };
+          })
+        )
+      };
+
+      res.json(summary);
+    } catch (error) {
+      console.error("Dashboard summary error:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard summary", error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+
   // User and Organization management routes
   const userRouter = express.Router();
   app.use("/api/users", registerUserOrgRoutes(userRouter, typeSafeStorage, true));

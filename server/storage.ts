@@ -727,8 +727,19 @@ export class MemStorage implements IStorage {
   }
   
   async getClientsByOrganizationId(organizationId: number): Promise<Client[]> {
-    // First get all users from the organization
-    const orgUsers = Array.from(this.users.values()).filter(user => user.organizationId === organizationId);
+    // Try to get clients using direct organizationId relationship first
+    const directClients = Array.from(this.clients.values())
+      .filter(client => client.organizationId === organizationId);
+      
+    if (directClients.length > 0) {
+      console.log(`[MemStorage] Found ${directClients.length} clients using direct organizationId relationship`);
+      return directClients;
+    }
+    
+    // Fallback to the legacy method (using user relationship)
+    console.log('[MemStorage] No clients found with direct relationship, falling back to user-based lookup');
+    const orgUsers = Array.from(this.users.values())
+      .filter(user => user.organizationId === organizationId);
     
     // Then get all clients associated with those users
     const userIds = orgUsers.map(user => user.id);
@@ -737,7 +748,11 @@ export class MemStorage implements IStorage {
       return []; // No users in this organization
     }
     
-    return Array.from(this.clients.values()).filter(client => userIds.includes(client.userId));
+    const userClients = Array.from(this.clients.values())
+      .filter(client => userIds.includes(client.userId));
+      
+    console.log(`[MemStorage] Found ${userClients.length} clients using user relationship fallback`);
+    return userClients;
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
@@ -4278,17 +4293,44 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getClientsByOrganizationId(organizationId: number): Promise<Client[]> {
-    // First get all users from the organization
-    const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
-    
-    // Then get all clients associated with those users
-    const userIds = orgUsers.map(user => user.id);
-    
-    if (userIds.length === 0) {
-      return []; // No users in this organization
+    // Check if the organizationId column exists
+    try {
+      // Try the direct relationship first (more efficient)
+      const directClients = await db.select()
+        .from(clients)
+        .where(eq(clients.organizationId, organizationId));
+        
+      if (directClients.length > 0) {
+        console.log(`[getClientsByOrganizationId] Found ${directClients.length} clients using direct organizationId relationship`);
+        return directClients;
+      }
+      
+      // Fallback to the legacy method (in case the script to update the organizationId hasn't been run)
+      console.log('[getClientsByOrganizationId] No clients found with direct relationship, falling back to user-based lookup');
+      const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
+      
+      // Then get all clients associated with those users
+      const userIds = orgUsers.map(user => user.id);
+      
+      if (userIds.length === 0) {
+        return []; // No users in this organization
+      }
+      
+      const userClients = await db.select().from(clients).where(inArray(clients.userId, userIds));
+      console.log(`[getClientsByOrganizationId] Found ${userClients.length} clients using user relationship fallback`);
+      return userClients;
+    } catch (error) {
+      console.error('[getClientsByOrganizationId] Error fetching clients:', error);
+      // In case of error, fall back to user relationship
+      const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
+      const userIds = orgUsers.map(user => user.id);
+      
+      if (userIds.length === 0) {
+        return []; // No users in this organization
+      }
+      
+      return await db.select().from(clients).where(inArray(clients.userId, userIds));
     }
-    
-    return await db.select().from(clients).where(inArray(clients.userId, userIds));
   }
   
   async updateClient(id: number, data: Partial<Client>): Promise<Client | undefined> {
