@@ -87,6 +87,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     const hasRequiredPermissions = permissions.length === 0 || canAccessRoute(user, permissions);
     
     if (hasRequiredRole && hasRequiredPermissions) {
+      // If we're on the root path and authenticated, redirect to dashboard
+      if (location === '/' || location === '') {
+        console.log("ProtectedRoute: On root path and authenticated, redirecting to dashboard");
+        navigate('/dashboard');
+        return <Loader2 className="h-12 w-12 animate-spin text-primary" />;
+      }
+      
       return <>{children}</>;
     }
   }

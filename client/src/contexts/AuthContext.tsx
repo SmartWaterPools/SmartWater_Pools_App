@@ -36,12 +36,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { toast } = useToast();
 
-  // Immediately set isLoading to false and mark isAuthenticated as false
-  // This skips the loading state that was causing the app to hang
+  // Check session when the component mounts
   useEffect(() => {
-    console.log("Auth provider initialized with quick loading");
-    setIsLoading(false);
-    setIsAuthenticated(false);
+    console.log("Auth provider initialized, checking session");
+    checkSession().then(authenticated => {
+      console.log("Initial session check complete:", authenticated ? "Authenticated" : "Not authenticated");
+    }).catch(error => {
+      console.error("Error during initial session check:", error);
+    });
   }, []);
 
   const checkSession = async (): Promise<boolean> => {
@@ -161,12 +163,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } else {
           console.warn("Failed to clear OAuth state (HTTP error):", clearResponse.status);
         }
-      } catch (clearErr) {
+      } catch (clearErr: unknown) {
         // Check if it's an AbortError (timeout)
-        if (clearErr.name === 'AbortError' || clearErr.name === 'TimeoutError') {
-          console.warn("Timeout while clearing OAuth state");
+        if (clearErr && typeof clearErr === 'object' && 'name' in clearErr) {
+          const error = clearErr as { name: string };
+          if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+            console.warn("Timeout while clearing OAuth state");
+          } else {
+            console.warn("Error in OAuth state clearing:", error);
+          }
         } else {
-          console.warn("Error in OAuth state clearing:", clearErr);
+          console.warn("Unknown error in OAuth state clearing");
         }
         // Continue even if clearing fails
       }
@@ -203,12 +210,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         } else {
           console.warn("OAuth preparation endpoint returned error:", prepResponse.status);
         }
-      } catch (prepErr) {
+      } catch (prepErr: unknown) {
         // Check if it's an AbortError (timeout)
-        if (prepErr.name === 'AbortError' || prepErr.name === 'TimeoutError') {
-          console.warn("Timeout while preparing OAuth session");
+        if (prepErr && typeof prepErr === 'object' && 'name' in prepErr) {
+          const error = prepErr as { name: string };
+          if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+            console.warn("Timeout while preparing OAuth session");
+          } else {
+            console.error("Error preparing OAuth with server:", error);
+          }
         } else {
-          console.error("Error preparing OAuth with server:", prepErr);
+          console.error("Unknown error preparing OAuth with server");
         }
       }
       

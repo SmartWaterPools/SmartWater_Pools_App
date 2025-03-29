@@ -53,7 +53,7 @@ type SignupFormValues = z.infer<typeof signupFormSchema>;
 
 export default function Login() {
   const { toast } = useToast();
-  const { login, register, googleLogin, isAuthenticated } = useAuth();
+  const { login, register, googleLogin, checkSession, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("login");
@@ -97,9 +97,35 @@ export default function Login() {
   useEffect(() => {
     if (isAuthenticated) {
       console.log("Login: User authenticated, redirecting to dashboard");
-      setLocation('/dashboard');
+      // Small delay to ensure all auth data is properly set
+      setTimeout(() => {
+        setLocation('/dashboard');
+      }, 300);
     }
   }, [isAuthenticated, setLocation]);
+  
+  // Check session on page load to ensure we're not showing login when already authenticated
+  useEffect(() => {
+    // Skip extra check if already authenticated
+    if (isAuthenticated) {
+      return;
+    }
+    
+    // Otherwise perform a manual check
+    console.log("Login page: Performing initial session check");
+    
+    // No need for a separate function since we have access to checkSession from context
+    if (checkSession) {
+      checkSession().then(isAuthed => {
+        if (isAuthed) {
+          console.log("Login page: Initial check found user is authenticated, redirecting");
+          setLocation('/dashboard');
+        }
+      }).catch(error => {
+        console.error("Error checking auth status on login page:", error);
+      });
+    }
+  }, [isAuthenticated, checkSession, setLocation]);
   
   // Define login form
   const loginForm = useForm<LoginFormValues>({

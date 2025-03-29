@@ -2,6 +2,7 @@ import express, { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { ParsedQs } from "qs"; // Import the ParsedQs type for query parameters
 import { storage, IStorage } from "./storage";
+import { User, Organization } from "@shared/schema";
 import emailRoutes from "./email-routes";
 import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import inventoryRoutes from "./routes/inventory-routes";
@@ -421,6 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.clearCookie('oauth_token');
         res.clearCookie('oauth_flow');
         res.clearCookie('oauth_timestamp');
+        res.clearCookie('oauth_source');
         
         // Verify user data is present
         if (!req.user) {
@@ -438,32 +440,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.redirect('/login?error=incomplete-user-data');
         }
         
-        // Save session explicitly to ensure user data persistence
-        req.session.save((err) => {
-          if (err) {
-            console.error("Error saving session after OAuth login:", err);
-            return res.redirect('/login?error=session-save-failed');
-          }
-          
-          console.log("Session saved successfully after OAuth login");
-          console.log("- Session ID:", req.sessionID);
-          console.log("- Cookie data sent:", !!res.getHeader('Set-Cookie'));
-          
-          // Refresh the session data to ensure it's completely saved
-          req.session.touch();
-          
-          // Redirect to appropriate page based on user role or organization status
-          if (user.role === 'system_admin') {
-            console.log("Redirecting system admin to admin dashboard");
-            return res.redirect('/admin/dashboard');
-          } else if (!user.organizationId) {
-            console.log("User has no organization, redirecting to organization setup");
-            return res.redirect('/subscription/setup');
-          } else {
-            console.log("Redirecting to main dashboard");
-            return res.redirect('/dashboard');
-          }
-        });
+        // Now we need to verify the user exists in our database and has valid organization access
+        // This is essential for proper authentication
+        
+        // First, verify the user exists with the provided ID
+        console.log("Verifying user in database with ID:", user.id);
+        storage.getUser(user.id)
+          .then((dbUser: any) => {
+            console.log("Database user lookup result:", dbUser ? "Found" : "Not Found");
+            if (!dbUser) {
+              console.error(`User ID ${user.id} not found in database after Google OAuth`);
+              return res.redirect('/login?error=user-not-found');
+            }
+            
+            console.log("User verified in database:", dbUser.id);
+            
+            // Next, if the user has an organization ID, verify that organization exists
+            if (dbUser.organizationId) {
+              console.log("Verifying organization in database with ID:", dbUser.organizationId);
+              return storage.getOrganization(dbUser.organizationId)
+                .then((org: any) => {
+                  console.log("Database organization lookup result:", org ? "Found" : "Not Found");
+                  if (!org) {
+                    console.error(`Organization ID ${dbUser.organizationId} not found for user ${dbUser.id}`);
+                    return res.redirect('/login?error=organization-not-found');
+                  }
+                  
+                  console.log("Organization verified in database:", org.id, org.name);
+                  
+                  // Enhance the user object with organization details for the session
+                  // Note: 'active' field is used instead of 'status' for organization state
+                  const enhancedUser = {
+                    ...dbUser,
+                    organizationName: org.name,
+                    organizationStatus: org.active ? 'active' : 'inactive'
+                  };
+                  
+                  // Update the session user with the enhanced data
+                  if (req.user) {
+                    req.user = enhancedUser;
+                  }
+                  
+                  // Now save session and redirect
+                  return saveSessionAndRedirect(req, res, enhancedUser);
+                });
+            } else {
+              // No organization ID, just save session and redirect
+              return saveSessionAndRedirect(req, res, dbUser);
+            }
+          })
+          .catch((error: unknown) => {
+            console.error("Error verifying user in database:", error);
+            return res.redirect('/login?error=database-verification-failed');
+          });
       } catch (error) {
         console.error("Error in OAuth callback handler:", error);
         // Log the full error stack
@@ -475,6 +504,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
   );
+  
+  // Helper function for saving session and redirecting after OAuth
+  function saveSessionAndRedirect(req: Request, res: Response, user: any) {
+    // Save session explicitly to ensure user data persistence
+    req.session.save((err) => {
+      if (err) {
+        console.error("Error saving session after OAuth login:", err);
+        return res.redirect('/login?error=session-save-failed');
+      }
+      
+      console.log("Session saved successfully after OAuth login");
+      console.log("- Session ID:", req.sessionID);
+      console.log("- Cookie data sent:", !!res.getHeader('Set-Cookie'));
+      
+      // Add login success indicator to user object in session
+      if (req.user) {
+        (req.user as any).loginSuccess = true;
+      }
+      
+      // Refresh the session data to ensure it's completely saved
+      req.session.touch();
+      
+      // Assign the user to req.user if not already set
+      if (!req.user) {
+        req.user = user;
+      }
+      
+      // Set proper authentication flag in session
+      // Using type assertion to work around TypeScript limitations with session types
+      (req.session as any).passport = (req.session as any).passport || {};
+      (req.session as any).passport.user = user.id;
+      
+      // Redirect to appropriate page based on user role or organization status
+      if (user.role === 'system_admin') {
+        console.log("Redirecting system admin to admin dashboard");
+        return res.redirect('/admin/dashboard');
+      } else if (!user.organizationId) {
+        console.log("User has no organization, redirecting to organization setup");
+        return res.redirect('/subscription/setup');
+      } else {
+        console.log("Redirecting to main dashboard");
+        return res.redirect('/dashboard');
+      }
+    });
+  }
 
   // OAuth routes
   const oauthRouter = express.Router();
