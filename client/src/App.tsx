@@ -79,11 +79,12 @@ function AppContent({
       // Start with no timeout
       setLoadingTimeout(false);
       
-      // Set a timeout to stop showing loading after 10 seconds maximum
+      // Set a shorter timeout to prevent getting stuck in loading state
+      // Reduced from 10 seconds to 3 seconds to avoid long waits
       const timer = setTimeout(() => {
         console.log("Auth loading timeout reached, forcing UI to render");
         setLoadingTimeout(true);
-      }, 10000);
+      }, 3000);
       
       return () => clearTimeout(timer);
     }
@@ -98,6 +99,11 @@ function AppContent({
         <div className="ml-4 text-lg">Loading authentication state...</div>
       </div>
     );
+  }
+  
+  // Force-continue even if auth is still loading but timeout is reached
+  if (isLoading && loadingTimeout) {
+    console.log("Forcing UI to render despite auth still loading");
   }
   
   return (
@@ -166,52 +172,115 @@ function AppContent({
                   <EnhancedBreadcrumbs />
                   
                   <Switch>
-                    <Route path="/" component={Dashboard} />
+                    {/* Dashboard routes - exact path first */}
+                    <Route path="/dashboard">
+                      <Dashboard />
+                    </Route>
+                    
+                    <Route path="/">
+                      <Dashboard />
+                    </Route>
                     
                     {/* Projects routes */}
-                    <Route path="/projects" component={Projects} />
-                    <Route path="/projects/:id" component={ProjectDetails} />
+                    <Route path="/projects">
+                      <Projects />
+                    </Route>
+                    <Route path="/projects/:id">
+                      <ProjectDetails />
+                    </Route>
                     
                     {/* Maintenance routes */}
-                    <Route path="/maintenance" component={Maintenance} />
-                    <Route path="/maintenance/map" component={MaintenanceMap} />
-                    <Route path="/maintenance/list" component={MaintenanceList} />
+                    <Route path="/maintenance">
+                      <Maintenance />
+                    </Route>
+                    <Route path="/maintenance/map">
+                      <MaintenanceMap />
+                    </Route>
+                    <Route path="/maintenance/list">
+                      <MaintenanceList />
+                    </Route>
                     
                     {/* Repairs route */}
-                    <Route path="/repairs" component={Repairs} />
+                    <Route path="/repairs">
+                      <Repairs />
+                    </Route>
                     
                     {/* Client routes */}
-                    <Route path="/clients" component={Clients} />
-                    <Route path="/clients/add" component={ClientAdd} />
-                    <Route path="/clients/:id/edit" component={ClientEdit} />
-                    <Route path="/clients/:id/pool-wizard" component={PoolWizardPage} />
-                    <Route path="/pool-wizard/:id" component={PoolWizardPage} />
-                    <Route path="/clients/:id" component={ClientDetails} />
+                    <Route path="/clients">
+                      <Clients />
+                    </Route>
+                    <Route path="/clients/add">
+                      <ClientAdd />
+                    </Route>
+                    <Route path="/clients/:id/edit">
+                      <ClientEdit />
+                    </Route>
+                    <Route path="/clients/:id/pool-wizard">
+                      <PoolWizardPage />
+                    </Route>
+                    <Route path="/pool-wizard/:id">
+                      <PoolWizardPage />
+                    </Route>
+                    <Route path="/clients/:id">
+                      <ClientDetails />
+                    </Route>
                     
                     {/* Technician routes */}
-                    <Route path="/technicians" component={Technicians} />
+                    <Route path="/technicians">
+                      <Technicians />
+                    </Route>
                     
                     {/* Other routes */}
-                    <Route path="/client-portal" component={ClientPortal} />
-                    <Route path="/service-report/:id" component={ServiceReport} />
-                    <Route path="/service-report-page/:id" component={ServiceReportPage} />
-                    <Route path="/maintenance-report/:id" component={MaintenanceReportPage} />
-                    <Route path="/communications" component={Communications} />
-                    <Route path="/business" component={Business} />
-                    <Route path="/inventory" component={InventoryManagement} />
-                    <Route path="/inventory/transfers" component={InventoryTransfers} />
-                    <Route path="/inventory/barcode-demo" component={BarcodeDemo} />
+                    <Route path="/client-portal">
+                      <ClientPortal />
+                    </Route>
+                    <Route path="/service-report/:id">
+                      <ServiceReport />
+                    </Route>
+                    <Route path="/service-report-page/:id">
+                      <ServiceReportPage />
+                    </Route>
+                    <Route path="/maintenance-report/:id">
+                      <MaintenanceReportPage />
+                    </Route>
+                    <Route path="/communications">
+                      <Communications />
+                    </Route>
+                    <Route path="/business">
+                      <Business />
+                    </Route>
+                    <Route path="/inventory">
+                      <InventoryManagement />
+                    </Route>
+                    <Route path="/inventory/transfers">
+                      <InventoryTransfers />
+                    </Route>
+                    <Route path="/inventory/barcode-demo">
+                      <BarcodeDemo />
+                    </Route>
                     
                     {/* Fleetmatics routes */}
-                    <Route path="/fleetmatics/settings" component={FleetmaticsSettings} />
-                    <Route path="/fleetmatics/vehicle-mapping" component={VehicleMapping} />
-                    <Route path="/fleetmatics/vehicle-tracking" component={VehicleTracking} />
+                    <Route path="/fleetmatics/settings">
+                      <FleetmaticsSettings />
+                    </Route>
+                    <Route path="/fleetmatics/vehicle-mapping">
+                      <VehicleMapping />
+                    </Route>
+                    <Route path="/fleetmatics/vehicle-tracking">
+                      <VehicleTracking />
+                    </Route>
                     
-                    <Route path="/settings" component={Settings} />
-                    <Route path="/admin" component={Admin} />
+                    <Route path="/settings">
+                      <Settings />
+                    </Route>
+                    <Route path="/admin">
+                      <Admin />
+                    </Route>
                     
                     {/* Catch-all */}
-                    <Route component={NotFound} />
+                    <Route>
+                      <NotFound />
+                    </Route>
                   </Switch>
                 </main>
               </div>

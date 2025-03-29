@@ -45,11 +45,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Set initial loading state
     setIsLoading(true);
     
+    // Set a timeout to make sure loading state isn't stuck
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.log("Auth context timeout reached, forcing loading state to false");
+        setIsLoading(false);
+      }
+    }, 3000);
+    
     checkSession().then(authenticated => {
       console.log("Initial session check complete:", authenticated ? "Authenticated" : "Not authenticated");
     }).catch(error => {
       console.error("Error during initial session check:", error);
+      // Make sure to set loading to false if there's an error
+      setIsLoading(false);
     });
+    
+    // Cleanup the timeout
+    return () => clearTimeout(loadingTimeout);
   }, []);
 
   const checkSession = async (): Promise<boolean> => {
@@ -72,14 +85,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       console.log(`Checking session... (attempt ${sessionCheckAttempts + 1})`);
       
+      // Set a timeout for this fetch to avoid hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.warn('Session check request timeout - aborting');
+        controller.abort();
+      }, 2500);
+      
       const response = await fetch('/api/auth/session', {
         method: 'GET',
         credentials: 'include',
         headers: {
           'Accept': 'application/json',
           'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }
+        },
+        signal: controller.signal
       });
+      
+      // Clear the timeout
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         console.warn(`Session check failed with status: ${response.status}`);

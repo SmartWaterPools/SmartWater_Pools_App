@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Building, 
   CalendarCheck, 
@@ -45,7 +45,27 @@ const getApiUrl = (endpoint: string) => {
 };
 
 export default function Dashboard() {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, checkSession } = useAuth();
+  const [shouldRenderContent, setShouldRenderContent] = useState(false);
+  
+  // Re-check the session when the dashboard loads
+  useEffect(() => {
+    console.log("Dashboard: Checking authentication status");
+    checkSession().then(success => {
+      console.log("Dashboard: Authentication check result:", success ? "Authenticated" : "Not authenticated");
+      setShouldRenderContent(true);
+    });
+    
+    // Safety timeout to ensure content renders even if auth check hangs
+    const timeout = setTimeout(() => {
+      if (!shouldRenderContent) {
+        console.log("Dashboard: Forcing content to render after timeout");
+        setShouldRenderContent(true);
+      }
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, []);
 
   // Only fetch dashboard data if authenticated
   const { data: apiData, isLoading: dashboardLoading, error } = useQuery<any>({

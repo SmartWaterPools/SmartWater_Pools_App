@@ -106,6 +106,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return <Loader2 className="h-12 w-12 animate-spin text-primary" />;
       }
       
+      // If we already have /dashboard in the URL and it's showing not found, try refreshing the page
+      if (location === '/dashboard' && document.querySelector('[data-testid="404-not-found"]')) {
+        console.log("ProtectedRoute: Found 404 on dashboard page, refreshing");
+        window.location.reload();
+        return <Loader2 className="h-12 w-12 animate-spin text-primary" />;
+      }
+      
       return <>{children}</>;
     }
   }
