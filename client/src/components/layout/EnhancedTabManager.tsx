@@ -112,20 +112,66 @@ const getTitleForPath = (path: string): string => {
 };
 
 // Provider component to wrap the application
-// Helper function to deduplicate dashboard tabs
-const deduplicateDashboardTabs = (tabList: TabItem[]): TabItem[] => {
+// Helper function to ensure we have exactly one dashboard tab
+const ensureSingleDashboardTab = (tabList: TabItem[]): TabItem[] => {
+  // Find all dashboard tabs (any tab with path '/' or id 'dashboard')
   const dashboardTabs = tabList.filter(tab => tab.path === '/' || tab.id === 'dashboard');
   
-  // If we only have 0 or 1 dashboard tabs, no need to deduplicate
-  if (dashboardTabs.length <= 1) return tabList;
+  // If we have no dashboard tabs, add one
+  if (dashboardTabs.length === 0) {
+    return [
+      ...tabList,
+      { 
+        id: 'dashboard', 
+        title: 'Dashboard', 
+        path: '/', 
+        icon: <LayoutDashboard className="h-4 w-4" />,
+        lastAccessed: Date.now()
+      }
+    ];
+  }
   
-  // Keep only the original dashboard tab (the one with id 'dashboard') or the first one if not found
-  const originalDashboardTab = dashboardTabs.find(tab => tab.id === 'dashboard') || dashboardTabs[0];
+  // If we have exactly one dashboard tab, make sure it has the right id and properties
+  if (dashboardTabs.length === 1) {
+    const onlyDashboardTab = dashboardTabs[0];
+    
+    // If it's already the correct tab, return as is
+    if (onlyDashboardTab.id === 'dashboard') {
+      return tabList;
+    }
+    
+    // Otherwise, replace it with the standard dashboard tab
+    return tabList.map(tab => {
+      if (tab.path === '/' || tab.id === 'dashboard') {
+        return { 
+          id: 'dashboard', 
+          title: 'Dashboard', 
+          path: '/', 
+          icon: <LayoutDashboard className="h-4 w-4" />,
+          lastAccessed: Date.now() 
+        };
+      }
+      return tab;
+    });
+  }
   
-  // Filter out all other dashboard tabs
-  return tabList.filter(tab => 
-    tab.id === originalDashboardTab.id || (tab.path !== '/' && tab.id !== 'dashboard')
-  );
+  // If we have multiple dashboard tabs, keep only the one with id 'dashboard' or create one
+  const standardDashboardTab = dashboardTabs.find(tab => tab.id === 'dashboard');
+  
+  // Remove all dashboard tabs
+  const tabsWithoutDashboard = tabList.filter(tab => tab.path !== '/' && tab.id !== 'dashboard');
+  
+  // Add back the standard dashboard tab or create one
+  return [
+    ...tabsWithoutDashboard,
+    standardDashboardTab || { 
+      id: 'dashboard', 
+      title: 'Dashboard', 
+      path: '/', 
+      icon: <LayoutDashboard className="h-4 w-4" />,
+      lastAccessed: Date.now() 
+    }
+  ];
 };
 
 export function TabProvider({ children }: { children: React.ReactNode }) {
@@ -155,8 +201,8 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
               };
             });
             
-            // Make sure we deduplicate dashboard tabs on load
-            return deduplicateDashboardTabs(restoredTabs);
+            // Make sure we have only one dashboard tab on load
+            return ensureSingleDashboardTab(restoredTabs);
           }
         }
       } catch (error) {
@@ -253,9 +299,9 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       // Add the new tab
       const tabsWithNewTab = [...currentTabs, newTab];
       
-      // If the new tab is a dashboard tab, deduplicate to ensure only one dashboard tab
+      // If the new tab is a dashboard tab, ensure only one dashboard tab exists
       if (path === '/') {
-        return deduplicateDashboardTabs(tabsWithNewTab);
+        return ensureSingleDashboardTab(tabsWithNewTab);
       }
       
       return tabsWithNewTab;
@@ -322,8 +368,8 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       // Find the original dashboard tab
       const originalDashboardTab = dashboardTabs.find(tab => tab.id === 'dashboard') || dashboardTabs[0];
       
-      // Use our helper function to remove duplicate dashboard tabs
-      const dedupedTabs = deduplicateDashboardTabs(tabs);
+      // Use our helper function to ensure we have only one dashboard tab
+      const dedupedTabs = ensureSingleDashboardTab(tabs);
       
       // Update tabs and navigate to the original dashboard tab if it was active
       setTabs(dedupedTabs);
@@ -377,7 +423,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
             const dashboardTabs = tabs.filter(tab => tab.path === '/' || tab.id === 'dashboard');
             if (dashboardTabs.length > 0) {
               // Use our helper function to ensure we have only one dashboard tab
-              const dedupedTabs = deduplicateDashboardTabs(tabs);
+              const dedupedTabs = ensureSingleDashboardTab(tabs);
               // Find the remaining dashboard tab
               const dashboardTab = dedupedTabs.find(tab => tab.path === '/' || tab.id === 'dashboard');
               if (dashboardTab) {
@@ -583,8 +629,8 @@ export function EnhancedTabManager() {
     const dashboardTabs = tabs.filter(tab => tab.path === '/' || tab.id === 'dashboard');
     
     if (dashboardTabs.length > 0) {
-      // We have at least one dashboard tab, deduplicate first
-      const dedupedTabs = deduplicateDashboardTabs(tabs);
+      // We have at least one dashboard tab, ensure we have exactly one
+      const dedupedTabs = ensureSingleDashboardTab(tabs);
       setTabs(dedupedTabs);
       
       // Find the dashboard tab in the deduplicated list
