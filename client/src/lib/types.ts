@@ -51,6 +51,37 @@ export interface ProjectWithDetails {
     };
     companyName?: string;
   };
+  // Additional fields that may come from the server
+  percentComplete?: number;
+  projectType?: string;
+  assignments?: any[];
+  deadline?: Date;
+}
+
+// Maintenance Types
+export interface MaintenanceWithDetails {
+  id: number;
+  clientId: number;
+  technicianId?: number | null;
+  scheduleDate: string;
+  completionDate?: string | null;
+  type: string;
+  status: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  // Relations
+  client: ClientWithUser;
+  technician?: {
+    id: number;
+    userId: number;
+    user: {
+      id: number;
+      name: string;
+      email: string;
+    }
+  } | null;
+  serviceReport?: any;
 }
 
 // Helper functions for styling based on status
@@ -130,6 +161,53 @@ export function getPriorityClasses(priority: string): { bg: string; text: string
   }
 }
 
+// Format maintenance type for display
+export function formatMaintenanceType(type: string | undefined): string {
+  if (!type) return 'Regular Service';
+  
+  // Replace underscores with spaces and capitalize first letter of each word
+  return type
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+// Maintenance types
+export interface MaintenanceWithDetails {
+  id: number;
+  clientId: number;
+  technicianId?: number | null;
+  scheduleDate: string;
+  completionDate?: string | null;
+  type: string;  // e.g., 'regular', 'chemical_adjustment', 'equipment_maintenance'
+  status: string; // e.g., 'scheduled', 'in_progress', 'completed', 'cancelled'
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  customerFeedback?: string | null;
+  customerNotes?: string | null;
+  invoiceAmount?: number | null;
+  laborCost?: number | null;
+  totalChemicalCost?: number | null;
+  profitAmount?: number | null;
+  profitPercentage?: number | null;
+  
+  // Relations
+  client: ClientWithUser;
+  technician?: {
+    id: number;
+    userId: number;
+    user: {
+      id: number;
+      name: string;
+      email: string;
+    }
+  } | null;
+  serviceReport?: any;
+}
+
 // Dashboard Summary types
 export interface DashboardMetrics {
   activeProjects: number;
@@ -143,6 +221,69 @@ export interface DashboardSummary {
   recentProjects: any[];
   upcomingMaintenances: any[];
   recentRepairs: any[];
+}
+
+// Repair types
+export interface RepairWithDetails {
+  id: number;
+  clientId: number;
+  technicianId?: number | null;
+  type: string; // e.g., 'filter', 'pump', 'leak', etc.
+  priority: string; // e.g., 'low', 'medium', 'high', 'urgent'
+  description: string;
+  reportedDate: string;
+  scheduledDate?: string | null;
+  completedDate?: string | null;
+  status: string; // e.g., 'reported', 'scheduled', 'in_progress', 'completed', 'cancelled'
+  notes?: string;
+  cost?: number;
+  parts?: string[];
+  labor?: number; // hours
+  createdAt?: string;
+  updatedAt?: string;
+  // Relations
+  client: ClientWithUser;
+  technician?: {
+    id: number;
+    userId: number;
+    user: {
+      id: number;
+      name: string;
+      email: string;
+    }
+  } | null;
+}
+
+// Pool equipment type definition
+export interface PoolEquipment {
+  id: number;
+  clientId: number;
+  equipmentType: string; // filter, pump, heater, etc.
+  brand: string;
+  model: string;
+  serialNumber?: string;
+  installDate?: string;
+  warrantyExpiryDate?: string;
+  lastServiceDate?: string;
+  nextServiceDate?: string;
+  notes?: string;
+  status: 'operational' | 'needs_service' | 'needs_replacement';
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+// Pool image type definition
+export interface PoolImage {
+  id: number;
+  clientId: number;
+  imageUrl: string;
+  thumbnail?: string;
+  title?: string;
+  description?: string;
+  category?: string; // 'pool', 'equipment', 'issue', etc.
+  takenAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // Client with User interface (for client data with associated user)

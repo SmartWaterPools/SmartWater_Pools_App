@@ -16,9 +16,16 @@ export default function Clients() {
   const [searchTerm, setSearchTerm] = useState("");
   const [, setLocation] = useLocation();
 
-  const { data: clients, isLoading } = useQuery<ClientWithUser[]>({
+  const { data, isLoading, error } = useQuery<{clients: ClientWithUser[]}>({
     queryKey: ["/api/clients"],
   });
+  
+  // Extract clients array from response, handling both formats for backward compatibility
+  const clients = data && Array.isArray(data) ? data : data?.clients;
+  
+  // Log for debugging
+  console.log("Clients data received:", data);
+  if (error) console.error("Error fetching clients:", error);
 
   // Transform ClientWithUser structure for component use
   const processedClients = clients?.map(clientData => {

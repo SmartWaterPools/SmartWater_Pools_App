@@ -579,8 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Timestamp:", new Date().toISOString());
       console.log("Request Path:", req.path);
       console.log("Request Method:", req.method);
-      console.log("Request Headers:", req.headers);
-      console.log("Request Query:", req.query);
+      console.log("Request User-Agent:", req.headers['user-agent']);
       
       console.log("\nAuthenticated User Details:");
       console.log({
@@ -590,9 +589,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: reqUser.role,
         organizationId: reqUser.organizationId,
         createdAt: reqUser.createdAt,
-        updatedAt: reqUser.updatedAt,
-        fullUserObject: reqUser
+        updatedAt: reqUser.updatedAt
       });
+      
+      // Verify user's role specifically
+      console.log(`\nRole check: "${reqUser.role}" (Type: ${typeof reqUser.role})`);
+      console.log(`Is system_admin?: ${reqUser.role === 'system_admin'}`);
+      console.log(`roleCheck1: ${reqUser.role == 'system_admin'}`);  // loose equality
+      console.log(`roleCheck2: ${String(reqUser.role).trim() === 'system_admin'}`);  // trimmed string comparison
       
       // Verify that organizationId is a valid number
       if (reqUser.organizationId) {
@@ -609,14 +613,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Filter clients based on user's role and organization
       let clientsWithUsers = [];
       
-      if (reqUser.role === 'system_admin') {
+      // Check the role with better handling for system admins
+      const isSystemAdmin = String(reqUser.role).trim().toLowerCase() === 'system_admin';
+      
+      if (isSystemAdmin) {
         // System admin gets all clients with their user data
-        console.log("\n[CLIENTS API] System admin role detected - fetching ALL clients via getAllClientsWithUsers()");
+        console.log(`\n[CLIENTS API] System admin role detected (${reqUser.email}) - fetching ALL clients via getAllClientsWithUsers()`);
+        
+        // For Travis's specific account - add special debugging
+        if (reqUser.email === 'travis@smartwaterpools.com') {
+          console.log("[CLIENTS API] Special handling for Travis's account");
+        }
         
         // Directly check if data exists in the database
         try {
           const allClients = await typeSafeStorage.getAllClients();
           console.log(`[CLIENTS API] Raw getAllClients() response: Found ${allClients.length} clients`);
+          
+          // Check organizations present in the data
+          const organizationIds = [...new Set(allClients.map(c => c.organizationId))];
+          console.log(`[CLIENTS API] Organizations present in clients data: ${JSON.stringify(organizationIds)}`);
           
           // Get just those with organization_id = 1 for debugging
           const org1Clients = allClients.filter(c => c.organizationId === 1);
@@ -636,7 +652,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error("[CLIENTS API] Error during database verification:", err);
         }
         
-        clientsWithUsers = await typeSafeStorage.getAllClientsWithUsers();
+        // Ensure we're using the right method for system admins
+        try {
+          clientsWithUsers = await typeSafeStorage.getAllClientsWithUsers();
+          console.log(`[CLIENTS API] getAllClientsWithUsers() returned ${clientsWithUsers.length} clients`);
+        } catch (err) {
+          console.error("[CLIENTS API] Error during getAllClientsWithUsers:", err);
+          
+          // Fallback approach if the standard method fails
+          console.log("[CLIENTS API] Trying fallback approach for system admin...");
+          
+          try {
+            // Get all clients first
+            const allClients = await typeSafeStorage.getAllClients();
+            console.log(`[CLIENTS API] Fallback: Found ${allClients.length} raw clients`);
+            
+            // Manually construct the ClientWithUser objects
+            clientsWithUsers = await Promise.all(
+              allClients.map(async (client) => {
+                try {
+                  const user = await typeSafeStorage.getUserById(client.userId);
+                  return { client, user };
+                } catch (e) {
+                  console.error(`[CLIENTS API] Error getting user for client ${client.id}:`, e);
+                  // Return with minimal user data for error cases
+                  return { 
+                    client, 
+                    user: { 
+                      id: client.userId, 
+                      name: "Unknown User", 
+                      email: "unknown@example.com",
+                      role: "client"
+                    } 
+                  };
+                }
+              })
+            );
+            
+            console.log(`[CLIENTS API] Fallback method built ${clientsWithUsers.length} client records`);
+          } catch (fallbackErr) {
+            console.error("[CLIENTS API] Fallback approach also failed:", fallbackErr);
+          }
+        }
       } else if (reqUser.organizationId) {
         // Regular users get clients from their organization only
         console.log(`\n[CLIENTS API] Standard user with organization ${reqUser.organizationId} - fetching filtered clients`);
@@ -664,14 +721,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("[CLIENTS API] Sample client data from final response:", 
           clientsWithUsers.slice(0, Math.min(3, clientsWithUsers.length))
             .map(c => ({
-              clientId: c.client.id,
-              companyName: c.client.companyName,
-              clientUserId: c.client.userId,
-              clientOrgId: c.client.organizationId,
-              userName: c.user.name,
-              userEmail: c.user.email,
-              userRole: c.user.role,
-              userOrgId: c.user.organizationId
+              clientId: c.client?.id,
+              companyName: c.client?.companyName,
+              clientUserId: c.client?.userId,
+              clientOrgId: c.client?.organizationId,
+              userName: c.user?.name,
+              userEmail: c.user?.email,
+              userRole: c.user?.role,
+              userOrgId: c.user?.organizationId
             }))
         );
       } else {
@@ -896,6 +953,298 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.json([]);
     } catch (error) {
       console.error("[API] Error fetching client images:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Upcoming maintenances endpoint
+  app.get("/api/maintenances/upcoming", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("\n[UPCOMING MAINTENANCES API] Processing request for upcoming maintenances");
+      const reqUser = req.user as any;
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string, 10) : undefined;
+      const days = req.query.days ? parseInt(req.query.days as string, 10) : 7;
+      let upcomingMaintenances = [];
+      
+      if (!reqUser) {
+        console.error("[UPCOMING MAINTENANCES API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Check if user is system admin or has an organization ID
+      console.log(`[UPCOMING MAINTENANCES API] User role: ${reqUser.role}, Organization ID: ${reqUser.organizationId}, ClientID filter: ${clientId}, Days: ${days}`);
+      
+      // First get all upcoming maintenances within the specified days
+      const allUpcomingMaintenances = await typeSafeStorage.getUpcomingMaintenances(days);
+      console.log(`[UPCOMING MAINTENANCES API] Retrieved ${allUpcomingMaintenances.length} total upcoming maintenances for next ${days} days`);
+      
+      if (reqUser.role === "system_admin") {
+        console.log("[UPCOMING MAINTENANCES API] User is system admin");
+        
+        if (clientId) {
+          // If clientId is specified, fetch maintenances for that client only
+          console.log(`[UPCOMING MAINTENANCES API] Filtering by specific client ID: ${clientId}`);
+          upcomingMaintenances = allUpcomingMaintenances.filter(maintenance => maintenance.clientId === clientId);
+        } else {
+          // System admin with no clientId filter gets all upcoming maintenances
+          upcomingMaintenances = allUpcomingMaintenances;
+        }
+      } else if (reqUser.organizationId) {
+        console.log(`[UPCOMING MAINTENANCES API] Regular user with organization ID: ${reqUser.organizationId}`);
+        
+        if (clientId) {
+          // If clientId is specified, we need to verify that client belongs to user's organization
+          const client = await typeSafeStorage.getClient(clientId);
+          if (client && client.organizationId === reqUser.organizationId) {
+            console.log(`[UPCOMING MAINTENANCES API] Filtering by client ID: ${clientId} (verified in organization ${reqUser.organizationId})`);
+            upcomingMaintenances = allUpcomingMaintenances.filter(maintenance => maintenance.clientId === clientId);
+          } else {
+            console.error(`[UPCOMING MAINTENANCES API] Client ID ${clientId} is not in user's organization`);
+            return res.status(403).json({ error: "Access denied to this client's data" });
+          }
+        } else {
+          // Filter maintenances by organization's clients
+          console.log(`[UPCOMING MAINTENANCES API] Filtering by all clients in organization ${reqUser.organizationId}`);
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          // Filter maintenances that belong to clients in the user's organization
+          upcomingMaintenances = allUpcomingMaintenances.filter(maintenance => clientIds.has(maintenance.clientId));
+        }
+      } else {
+        console.error("[UPCOMING MAINTENANCES API] User has no organization ID:", reqUser);
+        return res.status(400).json({ 
+          error: "Invalid user data - missing organization" 
+        });
+      }
+      
+      console.log(`[UPCOMING MAINTENANCES API] Retrieved ${upcomingMaintenances.length} filtered upcoming maintenances`);
+      
+      // Enhance maintenances with client and technician data
+      const enhancedMaintenances = await Promise.all(
+        upcomingMaintenances.map(async (maintenance) => {
+          try {
+            const clientWithUser = await typeSafeStorage.getClientWithUser(maintenance.clientId);
+            let technicianWithUser = null;
+            
+            if (maintenance.technicianId) {
+              technicianWithUser = await typeSafeStorage.getTechnicianWithUser(maintenance.technicianId);
+            }
+            
+            return {
+              ...maintenance,
+              client: clientWithUser || {
+                client: { id: maintenance.clientId },
+                user: { id: 0, name: "Unknown" }
+              },
+              technician: technicianWithUser ? {
+                id: technicianWithUser.technician.id,
+                userId: technicianWithUser.technician.userId,
+                user: {
+                  id: technicianWithUser.user.id,
+                  name: technicianWithUser.user.name,
+                  email: technicianWithUser.user.email
+                }
+              } : null
+            };
+          } catch (error) {
+            console.error(`[UPCOMING MAINTENANCES API] Error enhancing maintenance ${maintenance.id}:`, error);
+            return {
+              ...maintenance,
+              client: {
+                client: { id: maintenance.clientId },
+                user: { id: 0, name: "Unknown" }
+              },
+              technician: null
+            };
+          }
+        })
+      );
+      
+      console.log(`[UPCOMING MAINTENANCES API] Returning ${enhancedMaintenances.length} enhanced upcoming maintenances`);
+      res.json(enhancedMaintenances);
+    } catch (error) {
+      console.error("[UPCOMING MAINTENANCES API] Error fetching upcoming maintenances:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Projects list endpoint
+  app.get("/api/projects", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("\n[PROJECTS API] Processing request for projects list");
+      const reqUser = req.user as any;
+      let projects = [];
+      
+      if (!reqUser) {
+        console.error("[PROJECTS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Check if user is system admin or has an organization ID
+      console.log(`[PROJECTS API] User role: ${reqUser.role}, Organization ID: ${reqUser.organizationId}`);
+      
+      if (reqUser.role === "system_admin") {
+        console.log("[PROJECTS API] User is system admin, fetching all projects");
+        // System admin gets all projects
+        projects = await typeSafeStorage.getAllProjects();
+        console.log(`[PROJECTS API] Retrieved ${projects.length} projects for system admin`);
+      } else if (reqUser.organizationId) {
+        console.log(`[PROJECTS API] Fetching projects for organization ${reqUser.organizationId}`);
+        // Regular users get projects for their organization
+        const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+        const clientIds = new Set(clients.map(client => client.id));
+        const allProjects = await typeSafeStorage.getAllProjects();
+        
+        // Filter projects that belong to clients in the user's organization
+        projects = allProjects.filter(project => clientIds.has(project.clientId));
+        console.log(`[PROJECTS API] Retrieved ${projects.length} projects for organization ${reqUser.organizationId}`);
+      } else {
+        console.error("[PROJECTS API] User has no organization ID:", reqUser);
+        return res.status(400).json({ 
+          error: "Invalid user data - missing organization" 
+        });
+      }
+      
+      // Enhance projects with client data
+      const enhancedProjects = await Promise.all(
+        projects.map(async (project) => {
+          try {
+            const clientWithUser = await typeSafeStorage.getClientWithUser(project.clientId);
+            return {
+              ...project,
+              client: clientWithUser ? {
+                id: clientWithUser.client.id,
+                user: {
+                  id: clientWithUser.user.id,
+                  name: clientWithUser.user.name
+                },
+                companyName: clientWithUser.client.companyName
+              } : { id: project.clientId, user: { id: 0, name: "Unknown" }, companyName: "" }
+            };
+          } catch (error) {
+            console.error(`[PROJECTS API] Error enhancing project ${project.id}:`, error);
+            return {
+              ...project,
+              client: { id: project.clientId, user: { id: 0, name: "Unknown" }, companyName: "" }
+            };
+          }
+        })
+      );
+      
+      console.log(`[PROJECTS API] Returning ${enhancedProjects.length} projects`);
+      res.json(enhancedProjects);
+    } catch (error) {
+      console.error("[PROJECTS API] Error fetching projects:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Maintenance history endpoint
+  app.get("/api/maintenances", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("\n[MAINTENANCES API] Processing request for maintenances list");
+      const reqUser = req.user as any;
+      const clientId = req.query.clientId ? parseInt(req.query.clientId as string, 10) : undefined;
+      let maintenances = [];
+      
+      if (!reqUser) {
+        console.error("[MAINTENANCES API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Check if user is system admin or has an organization ID
+      console.log(`[MAINTENANCES API] User role: ${reqUser.role}, Organization ID: ${reqUser.organizationId}, ClientID filter: ${clientId}`);
+      
+      if (reqUser.role === "system_admin") {
+        console.log("[MAINTENANCES API] User is system admin");
+        
+        if (clientId) {
+          // If clientId is specified, fetch maintenances for that client only
+          console.log(`[MAINTENANCES API] Fetching maintenances for specific client ID: ${clientId}`);
+          maintenances = await typeSafeStorage.getMaintenancesByClientId(clientId);
+        } else {
+          // System admin with no clientId filter gets all maintenances
+          console.log("[MAINTENANCES API] Fetching all maintenances");
+          maintenances = await typeSafeStorage.getAllMaintenances();
+        }
+      } else if (reqUser.organizationId) {
+        console.log(`[MAINTENANCES API] Regular user with organization ID: ${reqUser.organizationId}`);
+        
+        if (clientId) {
+          // If clientId is specified, we need to verify that client belongs to user's organization
+          const client = await typeSafeStorage.getClient(clientId);
+          if (client && client.organizationId === reqUser.organizationId) {
+            console.log(`[MAINTENANCES API] Fetching maintenances for client ID: ${clientId} (verified in organization ${reqUser.organizationId})`);
+            maintenances = await typeSafeStorage.getMaintenancesByClientId(clientId);
+          } else {
+            console.error(`[MAINTENANCES API] Client ID ${clientId} is not in user's organization`);
+            return res.status(403).json({ error: "Access denied to this client's data" });
+          }
+        } else {
+          // Filter maintenances by organization's clients
+          console.log(`[MAINTENANCES API] Fetching maintenances for all clients in organization ${reqUser.organizationId}`);
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          const allMaintenances = await typeSafeStorage.getAllMaintenances();
+          
+          // Filter maintenances that belong to clients in the user's organization
+          maintenances = allMaintenances.filter(maintenance => clientIds.has(maintenance.clientId));
+        }
+      } else {
+        console.error("[MAINTENANCES API] User has no organization ID:", reqUser);
+        return res.status(400).json({ 
+          error: "Invalid user data - missing organization" 
+        });
+      }
+      
+      console.log(`[MAINTENANCES API] Retrieved ${maintenances.length} maintenances`);
+      
+      // Enhance maintenances with client and technician data
+      const enhancedMaintenances = await Promise.all(
+        maintenances.map(async (maintenance) => {
+          try {
+            const clientWithUser = await typeSafeStorage.getClientWithUser(maintenance.clientId);
+            let technicianWithUser = null;
+            
+            if (maintenance.technicianId) {
+              technicianWithUser = await typeSafeStorage.getTechnicianWithUser(maintenance.technicianId);
+            }
+            
+            return {
+              ...maintenance,
+              client: clientWithUser || {
+                client: { id: maintenance.clientId },
+                user: { id: 0, name: "Unknown" }
+              },
+              technician: technicianWithUser ? {
+                id: technicianWithUser.technician.id,
+                userId: technicianWithUser.technician.userId,
+                user: {
+                  id: technicianWithUser.user.id,
+                  name: technicianWithUser.user.name,
+                  email: technicianWithUser.user.email
+                }
+              } : null
+            };
+          } catch (error) {
+            console.error(`[MAINTENANCES API] Error enhancing maintenance ${maintenance.id}:`, error);
+            return {
+              ...maintenance,
+              client: {
+                client: { id: maintenance.clientId },
+                user: { id: 0, name: "Unknown" }
+              },
+              technician: null
+            };
+          }
+        })
+      );
+      
+      console.log(`[MAINTENANCES API] Returning ${enhancedMaintenances.length} enhanced maintenances`);
+      res.json(enhancedMaintenances);
+    } catch (error) {
+      console.error("[MAINTENANCES API] Error fetching maintenances:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

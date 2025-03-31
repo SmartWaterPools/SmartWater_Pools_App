@@ -49,20 +49,13 @@ import { ServiceReportForm } from "../components/maintenance/ServiceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
-  getStatusClasses 
+  getStatusClasses,
+  formatMaintenanceType
 } from "../lib/types";
 import { format, addMonths, subMonths, isSameDay, isToday, parseISO } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
-
-// Format a maintenance type for display
-const formatMaintenanceType = (type: string) => {
-  return type
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
 
 export default function Maintenance() {
   const { toast } = useToast();
