@@ -330,7 +330,7 @@ export default function Dashboard() {
             View All <ArrowRight className="ml-1 h-4 w-4" />
           </Link>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto md:overflow-visible">
           {isLoading ? (
             <div className="p-4">
               <div className="space-y-4">

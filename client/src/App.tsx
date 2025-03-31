@@ -151,7 +151,7 @@ function AppContent({
               <MobileSidebar isOpen={mobileMenuOpen} onClose={closeMobileMenu} />
               
               {/* Main content area */}
-              <div className="flex flex-col flex-1 w-full overflow-hidden">
+              <div className="flex flex-col flex-1 w-full">
                 {/* App Header */}
                 <Header toggleMobileMenu={toggleMobileMenu} />
                 

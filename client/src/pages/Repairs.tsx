@@ -177,7 +177,7 @@ export default function Repairs() {
         </TabsList>
         <TabsContent value="all">
           <div className="bg-white overflow-hidden shadow-sm rounded-lg">
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto md:overflow-visible">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
