@@ -112,72 +112,11 @@ const getTitleForPath = (path: string): string => {
 };
 
 // Provider component to wrap the application
-// Helper function to ensure we have exactly one dashboard tab
-const ensureSingleDashboardTab = (tabList: TabItem[]): TabItem[] => {
-  // Find all dashboard tabs (any tab with path '/' or id 'dashboard')
-  const dashboardTabs = tabList.filter(tab => tab.path === '/' || tab.id === 'dashboard');
-  
-  // If we have no dashboard tabs, add one
-  if (dashboardTabs.length === 0) {
-    return [
-      ...tabList,
-      { 
-        id: 'dashboard', 
-        title: 'Dashboard', 
-        path: '/', 
-        icon: <LayoutDashboard className="h-4 w-4" />,
-        lastAccessed: Date.now()
-      }
-    ];
-  }
-  
-  // If we have exactly one dashboard tab, make sure it has the right id and properties
-  if (dashboardTabs.length === 1) {
-    const onlyDashboardTab = dashboardTabs[0];
-    
-    // If it's already the correct tab, return as is
-    if (onlyDashboardTab.id === 'dashboard') {
-      return tabList;
-    }
-    
-    // Otherwise, replace it with the standard dashboard tab
-    return tabList.map(tab => {
-      if (tab.path === '/' || tab.id === 'dashboard') {
-        return { 
-          id: 'dashboard', 
-          title: 'Dashboard', 
-          path: '/', 
-          icon: <LayoutDashboard className="h-4 w-4" />,
-          lastAccessed: Date.now() 
-        };
-      }
-      return tab;
-    });
-  }
-  
-  // If we have multiple dashboard tabs, keep only the one with id 'dashboard' or create one
-  const standardDashboardTab = dashboardTabs.find(tab => tab.id === 'dashboard');
-  
-  // Remove all dashboard tabs
-  const tabsWithoutDashboard = tabList.filter(tab => tab.path !== '/' && tab.id !== 'dashboard');
-  
-  // Add back the standard dashboard tab or create one
-  return [
-    ...tabsWithoutDashboard,
-    standardDashboardTab || { 
-      id: 'dashboard', 
-      title: 'Dashboard', 
-      path: '/', 
-      icon: <LayoutDashboard className="h-4 w-4" />,
-      lastAccessed: Date.now() 
-    }
-  ];
-};
 
 export function TabProvider({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   
-  // Initialize tabs from localStorage or use default dashboard tab
+  // Initialize tabs from localStorage or create a new dashboard tab as default
   const [tabs, setTabs] = useState<TabItem[]>(() => {
     // Try to load tabs from localStorage
     if (typeof window !== 'undefined') {
@@ -186,23 +125,18 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         if (savedTabs) {
           const parsedTabs = JSON.parse(savedTabs);
           
-          // Ensure we have valid tabs and deduplicate any dashboard tabs
+          // Ensure we have valid tabs
           if (Array.isArray(parsedTabs) && parsedTabs.length > 0) {
             // When deserializing, we need to re-add the React elements for icons
-            const restoredTabs = parsedTabs.map((tab: Omit<TabItem, 'icon'> & { iconName?: string }) => {
-              // Restore the icon based on the path or iconName
-              const icon = tab.iconName === 'dashboard' ? 
-                <LayoutDashboard className="h-4 w-4" /> : 
-                getIconForPath(tab.path);
+            return parsedTabs.map((tab: Omit<TabItem, 'icon'>) => {
+              // Restore the icon based on the path
+              const icon = getIconForPath(tab.path);
               
               return {
                 ...tab,
                 icon
               };
             });
-            
-            // Make sure we have only one dashboard tab on load
-            return ensureSingleDashboardTab(restoredTabs);
           }
         }
       } catch (error) {
@@ -212,7 +146,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     
     // Fallback to default dashboard tab
     return [{ 
-      id: 'dashboard', 
+      id: `tab-${Date.now()}`, 
       title: 'Dashboard', 
       path: '/', 
       icon: <LayoutDashboard className="h-4 w-4" />,
@@ -220,7 +154,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     }];
   });
   
-  // Initialize activeTabId from localStorage or default to dashboard
+  // Initialize activeTabId from localStorage or default to first tab
   const [activeTabId, setActiveTabId] = useState<string>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -235,7 +169,8 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         console.error('Error loading active tab from localStorage:', error);
       }
     }
-    return 'dashboard';
+    // Default to the first tab in the list
+    return tabs.length > 0 ? tabs[0].id : `tab-${Date.now()}`;
   });
   
   // Get a tab by ID
@@ -266,78 +201,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   
   // Add a new tab or switch to existing one
   const addTab = useCallback((path: string, title?: string, forceNew: boolean = false): string => {
-    // For dashboard path, ensure there's exactly one dashboard tab with standard properties
-    if (path === '/') {
-      // First, check if we need to clean up any existing dashboard tabs
-      const dashboardTabs = tabs.filter(tab => tab.id === 'dashboard' || tab.path === '/');
-      
-      if (dashboardTabs.length > 1) {
-        console.log(`Found ${dashboardTabs.length} dashboard tabs during addTab, cleaning up...`);
-        // Apply the ensureSingleDashboardTab function to clean up tabs
-        const cleanedTabs = ensureSingleDashboardTab(tabs);
-        setTabs(cleanedTabs);
-        
-        // Find the dashboard tab in the cleaned list
-        const dashboardTab = cleanedTabs.find(tab => tab.id === 'dashboard');
-        if (dashboardTab) {
-          navigateToTab(dashboardTab.id);
-          return dashboardTab.id;
-        }
-      } else if (dashboardTabs.length === 1) {
-        // We already have exactly one dashboard tab, use it
-        const existingDashboardTab = dashboardTabs[0];
-        
-        // Make sure it has the standard dashboard id and path
-        if (existingDashboardTab.id !== 'dashboard') {
-          // Update the tab to have the standard id
-          setTabs(currentTabs => 
-            currentTabs.map(tab => 
-              (tab.id === existingDashboardTab.id || tab.path === '/') 
-                ? {
-                    id: 'dashboard',
-                    title: 'Dashboard',
-                    path: '/',
-                    icon: getIconForPath('/'),
-                    lastAccessed: Date.now()
-                  }
-                : tab
-            )
-          );
-          navigateToTab('dashboard');
-          return 'dashboard';
-        } else {
-          // Use the existing dashboard tab as is
-          navigateToTab(existingDashboardTab.id);
-          return existingDashboardTab.id;
-        }
-      } else {
-        // No dashboard tab exists, create a standard one
-        const standardDashboardTab: TabItem = {
-          id: 'dashboard',
-          title: 'Dashboard',
-          path: '/',
-          icon: getIconForPath('/'),
-          lastAccessed: Date.now()
-        };
-        
-        setTabs(currentTabs => [...currentTabs, standardDashboardTab]);
-        navigateToTab('dashboard');
-        return 'dashboard';
-      }
-    }
-    
-    // For non-dashboard paths:
-    
-    // If not forcing a new tab, check if tab already exists
-    if (!forceNew) {
-      const existingTab = getTabByPath(path);
-      if (existingTab) {
-        navigateToTab(existingTab.id);
-        return existingTab.id;
-      }
-    }
-    
-    // Create a new tab with a unique ID (never using 'dashboard' for non-dashboard paths)
+    // Always create a new tab - no tab reuse
     const newTabId = `tab-${Date.now()}`;
     const newTab: TabItem = {
       id: newTabId,
@@ -351,13 +215,10 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     setTabs(currentTabs => [...currentTabs, newTab]);
     navigateToTab(newTabId);
     return newTabId;
-  }, [getTabByPath, navigateToTab, tabs]);
+  }, [navigateToTab]);
   
   // Close a tab
   const closeTab = useCallback((id: string) => {
-    // Don't close the dashboard tab
-    if (id === 'dashboard') return;
-    
     // Find the index of the tab to close
     const tabIndex = tabs.findIndex(tab => tab.id === id);
     const isActiveTab = id === activeTabId;
@@ -382,9 +243,6 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   
   // Duplicate a tab
   const duplicateTab = useCallback((tab: TabItem) => {
-    // Don't duplicate the dashboard tab
-    if (tab.id === 'dashboard') return;
-    
     // Create a duplicate with a new ID
     const newTab: TabItem = {
       ...tab,
@@ -400,31 +258,8 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // Create a list of recent tabs sorted by last accessed time
   const recentTabs = [...tabs].sort((a, b) => b.lastAccessed - a.lastAccessed);
   
-  // Clean up any duplicate dashboard tabs
-  useEffect(() => {
-    const dashboardTabs = tabs.filter(tab => tab.path === '/' || tab.id === 'dashboard');
-    
-    // If we have more than one dashboard tab, keep only the first one (original 'dashboard' tab)
-    if (dashboardTabs.length > 1) {
-      console.log('Detected duplicate dashboard tabs. Cleaning up...');
-      // Find the original dashboard tab
-      const originalDashboardTab = dashboardTabs.find(tab => tab.id === 'dashboard') || dashboardTabs[0];
-      
-      // Use our helper function to ensure we have only one dashboard tab
-      const dedupedTabs = ensureSingleDashboardTab(tabs);
-      
-      // Update tabs and navigate to the original dashboard tab if it was active
-      setTabs(dedupedTabs);
-      
-      // Find the dashboard tab in the deduped list
-      const newDashboardTab = dedupedTabs.find(tab => tab.path === '/' || tab.id === 'dashboard');
-      
-      // If we were on a dashboard tab, make sure we're on the correct one
-      if (newDashboardTab && dashboardTabs.some(tab => tab.id === activeTabId)) {
-        setActiveTabId(newDashboardTab.id);
-      }
-    }
-  }, [tabs, activeTabId]);
+  // No dashboard tab deduplication needed anymore
+  // We now treat all tabs equally
   
   // Watch for location changes to sync tabs
   useEffect(() => {
@@ -437,21 +272,13 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      // Special case for dashboard - always use the dashboard tab or create one if it doesn't exist
-      if (location === '/') {
-        const dashboardTab = tabs.find(tab => tab.id === 'dashboard' || tab.path === '/');
-        if (dashboardTab) {
-          navigateToTab(dashboardTab.id);
-          return;
-        }
-      }
-      
+      // Create a new tab for any path
       addTab(location);
     } else if (matchingTab.id !== activeTabId) {
       // If the matching tab is not the active one, activate it
       navigateToTab(matchingTab.id);
     }
-  }, [location, getTabByPath, addTab, activeTabId, navigateToTab, tabs]);
+  }, [location, getTabByPath, addTab, activeTabId, navigateToTab]);
   
   // Listen for custom addTab events
   useEffect(() => {
@@ -459,23 +286,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       if (event.detail) {
         const { path, title, icon, forceNew = false } = event.detail;
         if (path) {
-          // Special handling for dashboard to prevent duplicates
-          if (path === '/') {
-            // First, deduplicate any dashboard tabs
-            const dashboardTabs = tabs.filter(tab => tab.path === '/' || tab.id === 'dashboard');
-            if (dashboardTabs.length > 0) {
-              // Use our helper function to ensure we have only one dashboard tab
-              const dedupedTabs = ensureSingleDashboardTab(tabs);
-              // Find the remaining dashboard tab
-              const dashboardTab = dedupedTabs.find(tab => tab.path === '/' || tab.id === 'dashboard');
-              if (dashboardTab) {
-                // If we found a dashboard tab, update the tabs and navigate to it
-                setTabs(dedupedTabs);
-                navigateToTab(dashboardTab.id);
-                return;
-              }
-            }
-          }
+          // Create a new tab for all paths
           const tabId = addTab(path, title, forceNew);
           navigateToTab(tabId);
         }
@@ -489,7 +300,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     return () => {
       window.removeEventListener('addTab', handleAddTabEvent as EventListener);
     };
-  }, [addTab, navigateToTab, tabs]);
+  }, [addTab, navigateToTab]);
   
   // Extract client ID for client-related pages to update tab titles
   const clientDetailsMatch = location.match(/^\/clients\/(\d+)$/);
@@ -528,14 +339,12 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       try {
         // We need to serialize the tabs without the React elements (icons)
         const tabsToSave = tabs.map(tab => {
-          // Extract the iconName for dashboard tab to help with restoring
-          const iconName = tab.id === 'dashboard' ? 'dashboard' : undefined;
-          
           // Create a serializable version without the icon React element
           const { icon, ...rest } = tab;
           return {
             ...rest,
-            iconName
+            // No special handling for dashboard tabs anymore
+            iconName: undefined
           };
         });
         
@@ -667,8 +476,8 @@ export function EnhancedTabManager() {
   };
   
   const handleNewTab = () => {
-    // Always direct to the dashboard tab
-    addTab('/', 'Dashboard', false);
+    // Create a new Dashboard tab
+    addTab('/', 'Dashboard', true);
   };
   
   // Scroll active tab into view when it changes
@@ -741,15 +550,13 @@ export function EnhancedTabManager() {
                   </span>
                 )}
                 <span className="truncate text-sm">{tab.title}</span>
-                {tab.id !== 'dashboard' && (
-                  <button
-                    onClick={(e) => handleCloseTab(e, tab.id)}
-                    className="p-0.5 rounded-full hover:bg-gray-100 ml-1 flex-shrink-0"
-                    title="Close Tab"
-                  >
-                    <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
-                  </button>
-                )}
+                <button
+                  onClick={(e) => handleCloseTab(e, tab.id)}
+                  className="p-0.5 rounded-full hover:bg-gray-100 ml-1 flex-shrink-0"
+                  title="Close Tab"
+                >
+                  <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
+                </button>
               </div>
             </div>
           ))}

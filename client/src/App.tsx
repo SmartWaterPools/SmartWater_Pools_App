@@ -286,83 +286,12 @@ function AppContent({
   );
 }
 
-// Helper function to fix duplicate dashboard tabs in localStorage before app loading
+// We no longer need this cleanup function since all tabs are treated equally
+// This function is removed to let the tab system handle dashboard tabs normally
 function cleanupDashboardTabs() {
-  if (typeof window === 'undefined') return;
-  
-  try {
-    console.log('Checking for duplicate dashboard tabs in localStorage...');
-    const savedTabs = localStorage.getItem('smartwater_tabs');
-    if (!savedTabs) return;
-    
-    const parsedTabs = JSON.parse(savedTabs);
-    if (!Array.isArray(parsedTabs) || parsedTabs.length === 0) return;
-    
-    // Find dashboard tabs (with path '/' or id 'dashboard')
-    const dashboardTabs = parsedTabs.filter(tab => 
-      tab.path === '/' || tab.id === 'dashboard'
-    );
-    
-    let needsFixing = false;
-    
-    // Case 1: More than one dashboard tab
-    if (dashboardTabs.length > 1) {
-      console.log(`Found ${dashboardTabs.length} dashboard tabs, cleaning up...`);
-      needsFixing = true;
-    }
-    
-    // Case 2: Dashboard tab with wrong ID
-    const dashboardTabWithWrongId = dashboardTabs.find(tab => tab.path === '/' && tab.id !== 'dashboard');
-    if (dashboardTabWithWrongId) {
-      console.log(`Found dashboard tab with wrong id: ${dashboardTabWithWrongId.id}, fixing...`);
-      needsFixing = true;
-    }
-    
-    // Case 3: Dashboard tab with wrong path
-    const dashboardTabWithWrongPath = dashboardTabs.find(tab => tab.id === 'dashboard' && tab.path !== '/');
-    if (dashboardTabWithWrongPath) {
-      console.log(`Found dashboard tab with wrong path: ${dashboardTabWithWrongPath.path}, fixing...`);
-      needsFixing = true;
-    }
-    
-    if (needsFixing) {
-      // Remove all dashboard-like tabs from the array
-      const nonDashboardTabs = parsedTabs.filter(tab => 
-        tab.path !== '/' && tab.id !== 'dashboard'
-      );
-      
-      // Add back a single correct dashboard tab
-      const cleanedTabs = [
-        ...nonDashboardTabs,
-        {
-          id: 'dashboard',
-          title: 'Dashboard',
-          path: '/',
-          iconName: 'dashboard',
-          lastAccessed: Date.now()
-        }
-      ];
-      
-      // Save the cleaned tabs
-      localStorage.setItem('smartwater_tabs', JSON.stringify(cleanedTabs));
-      console.log('Cleaned up dashboard tabs, now have exactly one dashboard tab');
-      
-      // Ensure the active tab is set correctly if it was set to one of the duplicate dashboard tabs
-      const activeTabId = localStorage.getItem('smartwater_active_tab');
-      if (activeTabId && dashboardTabs.some(tab => tab.id === activeTabId)) {
-        localStorage.setItem('smartwater_active_tab', 'dashboard');
-        console.log('Updated active tab to the single dashboard tab');
-      }
-      
-      // Force page reload to apply changes
-      window.location.reload();
-      return true; // Cleanup was performed
-    }
-  } catch (error) {
-    console.error('Error cleaning up dashboard tabs:', error);
-  }
-  
-  return false; // No cleanup needed
+  // This function is intentionally kept empty to avoid breaking existing code
+  // It will be called but will do nothing
+  return false;
 }
 
 // Main App component
