@@ -20,7 +20,19 @@ export default function Clients() {
     queryKey: ["/api/clients"],
   });
 
-  const filteredClients = clients?.filter(client => {
+  // Transform ClientWithUser structure for component use
+  const processedClients = clients?.map(clientData => {
+    return {
+      ...clientData,
+      // Add top-level fields for convenience
+      id: clientData.client.id,
+      companyName: clientData.client.companyName,
+      contractType: clientData.client.contractType
+    };
+  });
+
+  // Now filter with our processed data
+  const filteredClients = processedClients?.filter(client => {
     if (
       searchTerm &&
       !client.user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
@@ -32,6 +44,7 @@ export default function Clients() {
     return true;
   });
 
+  // Extract clients by contract type
   const commercialClients = filteredClients?.filter(client => 
     client.contractType?.toLowerCase() === "commercial");
     

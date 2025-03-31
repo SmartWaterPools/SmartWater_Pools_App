@@ -144,3 +144,36 @@ export interface DashboardSummary {
   upcomingMaintenances: any[];
   recentRepairs: any[];
 }
+
+// Client with User interface (for client data with associated user)
+export interface ClientWithUser {
+  client: {
+    id: number;
+    userId: number;
+    organizationId: number;
+    companyName?: string;
+    contactName?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
+    phone?: string;
+    contractType?: string | null;  // residential, commercial, service, etc.
+    status?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    poolCount?: number;
+    notes?: string;
+  };
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    organizationId: number | null;
+  };
+  // Composite properties for display convenience
+  id?: number;
+  companyName?: string;
+  contractType?: string | null;
+}

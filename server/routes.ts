@@ -565,6 +565,200 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   app.use("/api/oauth", registerOAuthRoutes(oauthRouter, typeSafeStorage));
 
+  // Clients API endpoints - for fetching clients with proper organization filtering
+  
+  // Get all clients endpoint
+  app.get("/api/clients", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const reqUser = req.user as any;
+      
+      // Enhanced debugging information
+      console.log("\n=================================================================");
+      console.log("============== CLIENT API REQUEST DETAILED DEBUG ================");
+      console.log("=================================================================");
+      console.log("Timestamp:", new Date().toISOString());
+      console.log("Request Path:", req.path);
+      console.log("Request Method:", req.method);
+      console.log("Request Headers:", req.headers);
+      console.log("Request Query:", req.query);
+      
+      console.log("\nAuthenticated User Details:");
+      console.log({
+        id: reqUser.id,
+        name: reqUser.name,
+        email: reqUser.email,
+        role: reqUser.role,
+        organizationId: reqUser.organizationId,
+        createdAt: reqUser.createdAt,
+        updatedAt: reqUser.updatedAt,
+        fullUserObject: reqUser
+      });
+      
+      // Verify that organizationId is a valid number
+      if (reqUser.organizationId) {
+        console.log(`\nOrganization ID type check: ${typeof reqUser.organizationId}`);
+        console.log(`Organization ID value: ${reqUser.organizationId}`);
+        
+        if (typeof reqUser.organizationId !== 'number') {
+          console.warn(`WARNING: organizationId is not a number, attempting to convert from: ${JSON.stringify(reqUser.organizationId)}`);
+          reqUser.organizationId = parseInt(reqUser.organizationId as any, 10);
+          console.log(`Converted organizationId to: ${reqUser.organizationId} (${typeof reqUser.organizationId})`);
+        }
+      }
+      
+      // Filter clients based on user's role and organization
+      let clientsWithUsers = [];
+      
+      if (reqUser.role === 'system_admin') {
+        // System admin gets all clients with their user data
+        console.log("\n[CLIENTS API] System admin role detected - fetching ALL clients via getAllClientsWithUsers()");
+        
+        // Directly check if data exists in the database
+        try {
+          const allClients = await typeSafeStorage.getAllClients();
+          console.log(`[CLIENTS API] Raw getAllClients() response: Found ${allClients.length} clients`);
+          
+          // Get just those with organization_id = 1 for debugging
+          const org1Clients = allClients.filter(c => c.organizationId === 1);
+          console.log(`[CLIENTS API] Found ${org1Clients.length} clients with organizationId=1 directly from getAllClients()`);
+          
+          if (org1Clients.length > 0) {
+            console.log("[CLIENTS API] Sample clients with organizationId=1:", 
+              org1Clients.slice(0, Math.min(3, org1Clients.length)).map(c => ({
+                id: c.id, 
+                userId: c.userId, 
+                organizationId: c.organizationId,
+                companyName: c.companyName
+              }))
+            );
+          }
+        } catch (err) {
+          console.error("[CLIENTS API] Error during database verification:", err);
+        }
+        
+        clientsWithUsers = await typeSafeStorage.getAllClientsWithUsers();
+      } else if (reqUser.organizationId) {
+        // Regular users get clients from their organization only
+        console.log(`\n[CLIENTS API] Standard user with organization ${reqUser.organizationId} - fetching filtered clients`);
+        
+        // Direct database check for debugging
+        try {
+          const directOrgClients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          console.log(`[CLIENTS API] getClientsByOrganizationId(${reqUser.organizationId}) returned ${directOrgClients.length} clients directly`);
+        } catch (err) {
+          console.error(`[CLIENTS API] Error during direct organization check:`, err);
+        }
+        
+        clientsWithUsers = await typeSafeStorage.getClientsWithUsersByOrganizationId(reqUser.organizationId);
+      } else {
+        console.error("\n[CLIENTS API] ERROR: User has no organization ID:", reqUser);
+        return res.status(400).json({ 
+          error: "Invalid user data - missing organization" 
+        });
+      }
+      
+      console.log(`\n[CLIENTS API] Retrieved ${clientsWithUsers.length} clients with user data`);
+      
+      // Log the response data for debugging
+      if (clientsWithUsers.length > 0) {
+        console.log("[CLIENTS API] Sample client data from final response:", 
+          clientsWithUsers.slice(0, Math.min(3, clientsWithUsers.length))
+            .map(c => ({
+              clientId: c.client.id,
+              companyName: c.client.companyName,
+              clientUserId: c.client.userId,
+              clientOrgId: c.client.organizationId,
+              userName: c.user.name,
+              userEmail: c.user.email,
+              userRole: c.user.role,
+              userOrgId: c.user.organizationId
+            }))
+        );
+      } else {
+        console.warn("[CLIENTS API] WARNING: No clients found to return");
+      }
+      
+      console.log("=================================================================\n");
+      
+      // Return the data to the client
+      res.json(clientsWithUsers);
+    } catch (error) {
+      console.error("[CLIENTS API] ERROR: Exception during client data processing:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Get client by ID endpoint
+  app.get("/api/clients/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("\n=================================================================");
+      console.log("============= CLIENT DETAIL API REQUEST DEBUG ===================");
+      console.log("=================================================================");
+      
+      const reqUser = req.user as any;
+      const clientId = parseInt(req.params.id, 10);
+      
+      console.log(`[CLIENT DETAIL API] Request for client ID: ${clientId} by user:`, {
+        id: reqUser.id,
+        name: reqUser.name,
+        email: reqUser.email,
+        role: reqUser.role,
+        organizationId: reqUser.organizationId
+      });
+      
+      // Get the client with user data
+      const clientWithUser = await typeSafeStorage.getClientWithUser(clientId);
+      
+      if (!clientWithUser) {
+        console.log(`[CLIENT DETAIL API] Client with ID ${clientId} not found`);
+        return res.status(404).json({ error: "Client not found" });
+      }
+      
+      // Check if the user has permission to access this client's data
+      const hasAccess = 
+        reqUser.role === 'system_admin' || // System admins can see everything
+        (reqUser.organizationId && reqUser.organizationId === clientWithUser.client.organizationId); // User's org matches client's org
+      
+      if (!hasAccess) {
+        console.log(`[CLIENT DETAIL API] Access denied for user ${reqUser.id} to client ${clientId}`);
+        console.log(`User org: ${reqUser.organizationId}, Client org: ${clientWithUser.client.organizationId}`);
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      console.log(`[CLIENT DETAIL API] Access granted for user ${reqUser.id} to client ${clientId}`);
+      
+      // Add convenient top-level properties for the frontend
+      const clientResponse = {
+        ...clientWithUser,
+        // Add properties that ClientDetails.tsx expects
+        id: clientWithUser.client.id,
+        companyName: clientWithUser.client.companyName,
+        contractType: clientWithUser.client.contractType,
+        // Add address fields if available
+        address: clientWithUser.client.address,
+        city: clientWithUser.client.city,
+        state: clientWithUser.client.state,
+        zipCode: clientWithUser.client.zip,
+        phone: clientWithUser.client.phone,
+        // Pool details will be added by other endpoints
+        poolType: null,
+        poolSize: null,
+        filterType: null,
+        chemicalSystem: null,
+        heaterType: null,
+        poolFeatures: "",
+        serviceDay: null,
+        specialNotes: clientWithUser.client.notes || null,
+      };
+      
+      console.log(`[CLIENT DETAIL API] Returning client data with user info`);
+      res.json(clientResponse);
+    } catch (error) {
+      console.error("[CLIENT DETAIL API] Error fetching client details:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Dashboard summary data endpoint
   app.get("/api/dashboard/summary", isAuthenticated, async (req: Request, res: Response) => {
     try {
@@ -678,6 +872,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const organizationRouter = express.Router();
   app.use("/api/organizations", registerUserOrgRoutes(organizationRouter, typeSafeStorage, false));
 
+  // Client equipment endpoint
+  app.get("/api/clients/:id/equipment", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id, 10);
+      console.log(`[API] Request for equipment for client ID: ${clientId}`);
+      
+      // For now, return an empty array until we implement equipment functionality
+      return res.json([]);
+    } catch (error) {
+      console.error("[API] Error fetching client equipment:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Client pool images endpoint
+  app.get("/api/clients/:id/images", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const clientId = parseInt(req.params.id, 10);
+      console.log(`[API] Request for images for client ID: ${clientId}`);
+      
+      // For now, return an empty array until we implement images functionality
+      return res.json([]);
+    } catch (error) {
+      console.error("[API] Error fetching client images:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
   // Google Maps API key endpoint
   app.get("/api/google-maps-key", (req: Request, res: Response) => {
     try {

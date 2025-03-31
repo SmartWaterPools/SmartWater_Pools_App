@@ -88,6 +88,8 @@ export interface IStorage {
   getAllClients(): Promise<Client[]>;
   getClientsByOrganizationId(organizationId: number): Promise<Client[]>;
   getClientWithUser(id: number): Promise<{ client: Client; user: User } | undefined>;
+  getAllClientsWithUsers(): Promise<{ client: Client; user: User }[]>;
+  getClientsWithUsersByOrganizationId(organizationId: number): Promise<{ client: Client; user: User }[]>;
   
   // Technician operations
   getTechnician(id: number): Promise<Technician | undefined>;
@@ -791,6 +793,34 @@ export class MemStorage implements IStorage {
     if (!user) return undefined;
     
     return { client, user };
+  }
+  
+  async getAllClientsWithUsers(): Promise<{ client: Client; user: User }[]> {
+    const allClients = await this.getAllClients();
+    const result: { client: Client; user: User }[] = [];
+    
+    for (const client of allClients) {
+      const user = await this.getUser(client.userId);
+      if (user) {
+        result.push({ client, user });
+      }
+    }
+    
+    return result;
+  }
+  
+  async getClientsWithUsersByOrganizationId(organizationId: number): Promise<{ client: Client; user: User }[]> {
+    const clients = await this.getClientsByOrganizationId(organizationId);
+    const result: { client: Client; user: User }[] = [];
+    
+    for (const client of clients) {
+      const user = await this.getUser(client.userId);
+      if (user) {
+        result.push({ client, user });
+      }
+    }
+    
+    return result;
   }
   
   // Technician operations
@@ -4293,43 +4323,100 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getClientsByOrganizationId(organizationId: number): Promise<Client[]> {
-    // Check if the organizationId column exists
+    console.log(`[DbStorage] getClientsByOrganizationId called for organizationId=${organizationId}`);
+    
     try {
       // Try the direct relationship first (more efficient)
+      console.log(`[DbStorage] Attempting direct organizationId lookup for organization ${organizationId}`);
       const directClients = await db.select()
         .from(clients)
         .where(eq(clients.organizationId, organizationId));
-        
+      
+      console.log(`[DbStorage] Direct query found ${directClients.length} clients with organizationId=${organizationId}`);
+      
+      // Log sample clients from direct lookup for debugging
       if (directClients.length > 0) {
-        console.log(`[getClientsByOrganizationId] Found ${directClients.length} clients using direct organizationId relationship`);
+        console.log(`[DbStorage] Sample clients from direct lookup:`, 
+          directClients.slice(0, Math.min(3, directClients.length))
+            .map(c => ({ 
+              id: c.id, 
+              userId: c.userId, 
+              organizationId: c.organizationId,
+              companyName: c.companyName || 'undefined' 
+            }))
+        );
         return directClients;
       }
       
       // Fallback to the legacy method (in case the script to update the organizationId hasn't been run)
-      console.log('[getClientsByOrganizationId] No clients found with direct relationship, falling back to user-based lookup');
+      console.log(`[DbStorage] No clients found with direct relationship, falling back to user-based lookup for org ${organizationId}`);
       const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
+      console.log(`[DbStorage] Found ${orgUsers.length} users in organization ${organizationId}`);
+      
+      // Log sample users for debugging
+      if (orgUsers.length > 0) {
+        console.log(`[DbStorage] Sample users from organization ${organizationId}:`, 
+          orgUsers.slice(0, Math.min(3, orgUsers.length))
+            .map(u => ({ 
+              id: u.id, 
+              name: u.name,
+              email: u.email,
+              role: u.role,
+              organizationId: u.organizationId 
+            }))
+        );
+      }
       
       // Then get all clients associated with those users
       const userIds = orgUsers.map(user => user.id);
       
       if (userIds.length === 0) {
+        console.log(`[DbStorage] No users found in organization ${organizationId}, returning empty client list`);
         return []; // No users in this organization
       }
       
+      console.log(`[DbStorage] Looking up clients for ${userIds.length} users in organization ${organizationId}`);
       const userClients = await db.select().from(clients).where(inArray(clients.userId, userIds));
-      console.log(`[getClientsByOrganizationId] Found ${userClients.length} clients using user relationship fallback`);
+      console.log(`[DbStorage] Found ${userClients.length} clients using user relationship fallback`);
+      
+      // Log sample clients from user fallback for debugging
+      if (userClients.length > 0) {
+        console.log(`[DbStorage] Sample clients from user fallback:`, 
+          userClients.slice(0, Math.min(3, userClients.length))
+            .map(c => ({ 
+              id: c.id, 
+              userId: c.userId, 
+              organizationId: c.organizationId,
+              companyName: c.companyName || 'undefined' 
+            }))
+        );
+      }
+      
       return userClients;
     } catch (error) {
       console.error('[getClientsByOrganizationId] Error fetching clients:', error);
+      
       // In case of error, fall back to user relationship
-      const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
-      const userIds = orgUsers.map(user => user.id);
-      
-      if (userIds.length === 0) {
-        return []; // No users in this organization
+      try {
+        console.log(`[DbStorage] Error occurred, attempting user-based fallback for organization ${organizationId}`);
+        const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
+        console.log(`[DbStorage] Found ${orgUsers.length} users in error recovery for organization ${organizationId}`);
+        
+        const userIds = orgUsers.map(user => user.id);
+        
+        if (userIds.length === 0) {
+          console.log(`[DbStorage] No users found during error recovery for organization ${organizationId}`);
+          return []; // No users in this organization
+        }
+        
+        const fallbackClients = await db.select().from(clients).where(inArray(clients.userId, userIds));
+        console.log(`[DbStorage] Retrieved ${fallbackClients.length} clients in error recovery mode`);
+        
+        return fallbackClients;
+      } catch (fallbackError) {
+        console.error('[DbStorage] Fallback also failed:', fallbackError);
+        return [];
       }
-      
-      return await db.select().from(clients).where(inArray(clients.userId, userIds));
     }
   }
   
@@ -4416,6 +4503,90 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error(`Error in getClientWithUser(${id}):`, error);
       return undefined;
+    }
+  }
+  
+  async getAllClientsWithUsers(): Promise<{ client: Client; user: User }[]> {
+    try {
+      console.log("DbStorage: Fetching all clients");
+      const allClients = await this.getAllClients();
+      console.log(`DbStorage: Found ${allClients.length} clients, retrieving associated users`);
+      
+      // Log the first few clients for debugging
+      if (allClients.length > 0) {
+        console.log("DbStorage: Sample client data:", 
+          allClients.slice(0, Math.min(3, allClients.length))
+            .map(c => ({
+              id: c.id,
+              userId: c.userId,
+              organizationId: c.organizationId,
+              companyName: c.companyName
+            }))
+        );
+      }
+      
+      const results: { client: Client; user: User }[] = [];
+      
+      for (const client of allClients) {
+        try {
+          const [user] = await db.select().from(users).where(eq(users.id, client.userId));
+          if (user) {
+            results.push({ client, user });
+          } else {
+            console.warn(`DbStorage: No user found for client ${client.id} with userId ${client.userId}`);
+          }
+        } catch (error) {
+          console.error(`Error fetching user for client ${client.id}:`, error);
+        }
+      }
+      
+      console.log(`DbStorage: Successfully retrieved ${results.length} clients with users`);
+      return results;
+    } catch (error) {
+      console.error('Error in getAllClientsWithUsers():', error);
+      return [];
+    }
+  }
+  
+  async getClientsWithUsersByOrganizationId(organizationId: number): Promise<{ client: Client; user: User }[]> {
+    try {
+      console.log(`DbStorage: Fetching clients for organization ${organizationId}`);
+      const orgClients = await this.getClientsByOrganizationId(organizationId);
+      console.log(`DbStorage: Found ${orgClients.length} clients for organization ${organizationId}`);
+      
+      // Log the first few clients for debugging
+      if (orgClients.length > 0) {
+        console.log(`DbStorage: Sample client data for org ${organizationId}:`, 
+          orgClients.slice(0, Math.min(3, orgClients.length))
+            .map(c => ({
+              id: c.id,
+              userId: c.userId,
+              organizationId: c.organizationId,
+              companyName: c.companyName
+            }))
+        );
+      }
+      
+      const results: { client: Client; user: User }[] = [];
+      
+      for (const client of orgClients) {
+        try {
+          const [user] = await db.select().from(users).where(eq(users.id, client.userId));
+          if (user) {
+            results.push({ client, user });
+          } else {
+            console.warn(`DbStorage: No user found for client ${client.id} with userId ${client.userId}`);
+          }
+        } catch (error) {
+          console.error(`Error fetching user for client ${client.id}:`, error);
+        }
+      }
+      
+      console.log(`DbStorage: Successfully retrieved ${results.length} clients with users for organization ${organizationId}`);
+      return results;
+    } catch (error) {
+      console.error(`Error in getClientsWithUsersByOrganizationId(${organizationId}):`, error);
+      return [];
     }
   }
 

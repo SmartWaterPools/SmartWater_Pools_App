@@ -57,78 +57,101 @@ export function ClientList({ clients, isLoading, onClientSelect }: ClientListPro
     );
   }
 
+  // Add debugging
+  console.log("ClientList rendering with", clients.length, "clients");
+  if (clients.length > 0) {
+    console.log("First client structure:", clients[0]);
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {clients.map((client) => (
-        <div 
-          key={client.id} 
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition"
-        >
-          <div className="flex items-start">
-            <div className="h-16 w-16 rounded-full bg-primary text-white flex items-center justify-center text-xl flex-shrink-0">
-              {client.user.name.charAt(0)}
-            </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold">{client.user.name}</h3>
-              {client.companyName && (
-                <p className="text-sm text-gray-500">{client.companyName}</p>
-              )}
-              <Badge 
-                variant="secondary" 
-                className={client.contractType?.toLowerCase() === "commercial" 
-                  ? "bg-blue-100 text-primary" 
-                  : client.contractType?.toLowerCase() === "service" 
-                    ? "bg-purple-100 text-purple-600"
-                    : client.contractType?.toLowerCase() === "maintenance" 
-                      ? "bg-amber-100 text-amber-600"
-                      : "bg-green-100 text-green-600"
-                }
-              >
-                {client.contractType 
-                  ? client.contractType.charAt(0).toUpperCase() + client.contractType.slice(1).toLowerCase()
-                  : "Residential"}
-              </Badge>
-            </div>
-          </div>
-          
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center text-sm">
-                <Mail className="h-4 w-4 text-gray-400 mr-2" />
-                <span>{client.user.email}</span>
+      {clients.map((client) => {
+        // Ensure client has the correct structure
+        const clientId = client.id || client.client?.id;
+        const userName = client.user?.name || "Unknown";
+        const userEmail = client.user?.email || "No email";
+        const companyName = client.companyName || client.client?.companyName;
+        const contractType = client.contractType || client.client?.contractType;
+        
+        // Log each client when rendering for debugging
+        console.log(`Rendering client: ID=${clientId}, Name=${userName}, Company=${companyName || 'None'}`);
+        
+        return (
+          <div 
+            key={clientId} 
+            className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 hover:shadow-md transition"
+          >
+            <div className="flex items-start">
+              <div className="h-16 w-16 rounded-full bg-primary text-white flex items-center justify-center text-xl flex-shrink-0">
+                {userName.charAt(0)}
               </div>
-              {client.user.phone && (
-                <div className="flex items-center text-sm">
-                  <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                  <span>{client.user.phone}</span>
-                </div>
-              )}
-              {client.user.address && (
-                <div className="flex items-start text-sm">
-                  <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                  <span>{client.user.address}</span>
-                </div>
-              )}
+              <div className="ml-4">
+                <h3 className="text-lg font-semibold">{userName}</h3>
+                {companyName && (
+                  <p className="text-sm text-gray-500">{companyName}</p>
+                )}
+                <Badge 
+                  variant="secondary" 
+                  className={contractType?.toLowerCase() === "commercial" 
+                    ? "bg-blue-100 text-primary" 
+                    : contractType?.toLowerCase() === "service" 
+                      ? "bg-purple-100 text-purple-600"
+                      : contractType?.toLowerCase() === "maintenance" 
+                        ? "bg-amber-100 text-amber-600"
+                        : "bg-green-100 text-green-600"
+                  }
+                >
+                  {contractType 
+                    ? contractType.charAt(0).toUpperCase() + contractType.slice(1).toLowerCase()
+                    : "Residential"}
+                </Badge>
+              </div>
             </div>
             
-            <Button
-              onClick={() => {
-                if (onClientSelect) {
-                  onClientSelect(client);
-                } else {
-                  // Log client ID before navigation
-                  console.log("Navigating to client details for ID:", client.id);
-                  setLocation(`/clients/${client.id}`);
-                }
-              }}
-              variant="outline"
-              className="w-full"
-            >
-              View Details
-            </Button>
+            <div className="mt-4 pt-4 border-t border-gray-100">
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center text-sm">
+                  <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                  <span>{userEmail}</span>
+                </div>
+                {client.client?.phone && (
+                  <div className="flex items-center text-sm">
+                    <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                    <span>{client.client.phone}</span>
+                  </div>
+                )}
+                {client.client?.address && (
+                  <div className="flex items-start text-sm">
+                    <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+                    <span>
+                      {client.client.address}
+                      {client.client.city && `, ${client.client.city}`}
+                      {client.client.state && `, ${client.client.state}`}
+                      {client.client.zip && ` ${client.client.zip}`}
+                    </span>
+                  </div>
+                )}
+              </div>
+              
+              <Button
+                onClick={() => {
+                  if (onClientSelect) {
+                    onClientSelect(client);
+                  } else {
+                    // Log client ID before navigation
+                    console.log("Navigating to client details for ID:", clientId);
+                    setLocation(`/clients/${clientId}`);
+                  }
+                }}
+                variant="outline"
+                className="w-full"
+              >
+                View Details
+              </Button>
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
