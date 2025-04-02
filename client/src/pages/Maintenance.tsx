@@ -45,7 +45,7 @@ import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenan
 import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
 import { LazyRouteScheduler } from "../components/maintenance/LazyRouteScheduler";
 import { MaintenanceForm } from "../components/maintenance/MaintenanceForm";
-import { ServiceReportForm } from "../components/maintenance/ServiceReportForm";
+import { MaintenanceReportForm } from "../components/maintenance/MaintenanceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
@@ -68,8 +68,8 @@ export default function Maintenance() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [serviceReportOpen, setServiceReportOpen] = useState(false);
-  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
+  const [maintenanceReportOpen, setMaintenanceReportOpen] = useState(false);
+  const [selectedReportMaintenance, setSelectedReportMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [selectedView, setSelectedView] = useState<string>("calendar");
   const [selectedTechnician, setSelectedTechnician] = useState<string | null>("all");
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -192,15 +192,15 @@ export default function Maintenance() {
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
-  // Open service report form - supports both dialog and page navigation
-  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
+  // Open maintenance report form - supports both dialog and page navigation
+  const handleMaintenanceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
     if (usePage) {
-      // Use the service report page
-      navigate(`/service-report/${maintenance.id}`);
+      // Use the maintenance report page
+      navigate(`/maintenance-report/${maintenance.id}`);
     } else {
       // Use the dialog form
-      setSelectedServiceMaintenance(maintenance);
-      setServiceReportOpen(true);
+      setSelectedReportMaintenance(maintenance);
+      setMaintenanceReportOpen(true);
     }
   };
 
@@ -452,17 +452,17 @@ export default function Maintenance() {
       )}
       
       {/* Maintenance Report Form Dialog */}
-      {serviceReportOpen && selectedServiceMaintenance && (
-        <ServiceReportForm
-          open={serviceReportOpen}
-          onOpenChange={setServiceReportOpen}
-          maintenanceId={selectedServiceMaintenance.id}
-          clientId={selectedServiceMaintenance.clientId}
+      {maintenanceReportOpen && selectedReportMaintenance && (
+        <MaintenanceReportForm
+          open={maintenanceReportOpen}
+          onOpenChange={setMaintenanceReportOpen}
+          maintenanceId={selectedReportMaintenance.id}
+          clientId={selectedReportMaintenance.clientId}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
             queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
             queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-            setServiceReportOpen(false);
+            setMaintenanceReportOpen(false);
             toast({
               title: "Maintenance report submitted",
               description: "The maintenance report has been submitted successfully.",

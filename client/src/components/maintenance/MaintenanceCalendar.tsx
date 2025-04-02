@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { MaintenanceWithDetails } from "../../lib/types";
 import { getStatusClasses } from "../../lib/types";
-import { ServiceReportForm } from "../../components/maintenance/ServiceReportForm";
+import { MaintenanceReportForm } from "../../components/maintenance/MaintenanceReportForm";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -361,11 +361,11 @@ export function MaintenanceCalendar({
     return "";
   };
 
-  // Handle opening service report form
+  // Handle opening maintenance report form
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
     if (usePage) {
-      // Navigate to standard service report page
-      navigate(`/service-report/${maintenance.id}`);
+      // Navigate to standard maintenance report page
+      navigate(`/maintenance-report/${maintenance.id}`);
     } else {
       // Use the dialog form
       setSelectedServiceMaintenance(maintenance);
@@ -567,14 +567,7 @@ export function MaintenanceCalendar({
                               <ClipboardList className="h-4 w-4 mr-2" />
                               {hasServiceReport ? "View/Edit Maintenance Report" : "Submit Maintenance Report"}
                             </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              className="cursor-pointer"
-                              onClick={() => handleServiceReportOpen(maintenance)}
-                            >
-                              <ClipboardList className="h-4 w-4 mr-2" />
-                              {hasServiceReport ? "Quick Edit (Dialog)" : "Quick Submit (Dialog)"}
-                            </DropdownMenuItem>
-                            
+
                             <DropdownMenuItem 
                               className="cursor-pointer"
                               onClick={() => navigate(`/maintenance-report/${maintenance.id}`)}
@@ -623,7 +616,7 @@ export function MaintenanceCalendar({
       </div>
 
       {/* Maintenance Report Form */}
-      <ServiceReportForm 
+      <MaintenanceReportForm 
         open={serviceReportOpen} 
         onOpenChange={setServiceReportOpen}
         maintenance={selectedServiceMaintenance}

@@ -2,16 +2,18 @@ import React, { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import MaintenanceReportForm from '@/components/maintenance/MaintenanceReportForm';
+import { MaintenanceReportForm } from '@/components/maintenance/MaintenanceReportForm';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ChevronLeft, Home, User, Calendar, MapPin, Phone, SquareUser, Clock, Mail, Wrench, Route } from 'lucide-react';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function MaintenanceReportPage() {
   const { id } = useParams<{ id: string }>();
   const maintenanceId = parseInt(id || '0', 10);
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
   
   // Fetch maintenance details with client and technician info
   const { data: maintenance, isLoading: isLoadingMaintenance } = useQuery({
@@ -274,7 +276,21 @@ export default function MaintenanceReportPage() {
         )}
         
         {/* Report Form */}
-        {maintenance && <MaintenanceReportForm maintenanceId={maintenanceId} />}
+        {maintenance && (
+          <MaintenanceReportForm 
+            open={true} 
+            onOpenChange={() => setLocation('/maintenance')} 
+            maintenanceId={maintenanceId}
+            clientId={maintenance.clientId}
+            onSuccess={() => {
+              toast({
+                title: "Maintenance report submitted",
+                description: "The maintenance report has been submitted successfully.",
+              });
+              setLocation('/maintenance');
+            }}
+          />
+        )}
       </div>
     </div>
   );
