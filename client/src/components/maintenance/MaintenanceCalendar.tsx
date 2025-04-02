@@ -468,7 +468,7 @@ export function MaintenanceCalendar({
               {selectedDayMaintenances.map((maintenance) => {
                 const statusClasses = getStatusClasses(maintenance.status);
                 const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
-                const hasServiceReport = maintenance.notes && maintenance.notes.includes("Service Report:");
+                const hasServiceReport = maintenance.notes && (maintenance.notes.includes("Service Report:") || maintenance.notes.includes("Maintenance Report:"));
                 
                 return (
                   <Card 
@@ -486,14 +486,14 @@ export function MaintenanceCalendar({
                       </CardTitle>
                       <CardDescription>
                         {hasServiceReport ? 
-                          "Service report submitted" : 
+                          "Maintenance report submitted" : 
                           (maintenance.notes || "No details available")
                         }
                       </CardDescription>
                       {hasServiceReport && (
                         <div className="flex items-center text-xs text-blue-600 px-6 pb-2">
                           <FileText className="h-3 w-3 mr-1" />
-                          <span>Service report details available</span>
+                          <span>Maintenance report details available</span>
                         </div>
                       )}
                     </CardHeader>
@@ -509,10 +509,10 @@ export function MaintenanceCalendar({
                         </div>
                       </div>
                       
-                      {/* If this is a completed service with a report, show a summary */}
+                      {/* If this is a completed maintenance with a report, show a summary */}
                       {hasServiceReport && maintenance.notes && (
                         <div className="mt-3 text-sm p-2 bg-blue-50 rounded border border-blue-100">
-                          <div className="font-medium text-blue-700 mb-1">Service Report Summary</div>
+                          <div className="font-medium text-blue-700 mb-1">Maintenance Report Summary</div>
                           <div className="space-y-1 text-xs">
                             {maintenance.notes.split('\n').slice(0, 3).map((line, i) => (
                               <div key={i} className="text-gray-600">
@@ -520,7 +520,7 @@ export function MaintenanceCalendar({
                               </div>
                             ))}
                             {maintenance.notes.split('\n').length > 3 && (
-                              <div className="text-blue-600 cursor-pointer" onClick={() => navigate(`/service-report/${maintenance.id}`)}>
+                              <div className="text-blue-600 cursor-pointer" onClick={() => navigate(`/maintenance-report/${maintenance.id}`)}>
                                 View full report...
                               </div>
                             )}
@@ -562,10 +562,10 @@ export function MaintenanceCalendar({
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem 
                               className="cursor-pointer"
-                              onClick={() => navigate(`/service-report/${maintenance.id}`)}
+                              onClick={() => navigate(`/maintenance-report/${maintenance.id}`)}
                             >
                               <ClipboardList className="h-4 w-4 mr-2" />
-                              {hasServiceReport ? "View/Edit Service Report" : "Submit Service Report"}
+                              {hasServiceReport ? "View/Edit Maintenance Report" : "Submit Maintenance Report"}
                             </DropdownMenuItem>
                             <DropdownMenuItem 
                               className="cursor-pointer"
@@ -622,7 +622,7 @@ export function MaintenanceCalendar({
         </div>
       </div>
 
-      {/* Service Report Form */}
+      {/* Maintenance Report Form */}
       <ServiceReportForm 
         open={serviceReportOpen} 
         onOpenChange={setServiceReportOpen}

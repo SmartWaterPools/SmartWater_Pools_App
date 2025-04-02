@@ -163,19 +163,19 @@ export function ServiceReportForm({
     onError: (error) => {
       toast({
         title: "Failed to submit report",
-        description: "There was an error submitting the service report. Please try again.",
+        description: "There was an error submitting the maintenance report. Please try again.",
         variant: "destructive",
       });
       setIsSubmitting(false);
     }
   });
 
-  // Format the service report for storage in the notes field
+  // Format the maintenance report for storage in the notes field
   const formatServiceReport = (data: ServiceReportValues): string => {
     const sections = [];
     
     // Add date and time
-    sections.push(`Service Report: ${format(new Date(), "PPP h:mm a")}`);
+    sections.push(`Maintenance Report: ${format(new Date(), "PPP h:mm a")}`);
     
     // Add tasks completed
     if (data.tasksCompleted && data.tasksCompleted.length > 0) {
@@ -225,7 +225,7 @@ export function ServiceReportForm({
         <DialogContent className="sm:max-w-[600px]">
           <div className="flex flex-col items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-            <p className="text-sm text-muted-foreground">Loading service details...</p>
+            <p className="text-sm text-muted-foreground">Loading maintenance details...</p>
           </div>
         </DialogContent>
       </Dialog>
@@ -250,13 +250,13 @@ export function ServiceReportForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Service Report</DialogTitle>
+          <DialogTitle>Maintenance Report</DialogTitle>
         </DialogHeader>
         
         <div className="mb-4">
           <div className="text-sm text-muted-foreground">
             <p><span className="font-medium">Client:</span> {activeMaintenance.client.user.name}</p>
-            <p><span className="font-medium">Service Type:</span> {activeMaintenance.type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
+            <p><span className="font-medium">Maintenance Type:</span> {activeMaintenance.type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</p>
             <p><span className="font-medium">Scheduled Date:</span> {format(new Date(activeMaintenance.scheduleDate), "PPP")}</p>
             {activeMaintenance.technician && (
               <p><span className="font-medium">Technician:</span> {activeMaintenance.technician.user.name}</p>
@@ -468,7 +468,7 @@ export function ServiceReportForm({
                   <FormLabel>Additional Notes</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Enter any additional information about the service visit"
+                      placeholder="Enter any additional information about the maintenance visit"
                       className="resize-none h-24"
                       {...field}
                     />

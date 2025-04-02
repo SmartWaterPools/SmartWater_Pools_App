@@ -330,7 +330,7 @@ export default function Maintenance() {
             <Map className="h-4 w-4" />
             <span className="hidden sm:inline">Map</span>
           </TabsTrigger>
-          <TabsTrigger value="routes" className="flex items-center gap-2" onClick={() => setSelectedView("routes")}>
+          <TabsTrigger value="routes" className="flex items-center gap-2 opacity-50" disabled onClick={() => {}}>
             <ListFilter className="h-4 w-4" />
             <span className="hidden sm:inline">Routes</span>
           </TabsTrigger>
@@ -451,7 +451,7 @@ export default function Maintenance() {
         />
       )}
       
-      {/* Service Report Form Dialog */}
+      {/* Maintenance Report Form Dialog */}
       {serviceReportOpen && selectedServiceMaintenance && (
         <ServiceReportForm
           open={serviceReportOpen}
@@ -464,8 +464,8 @@ export default function Maintenance() {
             queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
             setServiceReportOpen(false);
             toast({
-              title: "Service report submitted",
-              description: "The service report has been submitted successfully.",
+              title: "Maintenance report submitted",
+              description: "The maintenance report has been submitted successfully.",
             });
           }}
         />
