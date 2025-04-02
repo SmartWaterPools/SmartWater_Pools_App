@@ -465,6 +465,10 @@ export function EnhancedTabManager() {
     navigateToTab(tabId);
   };
   
+  const handleTabDoubleClick = (tab: TabItem) => {
+    duplicateTab(tab);
+  };
+  
   const handleCloseTab = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation();
     closeTab(tabId);
@@ -532,6 +536,8 @@ export function EnhancedTabManager() {
               key={tab.id}
               data-tab-id={tab.id}
               onClick={() => handleTabClick(tab.id)}
+              onDoubleClick={() => handleTabDoubleClick(tab)}
+              title="Double-click to duplicate tab"
               className={cn(
                 "flex items-center py-2.5 px-4 cursor-pointer min-w-fit max-w-[180px] relative",
                 activeTabId === tab.id 
