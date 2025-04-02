@@ -80,47 +80,42 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     const currentTime = new Date().getTime();
     const doubleClickThreshold = 300; // milliseconds
     
-    // Clear any existing timer to prevent race conditions
-    if (clickTimerRef.current) {
-      clearTimeout(clickTimerRef.current);
-      clickTimerRef.current = null;
-    }
-    
     // Check if this is a double click (same path, within threshold)
     if (path === lastClickPathRef.current && 
         currentTime - lastClickTimeRef.current < doubleClickThreshold) {
-      console.log('Double-click detected on:', path, 'Time difference:', 
-                 currentTime - lastClickTimeRef.current);
+      // Cancel the pending single-click action
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
       
       // Double click - create the tab and immediately navigate to it
       const title = getTitleForPath(path);
       const newTabId = addTab(path, title, true);
-      console.log('Creating tab and navigating to it:', newTabId);
       navigateToTab(newTabId);
       
       // Reset the click tracking to prevent further double-click detection
       lastClickTimeRef.current = 0;
       lastClickPathRef.current = '';
     } else {
-      // This is the first click - set up for potential double-click
-      console.log('First click on:', path, 'Starting timer');
+      // Cancel any existing timer first to avoid duplicate actions
+      if (clickTimerRef.current) {
+        clearTimeout(clickTimerRef.current);
+        clickTimerRef.current = null;
+      }
       
-      // Store the click information for double-click detection
+      // This is the first click - set up for potential double-click
       lastClickTimeRef.current = currentTime;
       lastClickPathRef.current = path;
       
       // Set a timer that will execute the single-click action if no double-click occurs
       clickTimerRef.current = setTimeout(() => {
-        console.log('Timer expired - executing single-click action for:', path);
-        
         // Only create the tab if this is still the last path clicked
         // This prevents creating tabs when rapidly clicking different items
         if (path === lastClickPathRef.current) {
           // Single click - create the tab but don't navigate to it
           const title = getTitleForPath(path);
           const newTabId = addTab(path, title, true);
-          console.log('Created background tab:', newTabId, 'without navigation');
-          // Don't navigate, just stay on the current tab
           
           // Reset tracking after executing the single-click action
           lastClickTimeRef.current = 0;

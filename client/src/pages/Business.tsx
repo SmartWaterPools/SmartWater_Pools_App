@@ -40,7 +40,9 @@ import {
   Truck,
   Settings as SettingsIcon,
   Link as LinkIcon,
-  Loader2
+  Loader2,
+  Barcode,
+  MapPin
 } from "lucide-react";
 import ExpensesTable from "@/components/business/ExpensesTable";
 // Payroll table component removed
@@ -55,6 +57,7 @@ import InsuranceTable from "@/components/business/InsuranceTable";
 import { ExpenseForm } from "@/components/business/ExpenseForm";
 // PayrollForm component removed
 import { TimeEntryForm } from "@/components/business/TimeEntryForm";
+import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { FinancialReportForm } from "@/components/business/FinancialReportForm";
 import { PoolReportForm } from "@/components/business/PoolReportForm";
 import { VendorForm } from "@/components/business/VendorForm";
@@ -218,6 +221,10 @@ export default function Business() {
             <TabsTrigger value="fleetmatics-settings" className="flex items-center gap-1">
               <SettingsIcon className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Fleet Settings</span>
+            </TabsTrigger>
+            <TabsTrigger value="barcode-scanner" className="flex items-center gap-1">
+              <Barcode className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Barcode Scanner</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -696,6 +703,46 @@ export default function Business() {
                   Configure Fleetmatics
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Barcode Scanner Tab */}
+        <TabsContent value="barcode-scanner" className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl sm:text-2xl font-bold">Barcode Scanner</h2>
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
+              onClick={() => {
+                // Open in a full page
+                const event = new CustomEvent('addTab', {
+                  detail: {
+                    path: '/inventory/barcode-scanner',
+                    title: 'Barcode Scanner',
+                    icon: 'barcode'
+                  }
+                });
+                window.dispatchEvent(event);
+              }}
+            >
+              <Barcode className="h-3 w-3 sm:h-4 sm:w-4" />
+              <span className="hidden xs:inline">Open</span> Scanner
+            </Button>
+          </div>
+          <Card>
+            <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+              <CardTitle className="text-base sm:text-lg">Scan Equipment and Inventory</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Use the barcode scanner to quickly identify and track inventory items
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-2">
+              <BarcodeScanner onScan={(barcode: string) => {
+                console.log("Barcode scanned:", barcode);
+                // Here we would typically dispatch an action or call a function
+                // to handle the scanned barcode (e.g. lookup item, update inventory)
+              }} />
             </CardContent>
           </Card>
         </TabsContent>
