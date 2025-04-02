@@ -1524,6 +1524,417 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Create a project phase endpoint
+  app.post("/api/projects/:id/phases", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT PHASES API] Processing request to create phase for project with ID: ${req.params.id}`);
+      const projectId = parseInt(req.params.id, 10);
+      
+      if (isNaN(projectId)) {
+        console.error("[PROJECT PHASES API] Invalid project ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT PHASES API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT PHASES API] Project not found with ID: ${projectId}`);
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if user has access to create phases for this project
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT PHASES API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT PHASES API] User from organization ${reqUser.organizationId} not authorized to create phases for project ${projectId}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to create phases for this project" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // Clients should not be able to create phases
+          console.error(`[PROJECT PHASES API] Client user ${reqUser.id} not authorized to create phases for project ${projectId}`);
+          return res.status(403).json({ error: "Forbidden: Client users cannot create project phases" });
+        }
+      }
+      
+      // Validate the phase data
+      const phaseData = {
+        ...req.body,
+        projectId: projectId
+      };
+      
+      // Create the phase
+      console.log(`[PROJECT PHASES API] Creating new phase for project ${projectId}:`, phaseData);
+      const newPhase = await typeSafeStorage.createProjectPhase(phaseData);
+      
+      console.log(`[PROJECT PHASES API] Phase created successfully with ID: ${newPhase.id}`);
+      res.status(201).json(newPhase);
+    } catch (error) {
+      console.error("[PROJECT PHASES API] Error creating project phase:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Update a project phase endpoint
+  app.put("/api/projects/phases/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT PHASES API] Processing request to update phase with ID: ${req.params.id}`);
+      const phaseId = parseInt(req.params.id, 10);
+      
+      if (isNaN(phaseId)) {
+        console.error("[PROJECT PHASES API] Invalid phase ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid phase ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT PHASES API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the phase to check authorization
+      const phase = await typeSafeStorage.getProjectPhase(phaseId);
+      
+      if (!phase) {
+        console.error(`[PROJECT PHASES API] Phase not found with ID: ${phaseId}`);
+        return res.status(404).json({ error: "Phase not found" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(phase.projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT PHASES API] Project not found for phase ID: ${phaseId}`);
+        return res.status(404).json({ error: "Project not found for this phase" });
+      }
+      
+      // Check if user has access to update this phase
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT PHASES API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT PHASES API] User from organization ${reqUser.organizationId} not authorized to update phase ${phaseId}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to update this phase" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // Clients should not be able to update phases
+          console.error(`[PROJECT PHASES API] Client user ${reqUser.id} not authorized to update phase ${phaseId}`);
+          return res.status(403).json({ error: "Forbidden: Client users cannot update project phases" });
+        }
+      }
+      
+      // Validate and update the phase
+      console.log(`[PROJECT PHASES API] Updating phase ${phaseId} with data:`, req.body);
+      const updatedPhase = await typeSafeStorage.updateProjectPhase(phaseId, req.body);
+      
+      if (!updatedPhase) {
+        console.error(`[PROJECT PHASES API] Failed to update phase ${phaseId}`);
+        return res.status(500).json({ error: "Failed to update phase" });
+      }
+      
+      console.log(`[PROJECT PHASES API] Phase ${phaseId} updated successfully`);
+      res.json(updatedPhase);
+    } catch (error) {
+      console.error("[PROJECT PHASES API] Error updating project phase:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Delete a project phase endpoint
+  app.delete("/api/projects/phases/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT PHASES API] Processing request to delete phase with ID: ${req.params.id}`);
+      const phaseId = parseInt(req.params.id, 10);
+      
+      if (isNaN(phaseId)) {
+        console.error("[PROJECT PHASES API] Invalid phase ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid phase ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT PHASES API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the phase to check authorization
+      const phase = await typeSafeStorage.getProjectPhase(phaseId);
+      
+      if (!phase) {
+        console.error(`[PROJECT PHASES API] Phase not found with ID: ${phaseId}`);
+        return res.status(404).json({ error: "Phase not found" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(phase.projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT PHASES API] Project not found for phase ID: ${phaseId}`);
+        return res.status(404).json({ error: "Project not found for this phase" });
+      }
+      
+      // Check if user has access to delete this phase
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT PHASES API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT PHASES API] User from organization ${reqUser.organizationId} not authorized to delete phase ${phaseId}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to delete this phase" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // Clients should not be able to delete phases
+          console.error(`[PROJECT PHASES API] Client user ${reqUser.id} not authorized to delete phase ${phaseId}`);
+          return res.status(403).json({ error: "Forbidden: Client users cannot delete project phases" });
+        }
+      }
+      
+      // Delete the phase
+      console.log(`[PROJECT PHASES API] Deleting phase ${phaseId}`);
+      const success = await typeSafeStorage.deleteProjectPhase(phaseId);
+      
+      if (!success) {
+        console.error(`[PROJECT PHASES API] Failed to delete phase ${phaseId}`);
+        return res.status(500).json({ error: "Failed to delete phase" });
+      }
+      
+      console.log(`[PROJECT PHASES API] Phase ${phaseId} deleted successfully`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("[PROJECT PHASES API] Error deleting project phase:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Create a project document endpoint
+  app.post("/api/projects/:id/documents", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT DOCUMENTS API] Processing request to create document for project with ID: ${req.params.id}`);
+      const projectId = parseInt(req.params.id, 10);
+      
+      if (isNaN(projectId)) {
+        console.error("[PROJECT DOCUMENTS API] Invalid project ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT DOCUMENTS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT DOCUMENTS API] Project not found with ID: ${projectId}`);
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if user has access to create documents for this project
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT DOCUMENTS API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT DOCUMENTS API] User from organization ${reqUser.organizationId} not authorized to create documents for project ${projectId}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to create documents for this project" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // Clients generally should not be able to create documents
+          console.error(`[PROJECT DOCUMENTS API] Client user ${reqUser.id} not authorized to create documents for project ${projectId}`);
+          return res.status(403).json({ error: "Forbidden: Client users cannot create project documents" });
+        }
+      }
+      
+      // Validate the document data
+      const documentData = {
+        ...req.body,
+        projectId: projectId,
+        uploadedBy: reqUser.id,
+        uploadDate: new Date()
+      };
+      
+      // Create the document
+      console.log(`[PROJECT DOCUMENTS API] Creating new document for project ${projectId}:`, documentData);
+      const newDocument = await typeSafeStorage.createProjectDocument(documentData);
+      
+      console.log(`[PROJECT DOCUMENTS API] Document created successfully with ID: ${newDocument.id}`);
+      res.status(201).json(newDocument);
+    } catch (error) {
+      console.error("[PROJECT DOCUMENTS API] Error creating project document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Update a project document endpoint
+  app.put("/api/projects/documents/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT DOCUMENTS API] Processing request to update document with ID: ${req.params.id}`);
+      const documentId = parseInt(req.params.id, 10);
+      
+      if (isNaN(documentId)) {
+        console.error("[PROJECT DOCUMENTS API] Invalid document ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid document ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT DOCUMENTS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the document to check authorization
+      const document = await typeSafeStorage.getProjectDocument(documentId);
+      
+      if (!document) {
+        console.error(`[PROJECT DOCUMENTS API] Document not found with ID: ${documentId}`);
+        return res.status(404).json({ error: "Document not found" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(document.projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT DOCUMENTS API] Project not found for document ID: ${documentId}`);
+        return res.status(404).json({ error: "Project not found for this document" });
+      }
+      
+      // Check if user has access to update this document
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT DOCUMENTS API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT DOCUMENTS API] User from organization ${reqUser.organizationId} not authorized to update document ${documentId}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to update this document" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // Clients should not be able to update documents
+          console.error(`[PROJECT DOCUMENTS API] Client user ${reqUser.id} not authorized to update document ${documentId}`);
+          return res.status(403).json({ error: "Forbidden: Client users cannot update project documents" });
+        }
+      }
+      
+      // Don't allow updating certain fields
+      const { uploadedBy, uploadDate, projectId, ...updateData } = req.body;
+      
+      // Validate and update the document
+      console.log(`[PROJECT DOCUMENTS API] Updating document ${documentId} with data:`, updateData);
+      const updatedDocument = await typeSafeStorage.updateProjectDocument(documentId, updateData);
+      
+      if (!updatedDocument) {
+        console.error(`[PROJECT DOCUMENTS API] Failed to update document ${documentId}`);
+        return res.status(500).json({ error: "Failed to update document" });
+      }
+      
+      console.log(`[PROJECT DOCUMENTS API] Document ${documentId} updated successfully`);
+      res.json(updatedDocument);
+    } catch (error) {
+      console.error("[PROJECT DOCUMENTS API] Error updating project document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Delete a project document endpoint
+  app.delete("/api/projects/documents/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT DOCUMENTS API] Processing request to delete document with ID: ${req.params.id}`);
+      const documentId = parseInt(req.params.id, 10);
+      
+      if (isNaN(documentId)) {
+        console.error("[PROJECT DOCUMENTS API] Invalid document ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid document ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT DOCUMENTS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the document to check authorization
+      const document = await typeSafeStorage.getProjectDocument(documentId);
+      
+      if (!document) {
+        console.error(`[PROJECT DOCUMENTS API] Document not found with ID: ${documentId}`);
+        return res.status(404).json({ error: "Document not found" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(document.projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT DOCUMENTS API] Project not found for document ID: ${documentId}`);
+        return res.status(404).json({ error: "Project not found for this document" });
+      }
+      
+      // Check if user has access to delete this document
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT DOCUMENTS API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT DOCUMENTS API] User from organization ${reqUser.organizationId} not authorized to delete document ${documentId}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to delete this document" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // Clients should not be able to delete documents
+          console.error(`[PROJECT DOCUMENTS API] Client user ${reqUser.id} not authorized to delete document ${documentId}`);
+          return res.status(403).json({ error: "Forbidden: Client users cannot delete project documents" });
+        }
+      }
+      
+      // Delete the document
+      console.log(`[PROJECT DOCUMENTS API] Deleting document ${documentId}`);
+      const success = await typeSafeStorage.deleteProjectDocument(documentId);
+      
+      if (!success) {
+        console.error(`[PROJECT DOCUMENTS API] Failed to delete document ${documentId}`);
+        return res.status(500).json({ error: "Failed to delete document" });
+      }
+      
+      console.log(`[PROJECT DOCUMENTS API] Document ${documentId} deleted successfully`);
+      res.status(204).send();
+    } catch (error) {
+      console.error("[PROJECT DOCUMENTS API] Error deleting project document:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
   // Google Maps API key endpoint
   app.get("/api/google-maps-key", (req: Request, res: Response) => {
     try {
