@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Link, useRoute, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
@@ -68,24 +68,65 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     setIsCollapsed(!isCollapsed);
   };
 
+  // Use a ref for tracking double click instead of state to avoid race conditions
+  const lastClickTimeRef = useRef(0);
+  const lastClickPathRef = useRef('');
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
   // Handle sidebar navigation by adding a new tab or navigating to an existing one
   const handleSidebarNavigation = (e: React.MouseEvent, path: string) => {
     e.preventDefault(); // Prevent the default navigation
-    console.log('Sidebar navigation to:', path);
     
-    // When clicking sidebar items, use the appropriate title
-    const title = getTitleForPath(path);
+    const currentTime = new Date().getTime();
+    const doubleClickThreshold = 300; // milliseconds
     
-    // Check if it's a double click
-    if (e.detail === 2) {
-      // Double click - create the tab and navigate to it
+    // Clear any existing timer to prevent race conditions
+    if (clickTimerRef.current) {
+      clearTimeout(clickTimerRef.current);
+      clickTimerRef.current = null;
+    }
+    
+    // Check if this is a double click (same path, within threshold)
+    if (path === lastClickPathRef.current && 
+        currentTime - lastClickTimeRef.current < doubleClickThreshold) {
+      console.log('Double-click detected on:', path, 'Time difference:', 
+                 currentTime - lastClickTimeRef.current);
+      
+      // Double click - create the tab and immediately navigate to it
+      const title = getTitleForPath(path);
       const newTabId = addTab(path, title, true);
-      // Navigate to the new tab
+      console.log('Creating tab and navigating to it:', newTabId);
       navigateToTab(newTabId);
+      
+      // Reset the click tracking to prevent further double-click detection
+      lastClickTimeRef.current = 0;
+      lastClickPathRef.current = '';
     } else {
-      // Single click - create the tab but don't navigate to it
-      addTab(path, title, true);
-      // Don't navigate, just stay on the current tab
+      // This is the first click - set up for potential double-click
+      console.log('First click on:', path, 'Starting timer');
+      
+      // Store the click information for double-click detection
+      lastClickTimeRef.current = currentTime;
+      lastClickPathRef.current = path;
+      
+      // Set a timer that will execute the single-click action if no double-click occurs
+      clickTimerRef.current = setTimeout(() => {
+        console.log('Timer expired - executing single-click action for:', path);
+        
+        // Only create the tab if this is still the last path clicked
+        // This prevents creating tabs when rapidly clicking different items
+        if (path === lastClickPathRef.current) {
+          // Single click - create the tab but don't navigate to it
+          const title = getTitleForPath(path);
+          const newTabId = addTab(path, title, true);
+          console.log('Created background tab:', newTabId, 'without navigation');
+          // Don't navigate, just stay on the current tab
+          
+          // Reset tracking after executing the single-click action
+          lastClickTimeRef.current = 0;
+          lastClickPathRef.current = '';
+        }
+      }, doubleClickThreshold);
     }
   };
   

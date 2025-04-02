@@ -185,8 +185,11 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   
   // Navigate to a tab by ID and update last accessed
   const navigateToTab = useCallback((tabId: string) => {
+    console.log(`Navigating to tab with ID: ${tabId}`);
+    
     const tab = getTabById(tabId);
     if (tab) {
+      console.log(`Found tab to navigate to: ${tab.title}, Path: ${tab.path}`);
       setActiveTabId(tabId);
       setLocation(tab.path);
       
@@ -196,20 +199,28 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
           t.id === tabId ? { ...t, lastAccessed: Date.now() } : t
         )
       );
+      console.log(`Navigation complete to tab: ${tab.title}`);
+    } else {
+      console.log(`Error: Could not find tab with ID: ${tabId}`);
     }
   }, [getTabById, setLocation]);
   
   // Add a new tab or switch to existing one
   const addTab = useCallback((path: string, title?: string, forceNew: boolean = false): string => {
+    console.log(`Adding tab - Path: ${path}, Title: ${title || 'not provided'}, ForceNew: ${forceNew}`);
+    
     // Always create a new tab - no tab reuse
     const newTabId = `tab-${Date.now()}`;
+    const tabTitle = title || getTitleForPath(path);
     const newTab: TabItem = {
       id: newTabId,
-      title: title || getTitleForPath(path),
+      title: tabTitle,
       path,
       icon: getIconForPath(path),
       lastAccessed: Date.now()
     };
+    
+    console.log(`Created new tab with ID: ${newTabId}, Title: ${tabTitle}`);
     
     // Add the new tab
     setTabs(currentTabs => [...currentTabs, newTab]);
@@ -283,17 +294,28 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // Listen for custom addTab events
   useEffect(() => {
     const handleAddTabEvent = (event: CustomEvent) => {
+      console.log('Received addTab event with details:', event.detail);
+      
       if (event.detail) {
         const { path, title, icon, forceNew = false, navigateToNewTab = true } = event.detail;
         if (path) {
+          console.log(`Processing addTab event - Path: ${path}, Navigate: ${navigateToNewTab}`);
+          
           // Create a new tab for all paths
           const tabId = addTab(path, title, forceNew);
+          console.log(`Tab created with ID: ${tabId}`);
+          
           if (navigateToNewTab) {
+            console.log(`Navigating to newly created tab: ${tabId}`);
             navigateToTab(tabId);
+          } else {
+            console.log(`Not navigating to tab: ${tabId} (background tab)`);
           }
         }
       }
     };
+    
+    console.log('Adding addTab event listener to window');
     
     // Add the event listener to the window
     window.addEventListener('addTab', handleAddTabEvent as EventListener);
