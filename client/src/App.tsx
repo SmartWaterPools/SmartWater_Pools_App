@@ -23,6 +23,7 @@ import MaintenanceMap from "./pages/MaintenanceMap";
 import MaintenanceList from "./pages/MaintenanceList";
 import Repairs from "./pages/Repairs";
 import Clients from "./pages/Clients";
+import ClientsEnhanced from "./pages/ClientsEnhanced";
 import ClientDetails from "./pages/ClientDetails";
 import ClientAdd from "./pages/ClientAdd";
 import ClientEdit from "./pages/ClientEdit";
@@ -42,6 +43,7 @@ import VehicleTracking from "./pages/VehicleTracking";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import BarcodeDemo from "./pages/BarcodeDemo";
+import DataTableDemo from "./pages/DataTableDemo";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Pricing from "./pages/Pricing";
@@ -201,6 +203,9 @@ function AppContent({
                     <Route path="/clients">
                       <Clients />
                     </Route>
+                    <Route path="/clients/enhanced">
+                      <ClientsEnhanced />
+                    </Route>
                     <Route path="/clients/add">
                       <ClientAdd />
                     </Route>
@@ -264,6 +269,11 @@ function AppContent({
                     </Route>
                     <Route path="/admin">
                       <Admin />
+                    </Route>
+                    
+                    {/* Demo pages */}
+                    <Route path="/demo/data-table">
+                      <DataTableDemo />
                     </Route>
                     
                     {/* Catch-all */}

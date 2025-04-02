@@ -3,19 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
   PlusCircle, 
-  Search, 
-  Users
+  Users,
+  ArrowLeft
 } from "lucide-react";
+import { Helmet } from "react-helmet";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClientList } from "@/components/clients/ClientList";
 import { ClientWithUser } from "@/lib/types";
+import { ClientsTable } from "@/components/clients/ClientsTable";
 
-export default function Clients() {
-  const [searchTerm, setSearchTerm] = useState("");
+export default function ClientsEnhanced() {
   const [, setLocation] = useLocation();
 
+  // Fetch clients data
   const { data, isLoading, error } = useQuery<{clients: ClientWithUser[]}>({
     queryKey: ["/api/clients"],
   });
@@ -38,88 +38,79 @@ export default function Clients() {
     };
   });
 
-  // Now filter with our processed data
-  const filteredClients = processedClients?.filter(client => {
-    if (
-      searchTerm &&
-      !client.user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !(client.companyName && client.companyName.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      !client.user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    ) {
-      return false;
-    }
-    return true;
-  });
-
   // Extract clients by contract type
-  const commercialClients = filteredClients?.filter(client => 
+  const commercialClients = processedClients?.filter(client => 
     client.contractType?.toLowerCase() === "commercial");
     
-  const residentialClients = filteredClients?.filter(client => 
+  const residentialClients = processedClients?.filter(client => 
     client.contractType?.toLowerCase() === "residential" || !client.contractType);
+  
+  const serviceClients = processedClients?.filter(client =>
+    client.contractType?.toLowerCase() === "service");
 
   return (
     <div>
+      <Helmet>
+        <title>Clients | Pool Management</title>
+      </Helmet>
+      
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div className="flex items-center">
           <Users className="h-7 w-7 text-primary mr-2" />
           <h1 className="text-2xl font-bold text-foreground font-heading">Clients</h1>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 mt-3 md:mt-0">
-          <div className="relative">
-            <Input 
-              type="text" 
-              placeholder="Search clients..." 
-              className="pl-10 pr-4"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline"
-              size="sm"
-              onClick={() => setLocation("/clients/enhanced")}
-              className="h-10"
-            >
-              Table View
-            </Button>
-            <Button 
-              className="bg-primary hover:bg-primary/90 text-white font-medium"
-              onClick={() => setLocation("/clients/add")}
-            >
-              <PlusCircle className="h-4 w-4 mr-1" />
-              Add Client
-            </Button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 mt-3 md:mt-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLocation("/clients")}
+            className="h-9"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Card View
+          </Button>
+          <Button 
+            className="bg-primary hover:bg-primary/90 text-white font-medium"
+            onClick={() => setLocation("/clients/add")}
+          >
+            <PlusCircle className="h-4 w-4 mr-1" />
+            Add Client
+          </Button>
         </div>
       </div>
 
       <Tabs defaultValue="all" className="mb-6">
         <TabsList>
-          <TabsTrigger value="all">All Clients ({filteredClients?.length || 0})</TabsTrigger>
+          <TabsTrigger value="all">All Clients ({processedClients?.length || 0})</TabsTrigger>
           <TabsTrigger value="residential">Residential ({residentialClients?.length || 0})</TabsTrigger>
           <TabsTrigger value="commercial">Commercial ({commercialClients?.length || 0})</TabsTrigger>
+          <TabsTrigger value="service">Service ({serviceClients?.length || 0})</TabsTrigger>
         </TabsList>
         
         <TabsContent value="all">
-          <ClientList 
-            clients={filteredClients || []} 
+          <ClientsTable 
+            clients={processedClients || []} 
             isLoading={isLoading}
           />
         </TabsContent>
         
         <TabsContent value="residential">
-          <ClientList 
+          <ClientsTable 
             clients={residentialClients || []} 
             isLoading={isLoading}
           />
         </TabsContent>
         
         <TabsContent value="commercial">
-          <ClientList 
+          <ClientsTable 
             clients={commercialClients || []} 
+            isLoading={isLoading}
+          />
+        </TabsContent>
+        
+        <TabsContent value="service">
+          <ClientsTable 
+            clients={serviceClients || []} 
             isLoading={isLoading}
           />
         </TabsContent>
