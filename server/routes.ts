@@ -1524,6 +1524,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get maintenance by ID endpoint
+  app.get("/api/maintenances/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[MAINTENANCE DETAILS API] Processing request for maintenance with ID: ${req.params.id}`);
+      const maintenanceId = parseInt(req.params.id, 10);
+      
+      if (isNaN(maintenanceId)) {
+        console.error("[MAINTENANCE DETAILS API] Invalid maintenance ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid maintenance ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[MAINTENANCE DETAILS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the maintenance
+      const maintenance = await typeSafeStorage.getMaintenance(maintenanceId);
+      
+      if (!maintenance) {
+        console.error(`[MAINTENANCE DETAILS API] Maintenance not found with ID: ${maintenanceId}`);
+        return res.status(404).json({ error: "Maintenance not found" });
+      }
+      
+      // Check if user has access to this maintenance
+      if (reqUser.role !== "system_admin") {
+        console.log(`[MAINTENANCE DETAILS API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the maintenance belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const client = await typeSafeStorage.getClient(maintenance.clientId);
+          
+          if (!client || client.organizationId !== reqUser.organizationId) {
+            console.error(`[MAINTENANCE DETAILS API] Client ID ${maintenance.clientId} is not in user's organization`);
+            return res.status(403).json({ error: "Access denied to this maintenance" });
+          }
+        } else {
+          console.error("[MAINTENANCE DETAILS API] User has no organization ID:", reqUser);
+          return res.status(400).json({ 
+            error: "Invalid user data - missing organization" 
+          });
+        }
+      }
+      
+      // Enhance maintenance with client and technician data
+      try {
+        const clientWithUser = await typeSafeStorage.getClientWithUser(maintenance.clientId);
+        let technicianWithUser = null;
+        
+        if (maintenance.technicianId) {
+          technicianWithUser = await typeSafeStorage.getTechnicianWithUser(maintenance.technicianId);
+        }
+        
+        const enhancedMaintenance = {
+          ...maintenance,
+          client: clientWithUser || {
+            client: { id: maintenance.clientId },
+            user: { id: 0, name: "Unknown" }
+          },
+          technician: technicianWithUser ? {
+            id: technicianWithUser.technician.id,
+            userId: technicianWithUser.technician.userId,
+            user: {
+              id: technicianWithUser.user.id,
+              name: technicianWithUser.user.name,
+              email: technicianWithUser.user.email
+            }
+          } : null
+        };
+        
+        console.log(`[MAINTENANCE DETAILS API] Returning enhanced maintenance data for ID: ${maintenanceId}`);
+        res.json(enhancedMaintenance);
+      } catch (error) {
+        console.error(`[MAINTENANCE DETAILS API] Error enhancing maintenance ${maintenanceId}:`, error);
+        
+        // If there's an error enhancing the maintenance, return basic maintenance data
+        res.json({
+          ...maintenance,
+          client: {
+            client: { id: maintenance.clientId },
+            user: { id: 0, name: "Unknown" }
+          },
+          technician: null
+        });
+      }
+    } catch (error) {
+      console.error("[MAINTENANCE DETAILS API] Error fetching maintenance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Create maintenance endpoint
+  app.post("/api/maintenances", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("\n[CREATE MAINTENANCE API] Processing request to create new maintenance");
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[CREATE MAINTENANCE API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { clientId } = req.body;
+      if (!clientId) {
+        console.error("[CREATE MAINTENANCE API] Missing required field: clientId");
+        return res.status(400).json({ error: "Client ID is required" });
+      }
+      
+      // Check if the client exists and user has access to it
+      const client = await typeSafeStorage.getClient(clientId);
+      if (!client) {
+        console.error(`[CREATE MAINTENANCE API] Client not found with ID: ${clientId}`);
+        return res.status(404).json({ error: "Client not found" });
+      }
+      
+      // Check permissions
+      if (reqUser.role !== "system_admin" && 
+          (!reqUser.organizationId || reqUser.organizationId !== client.organizationId)) {
+        console.error(`[CREATE MAINTENANCE API] User does not have permission to create maintenance for client ${clientId}`);
+        return res.status(403).json({ error: "You do not have permission to create maintenance for this client" });
+      }
+      
+      console.log(`[CREATE MAINTENANCE API] Creating maintenance for client ID: ${clientId}`);
+      const newMaintenance = await typeSafeStorage.createMaintenance(req.body);
+      
+      console.log(`[CREATE MAINTENANCE API] Successfully created maintenance with ID: ${newMaintenance.id}`);
+      res.status(201).json(newMaintenance);
+    } catch (error) {
+      console.error("[CREATE MAINTENANCE API] Error creating maintenance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Update maintenance endpoint
+  app.patch("/api/maintenances/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[UPDATE MAINTENANCE API] Processing request to update maintenance with ID: ${req.params.id}`);
+      const maintenanceId = parseInt(req.params.id, 10);
+      
+      if (isNaN(maintenanceId)) {
+        console.error("[UPDATE MAINTENANCE API] Invalid maintenance ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid maintenance ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[UPDATE MAINTENANCE API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the maintenance to check permissions
+      const maintenance = await typeSafeStorage.getMaintenance(maintenanceId);
+      
+      if (!maintenance) {
+        console.error(`[UPDATE MAINTENANCE API] Maintenance not found with ID: ${maintenanceId}`);
+        return res.status(404).json({ error: "Maintenance not found" });
+      }
+      
+      // Check if user has permission to update this maintenance
+      if (reqUser.role !== "system_admin") {
+        const client = await typeSafeStorage.getClient(maintenance.clientId);
+        
+        if (!client || !reqUser.organizationId || client.organizationId !== reqUser.organizationId) {
+          console.error(`[UPDATE MAINTENANCE API] User does not have permission to update maintenance ${maintenanceId}`);
+          return res.status(403).json({ error: "You do not have permission to update this maintenance" });
+        }
+      }
+      
+      // Update the maintenance
+      console.log(`[UPDATE MAINTENANCE API] Updating maintenance ID: ${maintenanceId}`);
+      const updatedMaintenance = await typeSafeStorage.updateMaintenance(maintenanceId, req.body);
+      
+      if (!updatedMaintenance) {
+        console.error(`[UPDATE MAINTENANCE API] Failed to update maintenance with ID: ${maintenanceId}`);
+        return res.status(500).json({ error: "Failed to update maintenance" });
+      }
+      
+      console.log(`[UPDATE MAINTENANCE API] Successfully updated maintenance with ID: ${maintenanceId}`);
+      res.json(updatedMaintenance);
+    } catch (error) {
+      console.error("[UPDATE MAINTENANCE API] Error updating maintenance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
   // Create a project phase endpoint
   app.post("/api/projects/:id/phases", isAuthenticated, async (req: Request, res: Response) => {
     try {

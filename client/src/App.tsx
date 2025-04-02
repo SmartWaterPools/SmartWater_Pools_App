@@ -30,7 +30,7 @@ import Technicians from "./pages/Technicians";
 import ClientPortal from "./pages/ClientPortal";
 import PoolWizardPage from "./pages/PoolWizardPage";
 import ServiceReport from "./pages/ServiceReport";
-import ServiceReportPage from "./pages/ServiceReportPage";
+
 import MaintenanceReportPage from "./pages/MaintenanceReportPage";
 import Communications from "./pages/Communications";
 import Business from "./pages/Business";
@@ -228,9 +228,6 @@ function AppContent({
                     </Route>
                     <Route path="/service-report/:id">
                       <ServiceReport />
-                    </Route>
-                    <Route path="/service-report-page/:id">
-                      <ServiceReportPage />
                     </Route>
                     <Route path="/maintenance-report/:id">
                       <MaintenanceReportPage />

@@ -1067,20 +1067,21 @@ export class MemStorage implements IStorage {
   }
   
   async rescheduleIncompleteMaintenances(): Promise<Maintenance[]> {
-    // Get yesterday's date
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    // Get incomplete maintenances from yesterday
-    const incompleteMaintenances = await this.getIncompleteMaintenances(yesterday);
-    
-    // Reschedule each maintenance to today
+    // Get today's date
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     
+    // Find all incomplete maintenances with scheduleDate before today
+    const pastIncompleteMaintenances = Array.from(this.maintenances.values()).filter((maintenance) => {
+      const maintenanceDate = new Date(maintenance.scheduleDate).toISOString().split('T')[0];
+      return maintenanceDate < todayStr && 
+             (maintenance.status === "scheduled" || maintenance.status === "in_progress") &&
+             !maintenance.completionDate;
+    });
+    
     const rescheduledMaintenances: Maintenance[] = [];
     
-    for (const maintenance of incompleteMaintenances) {
+    for (const maintenance of pastIncompleteMaintenances) {
       const updatedMaintenance = await this.updateMaintenance(maintenance.id, {
         scheduleDate: todayStr,
         notes: maintenance.notes 
@@ -5169,20 +5170,25 @@ export class DatabaseStorage implements IStorage {
   }
   
   async rescheduleIncompleteMaintenances(): Promise<Maintenance[]> {
-    // Get yesterday's date
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    
-    // Get incomplete maintenances from yesterday
-    const incompleteMaintenances = await this.getIncompleteMaintenances(yesterday);
-    
-    // Reschedule each maintenance to today
+    // Get today's date
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     
+    // Find all incomplete maintenances with scheduleDate before today
+    const pastIncompleteMaintenances = await db
+      .select()
+      .from(maintenances)
+      .where(
+        and(
+          lt(maintenances.scheduleDate, todayStr), // All dates before today
+          sql`(${maintenances.status} = 'scheduled' OR ${maintenances.status} = 'in_progress')`,
+          sql`${maintenances.completionDate} IS NULL`
+        )
+      );
+    
     const rescheduledMaintenances: Maintenance[] = [];
     
-    for (const maintenance of incompleteMaintenances) {
+    for (const maintenance of pastIncompleteMaintenances) {
       // Add a note about the rescheduling
       const notes = maintenance.notes 
         ? `${maintenance.notes}\nAutomatically rescheduled from ${maintenance.scheduleDate}` 

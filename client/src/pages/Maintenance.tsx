@@ -193,12 +193,9 @@ export default function Maintenance() {
   };
 
   // Open service report form - supports both dialog and page navigation
-  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false, useNewPage = false) => {
-    if (useNewPage) {
-      // Use the new SmartWater style report page
-      navigate(`/service-report-page/${maintenance.id}`);
-    } else if (usePage) {
-      // Use the existing service report page
+  const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
+    if (usePage) {
+      // Use the service report page
       navigate(`/service-report/${maintenance.id}`);
     } else {
       // Use the dialog form

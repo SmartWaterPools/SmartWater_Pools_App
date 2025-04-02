@@ -16,6 +16,14 @@ export class Scheduler {
    * Initialize the scheduler and start all scheduled tasks
    */
   public initialize(): void {
+    // Run the reschedule task immediately at startup
+    this.rescheduleIncompleteMaintenances().then(() => {
+      log('Scheduler: Completed immediate rescheduling of incomplete maintenances at startup', 'scheduler');
+    }).catch(error => {
+      log(`Scheduler: Error during startup rescheduling: ${error}`, 'scheduler');
+    });
+
+    // Also schedule it to run at midnight as before
     this.startRescheduleIncompleteMaintenancesJob();
     log('Scheduler initialized', 'scheduler');
   }
@@ -49,7 +57,7 @@ export class Scheduler {
   }
 
   /**
-   * Reschedule incomplete maintenances from the previous day
+   * Reschedule all incomplete maintenances from past days to today
    */
   private async rescheduleIncompleteMaintenances(): Promise<void> {
     try {
