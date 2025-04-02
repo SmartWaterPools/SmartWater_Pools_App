@@ -213,9 +213,9 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     
     // Add the new tab
     setTabs(currentTabs => [...currentTabs, newTab]);
-    navigateToTab(newTabId);
+    
     return newTabId;
-  }, [navigateToTab]);
+  }, []);
   
   // Close a tab
   const closeTab = useCallback((id: string) => {
@@ -284,11 +284,13 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const handleAddTabEvent = (event: CustomEvent) => {
       if (event.detail) {
-        const { path, title, icon, forceNew = false } = event.detail;
+        const { path, title, icon, forceNew = false, navigateToNewTab = true } = event.detail;
         if (path) {
           // Create a new tab for all paths
           const tabId = addTab(path, title, forceNew);
-          navigateToTab(tabId);
+          if (navigateToNewTab) {
+            navigateToTab(tabId);
+          }
         }
       }
     };
@@ -537,7 +539,7 @@ export function EnhancedTabManager() {
               data-tab-id={tab.id}
               onClick={() => handleTabClick(tab.id)}
               onDoubleClick={() => handleTabDoubleClick(tab)}
-              title="Double-click to duplicate tab"
+              title="Click to switch to this tab. Double-click to duplicate this tab."
               className={cn(
                 "flex items-center py-2.5 px-4 cursor-pointer min-w-fit max-w-[180px] relative",
                 activeTabId === tab.id 

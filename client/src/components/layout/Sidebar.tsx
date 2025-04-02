@@ -36,7 +36,7 @@ interface SidebarProps {
 export function Sidebar({ user: propUser }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [location] = useLocation();
-  const { addTab } = useTabs(); // Get addTab function from our tab context
+  const { addTab, navigateToTab } = useTabs(); // Get tab functions from our tab context
   const { user, logout } = useAuth(); // Get user and logout function from auth context
   
   // Use either the prop user (for backward compatibility) or the authenticated user
@@ -76,9 +76,17 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     // When clicking sidebar items, use the appropriate title
     const title = getTitleForPath(path);
     
-    // This won't force a complete page reload and will use our tab manager
-    // The third parameter is forceNew - setting to false means it will reuse existing tabs
-    addTab(path, title, false);
+    // Check if it's a double click
+    if (e.detail === 2) {
+      // Double click - create the tab and navigate to it
+      const newTabId = addTab(path, title, true);
+      // Navigate to the new tab
+      navigateToTab(newTabId);
+    } else {
+      // Single click - create the tab but don't navigate to it
+      addTab(path, title, true);
+      // Don't navigate, just stay on the current tab
+    }
   };
   
   // Helper functions to get title and icon for the path
