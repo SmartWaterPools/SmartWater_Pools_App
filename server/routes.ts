@@ -1140,6 +1140,281 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get project by ID endpoint
+  app.get("/api/projects/:id", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT DETAILS API] Processing request for project with ID: ${req.params.id}`);
+      const projectId = parseInt(req.params.id, 10);
+      
+      if (isNaN(projectId)) {
+        console.error("[PROJECT DETAILS API] Invalid project ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT DETAILS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the project
+      const project = await typeSafeStorage.getProject(projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT DETAILS API] Project not found with ID: ${projectId}`);
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if user has access to this project
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT DETAILS API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT DETAILS API] User from organization ${reqUser.organizationId} not authorized to access project for client ${project.clientId}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to this project" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // For client users, check if the project belongs to them
+          console.error(`[PROJECT DETAILS API] Client user ${reqUser.id} not authorized to access project for client ${project.clientId}`);
+          return res.status(403).json({ error: "Forbidden: You do not have access to this project" });
+        }
+      }
+      
+      // Enhance project with client data
+      const clientWithUser = await typeSafeStorage.getClientWithUser(project.clientId);
+      const enhancedProject = {
+        ...project,
+        client: clientWithUser ? {
+          id: clientWithUser.client.id,
+          user: {
+            id: clientWithUser.user.id,
+            name: clientWithUser.user.name,
+            email: clientWithUser.user.email,
+            username: clientWithUser.user.username,
+            role: clientWithUser.user.role
+          },
+          companyName: clientWithUser.client.companyName,
+          phone: clientWithUser.client.phone,
+          address: clientWithUser.client.address
+        } : { 
+          id: project.clientId, 
+          user: { 
+            id: 0, 
+            name: "Unknown", 
+            email: "", 
+            username: "", 
+            role: "" 
+          }, 
+          companyName: "" 
+        }
+      };
+      
+      console.log(`[PROJECT DETAILS API] Successfully retrieved project details for ID: ${projectId}`);
+      res.json(enhancedProject);
+    } catch (error) {
+      console.error("[PROJECT DETAILS API] Error fetching project details:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Get project phases endpoint
+  app.get("/api/projects/:id/phases", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT PHASES API] Processing request for phases of project with ID: ${req.params.id}`);
+      const projectId = parseInt(req.params.id, 10);
+      
+      if (isNaN(projectId)) {
+        console.error("[PROJECT PHASES API] Invalid project ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT PHASES API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT PHASES API] Project not found with ID: ${projectId}`);
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if user has access to this project's phases
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT PHASES API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT PHASES API] User from organization ${reqUser.organizationId} not authorized to access phases for project ${project.id}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to this project's phases" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // For client users, check if the project belongs to them
+          console.error(`[PROJECT PHASES API] Client user ${reqUser.id} not authorized to access phases for project ${project.id}`);
+          return res.status(403).json({ error: "Forbidden: You do not have access to this project's phases" });
+        }
+      }
+      
+      // Get project phases
+      const phases = await typeSafeStorage.getProjectPhasesByProjectId(projectId);
+      
+      // Sort phases by order
+      const sortedPhases = [...phases].sort((a, b) => a.order - b.order);
+      
+      console.log(`[PROJECT PHASES API] Retrieved ${sortedPhases.length} phases for project ID: ${projectId}`);
+      res.json(sortedPhases);
+    } catch (error) {
+      console.error("[PROJECT PHASES API] Error fetching project phases:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Get project documents endpoint
+  app.get("/api/projects/:id/documents", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PROJECT DOCUMENTS API] Processing request for documents of project with ID: ${req.params.id}`);
+      const projectId = parseInt(req.params.id, 10);
+      
+      if (isNaN(projectId)) {
+        console.error("[PROJECT DOCUMENTS API] Invalid project ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid project ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PROJECT DOCUMENTS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(projectId);
+      
+      if (!project) {
+        console.error(`[PROJECT DOCUMENTS API] Project not found with ID: ${projectId}`);
+        return res.status(404).json({ error: "Project not found" });
+      }
+      
+      // Check if user has access to this project's documents
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PROJECT DOCUMENTS API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PROJECT DOCUMENTS API] User from organization ${reqUser.organizationId} not authorized to access documents for project ${project.id}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to this project's documents" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // For client users, check if the project belongs to them
+          console.error(`[PROJECT DOCUMENTS API] Client user ${reqUser.id} not authorized to access documents for project ${project.id}`);
+          return res.status(403).json({ error: "Forbidden: You do not have access to this project's documents" });
+        }
+      }
+      
+      // Get project documents
+      const documents = await typeSafeStorage.getProjectDocumentsByProjectId(projectId);
+      
+      // For client users, only return public documents
+      if (reqUser.role === "client" && reqUser.clientId === project.clientId) {
+        const publicDocuments = documents.filter(doc => doc.isPublic);
+        console.log(`[PROJECT DOCUMENTS API] Client user: filtering ${documents.length} documents down to ${publicDocuments.length} public documents`);
+        return res.json(publicDocuments);
+      }
+      
+      console.log(`[PROJECT DOCUMENTS API] Retrieved ${documents.length} documents for project ID: ${projectId}`);
+      res.json(documents);
+    } catch (error) {
+      console.error("[PROJECT DOCUMENTS API] Error fetching project documents:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+  
+  // Get documents by phase ID endpoint
+  app.get("/api/phases/:id/documents", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[PHASE DOCUMENTS API] Processing request for documents of phase with ID: ${req.params.id}`);
+      const phaseId = parseInt(req.params.id, 10);
+      
+      if (isNaN(phaseId)) {
+        console.error("[PHASE DOCUMENTS API] Invalid phase ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid phase ID" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[PHASE DOCUMENTS API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the phase to check authorization
+      const phase = await typeSafeStorage.getProjectPhase(phaseId);
+      
+      if (!phase) {
+        console.error(`[PHASE DOCUMENTS API] Phase not found with ID: ${phaseId}`);
+        return res.status(404).json({ error: "Phase not found" });
+      }
+      
+      // Get the project to check authorization
+      const project = await typeSafeStorage.getProject(phase.projectId);
+      
+      if (!project) {
+        console.error(`[PHASE DOCUMENTS API] Project not found for phase ID: ${phaseId}`);
+        return res.status(404).json({ error: "Project not found for this phase" });
+      }
+      
+      // Check if user has access to this phase's documents
+      if (reqUser.role !== "system_admin") {
+        console.log(`[PHASE DOCUMENTS API] Checking authorization for user with role ${reqUser.role}`);
+        
+        // For organization users, check if the project belongs to a client in their organization
+        if (reqUser.organizationId) {
+          const clients = await typeSafeStorage.getClientsByOrganizationId(reqUser.organizationId);
+          const clientIds = new Set(clients.map(client => client.id));
+          
+          if (!clientIds.has(project.clientId)) {
+            console.error(`[PHASE DOCUMENTS API] User from organization ${reqUser.organizationId} not authorized to access documents for phase ${phase.id}`);
+            return res.status(403).json({ error: "Forbidden: You do not have access to this phase's documents" });
+          }
+        } else if (reqUser.clientId !== project.clientId) {
+          // For client users, check if the project belongs to them
+          console.error(`[PHASE DOCUMENTS API] Client user ${reqUser.id} not authorized to access documents for phase ${phase.id}`);
+          return res.status(403).json({ error: "Forbidden: You do not have access to this phase's documents" });
+        }
+      }
+      
+      // Get phase documents
+      const documents = await typeSafeStorage.getProjectDocumentsByPhaseId(phaseId);
+      
+      // For client users, only return public documents
+      if (reqUser.role === "client" && reqUser.clientId === project.clientId) {
+        const publicDocuments = documents.filter(doc => doc.isPublic);
+        console.log(`[PHASE DOCUMENTS API] Client user: filtering ${documents.length} documents down to ${publicDocuments.length} public documents`);
+        return res.json(publicDocuments);
+      }
+      
+      console.log(`[PHASE DOCUMENTS API] Retrieved ${documents.length} documents for phase ID: ${phaseId}`);
+      res.json(documents);
+    } catch (error) {
+      console.error("[PHASE DOCUMENTS API] Error fetching phase documents:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Maintenance history endpoint
   app.get("/api/maintenances", isAuthenticated, async (req: Request, res: Response) => {
     try {

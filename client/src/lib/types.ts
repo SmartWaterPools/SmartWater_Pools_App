@@ -59,30 +59,7 @@ export interface ProjectWithDetails {
 }
 
 // Maintenance Types
-export interface MaintenanceWithDetails {
-  id: number;
-  clientId: number;
-  technicianId?: number | null;
-  scheduleDate: string;
-  completionDate?: string | null;
-  type: string;
-  status: string;
-  notes?: string;
-  createdAt?: string;
-  updatedAt?: string;
-  // Relations
-  client: ClientWithUser;
-  technician?: {
-    id: number;
-    userId: number;
-    user: {
-      id: number;
-      name: string;
-      email: string;
-    }
-  } | null;
-  serviceReport?: any;
-}
+// The complete MaintenanceWithDetails interface is defined below (see line ~176)
 
 // Helper functions for styling based on status
 export function getStatusClasses(status: string): { bg: string; text: string } {
