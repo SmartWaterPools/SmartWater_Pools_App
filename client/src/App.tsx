@@ -24,7 +24,6 @@ import MaintenanceList from "./pages/MaintenanceList";
 import Repairs from "./pages/Repairs";
 import Clients from "./pages/Clients";
 import ClientsEnhanced from "./pages/ClientsEnhanced";
-import ClientsDemo from "./pages/ClientsDemo";
 import ClientDetails from "./pages/ClientDetails";
 import ClientAdd from "./pages/ClientAdd";
 import ClientEdit from "./pages/ClientEdit";
@@ -275,9 +274,6 @@ function AppContent({
                     {/* Demo pages */}
                     <Route path="/demo/data-table">
                       <DataTableDemo />
-                    </Route>
-                    <Route path="/demo/clients">
-                      <ClientsDemo />
                     </Route>
                     
                     {/* Catch-all */}

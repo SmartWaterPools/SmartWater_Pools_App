@@ -4,21 +4,32 @@ import { useLocation } from "wouter";
 import { 
   PlusCircle, 
   Search, 
-  Users
+  Users,
+  List,
+  AlertCircle,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientList } from "@/components/clients/ClientList";
 import { ClientWithUser } from "@/lib/types";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Clients() {
   const [searchTerm, setSearchTerm] = useState("");
   const [, setLocation] = useLocation();
 
-  const { data, isLoading, error } = useQuery<{clients: ClientWithUser[]}>({
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  
+  // Fetch clients data
+  const { data, isLoading: dataLoading, error } = useQuery<{clients: ClientWithUser[]}>({
     queryKey: ["/api/clients"],
+    // Don't attempt to fetch if not authenticated
+    enabled: isAuthenticated,
   });
+  
+  const isLoading = authLoading || dataLoading;
   
   // Extract clients array from response, handling both formats for backward compatibility
   const clients = data && Array.isArray(data) ? data : data?.clients;
@@ -58,6 +69,59 @@ export default function Clients() {
   const residentialClients = filteredClients?.filter(client => 
     client.contractType?.toLowerCase() === "residential" || !client.contractType);
 
+  // Handle authentication state
+  if (!isAuthenticated && !authLoading) {
+    return (
+      <div>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div className="flex items-center">
+            <Users className="h-7 w-7 text-primary mr-2" />
+            <h1 className="text-2xl font-bold text-foreground font-heading">Clients</h1>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 mb-6">
+          <div className="flex">
+            <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 mr-3" />
+            <div>
+              <h3 className="text-sm font-medium text-amber-800">Authentication Required</h3>
+              <div className="mt-2 text-sm text-amber-700">
+                <p>You need to be logged in to view client information.</p>
+              </div>
+              <div className="mt-4">
+                <Button 
+                  onClick={() => setLocation("/")}
+                  className="bg-primary hover:bg-primary/90 text-white font-medium"
+                >
+                  Go to Login
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <div className="flex items-center">
+            <Users className="h-7 w-7 text-primary mr-2" />
+            <h1 className="text-2xl font-bold text-foreground font-heading">Clients</h1>
+          </div>
+        </div>
+        
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+          <span className="text-muted-foreground">Loading clients...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -83,6 +147,7 @@ export default function Clients() {
               onClick={() => setLocation("/clients/enhanced")}
               className="h-10"
             >
+              <List className="h-4 w-4 mr-1" />
               Table View
             </Button>
             <Button 
@@ -95,6 +160,20 @@ export default function Clients() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 mb-6">
+          <div className="flex">
+            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 mr-3" />
+            <div>
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-2 text-sm text-red-700">
+                <p>There was a problem loading the client data. Please try again.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Tabs defaultValue="all" className="mb-6">
         <TabsList>
