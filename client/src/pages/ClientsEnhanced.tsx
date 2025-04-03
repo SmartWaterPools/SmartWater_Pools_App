@@ -7,7 +7,8 @@ import {
   ArrowLeft,
   AlertCircle,
   Loader2,
-  LogIn
+  LogIn,
+  RefreshCw
 } from "lucide-react";
 import { Helmet } from "react-helmet";
 import { Button } from "@/components/ui/button";
@@ -22,11 +23,13 @@ export default function ClientsEnhanced() {
   const [, setLocation] = useLocation();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Fetch clients data
-  const { data, isLoading: dataLoading, error } = useQuery<{clients: ClientWithUser[]}>({
+  // Fetch clients data with better debugging - only when authenticated
+  const { data, isLoading: dataLoading, error } = useQuery<{clients: ClientWithUser[]} | ClientWithUser[]>({
     queryKey: ["/api/clients"],
-    // Don't attempt to fetch if not authenticated
+    // Only fetch data when authenticated to prevent unnecessary 401 errors
     enabled: isAuthenticated,
+    retry: 1, // Limit retries on failure
+    staleTime: 30000 // Cache data for 30 seconds
   });
   
   const isLoading = authLoading || dataLoading;
@@ -34,12 +37,20 @@ export default function ClientsEnhanced() {
   // Extract clients array from response, handling both formats for backward compatibility
   const clients = data && Array.isArray(data) ? data : data?.clients;
   
-  // Log for debugging
+  // Enhanced debugging
+  console.log("Authentication state:", { isAuthenticated, authLoading });
   console.log("Clients data received:", data);
+  console.log("Processed clients:", clients);
   if (error) console.error("Error fetching clients:", error);
 
   // Transform ClientWithUser structure for component use
-  const processedClients = clients?.map(clientData => {
+  const processedClients = clients?.map((clientData: ClientWithUser) => {
+    // Safety check for required properties
+    if (!clientData || !clientData.client) {
+      console.error("Invalid client data detected:", clientData);
+      return null;
+    }
+    
     return {
       ...clientData,
       // Add top-level fields for convenience
@@ -47,20 +58,24 @@ export default function ClientsEnhanced() {
       companyName: clientData.client.companyName,
       contractType: clientData.client.contractType
     };
-  });
+  }).filter(Boolean) as ClientWithUser[]; // Type assertion after filtering out null values
 
   // Extract clients by contract type
-  const commercialClients = processedClients?.filter(client => 
+  const commercialClients = processedClients?.filter((client: ClientWithUser) => 
     client.contractType?.toLowerCase() === "commercial");
     
-  const residentialClients = processedClients?.filter(client => 
+  const residentialClients = processedClients?.filter((client: ClientWithUser) => 
     client.contractType?.toLowerCase() === "residential" || !client.contractType);
   
-  const serviceClients = processedClients?.filter(client =>
+  const serviceClients = processedClients?.filter((client: ClientWithUser) =>
     client.contractType?.toLowerCase() === "service");
 
   // Handle authentication state
-  if (!isAuthenticated && !authLoading) {
+  const showAuthError = !isAuthenticated && !authLoading;
+  const hasAuthMismatch = isAuthenticated && error && (error as any)?.response?.status === 401;
+  
+  // If not authenticated at all, show the login card
+  if (showAuthError) {
     return (
       <div>
         <Helmet>
@@ -127,7 +142,34 @@ export default function ClientsEnhanced() {
         </div>
       </div>
 
-      {error && (
+      {hasAuthMismatch && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Session Error</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>Your session appears to be invalid or expired. Please refresh the page or try logging in again.</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => window.location.reload()}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Refresh Page
+              </Button>
+              <Button 
+                size="sm" 
+                onClick={() => setLocation("/")}
+              >
+                <LogIn className="h-4 w-4 mr-1" />
+                Go to Login
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {error && !hasAuthMismatch && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Error</AlertTitle>
