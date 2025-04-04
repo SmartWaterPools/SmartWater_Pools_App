@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
   PlusCircle, 
@@ -8,7 +8,9 @@ import {
   AlertCircle,
   Loader2,
   LogIn,
-  RefreshCw
+  RefreshCw,
+  FileCog,
+  GanttChartSquare
 } from "lucide-react";
 import { Helmet } from "react-helmet";
 import { Button } from "@/components/ui/button";
@@ -18,33 +20,82 @@ import { Card, CardHeader, CardContent } from "@/components/ui/card";
 import { ClientWithUser } from "@/lib/types";
 import { ClientsTable } from "@/components/clients/ClientsTable";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 export default function ClientsEnhanced() {
   const [, setLocation] = useLocation();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, checkSession } = useAuth();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [sessionRefreshing, setSessionRefreshing] = useState(false);
 
   // Fetch clients data with better debugging - only when authenticated
-  const { data, isLoading: dataLoading, error } = useQuery<{clients: ClientWithUser[]} | ClientWithUser[]>({
+  const { 
+    data, 
+    isLoading: dataLoading, 
+    error, 
+    refetch, 
+    isError 
+  } = useQuery({
     queryKey: ["/api/clients"],
     // Only fetch data when authenticated to prevent unnecessary 401 errors
     enabled: isAuthenticated,
     retry: 1, // Limit retries on failure
-    staleTime: 30000 // Cache data for 30 seconds
+    staleTime: 30000, // Cache data for 30 seconds
+    gcTime: 60000, // Garbage collection time
   });
   
   const isLoading = authLoading || dataLoading;
   
   // Extract clients array from response, handling both formats for backward compatibility
-  const clients = data && Array.isArray(data) ? data : data?.clients;
+  const clients = data && (Array.isArray(data) ? data : 
+    // @ts-ignore - Safely handle potential data format differences
+    data && 'clients' in data ? data.clients : []);
   
   // Enhanced debugging
   console.log("Authentication state:", { isAuthenticated, authLoading });
   console.log("Clients data received:", data);
-  console.log("Processed clients:", clients);
-  if (error) console.error("Error fetching clients:", error);
+  console.log("Clients data error:", error);
+  
+  // Handle session refresh
+  const handleSessionRefresh = async () => {
+    setSessionRefreshing(true);
+    try {
+      const authenticated = await checkSession();
+      console.log("Session refresh result:", authenticated);
+      
+      if (authenticated) {
+        toast({
+          title: "Session Refreshed",
+          description: "Your session has been successfully refreshed.",
+        });
+        
+        // Refetch client data
+        await refetch();
+      } else {
+        toast({
+          title: "Session Expired",
+          description: "Your session has expired. Please login again.",
+          variant: "destructive",
+        });
+        
+        // Redirect to login page
+        setLocation("/");
+      }
+    } catch (err) {
+      console.error("Error refreshing session:", err);
+      toast({
+        title: "Refresh Failed",
+        description: "There was a problem refreshing your session.",
+        variant: "destructive",
+      });
+    } finally {
+      setSessionRefreshing(false);
+    }
+  };
 
   // Transform ClientWithUser structure for component use
-  const processedClients = clients?.map((clientData: ClientWithUser) => {
+  const processedClients = (clients || []).map((clientData: ClientWithUser) => {
     // Safety check for required properties
     if (!clientData || !clientData.client) {
       console.error("Invalid client data detected:", clientData);
@@ -72,7 +123,8 @@ export default function ClientsEnhanced() {
 
   // Handle authentication state
   const showAuthError = !isAuthenticated && !authLoading;
-  const hasAuthMismatch = isAuthenticated && error && (error as any)?.response?.status === 401;
+  const hasAuthMismatch = isAuthenticated && isError && (error as any)?.response?.status === 401;
+  const hasNoDataWhileAuthenticated = isAuthenticated && !isLoading && !isError && (!processedClients || processedClients.length === 0);
   
   // If not authenticated at all, show the login card
   if (showAuthError) {
@@ -142,20 +194,31 @@ export default function ClientsEnhanced() {
         </div>
       </div>
 
+      {/* Authentication mismatch error */}
       {hasAuthMismatch && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Session Error</AlertTitle>
           <AlertDescription className="space-y-2">
-            <p>Your session appears to be invalid or expired. Please refresh the page or try logging in again.</p>
+            <p>Your session appears to be invalid or expired. Please refresh your session or login again.</p>
             <div className="flex flex-wrap gap-2 mt-2">
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => window.location.reload()}
+                onClick={handleSessionRefresh}
+                disabled={sessionRefreshing}
               >
-                <RefreshCw className="h-4 w-4 mr-1" />
-                Refresh Page
+                {sessionRefreshing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh Session
+                  </>
+                )}
               </Button>
               <Button 
                 size="sm" 
@@ -169,12 +232,63 @@ export default function ClientsEnhanced() {
         </Alert>
       )}
       
-      {error && !hasAuthMismatch && (
+      {/* General error (not authentication related) */}
+      {isError && !hasAuthMismatch && (
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Error</AlertTitle>
-          <AlertDescription>
-            There was a problem loading the client data. Please try again.
+          <AlertTitle>Error Loading Clients</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>There was a problem loading the client data. Please try again.</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                disabled={dataLoading}
+              >
+                {dataLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Try Again
+                  </>
+                )}
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {/* No clients found while authenticated */}
+      {hasNoDataWhileAuthenticated && (
+        <Alert className="mb-6">
+          <FileCog className="h-4 w-4" />
+          <AlertTitle>No Client Data</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>You are authenticated but no client data was found.</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => refetch()}
+                disabled={dataLoading}
+              >
+                <RefreshCw className="h-4 w-4 mr-1" />
+                Refresh Data
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setLocation("/clients/add")}
+              >
+                <PlusCircle className="h-4 w-4 mr-1" />
+                Add New Client
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}
@@ -186,7 +300,7 @@ export default function ClientsEnhanced() {
         </div>
       ) : (
         <Tabs defaultValue="all" className="mb-6">
-          <TabsList>
+          <TabsList className="w-full sm:w-auto overflow-x-auto">
             <TabsTrigger value="all">All Clients ({processedClients?.length || 0})</TabsTrigger>
             <TabsTrigger value="residential">Residential ({residentialClients?.length || 0})</TabsTrigger>
             <TabsTrigger value="commercial">Commercial ({commercialClients?.length || 0})</TabsTrigger>
