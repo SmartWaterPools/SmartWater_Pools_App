@@ -282,6 +282,8 @@ export interface ClientWithUser {
     updatedAt?: string;
     poolCount?: number;
     notes?: string;
+    latitude?: number | null;
+    longitude?: number | null;
   };
   user: {
     id: number;
@@ -289,6 +291,9 @@ export interface ClientWithUser {
     email: string;
     role: string;
     organizationId: number | null;
+    phone?: string;
+    address?: string;
+    photoUrl?: string;
   };
   // Composite properties for display convenience
   id?: number;

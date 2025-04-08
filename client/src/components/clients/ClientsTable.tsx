@@ -153,27 +153,28 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
     },
     {
       accessorFn: (row) => {
-        // Make sure we access the phone safely
-        return row?.client?.phone || "N/A";
+        // Try user's phone first, then client's phone
+        return row?.user?.phone || row?.client?.phone || "N/A";
       },
-      id: "client.phone",
+      id: "user.phone",
       header: "Phone",
       cell: ({ row }) => {
         const client = row.original as unknown as ClientWithUser;
         
-        if (!client || !client.client) return (
+        if (!client || !client.user) return (
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">N/A</span>
           </div>
         );
         
-        // Get phone from client object
-        const phone = client.client.phone || "N/A";
+        // Get phone from user object first, then try client object
+        const phone = client.user.phone || client.client?.phone || "N/A";
         
         // Debug log
-        console.log("Phone data for client:", client.user?.name, {
-          clientPhone: client.client.phone,
+        console.log("Phone data for client:", client.user.name, {
+          userPhone: client.user.phone,
+          clientPhone: client.client?.phone,
           finalPhone: phone
         });
         
@@ -187,12 +188,18 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
     },
     {
       accessorFn: (row) => {
-        // Try to get address from client object only
+        // Try to get address from user object first, then client object
+        const user = row?.user;
         const client = row?.client;
         
-        if (!client) return "N/A";
+        if (!user && !client) return "N/A";
         
-        // Use client data
+        // Use user data first if available
+        if (user && user.address) {
+          return user.address || "N/A";
+        }
+        
+        // Fallback to client data if user data not available
         if (client && client.address) {
           const address = client.address || "";
           const city = client.city || "";
@@ -206,29 +213,30 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
         
         return "N/A";
       },
-      id: "client.address",
+      id: "user.address",
       header: "Address",
       cell: ({ row }) => {
         const client = row.original as unknown as ClientWithUser;
         
-        if (!client || !client.client) return (
+        if (!client || !client.user) return (
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">N/A</span>
           </div>
         );
         
-        // Get address from client object
-        let fullAddress = "N/A";
+        // First try to get address from user object
+        let fullAddress = client.user.address || "N/A";
         
-        // Check if we have address data
-        if (client.client.address) {
+        // If user object doesn't have address, check client object
+        if (fullAddress === "N/A" && client.client?.address) {
           fullAddress = `${client.client.address}${client.client.city ? `, ${client.client.city}` : ""}${client.client.state ? `, ${client.client.state}` : ""}${client.client.zip ? ` ${client.client.zip}` : ""}`;
         }
         
         // Debug log for address data
-        console.log("Address data for client:", client.user?.name, {
-          clientAddress: client.client.address ? `${client.client.address}, ${client.client.city}, ${client.client.state}` : null,
+        console.log("Address data for client:", client.user.name, {
+          userAddress: client.user.address,
+          clientAddress: client.client?.address ? `${client.client.address}, ${client.client.city}, ${client.client.state}` : null,
           finalAddress: fullAddress
         });
         

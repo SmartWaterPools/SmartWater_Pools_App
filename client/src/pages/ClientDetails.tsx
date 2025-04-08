@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } from '@/lib/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import ClientAddressMap from '@/components/maps/ClientAddressMap';
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
@@ -281,6 +282,21 @@ export default function ClientDetails() {
                     <Mail className="h-5 w-5 mr-2 text-gray-500" />
                     <p>{client.user.email || 'No email provided'}</p>
                   </div>
+                  
+                  {/* Google Maps integration */}
+                  {client.user.address && (
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                      <ClientAddressMap 
+                        address={client.user.address}
+                        latitude={client.client.latitude || null}
+                        longitude={client.client.longitude || null}
+                        height="200px"
+                        width="100%"
+                        mapType="satellite"
+                        zoom={17}
+                      />
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
