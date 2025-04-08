@@ -201,7 +201,22 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   
   // Add a new tab or switch to existing one
   const addTab = useCallback((path: string, title?: string, forceNew: boolean = false): string => {
-    // Always create a new tab - no tab reuse
+    // Special handling for dashboard path ('/')
+    // If it's the dashboard path and we're not forcing a new tab, check if one already exists
+    if (path === '/' && !forceNew) {
+      const existingDashboardTab = tabs.find(tab => tab.path === '/');
+      if (existingDashboardTab) {
+        // Update the last accessed time of existing dashboard tab and return its ID
+        setTabs(currentTabs => 
+          currentTabs.map(t => 
+            t.id === existingDashboardTab.id ? { ...t, lastAccessed: Date.now() } : t
+          )
+        );
+        return existingDashboardTab.id;
+      }
+    }
+    
+    // For paths other than dashboard, or if forceNew is true, or if no dashboard tab exists
     const newTabId = `tab-${Date.now()}`;
     const tabTitle = title || getTitleForPath(path);
     const newTab: TabItem = {
@@ -216,7 +231,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
     setTabs(currentTabs => [...currentTabs, newTab]);
     
     return newTabId;
-  }, []);
+  }, [tabs]);
   
   // Close a tab
   const closeTab = useCallback((id: string) => {
@@ -259,12 +274,13 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // Create a list of recent tabs sorted by last accessed time
   const recentTabs = [...tabs].sort((a, b) => b.lastAccessed - a.lastAccessed);
   
-  // No dashboard tab deduplication needed anymore
-  // We now treat all tabs equally
+  // Dashboard tab deduplication is now implemented
+  // We prevent multiple dashboard tabs from automatic creation
+  // But still allow users to explicitly create them if desired
   
   // Watch for location changes to sync tabs
   useEffect(() => {
-    // If the location doesn't match any tab, create a new one
+    // If the location doesn't match any tab, create a new one (unless it's a dashboard and we already have one)
     const matchingTab = getTabByPath(location);
     
     if (!matchingTab) {
@@ -273,7 +289,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      // Create a new tab for any path
+      // Create a new tab for any path (addTab will handle dashboard path specially)
       addTab(location);
     } else if (matchingTab.id !== activeTabId) {
       // If the matching tab is not the active one, activate it
@@ -347,7 +363,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
           const { icon, ...rest } = tab;
           return {
             ...rest,
-            // No special handling for dashboard tabs anymore
+            // Special handling is now implemented in addTab function
             iconName: undefined
           };
         });
@@ -484,7 +500,8 @@ export function EnhancedTabManager() {
   };
   
   const handleNewTab = () => {
-    // Create a new Dashboard tab
+    // Explicitly force a new Dashboard tab when the user clicks the + button
+    // This allows users to create multiple dashboard tabs if desired
     addTab('/', 'Dashboard', true);
   };
   
