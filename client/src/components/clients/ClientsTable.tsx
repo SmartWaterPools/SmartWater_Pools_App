@@ -153,15 +153,15 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
     },
     {
       accessorFn: (row) => {
-        // Ensure we get the phone from client object only
-        return row.client?.phone || "N/A";
+        // Make sure we access the phone safely
+        return row?.client?.phone || "N/A";
       },
       id: "client.phone",
       header: "Phone",
       cell: ({ row }) => {
         const client = row.original as unknown as ClientWithUser;
         
-        if (!client) return (
+        if (!client || !client.client) return (
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">N/A</span>
@@ -169,18 +169,18 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
         );
         
         // Get phone from client object
-        const phone = client.client?.phone;
+        const phone = client.client.phone || "N/A";
         
         // Debug log
-        console.log("Phone data for client:", client.user?.name, { 
-          clientPhone: client.client?.phone,
+        console.log("Phone data for client:", client.user?.name, {
+          clientPhone: client.client.phone,
           finalPhone: phone
         });
         
         return (
           <div className="flex items-center gap-2">
             <Phone className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm">{phone || "N/A"}</span>
+            <span className="text-sm whitespace-nowrap">{phone}</span>
           </div>
         );
       },
@@ -188,7 +188,7 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
     {
       accessorFn: (row) => {
         // Try to get address from client object only
-        const client = row.client;
+        const client = row?.client;
         
         if (!client) return "N/A";
         
@@ -211,24 +211,24 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
       cell: ({ row }) => {
         const client = row.original as unknown as ClientWithUser;
         
-        if (!client) return (
+        if (!client || !client.client) return (
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">N/A</span>
           </div>
         );
         
-        // Try to get address from client object
+        // Get address from client object
         let fullAddress = "N/A";
         
-        // Check client object
-        if (client.client && client.client.address) {
+        // Check if we have address data
+        if (client.client.address) {
           fullAddress = `${client.client.address}${client.client.city ? `, ${client.client.city}` : ""}${client.client.state ? `, ${client.client.state}` : ""}${client.client.zip ? ` ${client.client.zip}` : ""}`;
         }
         
         // Debug log for address data
         console.log("Address data for client:", client.user?.name, {
-          clientAddress: client.client?.address ? `${client.client.address}, ${client.client.city}, ${client.client.state}` : null,
+          clientAddress: client.client.address ? `${client.client.address}, ${client.client.city}, ${client.client.state}` : null,
           finalAddress: fullAddress
         });
         
@@ -394,18 +394,23 @@ export function ClientsTable({ clients, isLoading }: ClientsTableProps) {
     );
   }
 
+  // Log client data for debugging purposes
+  console.log("Client data sample:", clients.slice(0, 1));
+
   return (
     <div className="space-y-4 overflow-hidden">
-      <div className="overflow-x-auto">
-        <DataTableEnhanced
-          columns={columns}
-          data={clients}
-          filterableColumns={filterableColumns}
-          globalSearchPlaceholder="Search all client data..."
-          enableGlobalSearch={true}
-          enablePagination={true}
-          enableColumnVisibility={true}
-        />
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="min-w-full sm:rounded-md">
+          <DataTableEnhanced
+            columns={columns}
+            data={clients}
+            filterableColumns={filterableColumns}
+            globalSearchPlaceholder="Search all client data..."
+            enableGlobalSearch={true}
+            enablePagination={true}
+            enableColumnVisibility={true}
+          />
+        </div>
       </div>
     </div>
   );
