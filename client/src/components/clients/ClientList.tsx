@@ -114,20 +114,20 @@ export function ClientList({ clients, isLoading, onClientSelect }: ClientListPro
                   <Mail className="h-4 w-4 text-gray-400 mr-2" />
                   <span>{userEmail}</span>
                 </div>
-                {client.client?.phone && (
+                {(client.user?.phone || client.client?.phone) && (
                   <div className="flex items-center text-sm">
                     <Phone className="h-4 w-4 text-gray-400 mr-2" />
-                    <span>{client.client.phone}</span>
+                    <span>{client.user?.phone || client.client?.phone}</span>
                   </div>
                 )}
-                {client.client?.address && (
+                {(client.user?.address || client.client?.address) && (
                   <div className="flex items-start text-sm">
                     <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
                     <span>
-                      {client.client.address}
-                      {client.client.city && `, ${client.client.city}`}
-                      {client.client.state && `, ${client.client.state}`}
-                      {client.client.zip && ` ${client.client.zip}`}
+                      {client.user?.address || client.client?.address}
+                      {client.client?.city && `, ${client.client.city}`}
+                      {client.client?.state && `, ${client.client.state}`}
+                      {client.client?.zip && ` ${client.client.zip}`}
                     </span>
                   </div>
                 )}
