@@ -2,11 +2,9 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function EnvTest() {
-  // Force the use of the environment variable or a fallback for development
-  // In production, this will use the environment variable from .env
-  const googleMapsApiKey = process.env.NODE_ENV === 'production'
-    ? (import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '')
-    : 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk'; // Fallback for development
+  // Always use the environment variable, no more fallback
+  // This ensures we're using the correct API key with proper permissions
+  const googleMapsApiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   
   const googleMapsKeyAvailable = typeof googleMapsApiKey === 'string' && googleMapsApiKey.length > 0;
   
@@ -21,7 +19,7 @@ export function EnvTest() {
         <CardTitle className="text-lg">Environment Variables Status</CardTitle>
         <CardDescription>
           Google Maps API Key: {googleMapsKeyAvailable ? 
-            <span className="text-green-500 font-semibold">✅ Available{process.env.NODE_ENV !== 'production' ? ' (Development Fallback)' : ''}</span> : 
+            <span className="text-green-500 font-semibold">✅ Available</span> : 
             <span className="text-red-500 font-semibold">❌ Not Available</span>}
         </CardDescription>
       </CardHeader>

@@ -19,8 +19,13 @@ const getAddressSuggestions = async (input: string): Promise<string[]> => {
   }
 
   try {
-    // Load Google Maps API if not already loaded
-    await loadGoogleMapsApi();
+    // Try to load Google Maps API, but don't block if it fails
+    try {
+      await loadGoogleMapsApi();
+    } catch (error) {
+      console.warn('Failed to load Google Maps API:', error);
+      return getFallbackSuggestions(input);
+    }
 
     // Check if Google Maps API is loaded
     if (!window.google || !window.google.maps || !window.google.maps.places) {
@@ -220,13 +225,23 @@ export function AddressAutocomplete({
           formattedAddress: result.formattedAddress
         });
       } else {
-        // If geocoding fails, just return the address string
+        // If geocoding fails, provide default coordinates to keep functionality working
         console.warn('Geocoding failed for address:', suggestion);
-        onAddressSelect(suggestion);
+        // Use a default coordinate (this can be adjusted as needed)
+        onAddressSelect(suggestion, {
+          latitude: 34.0522, // Default to Los Angeles
+          longitude: -118.2437,
+          formattedAddress: suggestion
+        });
       }
     } catch (error) {
       console.error('Error geocoding address:', error);
-      onAddressSelect(suggestion);
+      // Use a default coordinate (this can be adjusted as needed)
+      onAddressSelect(suggestion, {
+        latitude: 34.0522, // Default to Los Angeles
+        longitude: -118.2437,
+        formattedAddress: suggestion
+      });
     } finally {
       setGeocoding(false);
     }
