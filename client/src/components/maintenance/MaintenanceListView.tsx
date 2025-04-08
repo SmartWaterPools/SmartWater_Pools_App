@@ -65,7 +65,7 @@ export function MaintenanceListView({
 
       switch (groupBy) {
         case 'date':
-          groupKey = formatDate(new Date(maintenance.scheduleDate));
+          groupKey = formatDate(maintenance.scheduleDate);
           break;
         case 'status':
           groupKey = maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ');
@@ -167,7 +167,7 @@ export function MaintenanceListView({
                       <CardTitle className="text-base">{maintenance.client?.user?.name}</CardTitle>
                       <CardDescription className="text-xs flex items-center mt-1">
                         <MapPin className="h-3 w-3 mr-1" />
-                        {maintenance.client?.address || 'No address'}
+                        {maintenance.client?.user?.address || maintenance.client?.client?.address || 'No address'}
                       </CardDescription>
                     </div>
                     <div>
@@ -185,7 +185,7 @@ export function MaintenanceListView({
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex items-center gap-2">
                       <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{formatDate(new Date(maintenance.scheduleDate))}</span>
+                      <span>{formatDate(maintenance.scheduleDate)}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
