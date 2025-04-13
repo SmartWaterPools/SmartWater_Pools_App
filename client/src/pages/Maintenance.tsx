@@ -464,6 +464,7 @@ export default function Maintenance() {
         <MaintenanceForm 
           open={open} 
           onOpenChange={setOpen} 
+          initialDate={new Date()}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
             queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });

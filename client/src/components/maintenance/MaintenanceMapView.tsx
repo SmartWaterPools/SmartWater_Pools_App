@@ -143,11 +143,80 @@ export function MaintenanceMapView({
   }
 
   return (
-    <div className="w-full h-full">
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={defaultCenter}
-        zoom={7}
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 w-full h-full">
+      {/* Side panel with maintenance cards */}
+      <div className="lg:col-span-1 bg-gray-50 p-3 rounded-lg border overflow-y-auto h-[600px]">
+        <h2 className="text-base font-semibold mb-3">Scheduled Maintenances</h2>
+        {maintenances.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-gray-500">
+            No scheduled maintenances
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {maintenances.map(maintenance => (
+              <Card 
+                key={maintenance.id}
+                className={`cursor-pointer transition-all duration-200 ${selectedMaintenance?.id === maintenance.id ? 'border-primary bg-primary/5' : 'hover:border-gray-300'}`}
+                onClick={() => {
+                  setSelectedMaintenance(maintenance);
+                  if (mapInstance && maintenance.client?.client?.latitude && maintenance.client?.client?.longitude) {
+                    mapInstance.panTo({
+                      lat: maintenance.client.client.latitude,
+                      lng: maintenance.client.client.longitude
+                    });
+                    mapInstance.setZoom(15);
+                  }
+                }}
+              >
+                <CardContent className="p-3">
+                  <div className="flex justify-between items-start">
+                    <h3 className="font-medium text-sm">{maintenance.client?.user?.name || "Client"}</h3>
+                    <Badge className={`${getStatusClasses(maintenance.status).bg} ${getStatusClasses(maintenance.status).text} text-xs`}>
+                      {maintenance.status}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 space-y-1 text-xs">
+                    <div className="flex items-center">
+                      <CalendarIcon className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                      <span>{formatDate(maintenance.scheduleDate)}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                      <span>{maintenance.startTime ? new Date(maintenance.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Flexible'}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <MapPin className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                      <span className="truncate">{maintenance.client?.client?.address || "No address"}</span>
+                    </div>
+                    {maintenance.technician && (
+                      <div className="flex items-center">
+                        <User className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
+                        <span>{maintenance.technician.user?.name || "Assigned Technician"}</span>
+                      </div>
+                    )}
+                  </div>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigateToMaintenance(maintenance.id);
+                    }}
+                    className="w-full mt-2 py-1 px-2 bg-primary text-primary-foreground text-xs rounded-sm hover:bg-primary/90 transition-colors"
+                  >
+                    View Details
+                  </button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+      
+      {/* Map container */}
+      <div className="lg:col-span-3">
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          center={defaultCenter}
+          zoom={7}
         onLoad={onLoad}
         onUnmount={onUnmount}
         options={{
@@ -247,6 +316,7 @@ export function MaintenanceMapView({
           null
         )}
       </GoogleMap>
+      </div>
     </div>
   );
 }

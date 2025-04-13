@@ -148,12 +148,18 @@ export function TechnicianRoutesView({
                 <SelectValue placeholder="Select Technician" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Technicians</SelectItem>
-                {technicians.map(technician => (
-                  <SelectItem key={technician.id} value={technician.id.toString()}>
-                    {technician.name}
-                  </SelectItem>
-                ))}
+                {technicians && technicians.length > 0 ? (
+                  <>
+                    <SelectItem value="">All Technicians</SelectItem>
+                    {technicians.map(technician => (
+                      <SelectItem key={technician.id} value={technician.id.toString()}>
+                        {technician.name}
+                      </SelectItem>
+                    ))}
+                  </>
+                ) : (
+                  <SelectItem value="">No technicians available</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
