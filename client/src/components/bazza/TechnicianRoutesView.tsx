@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -39,6 +39,8 @@ type TechnicianRoutesViewProps = {
   onTechnicianSelect: (technicianId: number | null) => void;
   onRouteSelect?: (route: BazzaRoute) => void;
   onAddRouteClick?: () => void;
+  selectedDay?: string | null;
+  onDayChange?: (day: string | null) => void;
 };
 
 export function TechnicianRoutesView({
@@ -47,7 +49,9 @@ export function TechnicianRoutesView({
   selectedTechnicianId,
   onTechnicianSelect,
   onRouteSelect,
-  onAddRouteClick
+  onAddRouteClick,
+  selectedDay: externalSelectedDay,
+  onDayChange
 }: TechnicianRoutesViewProps) {
   // Get routes for selected technician
   const { 
@@ -59,8 +63,26 @@ export function TechnicianRoutesView({
   // State for view type (list or calendar)
   const [viewType, setViewType] = useState<'list' | 'calendar'>('list');
 
-  // State for selected day filter
-  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  // State for selected day filter (internal component state)
+  const [internalSelectedDay, setInternalSelectedDay] = useState<string | null>(externalSelectedDay || null);
+  
+  // Use external day filter if provided, otherwise use internal state
+  const selectedDay = externalSelectedDay !== undefined ? externalSelectedDay : internalSelectedDay;
+  
+  // Handle internal day changes and notify parent if needed
+  const handleDayChange = (day: string | null) => {
+    setInternalSelectedDay(day);
+    if (onDayChange) {
+      onDayChange(day);
+    }
+  };
+
+  // Sync internal state with external prop when it changes
+  useEffect(() => {
+    if (externalSelectedDay !== undefined) {
+      setInternalSelectedDay(externalSelectedDay);
+    }
+  }, [externalSelectedDay]);
 
   // Function to filter routes by day
   const filteredRoutes = React.useMemo(() => {
@@ -187,7 +209,7 @@ export function TechnicianRoutesView({
             <Label htmlFor="day-filter" className="text-sm">Filter by day:</Label>
             <Select 
               value={selectedDay || "all"} 
-              onValueChange={(value) => setSelectedDay(value === "all" ? null : value)}
+              onValueChange={(value) => handleDayChange(value === "all" ? null : value)}
             >
               <SelectTrigger id="day-filter" className="w-[150px]">
                 <SelectValue placeholder="All Days" />
@@ -294,7 +316,11 @@ export function TechnicianRoutesView({
                     className={`border rounded-md p-3 min-h-[120px] ${
                       selectedDay === day ? 'border-primary/70 bg-primary/5' : 'hover:border-gray-300'
                     } ${hasRoutes ? 'cursor-pointer' : ''}`}
-                    onClick={() => hasRoutes && setSelectedDay(day)}
+                    onClick={() => { 
+                      if (hasRoutes) {
+                        handleDayChange(day);
+                      }
+                    }}
                   >
                     {hasRoutes ? (
                       <div className="space-y-2">

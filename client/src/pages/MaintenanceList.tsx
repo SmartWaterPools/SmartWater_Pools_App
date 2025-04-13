@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { CalendarDays, Map, ListFilter, PlusCircle, Route, Search } from "lucide-react";
+import { CalendarDays, Map, ListFilter, PlusCircle, Route, Search, Plus } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { Spinner } from "../components/ui/spinner";
 import { BazzaRoute, MaintenanceWithDetails } from "../lib/types";
@@ -28,6 +29,9 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
 
   // State for selected technician
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<number | null>(null);
+  
+  // State for filter by day
+  const [filterDay, setFilterDay] = useState<string>('all');
   
   // State for selected route and route form dialog
   const [selectedRoute, setSelectedRoute] = useState<BazzaRoute | null>(null);
@@ -260,17 +264,52 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
               clients={clients}
             />
           ) : (
-            <TechnicianRoutesView
-              technicians={technicians}
-              maintenances={maintenances || []}
-              selectedTechnicianId={selectedTechnicianId}
-              onTechnicianSelect={setSelectedTechnicianId}
-              onRouteSelect={(route) => {
-                setSelectedRoute(route);
-                setIsViewingRouteDetails(true);
-              }}
-              onAddRouteClick={handleAddRoute}
-            />
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold">Technician Routes</h2>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">Filter by day:</span>
+                    <Select value={filterDay} onValueChange={setFilterDay}>
+                      <SelectTrigger className="w-[140px] h-9">
+                        <SelectValue placeholder="All Days" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Days</SelectItem>
+                        <SelectItem value="monday">Monday</SelectItem>
+                        <SelectItem value="tuesday">Tuesday</SelectItem>
+                        <SelectItem value="wednesday">Wednesday</SelectItem>
+                        <SelectItem value="thursday">Thursday</SelectItem>
+                        <SelectItem value="friday">Friday</SelectItem>
+                        <SelectItem value="saturday">Saturday</SelectItem>
+                        <SelectItem value="sunday">Sunday</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    onClick={handleAddRoute} 
+                    className="bg-primary text-white font-medium hover:bg-primary/90"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Route
+                  </Button>
+                </div>
+              </div>
+              
+              <TechnicianRoutesView
+                technicians={technicians}
+                maintenances={maintenances || []}
+                selectedTechnicianId={selectedTechnicianId}
+                onTechnicianSelect={setSelectedTechnicianId}
+                onRouteSelect={(route) => {
+                  setSelectedRoute(route);
+                  setIsViewingRouteDetails(true);
+                }}
+                onAddRouteClick={handleAddRoute}
+                selectedDay={filterDay !== 'all' ? filterDay : null}
+              />
+            </div>
           )}
         </TabsContent>
       </Tabs>
