@@ -12,7 +12,8 @@ import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
 import { RouteDetailView } from "../components/bazza/RouteDetailView";
 import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
 import { useBazzaRoutes } from "../hooks/useBazzaRoutes";
-import { useQuery, useMutation, useQueryClient } from "../lib/queryClient";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "../lib/queryClient";
 import { deleteBazzaRoute } from "../services/bazzaService";
 import { useToast } from "../hooks/use-toast";
 
@@ -20,7 +21,6 @@ export default function MaintenanceList() {
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   // State for selected technician
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<number | null>(null);
@@ -68,7 +68,9 @@ export default function MaintenanceList() {
   const deleteMutation = useMutation({
     mutationFn: (routeId: number) => deleteBazzaRoute(routeId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      import('../lib/queryClient').then(({ queryClient }) => {
+        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      });
       toast({
         title: 'Route deleted',
         description: 'The route has been deleted successfully.',

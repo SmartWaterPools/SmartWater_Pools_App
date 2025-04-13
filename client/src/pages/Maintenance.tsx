@@ -43,7 +43,7 @@ import { Badge } from "../components/ui/badge";
 import { MaintenanceCalendar } from "../components/maintenance/MaintenanceCalendar";
 import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
-import { LazyRouteScheduler } from "../components/maintenance/LazyRouteScheduler";
+import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
 import { MaintenanceForm } from "../components/maintenance/MaintenanceForm";
 import { MaintenanceReportForm } from "../components/maintenance/MaintenanceReportForm";
 import { 
@@ -71,8 +71,13 @@ export default function Maintenance() {
   const [maintenanceReportOpen, setMaintenanceReportOpen] = useState(false);
   const [selectedReportMaintenance, setSelectedReportMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [selectedView, setSelectedView] = useState<string>("calendar");
-  const [selectedTechnician, setSelectedTechnician] = useState<string | null>("all");
+  const [selectedTechnician, setSelectedTechnician] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  // Fetch technicians
+  const { data: technicians } = useQuery<any[]>({
+    queryKey: ["/api/technicians"],
+  });
 
   // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
@@ -82,7 +87,7 @@ export default function Maintenance() {
       
       // Enhanced debugging for March 9, 2025 appointments
       const march9Records = data.filter(m => {
-        const dateStr = m.scheduleDate || m.schedule_date || '';
+        const dateStr = m.scheduleDate || '';
         if (typeof dateStr === 'string' && dateStr.includes('2025-03-09')) {
           console.log(`Found March 9 record - ID: ${m.id}, Date: ${dateStr}`);
           return true;
@@ -95,7 +100,6 @@ export default function Maintenance() {
         march9Records.forEach(m => {
           console.log(`- ID: ${m.id}, Client: ${m.client?.user?.name}, Status: ${m.status}`);
           console.log(`  Date value: "${m.scheduleDate}" (${typeof m.scheduleDate})`);
-          console.log(`  Alt date value: "${m.schedule_date}" (${typeof m.schedule_date})`);
         });
       } else {
         console.log("No March 9, 2025 maintenance records found in API response");
@@ -330,7 +334,7 @@ export default function Maintenance() {
             <Map className="h-4 w-4" />
             <span className="hidden sm:inline">Map</span>
           </TabsTrigger>
-          <TabsTrigger value="routes" className="flex items-center gap-2 opacity-50" disabled onClick={() => {}}>
+          <TabsTrigger value="routes" className="flex items-center gap-2">
             <ListFilter className="h-4 w-4" />
             <span className="hidden sm:inline">Routes</span>
           </TabsTrigger>
@@ -427,7 +431,26 @@ export default function Maintenance() {
         <TabsContent value="routes">
           <Card>
             <CardContent className="p-6">
-              <LazyRouteScheduler />
+              <TechnicianRoutesView 
+                technicians={technicians?.filter(t => t.active) || []}
+                maintenances={filteredMaintenances || []}
+                selectedTechnicianId={selectedTechnician}
+                onTechnicianSelect={setSelectedTechnician}
+                onRouteSelect={(route) => {
+                  // Handle route selection if needed
+                  toast({
+                    title: "Route selected",
+                    description: `Selected route: ${route.name}`,
+                  });
+                }}
+                onAddRouteClick={() => {
+                  // Handle adding route if needed
+                  toast({
+                    title: "Coming soon",
+                    description: "Route creation will be available in the next update.",
+                  });
+                }}
+              />
             </CardContent>
           </Card>
         </TabsContent>

@@ -2,7 +2,8 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useMutation, useQueryClient } from '../../lib/queryClient';
+import { useMutation } from '@tanstack/react-query';
+import { queryClient } from '../../lib/queryClient';
 import { createBazzaRoute, updateBazzaRoute } from '../../services/bazzaService';
 import { useToast } from '../../hooks/use-toast';
 import { BazzaRoute } from '../../lib/types';
@@ -70,7 +71,6 @@ export function RouteFormDialog({
   onSuccess
 }: RouteFormDialogProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const isEditMode = !!route;
 
   // Initialize the form
@@ -93,7 +93,9 @@ export function RouteFormDialog({
   const createMutation = useMutation({
     mutationFn: (data: Omit<BazzaRoute, 'id' | 'createdAt' | 'updatedAt'>) => createBazzaRoute(data),
     onSuccess: (newRoute) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      import('../../lib/queryClient').then(({ queryClient }) => {
+        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      });
       toast({
         title: 'Route created',
         description: 'The route has been created successfully.',
@@ -114,7 +116,9 @@ export function RouteFormDialog({
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<BazzaRoute> }) => updateBazzaRoute(id, data),
     onSuccess: (updatedRoute) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      import('../../lib/queryClient').then(({ queryClient }) => {
+        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      });
       toast({
         title: 'Route updated',
         description: 'The route has been updated successfully.',

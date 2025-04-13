@@ -21,6 +21,30 @@ import { Spinner } from "../../components/ui/spinner";
 import { useBazzaRoutesByTechnician } from "../../hooks/useBazzaRoutes";
 import { BazzaRoute, BazzaRouteStop, MaintenanceWithDetails } from "../../lib/types";
 
+/**
+ * Format a time string (HH:MM:SS) to 12-hour format
+ */
+const formatTime = (timeStr: string): string => {
+  if (!timeStr) return 'Flexible';
+  
+  try {
+    // Split the time string to get hours and minutes
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    
+    // Determine AM/PM
+    const period = hours >= 12 ? 'PM' : 'AM';
+    
+    // Convert to 12-hour format
+    const hours12 = hours % 12 || 12;
+    
+    // Format the output
+    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  } catch (error) {
+    console.error('Error formatting time:', error);
+    return timeStr;
+  }
+};
+
 // Icons
 import { 
   Calendar, 
@@ -69,7 +93,7 @@ export function TechnicianRoutesView({
     if (!technicianRoutes) return [];
     
     if (selectedDay) {
-      return technicianRoutes.filter(route => route.dayOfWeek.toLowerCase() === selectedDay.toLowerCase());
+      return technicianRoutes.filter((route: BazzaRoute) => route.dayOfWeek.toLowerCase() === selectedDay.toLowerCase());
     }
     
     return technicianRoutes;
@@ -213,7 +237,7 @@ export function TechnicianRoutesView({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredRoutes.map(route => (
+                {filteredRoutes.map((route: BazzaRoute) => (
                   <Card 
                     key={route.id} 
                     className="cursor-pointer hover:border-primary/50 transition-colors"
@@ -281,7 +305,7 @@ export function TechnicianRoutesView({
                   </div>
                 ))}
                 {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
-                  const dayRoutes = filteredRoutes.filter(route => route.dayOfWeek.toLowerCase() === day);
+                  const dayRoutes = filteredRoutes.filter((route: BazzaRoute) => route.dayOfWeek.toLowerCase() === day);
                   const hasRoutes = dayRoutes.length > 0;
                   
                   return (
@@ -294,7 +318,7 @@ export function TechnicianRoutesView({
                     >
                       {hasRoutes ? (
                         <div className="space-y-2">
-                          {dayRoutes.map(route => (
+                          {dayRoutes.map((route: BazzaRoute) => (
                             <div 
                               key={route.id}
                               className="text-xs p-2 rounded bg-white border shadow-sm hover:shadow-md cursor-pointer transition-shadow"
@@ -311,7 +335,7 @@ export function TechnicianRoutesView({
                                 </span>
                               </div>
                               <div className="flex items-center text-muted-foreground mt-1">
-                                <User className="h-3 w-3 mr-1" />
+                                <UserCheck className="h-3 w-3 mr-1" />
                                 <span>{technicianName}</span>
                               </div>
                             </div>

@@ -1,4 +1,4 @@
-import { useQuery } from '../lib/queryClient';
+import { useQuery } from '@tanstack/react-query';
 import { 
   fetchAllBazzaRoutes, 
   fetchBazzaRoutesByTechnician, 

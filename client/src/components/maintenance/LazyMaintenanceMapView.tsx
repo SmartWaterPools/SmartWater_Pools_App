@@ -9,7 +9,7 @@ interface LazyMaintenanceMapViewProps {
   maintenances: MaintenanceWithDetails[];
   isLoading?: boolean;
   selectedView?: string;
-  selectedTechnician?: string | null;
+  selectedTechnician?: number | null;
   selectedDay?: string | null;
   onStatusUpdate?: (maintenance: MaintenanceWithDetails, newStatus: string) => void;
   isUpdatingStatus?: boolean;

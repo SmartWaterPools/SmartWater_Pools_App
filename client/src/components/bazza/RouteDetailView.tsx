@@ -39,10 +39,11 @@ import {
 import { useToast } from "../../hooks/use-toast";
 import { BazzaRoute, BazzaRouteStop, MaintenanceWithDetails } from "../../lib/types";
 import { fetchRouteStops, updateBazzaRoute, deleteRouteStop, reorderRouteStops } from "../../services/bazzaService";
-import { useQuery, useMutation, useQueryClient } from '../../lib/queryClient';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { queryClient } from '../../lib/queryClient';
 
 // Icons
-import { ArrowLeft, Calendar, Clock, Edit, MapPin, Trash, User, DragVertical, Save } from 'lucide-react';
+import { ArrowLeft, Calendar, Clock, Edit, MapPin, Trash, User, GripVertical, Save } from 'lucide-react';
 
 type RouteDetailViewProps = {
   route: BazzaRoute;
@@ -62,7 +63,6 @@ export function RouteDetailView({
   clients
 }: RouteDetailViewProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   
   // State for dialogs
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -137,7 +137,9 @@ export function RouteDetailView({
     mutationFn: ({ routeId, stopIds }: { routeId: number, stopIds: number[] }) => 
       reorderRouteStops(routeId, stopIds),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes', route.id, 'stops'] });
+      import('../../lib/queryClient').then(({ queryClient }) => {
+        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes', route.id, 'stops'] });
+      });
       toast({
         title: 'Stops reordered',
         description: 'The route stops have been successfully reordered.',
@@ -185,7 +187,9 @@ export function RouteDetailView({
   const deleteStopMutation = useMutation({
     mutationFn: (stopId: number) => deleteRouteStop(stopId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes', route.id, 'stops'] });
+      import('../../lib/queryClient').then(({ queryClient }) => {
+        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes', route.id, 'stops'] });
+      });
       toast({
         title: 'Stop removed',
         description: 'The stop has been successfully removed from the route.',
@@ -304,7 +308,7 @@ export function RouteDetailView({
                   </Button>
                 ) : (
                   <Button variant="outline" onClick={handleStartReordering}>
-                    <DragVertical className="h-4 w-4 mr-1" />
+                    <GripVertical className="h-4 w-4 mr-1" />
                     Reorder Stops
                   </Button>
                 )}
