@@ -185,6 +185,48 @@ export interface MaintenanceWithDetails {
   serviceReport?: any;
 }
 
+// Bazza Maintenance Routes types
+export interface BazzaRoute {
+  id: number;
+  name: string;
+  description: string | null;
+  type: string;
+  createdAt: Date;
+  updatedAt: Date;
+  technicianId: number | null;
+  dayOfWeek: string;
+  startTime: string | null;
+  endTime: string | null;
+  color: string | null;
+  isActive: boolean;
+}
+
+export interface BazzaRouteStop {
+  id: number;
+  routeId: number;
+  clientId: number;
+  position: number;
+  estimatedDuration: number | null;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface BazzaMaintenanceAssignment {
+  id: number;
+  routeId: number;
+  maintenanceId: number;
+  date: string;
+  completed: boolean;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  // Relations that might be included
+  route?: BazzaRoute;
+  maintenance?: MaintenanceWithDetails;
+}
+
 // Dashboard Summary types
 export interface DashboardMetrics {
   activeProjects: number;

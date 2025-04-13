@@ -1557,12 +1557,131 @@ export const routeAssignmentsRelations = relations(routeAssignments, ({ one }) =
   }),
 }));
 
+// Bazza Tables for Maintenance Routes
+
+// Defines the bazza route types
+export const BAZZA_ROUTE_TYPES = ['residential', 'commercial', 'mixed'] as const;
+export type BazzaRouteType = typeof BAZZA_ROUTE_TYPES[number];
+
+// Bazza Routes table for storing technician route information
+export const bazzaRoutes = pgTable("bazza_routes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(), // residential, commercial, mixed
+  technicianId: integer("technician_id").references(() => technicians.id).notNull(),
+  dayOfWeek: text("day_of_week").notNull(), // monday, tuesday, etc.
+  weekNumber: integer("week_number"), // For routes that repeat bi-weekly (1 or 2)
+  isRecurring: boolean("is_recurring").notNull().default(true),
+  frequency: text("frequency").notNull().default("weekly"), // weekly, bi-weekly, monthly
+  color: text("color"), // For display in the UI
+  startTime: time("start_time"),
+  endTime: time("end_time"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertBazzaRouteSchema = createInsertSchema(bazzaRoutes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Bazza Route Stops table for storing stops on a route
+export const bazzaRouteStops = pgTable("bazza_route_stops", {
+  id: serial("id").primaryKey(),
+  routeId: integer("route_id").references(() => bazzaRoutes.id).notNull(),
+  clientId: integer("client_id").references(() => clients.id).notNull(),
+  orderIndex: integer("order_index").notNull(), // Order in the route
+  estimatedDuration: integer("estimated_duration"), // In minutes
+  customInstructions: text("custom_instructions"), // Any specific instructions for this stop
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertBazzaRouteStopSchema = createInsertSchema(bazzaRouteStops).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Bazza Maintenance Assignments table for linking maintenances to route stops
+export const bazzaMaintenanceAssignments = pgTable("bazza_maintenance_assignments", {
+  id: serial("id").primaryKey(),
+  routeId: integer("route_id").references(() => bazzaRoutes.id).notNull(),
+  routeStopId: integer("route_stop_id").references(() => bazzaRouteStops.id).notNull(),
+  maintenanceId: integer("maintenance_id").references(() => maintenances.id).notNull(),
+  date: date("date").notNull(), // The specific date this maintenance is scheduled
+  estimatedStartTime: timestamp("estimated_start_time"), // Estimated start time
+  estimatedEndTime: timestamp("estimated_end_time"), // Estimated end time
+  actualStartTime: timestamp("actual_start_time"), // When technician actually started
+  actualEndTime: timestamp("actual_end_time"), // When technician actually finished
+  status: text("status").notNull().default("scheduled"), // scheduled, completed, etc.
+  notes: text("notes"), // Any notes specific to this maintenance on this route
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const insertBazzaMaintenanceAssignmentSchema = createInsertSchema(bazzaMaintenanceAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Relations
+export const bazzaRoutesRelations = relations(bazzaRoutes, ({ one, many }) => ({
+  technician: one(technicians, {
+    fields: [bazzaRoutes.technicianId],
+    references: [technicians.id],
+  }),
+  stops: many(bazzaRouteStops),
+  assignments: many(bazzaMaintenanceAssignments),
+}));
+
+export const bazzaRouteStopsRelations = relations(bazzaRouteStops, ({ one, many }) => ({
+  route: one(bazzaRoutes, {
+    fields: [bazzaRouteStops.routeId],
+    references: [bazzaRoutes.id],
+  }),
+  client: one(clients, {
+    fields: [bazzaRouteStops.clientId],
+    references: [clients.id],
+  }),
+  assignments: many(bazzaMaintenanceAssignments),
+}));
+
+export const bazzaMaintenanceAssignmentsRelations = relations(bazzaMaintenanceAssignments, ({ one }) => ({
+  route: one(bazzaRoutes, {
+    fields: [bazzaMaintenanceAssignments.routeId],
+    references: [bazzaRoutes.id],
+  }),
+  routeStop: one(bazzaRouteStops, {
+    fields: [bazzaMaintenanceAssignments.routeStopId],
+    references: [bazzaRouteStops.id],
+  }),
+  maintenance: one(maintenances, {
+    fields: [bazzaMaintenanceAssignments.maintenanceId],
+    references: [maintenances.id],
+  }),
+}));
+
 // Export types
 export type Route = typeof routes.$inferSelect;
 export type InsertRoute = z.infer<typeof insertRouteSchema>;
 
 export type RouteAssignment = typeof routeAssignments.$inferSelect;
 export type InsertRouteAssignment = z.infer<typeof insertRouteAssignmentSchema>;
+
+// Bazza route types
+export type BazzaRoute = typeof bazzaRoutes.$inferSelect;
+export type InsertBazzaRoute = z.infer<typeof insertBazzaRouteSchema>;
+
+export type BazzaRouteStop = typeof bazzaRouteStops.$inferSelect;
+export type InsertBazzaRouteStop = z.infer<typeof insertBazzaRouteStopSchema>;
+
+export type BazzaMaintenanceAssignment = typeof bazzaMaintenanceAssignments.$inferSelect;
+export type InsertBazzaMaintenanceAssignment = z.infer<typeof insertBazzaMaintenanceAssignmentSchema>;
 
 // Fleetmatics Integration Schema
 export const fleetmaticsConfig = pgTable("fleetmatics_config", {

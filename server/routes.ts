@@ -11,6 +11,7 @@ import stripeRoutes from "./routes/stripe-routes";
 import registerOAuthRoutes from "./routes/oauth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
 import authRoutes from "./routes/auth-routes";
+import bazzaRoutes from "./routes/bazza-routes";
 import passport from "passport";
 import { isAuthenticated, isAdmin, isSystemAdmin } from "./auth";
 
@@ -29,6 +30,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Register authentication routes with /api/auth prefix
   app.use("/api/auth", authRoutes);
+  
+  // Register bazza routes with /api/bazza prefix
+  app.use("/api/bazza", bazzaRoutes);
 
   // Google OAuth routes setup for login and signup
   

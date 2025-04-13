@@ -19,6 +19,9 @@ import {
   MaintenanceReport, InsertMaintenanceReport,
   Route, InsertRoute,
   RouteAssignment, InsertRouteAssignment,
+  BazzaRoute, InsertBazzaRoute,
+  BazzaRouteStop, InsertBazzaRouteStop,
+  BazzaMaintenanceAssignment, InsertBazzaMaintenanceAssignment,
   InventoryItem, InsertInventoryItem,
   Warehouse, InsertWarehouse,
   TechnicianVehicle, InsertTechnicianVehicle,
@@ -38,6 +41,7 @@ import {
   organizations, users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
   communicationProviders, chemicalUsage, waterReadings, maintenanceReports, routes, routeAssignments,
+  bazzaRoutes, bazzaRouteStops, bazzaMaintenanceAssignments,
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
   inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems,
   fleetmaticsConfig, fleetmaticsLocationHistory, subscriptionPlans, subscriptions, paymentRecords
@@ -149,6 +153,35 @@ export interface IStorage {
   getRouteAssignmentsByRouteId(routeId: number): Promise<RouteAssignment[]>;
   getRouteAssignmentsByMaintenanceId(maintenanceId: number): Promise<RouteAssignment[]>;
   reorderRouteAssignments(routeId: number, assignmentIds: number[]): Promise<RouteAssignment[]>;
+  
+  // Bazza Route operations
+  getBazzaRoute(id: number): Promise<BazzaRoute | undefined>;
+  createBazzaRoute(route: InsertBazzaRoute): Promise<BazzaRoute>;
+  updateBazzaRoute(id: number, route: Partial<BazzaRoute>): Promise<BazzaRoute | undefined>;
+  deleteBazzaRoute(id: number): Promise<boolean>;
+  getAllBazzaRoutes(): Promise<BazzaRoute[]>;
+  getBazzaRoutesByTechnicianId(technicianId: number): Promise<BazzaRoute[]>;
+  getBazzaRoutesByDayOfWeek(dayOfWeek: string): Promise<BazzaRoute[]>;
+  getBazzaRoutesByType(type: string): Promise<BazzaRoute[]>;
+  
+  // Bazza Route Stop operations
+  getBazzaRouteStop(id: number): Promise<BazzaRouteStop | undefined>;
+  createBazzaRouteStop(stop: InsertBazzaRouteStop): Promise<BazzaRouteStop>;
+  updateBazzaRouteStop(id: number, stop: Partial<BazzaRouteStop>): Promise<BazzaRouteStop | undefined>;
+  deleteBazzaRouteStop(id: number): Promise<boolean>;
+  getBazzaRouteStopsByRouteId(routeId: number): Promise<BazzaRouteStop[]>;
+  getBazzaRouteStopsByClientId(clientId: number): Promise<BazzaRouteStop[]>;
+  reorderBazzaRouteStops(routeId: number, stopIds: number[]): Promise<BazzaRouteStop[]>;
+  
+  // Bazza Maintenance Assignment operations
+  getBazzaMaintenanceAssignment(id: number): Promise<BazzaMaintenanceAssignment | undefined>;
+  createBazzaMaintenanceAssignment(assignment: InsertBazzaMaintenanceAssignment): Promise<BazzaMaintenanceAssignment>;
+  updateBazzaMaintenanceAssignment(id: number, assignment: Partial<BazzaMaintenanceAssignment>): Promise<BazzaMaintenanceAssignment | undefined>;
+  deleteBazzaMaintenanceAssignment(id: number): Promise<boolean>;
+  getBazzaMaintenanceAssignmentsByRouteId(routeId: number): Promise<BazzaMaintenanceAssignment[]>;
+  getBazzaMaintenanceAssignmentsByMaintenanceId(maintenanceId: number): Promise<BazzaMaintenanceAssignment[]>;
+  getBazzaMaintenanceAssignmentsByDate(date: Date): Promise<BazzaMaintenanceAssignment[]>;
+  getBazzaMaintenanceAssignmentsByTechnicianIdAndDateRange(technicianId: number, startDate: Date, endDate: Date): Promise<BazzaMaintenanceAssignment[]>;
   
   // Chemical Usage operations
   getChemicalUsage(id: number): Promise<ChemicalUsage | undefined>;
@@ -5804,6 +5837,221 @@ export class DatabaseStorage implements IStorage {
     }
 
     return updatedAssignments;
+  }
+
+  // Bazza Route operations
+  async getBazzaRoute(id: number): Promise<BazzaRoute | undefined> {
+    const [route] = await db.select().from(bazzaRoutes).where(eq(bazzaRoutes.id, id));
+    return route || undefined;
+  }
+
+  async createBazzaRoute(route: InsertBazzaRoute): Promise<BazzaRoute> {
+    const [newRoute] = await db.insert(bazzaRoutes).values(route).returning();
+    return newRoute;
+  }
+
+  async updateBazzaRoute(id: number, route: Partial<BazzaRoute>): Promise<BazzaRoute | undefined> {
+    const existingRoute = await this.getBazzaRoute(id);
+    if (!existingRoute) return undefined;
+
+    const [updatedRoute] = await db.update(bazzaRoutes)
+      .set({ ...route, updatedAt: new Date() })
+      .where(eq(bazzaRoutes.id, id))
+      .returning();
+    return updatedRoute;
+  }
+
+  async deleteBazzaRoute(id: number): Promise<boolean> {
+    const route = await this.getBazzaRoute(id);
+    if (!route) return false;
+
+    // First delete all route stops and maintenance assignments associated with this route
+    const stops = await this.getBazzaRouteStopsByRouteId(id);
+    for (const stop of stops) {
+      await this.deleteBazzaRouteStop(stop.id);
+    }
+
+    const assignments = await this.getBazzaMaintenanceAssignmentsByRouteId(id);
+    for (const assignment of assignments) {
+      await this.deleteBazzaMaintenanceAssignment(assignment.id);
+    }
+
+    // Then delete the route itself
+    await db.delete(bazzaRoutes).where(eq(bazzaRoutes.id, id));
+    return true;
+  }
+
+  async getAllBazzaRoutes(): Promise<BazzaRoute[]> {
+    return db.select().from(bazzaRoutes).orderBy(bazzaRoutes.name);
+  }
+
+  async getBazzaRoutesByTechnicianId(technicianId: number): Promise<BazzaRoute[]> {
+    return db.select().from(bazzaRoutes)
+      .where(eq(bazzaRoutes.technicianId, technicianId))
+      .orderBy(bazzaRoutes.dayOfWeek);
+  }
+
+  async getBazzaRoutesByDayOfWeek(dayOfWeek: string): Promise<BazzaRoute[]> {
+    return db.select().from(bazzaRoutes)
+      .where(eq(bazzaRoutes.dayOfWeek, dayOfWeek))
+      .orderBy(bazzaRoutes.name);
+  }
+
+  async getBazzaRoutesByType(type: string): Promise<BazzaRoute[]> {
+    return db.select().from(bazzaRoutes)
+      .where(eq(bazzaRoutes.type, type))
+      .orderBy(bazzaRoutes.name);
+  }
+
+  // Bazza Route Stop operations
+  async getBazzaRouteStop(id: number): Promise<BazzaRouteStop | undefined> {
+    const [stop] = await db.select().from(bazzaRouteStops).where(eq(bazzaRouteStops.id, id));
+    return stop || undefined;
+  }
+
+  async createBazzaRouteStop(stop: InsertBazzaRouteStop): Promise<BazzaRouteStop> {
+    const [newStop] = await db.insert(bazzaRouteStops).values(stop).returning();
+    return newStop;
+  }
+
+  async updateBazzaRouteStop(id: number, stop: Partial<BazzaRouteStop>): Promise<BazzaRouteStop | undefined> {
+    const existingStop = await this.getBazzaRouteStop(id);
+    if (!existingStop) return undefined;
+
+    const [updatedStop] = await db.update(bazzaRouteStops)
+      .set({ ...stop, updatedAt: new Date() })
+      .where(eq(bazzaRouteStops.id, id))
+      .returning();
+    return updatedStop;
+  }
+
+  async deleteBazzaRouteStop(id: number): Promise<boolean> {
+    const stop = await this.getBazzaRouteStop(id);
+    if (!stop) return false;
+
+    // First delete any maintenance assignments associated with this stop
+    const assignments = await db.select().from(bazzaMaintenanceAssignments)
+      .where(eq(bazzaMaintenanceAssignments.routeStopId, id));
+    
+    for (const assignment of assignments) {
+      await this.deleteBazzaMaintenanceAssignment(assignment.id);
+    }
+
+    // Then delete the stop
+    await db.delete(bazzaRouteStops).where(eq(bazzaRouteStops.id, id));
+    return true;
+  }
+
+  async getBazzaRouteStopsByRouteId(routeId: number): Promise<BazzaRouteStop[]> {
+    return db.select().from(bazzaRouteStops)
+      .where(eq(bazzaRouteStops.routeId, routeId))
+      .orderBy(bazzaRouteStops.orderIndex);
+  }
+
+  async getBazzaRouteStopsByClientId(clientId: number): Promise<BazzaRouteStop[]> {
+    return db.select().from(bazzaRouteStops)
+      .where(eq(bazzaRouteStops.clientId, clientId))
+      .orderBy(bazzaRouteStops.routeId);
+  }
+
+  async reorderBazzaRouteStops(routeId: number, stopIds: number[]): Promise<BazzaRouteStop[]> {
+    const updatedStops: BazzaRouteStop[] = [];
+
+    // Update each stop with its new order index
+    for (let index = 0; index < stopIds.length; index++) {
+      const id = stopIds[index];
+      const stop = await this.getBazzaRouteStop(id);
+      
+      if (stop && stop.routeId === routeId) {
+        const updatedStop = await this.updateBazzaRouteStop(stop.id, { orderIndex: index });
+        if (updatedStop) {
+          updatedStops.push(updatedStop);
+        }
+      }
+    }
+
+    return updatedStops;
+  }
+
+  // Bazza Maintenance Assignment operations
+  async getBazzaMaintenanceAssignment(id: number): Promise<BazzaMaintenanceAssignment | undefined> {
+    const [assignment] = await db.select().from(bazzaMaintenanceAssignments)
+      .where(eq(bazzaMaintenanceAssignments.id, id));
+    return assignment || undefined;
+  }
+
+  async createBazzaMaintenanceAssignment(assignment: InsertBazzaMaintenanceAssignment): Promise<BazzaMaintenanceAssignment> {
+    const [newAssignment] = await db.insert(bazzaMaintenanceAssignments).values(assignment).returning();
+    return newAssignment;
+  }
+
+  async updateBazzaMaintenanceAssignment(id: number, assignment: Partial<BazzaMaintenanceAssignment>): Promise<BazzaMaintenanceAssignment | undefined> {
+    const existingAssignment = await this.getBazzaMaintenanceAssignment(id);
+    if (!existingAssignment) return undefined;
+
+    const [updatedAssignment] = await db.update(bazzaMaintenanceAssignments)
+      .set({ ...assignment, updatedAt: new Date() })
+      .where(eq(bazzaMaintenanceAssignments.id, id))
+      .returning();
+    return updatedAssignment;
+  }
+
+  async deleteBazzaMaintenanceAssignment(id: number): Promise<boolean> {
+    const assignment = await this.getBazzaMaintenanceAssignment(id);
+    if (!assignment) return false;
+
+    await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id));
+    return true;
+  }
+
+  async getBazzaMaintenanceAssignmentsByRouteId(routeId: number): Promise<BazzaMaintenanceAssignment[]> {
+    return db.select().from(bazzaMaintenanceAssignments)
+      .where(eq(bazzaMaintenanceAssignments.routeId, routeId))
+      .orderBy(bazzaMaintenanceAssignments.date);
+  }
+
+  async getBazzaMaintenanceAssignmentsByMaintenanceId(maintenanceId: number): Promise<BazzaMaintenanceAssignment[]> {
+    return db.select().from(bazzaMaintenanceAssignments)
+      .where(eq(bazzaMaintenanceAssignments.maintenanceId, maintenanceId))
+      .orderBy(bazzaMaintenanceAssignments.date);
+  }
+
+  async getBazzaMaintenanceAssignmentsByDate(date: Date): Promise<BazzaMaintenanceAssignment[]> {
+    // Convert to YYYY-MM-DD format for proper date comparison
+    const dateStr = date.toISOString().split('T')[0];
+    
+    return db.select().from(bazzaMaintenanceAssignments)
+      .where(sql`${bazzaMaintenanceAssignments.date}::text = ${dateStr}`)
+      .orderBy(bazzaMaintenanceAssignments.estimatedStartTime);
+  }
+
+  async getBazzaMaintenanceAssignmentsByTechnicianIdAndDateRange(
+    technicianId: number, 
+    startDate: Date, 
+    endDate: Date
+  ): Promise<BazzaMaintenanceAssignment[]> {
+    // First get all the routes for this technician
+    const routes = await this.getBazzaRoutesByTechnicianId(technicianId);
+    const routeIds = routes.map(route => route.id);
+    
+    if (routeIds.length === 0) {
+      return [];
+    }
+    
+    // Then get all assignments for these routes in the date range
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    return db.select().from(bazzaMaintenanceAssignments)
+      .where(and(
+        inArray(bazzaMaintenanceAssignments.routeId, routeIds),
+        gte(bazzaMaintenanceAssignments.date, startDateStr),
+        lte(bazzaMaintenanceAssignments.date, endDateStr)
+      ))
+      .orderBy([
+        bazzaMaintenanceAssignments.date,
+        bazzaMaintenanceAssignments.estimatedStartTime
+      ]);
   }
 
   // Communication Provider operations
