@@ -45,7 +45,10 @@ const routeFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().nullable().optional(),
   type: z.string().min(1, 'Type is required'),
-  technicianId: z.string().transform(val => val === '' ? null : parseInt(val, 10)),
+  technicianId: z.union([
+    z.string().transform(val => val === '' ? null : parseInt(val, 10)),
+    z.number().nullable()
+  ]),
   dayOfWeek: z.string().min(1, 'Day of week is required'),
   startTime: z.string().nullable().optional(),
   endTime: z.string().nullable().optional(),
@@ -80,7 +83,9 @@ export function RouteFormDialog({
       name: route?.name || '',
       description: route?.description || '',
       type: route?.type || 'standard',
-      technicianId: route?.technicianId ? route.technicianId.toString() : '',
+      technicianId: route?.technicianId === null ? '' : 
+                  route?.technicianId !== undefined ?
+                  route.technicianId.toString() : '',
       dayOfWeek: route?.dayOfWeek || '',
       startTime: route?.startTime || '',
       endTime: route?.endTime || '',
@@ -91,7 +96,7 @@ export function RouteFormDialog({
 
   // Create mutation
   const createMutation = useMutation({
-    mutationFn: (data: Omit<BazzaRoute, 'id' | 'createdAt' | 'updatedAt'>) => createBazzaRoute(data),
+    mutationFn: (data: Omit<BazzaRoute, 'id'>) => createBazzaRoute(data),
     onSuccess: (newRoute) => {
       import('../../lib/queryClient').then(({ queryClient }) => {
         queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
@@ -141,7 +146,9 @@ export function RouteFormDialog({
       name: data.name,
       description: data.description,
       type: data.type,
-      technicianId: data.technicianId === '' ? null : parseInt(data.technicianId as string, 10),
+      technicianId: typeof data.technicianId === 'string' && data.technicianId === '' ? null :
+                   typeof data.technicianId === 'string' ? 
+                   parseInt(data.technicianId, 10) : data.technicianId,
       dayOfWeek: data.dayOfWeek,
       startTime: data.startTime || null,
       endTime: data.endTime || null,
@@ -152,7 +159,7 @@ export function RouteFormDialog({
     if (isEditMode && route) {
       updateMutation.mutate({ id: route.id, data: routeData });
     } else {
-      createMutation.mutate(routeData as Omit<BazzaRoute, 'id' | 'createdAt' | 'updatedAt'>);
+      createMutation.mutate(routeData as Omit<BazzaRoute, 'id'>);
     }
   };
 

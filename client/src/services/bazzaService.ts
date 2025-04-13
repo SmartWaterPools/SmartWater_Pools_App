@@ -19,9 +19,16 @@ export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRou
 };
 
 export const createBazzaRoute = async (routeData: Omit<BazzaRoute, 'id'>): Promise<BazzaRoute> => {
+  // Make sure required fields are included
+  const route = {
+    ...routeData,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  
   return apiRequest('/api/bazza/routes', {
     method: 'POST',
-    body: JSON.stringify(routeData),
+    body: JSON.stringify(route),
   });
 };
 
