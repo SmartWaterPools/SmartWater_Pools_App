@@ -31,8 +31,13 @@ export default function MaintenanceList() {
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
   const [routeToEdit, setRouteToEdit] = useState<BazzaRoute | undefined>(undefined);
   
-  // State for active tab
-  const [activeTab, setActiveTab] = useState<'list' | 'routes'>('list');
+  // State for active tab - check URL parameters for initial value
+  const [activeTab, setActiveTab] = useState<'list' | 'routes'>(() => {
+    // Check if URL has ?tab=routes parameter
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    return (tabParam === 'routes') ? 'routes' : 'list';
+  });
 
   // Fetch maintenance data
   const { data: maintenances, isLoading, error } = useQuery<MaintenanceWithDetails[]>({

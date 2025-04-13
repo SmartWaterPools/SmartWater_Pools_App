@@ -1,22 +1,32 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { CalendarDays, Map, ListFilter, PlusCircle, Search } from "lucide-react";
+import { useBazzaRoutes } from "../hooks/useBazzaRoutes";
+import { CalendarDays, Map, ListFilter, PlusCircle, Search, Route } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
 import { Spinner } from "../components/ui/spinner";
-import { MaintenanceWithDetails } from "../lib/types";
+import { BazzaRoute, MaintenanceWithDetails } from "../lib/types";
+import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
 
 export default function MaintenanceMap() {
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTechnicianId, setSelectedTechnicianId] = useState<number | null>(null);
+  const { routes, isRoutesLoading, routesError } = useBazzaRoutes();
 
   // Fetch maintenance data
   const { data: maintenances, isLoading, error } = useQuery<MaintenanceWithDetails[]>({
     queryKey: ['/api/maintenances'],
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Fetch technicians data
+  const { data: technicians, isLoading: isLoadingTechnicians } = useQuery<any[]>({
+    queryKey: ['/api/technicians'],
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -35,8 +45,8 @@ export default function MaintenanceMap() {
     }
     
     // Then apply search term filter
-    const clientName = maintenance.client.user?.name?.toLowerCase() || "";
-    const clientAddress = maintenance.client.address?.toLowerCase() || "";
+    const clientName = maintenance.client?.user?.name?.toLowerCase() || "";
+    const clientAddress = maintenance.client?.client?.address?.toLowerCase() || "";
     const searchLower = searchTerm.toLowerCase();
     
     return clientName.includes(searchLower) || 
@@ -99,6 +109,10 @@ export default function MaintenanceMap() {
             <ListFilter className="h-4 w-4 mr-2" />
             List View
           </TabsTrigger>
+          <TabsTrigger value="routes" onClick={() => navigate("/maintenance/list?tab=routes")}>
+            <Route className="h-4 w-4 mr-2" />
+            Routes
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="map" className="mt-0">
@@ -117,6 +131,8 @@ export default function MaintenanceMap() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Routes tab content is handled in MaintenanceList.tsx */}
       </Tabs>
     </div>
   );
