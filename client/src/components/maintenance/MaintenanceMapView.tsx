@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { GoogleMap, useJsApiLoader, MarkerClusterer, Marker, InfoWindow } from "@react-google-maps/api";
 import { useLocation } from "wouter";
-import { CalendarIcon, MapPin, Clock, User } from "lucide-react";
+import { CalendarIcon, MapPin, Clock, User, Route } from "lucide-react";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Spinner } from "../../components/ui/spinner"; 
@@ -142,11 +142,24 @@ export function MaintenanceMapView({
     );
   }
 
+  const navigateToRoutes = () => {
+    navigate("/maintenance/routes");
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 w-full h-full">
       {/* Side panel with maintenance cards */}
       <div className="lg:col-span-1 bg-gray-50 p-3 rounded-lg border overflow-y-auto h-[600px]">
-        <h2 className="text-base font-semibold mb-3">Scheduled Maintenances</h2>
+        <div className="flex justify-between items-center mb-3">
+          <h2 className="text-base font-semibold">Scheduled Maintenances</h2>
+          <button 
+            onClick={navigateToRoutes}
+            className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors py-1 px-2 rounded-md flex items-center"
+          >
+            <Route className="h-3.5 w-3.5 mr-1" />
+            <span>View Routes</span>
+          </button>
+        </div>
         {maintenances.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-gray-500">
             No scheduled maintenances
@@ -297,12 +310,19 @@ export function MaintenanceMapView({
                     <p><span className="font-medium">Time:</span> {new Date(selectedMaintenance.startTime).toLocaleTimeString()}</p>
                   )}
                 </div>
-                <div className="mt-3">
+                <div className="mt-3 flex gap-2">
                   <button 
                     onClick={() => navigateToMaintenance(selectedMaintenance.id)}
-                    className="w-full py-1 px-3 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors"
+                    className="flex-1 py-1 px-2 bg-primary text-primary-foreground text-sm rounded-md hover:bg-primary/90 transition-colors"
                   >
                     View Details
+                  </button>
+                  <button 
+                    onClick={() => navigateToRoutes()}
+                    className="py-1 px-2 bg-blue-50 text-blue-600 hover:bg-blue-100 text-sm rounded-md flex items-center transition-colors"
+                  >
+                    <Route className="h-3.5 w-3.5 mr-1" />
+                    Routes
                   </button>
                 </div>
               </CardContent>

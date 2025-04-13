@@ -193,6 +193,9 @@ function AppContent({
                     <Route path="/maintenance/list">
                       <MaintenanceList />
                     </Route>
+                    <Route path="/maintenance/routes">
+                      <MaintenanceList defaultTab={"routes" as "list" | "routes"} />
+                    </Route>
                     
                     {/* Repairs route */}
                     <Route path="/repairs">
@@ -293,12 +296,11 @@ function AppContent({
   );
 }
 
-// We no longer need this cleanup function since all tabs are treated equally
-// This function is removed to let the tab system handle dashboard tabs normally
+// We now use URL-based navigation with dedicated paths, so tab state is managed by the router
 function cleanupDashboardTabs() {
-  // This function is intentionally kept empty to avoid breaking existing code
-  // It will be called but will do nothing
-  return false;
+  // For backward compatibility, we're removing the old sessionStorage-based tab management
+  sessionStorage.removeItem('maintenanceActiveTab');
+  return true;
 }
 
 // Main App component

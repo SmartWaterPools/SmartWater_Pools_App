@@ -141,8 +141,8 @@ export function TechnicianRoutesView({
         <div className="flex gap-2">
           <div className="w-48">
             <Select 
-              value={selectedTechnicianId?.toString() || ''} 
-              onValueChange={(value) => onTechnicianSelect(value ? parseInt(value) : null)}
+              value={selectedTechnicianId?.toString() || "all"} 
+              onValueChange={(value) => onTechnicianSelect(value === "all" ? null : parseInt(value))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select Technician" />
@@ -150,7 +150,7 @@ export function TechnicianRoutesView({
               <SelectContent>
                 {technicians && technicians.length > 0 ? (
                   <>
-                    <SelectItem value="">All Technicians</SelectItem>
+                    <SelectItem value="all">All Technicians</SelectItem>
                     {technicians.map(technician => (
                       <SelectItem key={technician.id} value={technician.id.toString()}>
                         {technician.name}
@@ -158,7 +158,7 @@ export function TechnicianRoutesView({
                     ))}
                   </>
                 ) : (
-                  <SelectItem value="">No technicians available</SelectItem>
+                  <SelectItem value="none">No technicians available</SelectItem>
                 )}
               </SelectContent>
             </Select>
@@ -186,14 +186,14 @@ export function TechnicianRoutesView({
           <div className="flex items-center gap-2">
             <Label htmlFor="day-filter" className="text-sm">Filter by day:</Label>
             <Select 
-              value={selectedDay || ''} 
-              onValueChange={(value) => setSelectedDay(value || null)}
+              value={selectedDay || "all"} 
+              onValueChange={(value) => setSelectedDay(value === "all" ? null : value)}
             >
               <SelectTrigger id="day-filter" className="w-[150px]">
                 <SelectValue placeholder="All Days" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Days</SelectItem>
+                <SelectItem value="all">All Days</SelectItem>
                 <SelectItem value="monday">Monday</SelectItem>
                 <SelectItem value="tuesday">Tuesday</SelectItem>
                 <SelectItem value="wednesday">Wednesday</SelectItem>

@@ -17,7 +17,11 @@ import { queryClient } from "../lib/queryClient";
 import { deleteBazzaRoute } from "../services/bazzaService";
 import { useToast } from "../hooks/use-toast";
 
-export default function MaintenanceList() {
+interface MaintenanceListProps {
+  defaultTab?: 'list' | 'routes';
+}
+
+export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceListProps) {
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
@@ -31,19 +35,19 @@ export default function MaintenanceList() {
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
   const [routeToEdit, setRouteToEdit] = useState<BazzaRoute | undefined>(undefined);
   
-  // State for active tab - check sessionStorage for initial value
+  // State for active tab - use the defaultTab prop or current URL path
+  const [location] = useLocation();
   const [activeTab, setActiveTab] = useState<'list' | 'routes'>(() => {
-    // Check sessionStorage for saved tab preference
-    const savedTab = sessionStorage.getItem('maintenanceActiveTab');
-    console.log("Saved tab from sessionStorage:", savedTab);
-    return (savedTab === 'routes') ? 'routes' : 'list';
+    // If URL is /maintenance/routes, set the tab to 'routes' regardless of defaultTab
+    if (location === '/maintenance/routes') {
+      return 'routes';
+    }
+    return defaultTab;
   });
   
-  // Effect to save tab selection to sessionStorage
+  // Log tab changes for debugging
   useEffect(() => {
-    // Save current tab to sessionStorage when it changes
-    sessionStorage.setItem('maintenanceActiveTab', activeTab);
-    console.log("Saved tab to sessionStorage:", activeTab);
+    console.log("Active tab changed to:", activeTab);
   }, [activeTab]);
 
   // Fetch maintenance data
@@ -144,11 +148,21 @@ export default function MaintenanceList() {
     if (value === 'list' || value === 'routes') {
       console.log("Tab changed to:", value);
       setActiveTab(value);
+      
       // Reset route details view when switching tabs
       setIsViewingRouteDetails(false);
       setSelectedRoute(null);
       
-      // Session storage is updated via the useEffect hook
+      // Update URL based on tab without duplicating navigation
+      const currentPath = location;
+      const targetPath = value === 'list' ? '/maintenance/list' : '/maintenance/routes';
+      
+      // Only navigate if we're not already on the correct path
+      if (currentPath !== targetPath) {
+        navigate(targetPath);
+      }
+      
+      // Tab change logged via the useEffect hook
     }
   };
 
@@ -198,11 +212,11 @@ export default function MaintenanceList() {
             <Map className="h-4 w-4 mr-2" />
             Map View
           </TabsTrigger>
-          <TabsTrigger value="list">
+          <TabsTrigger value="list" onClick={() => navigate("/maintenance/list")}>
             <ListFilter className="h-4 w-4 mr-2" />
             List View
           </TabsTrigger>
-          <TabsTrigger value="routes">
+          <TabsTrigger value="routes" onClick={() => navigate("/maintenance/routes")}>
             <Route className="h-4 w-4 mr-2" />
             Routes
           </TabsTrigger>

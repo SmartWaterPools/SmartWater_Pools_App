@@ -110,10 +110,9 @@ export default function MaintenanceMap() {
             List View
           </TabsTrigger>
           <TabsTrigger value="routes" onClick={() => {
-              console.log("Navigating to maintenance routes");
-              // Set a session storage value to indicate we want the routes tab
-              sessionStorage.setItem('maintenanceActiveTab', 'routes');
-              navigate("/maintenance/list");
+              console.log("Navigating directly to MaintenanceList");
+              // Instead of relying on sessionStorage, create a dedicated route
+              navigate("/maintenance/routes");
             }}>
             <Route className="h-4 w-4 mr-2" />
             Routes
