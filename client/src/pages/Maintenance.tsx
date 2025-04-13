@@ -439,7 +439,7 @@ export default function Maintenance() {
           <Card>
             <CardContent className="p-6">
               <TechnicianRoutesView 
-                technicians={technicians?.filter(t => t.active) || []}
+                technicians={technicians ? technicians.filter(t => t && (t.active !== false)) : []}
                 maintenances={filteredMaintenances || []}
                 selectedTechnicianId={selectedTechnician}
                 onTechnicianSelect={setSelectedTechnician}
@@ -506,7 +506,7 @@ export default function Maintenance() {
           isOpen={isRouteFormOpen}
           onClose={() => setIsRouteFormOpen(false)}
           route={route}
-          technicians={technicians?.filter(t => t.active) || []}
+          technicians={technicians ? technicians.filter(t => t && (t.active !== false)) : []}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
             setIsRouteFormOpen(false);

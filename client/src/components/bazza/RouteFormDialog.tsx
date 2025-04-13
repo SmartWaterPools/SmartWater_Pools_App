@@ -99,9 +99,8 @@ export function RouteFormDialog({
   const createMutation = useMutation({
     mutationFn: (data: Omit<BazzaRoute, 'id'>) => createBazzaRoute(data),
     onSuccess: (newRoute) => {
-      import('../../lib/queryClient').then(({ queryClient }) => {
-        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
-      });
+      // Use the imported queryClient directly
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
       toast({
         title: 'Route created',
         description: 'The route has been created successfully.',
@@ -122,9 +121,8 @@ export function RouteFormDialog({
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<BazzaRoute> }) => updateBazzaRoute(id, data),
     onSuccess: (updatedRoute) => {
-      import('../../lib/queryClient').then(({ queryClient }) => {
-        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
-      });
+      // Use the imported queryClient directly
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
       toast({
         title: 'Route updated',
         description: 'The route has been updated successfully.',

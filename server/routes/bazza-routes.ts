@@ -33,24 +33,6 @@ router.get("/routes", isAuthenticated, async (req: Request, res: Response) => {
   }
 });
 
-// Get a specific bazza route
-router.get("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    console.log(`[BAZZA ROUTES API] Processing request for bazza route ID: ${id}`);
-    
-    const route = await storage.getBazzaRoute(id);
-    if (!route) {
-      return res.status(404).json({ error: "Bazza route not found" });
-    }
-    
-    res.json(route);
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error fetching bazza route ${req.params.id}:`, error);
-    res.status(500).json({ error: "Failed to fetch bazza route" });
-  }
-});
-
 // Create a new bazza route
 router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
   try {
@@ -93,30 +75,6 @@ router.put("/routes/:id", isAuthenticated, async (req: Request, res: Response) =
   }
 });
 
-// Delete a bazza route
-router.delete("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    console.log(`[BAZZA ROUTES API] Processing request to delete bazza route ID: ${id}`);
-    
-    // Check if route exists
-    const existingRoute = await storage.getBazzaRoute(id);
-    if (!existingRoute) {
-      return res.status(404).json({ error: "Bazza route not found" });
-    }
-    
-    const result = await storage.deleteBazzaRoute(id);
-    if (result) {
-      res.status(204).end();
-    } else {
-      res.status(500).json({ error: "Failed to delete bazza route" });
-    }
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error deleting bazza route ${req.params.id}:`, error);
-    res.status(500).json({ error: "Failed to delete bazza route" });
-  }
-});
-
 // Get bazza routes by technician ID
 router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Request, res: Response) => {
   try {
@@ -145,9 +103,51 @@ router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: 
   }
 });
 
+// Get a specific bazza route by ID
+router.get("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    console.log(`[BAZZA ROUTES API] Processing request for bazza route ID: ${id}`);
+    
+    const route = await storage.getBazzaRoute(id);
+    if (!route) {
+      return res.status(404).json({ error: "Bazza route not found" });
+    }
+    
+    res.json(route);
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error fetching bazza route ${req.params.id}:`, error);
+    res.status(500).json({ error: "Failed to fetch bazza route" });
+  }
+});
+
+// Delete a bazza route
+router.delete("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    console.log(`[BAZZA ROUTES API] Processing request to delete bazza route ID: ${id}`);
+    
+    // Check if route exists
+    const existingRoute = await storage.getBazzaRoute(id);
+    if (!existingRoute) {
+      return res.status(404).json({ error: "Bazza route not found" });
+    }
+    
+    const result = await storage.deleteBazzaRoute(id);
+    if (result) {
+      res.status(204).end();
+    } else {
+      res.status(500).json({ error: "Failed to delete bazza route" });
+    }
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error deleting bazza route ${req.params.id}:`, error);
+    res.status(500).json({ error: "Failed to delete bazza route" });
+  }
+});
+
 // Bazza Route Stop endpoints
 
-// Get route stops for a specific route
+// Get route stops for a specific route - make sure this comes after /routes/technician/ and /routes/day/ routes
 router.get("/routes/:routeId/stops", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const routeId = parseInt(req.params.routeId);
@@ -262,7 +262,7 @@ router.post("/routes/:routeId/reorder-stops", isAuthenticated, async (req: Reque
 
 // Bazza Maintenance Assignment endpoints
 
-// Get maintenance assignments for a specific route
+// Get maintenance assignments for a specific route - make sure this comes after specific routes but before generic ID routes
 router.get("/routes/:routeId/assignments", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const routeId = parseInt(req.params.routeId);
