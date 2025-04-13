@@ -109,7 +109,12 @@ export default function MaintenanceMap() {
             <ListFilter className="h-4 w-4 mr-2" />
             List View
           </TabsTrigger>
-          <TabsTrigger value="routes" onClick={() => navigate("/maintenance/list?tab=routes")}>
+          <TabsTrigger value="routes" onClick={() => {
+              console.log("Navigating to maintenance routes");
+              // Set a session storage value to indicate we want the routes tab
+              sessionStorage.setItem('maintenanceActiveTab', 'routes');
+              navigate("/maintenance/list");
+            }}>
             <Route className="h-4 w-4 mr-2" />
             Routes
           </TabsTrigger>

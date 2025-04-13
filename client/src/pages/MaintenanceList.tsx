@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { CalendarDays, Map, ListFilter, PlusCircle, Route, Search } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -31,13 +31,20 @@ export default function MaintenanceList() {
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
   const [routeToEdit, setRouteToEdit] = useState<BazzaRoute | undefined>(undefined);
   
-  // State for active tab - check URL parameters for initial value
+  // State for active tab - check sessionStorage for initial value
   const [activeTab, setActiveTab] = useState<'list' | 'routes'>(() => {
-    // Check if URL has ?tab=routes parameter
-    const params = new URLSearchParams(window.location.search);
-    const tabParam = params.get('tab');
-    return (tabParam === 'routes') ? 'routes' : 'list';
+    // Check sessionStorage for saved tab preference
+    const savedTab = sessionStorage.getItem('maintenanceActiveTab');
+    console.log("Saved tab from sessionStorage:", savedTab);
+    return (savedTab === 'routes') ? 'routes' : 'list';
   });
+  
+  // Effect to save tab selection to sessionStorage
+  useEffect(() => {
+    // Save current tab to sessionStorage when it changes
+    sessionStorage.setItem('maintenanceActiveTab', activeTab);
+    console.log("Saved tab to sessionStorage:", activeTab);
+  }, [activeTab]);
 
   // Fetch maintenance data
   const { data: maintenances, isLoading, error } = useQuery<MaintenanceWithDetails[]>({
@@ -135,10 +142,13 @@ export default function MaintenanceList() {
 
   const handleTabChange = (value: string) => {
     if (value === 'list' || value === 'routes') {
+      console.log("Tab changed to:", value);
       setActiveTab(value);
       // Reset route details view when switching tabs
       setIsViewingRouteDetails(false);
       setSelectedRoute(null);
+      
+      // Session storage is updated via the useEffect hook
     }
   };
 
