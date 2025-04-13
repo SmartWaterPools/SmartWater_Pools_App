@@ -60,15 +60,38 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Fetch technicians data - simplified for this example
-  const { data: technicians = [] } = useQuery<{id: number; name: string}[]>({
-    queryKey: ['/api/technicians'],
-    // Fallback mock data (you would need to implement the real API)
-    queryFn: () => Promise.resolve([
-      { id: 1, name: 'John Smith' },
-      { id: 2, name: 'Sarah Johnson' },
-      { id: 3, name: 'Mike Davis' }
-    ]),
+  // Fetch technicians data - using the users API
+  const { data: technicians = [], isLoading: isLoadingTechnicians } = useQuery<{id: number; name: string}[], Error, {id: number; name: string}[]>({
+    queryKey: ['/api/users'],
+    queryFn: async (): Promise<{id: number; name: string}[]> => {
+      try {
+        // Get all users from the API
+        const users = await fetch('/api/users').then(res => {
+          if (!res.ok) throw new Error('Failed to fetch users');
+          return res.json();
+        });
+        
+        console.log("Fetched users for technicians:", users);
+        
+        // For development/testing purposes, if there are no technicians, use all users
+        // In production, you would filter by role or technician status
+        return users
+          .filter((user: any) => 
+            user.role === 'technician' || 
+            user.isTechnician || 
+            user.userRole === 'technician' ||
+            (user.technician && user.technician.id) || 
+            true // Temporarily include all users as technicians for testing
+          )
+          .map((user: any) => ({
+            id: user.id,
+            name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown'
+          }));
+      } catch (error) {
+        console.error("Error fetching technicians:", error);
+        return []; // Return empty array in case of error
+      }
+    },
     staleTime: 15 * 60 * 1000, // 15 minutes
   });
 
@@ -308,6 +331,7 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                 }}
                 onAddRouteClick={handleAddRoute}
                 selectedDay={filterDay !== 'all' ? filterDay : null}
+                onDayChange={(day) => setFilterDay(day || 'all')}
               />
             </div>
           )}

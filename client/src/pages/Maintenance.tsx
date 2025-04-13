@@ -44,13 +44,15 @@ import { MaintenanceCalendar } from "../components/maintenance/MaintenanceCalend
 import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
 import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
+import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
 import { MaintenanceForm } from "../components/maintenance/MaintenanceForm";
 import { MaintenanceReportForm } from "../components/maintenance/MaintenanceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
   getStatusClasses,
-  formatMaintenanceType
+  formatMaintenanceType,
+  BazzaRoute
 } from "../lib/types";
 import { format, addMonths, subMonths, isSameDay, isToday, parseISO } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -73,6 +75,8 @@ export default function Maintenance() {
   const [selectedView, setSelectedView] = useState<string>("calendar");
   const [selectedTechnician, setSelectedTechnician] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
+  const [route, setRoute] = useState<BazzaRoute | undefined>(undefined);
 
   // Fetch technicians
   const { data: technicians } = useQuery<any[]>({
@@ -439,19 +443,17 @@ export default function Maintenance() {
                 maintenances={filteredMaintenances || []}
                 selectedTechnicianId={selectedTechnician}
                 onTechnicianSelect={setSelectedTechnician}
-                onRouteSelect={(route) => {
+                onRouteSelect={(selectedRoute) => {
                   // Handle route selection if needed
+                  setRoute(selectedRoute);
                   toast({
                     title: "Route selected",
-                    description: `Selected route: ${route.name}`,
+                    description: `Selected route: ${selectedRoute.name}`,
                   });
                 }}
                 onAddRouteClick={() => {
-                  // Handle adding route if needed
-                  toast({
-                    title: "Coming soon",
-                    description: "Route creation will be available in the next update.",
-                  });
+                  setRoute(undefined);
+                  setIsRouteFormOpen(true);
                 }}
               />
             </CardContent>
@@ -493,6 +495,26 @@ export default function Maintenance() {
             toast({
               title: "Maintenance report submitted",
               description: "The maintenance report has been submitted successfully.",
+            });
+          }}
+        />
+      )}
+
+      {/* Route Form Dialog */}
+      {isRouteFormOpen && (
+        <RouteFormDialog
+          isOpen={isRouteFormOpen}
+          onClose={() => setIsRouteFormOpen(false)}
+          route={route}
+          technicians={technicians?.filter(t => t.active) || []}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
+            setIsRouteFormOpen(false);
+            toast({
+              title: route ? "Route updated" : "Route created",
+              description: route 
+                ? "The route has been updated successfully." 
+                : "The new route has been created successfully.",
             });
           }}
         />

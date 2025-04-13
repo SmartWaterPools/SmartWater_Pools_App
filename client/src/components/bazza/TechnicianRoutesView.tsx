@@ -153,39 +153,37 @@ export function TechnicianRoutesView({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl font-semibold">Technician Routes</h2>
           <p className="text-sm text-muted-foreground">
             {selectedTechnicianId ? `Routes for ${technicianName}` : 'Select a technician to view their routes'}
           </p>
         </div>
-        <div className="flex gap-2">
-          <div className="w-48">
+        <div className="flex flex-col sm:flex-row w-full sm:w-auto gap-2">
+          <div className="w-full sm:w-48">
             <Select 
               value={selectedTechnicianId?.toString() || "all"} 
               onValueChange={(value) => onTechnicianSelect(value === "all" ? null : parseInt(value))}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Technician" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Technicians</SelectItem>
                 {technicians && technicians.length > 0 ? (
-                  <>
-                    <SelectItem value="all">All Technicians</SelectItem>
-                    {technicians.map(technician => (
-                      <SelectItem key={technician.id} value={technician.id.toString()}>
-                        {technician.name}
-                      </SelectItem>
-                    ))}
-                  </>
+                  technicians.map(technician => (
+                    <SelectItem key={technician.id} value={technician.id.toString()}>
+                      {technician.name}
+                    </SelectItem>
+                  ))
                 ) : (
-                  <SelectItem value="none">No technicians available</SelectItem>
+                  <SelectItem value="none" disabled>Loading technicians...</SelectItem>
                 )}
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={onAddRouteClick} variant="outline" size="sm">
+          <Button onClick={onAddRouteClick} variant="outline" size="sm" className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-1" />
             Add Route
           </Button>
@@ -193,25 +191,27 @@ export function TechnicianRoutesView({
       </div>
 
       <Tabs defaultValue={viewType} onValueChange={(value) => setViewType(value as 'list' | 'calendar')}>
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <TabsList>
             <TabsTrigger value="list">
-              <ListOrdered className="h-4 w-4 mr-2" />
-              List View
+              <ListOrdered className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">List View</span>
+              <span className="inline sm:hidden">List</span>
             </TabsTrigger>
             <TabsTrigger value="calendar">
-              <Calendar className="h-4 w-4 mr-2" />
-              Calendar View
+              <Calendar className="h-4 w-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">Calendar View</span>
+              <span className="inline sm:hidden">Calendar</span>
             </TabsTrigger>
           </TabsList>
           
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 w-full sm:w-auto">
             <Label htmlFor="day-filter" className="text-sm">Filter by day:</Label>
             <Select 
               value={selectedDay || "all"} 
               onValueChange={(value) => handleDayChange(value === "all" ? null : value)}
             >
-              <SelectTrigger id="day-filter" className="w-[150px]">
+              <SelectTrigger id="day-filter" className="w-full sm:w-[150px]">
                 <SelectValue placeholder="All Days" />
               </SelectTrigger>
               <SelectContent>
@@ -300,15 +300,18 @@ export function TechnicianRoutesView({
                 'Select a technician to view their routes'}
             </div>
           ) : (
-            <div className="grid grid-cols-7 gap-2">
-              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                <div key={day} className="text-center font-medium text-sm p-2 bg-gray-100 rounded">
-                  {day}
-                </div>
-              ))}
+            <div className="grid grid-cols-1 sm:grid-cols-7 gap-2">
+              <div className="hidden sm:grid sm:grid-cols-7 sm:col-span-7 gap-2">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                  <div key={day} className="text-center font-medium text-sm p-2 bg-gray-100 rounded">
+                    {day}
+                  </div>
+                ))}
+              </div>
               {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
                 const dayRoutes = filteredRoutes.filter((route: BazzaRoute) => route.dayOfWeek.toLowerCase() === day);
                 const hasRoutes = dayRoutes.length > 0;
+                const dayLabel = day.charAt(0).toUpperCase() + day.slice(1);
                 
                 return (
                   <div 
@@ -322,6 +325,7 @@ export function TechnicianRoutesView({
                       }
                     }}
                   >
+                    <div className="sm:hidden font-medium text-sm mb-2 text-center">{dayLabel}</div>
                     {hasRoutes ? (
                       <div className="space-y-2">
                         {dayRoutes.map((route: BazzaRoute) => (
