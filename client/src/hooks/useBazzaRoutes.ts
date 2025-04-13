@@ -27,18 +27,19 @@ export function useBazzaRoutes() {
 
 export function useBazzaRoutesByTechnician(technicianId: number | null) {
   const { 
-    data: technicianRoutes, 
+    data: technicianRoutes = [], 
     isLoading: isTechnicianRoutesLoading, 
     error: technicianRoutesError 
   } = useQuery({
     queryKey: ['/api/bazza/routes/technician', technicianId],
     queryFn: () => technicianId ? fetchBazzaRoutesByTechnician(technicianId) : Promise.resolve([]),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: technicianId !== null
+    enabled: technicianId !== null && technicianId !== undefined,
+    refetchOnWindowFocus: false
   });
 
   return {
-    technicianRoutes,
+    technicianRoutes: technicianRoutes || [],
     isTechnicianRoutesLoading,
     technicianRoutesError
   };

@@ -21,20 +21,16 @@ import { Spinner } from "../../components/ui/spinner";
 import { useBazzaRoutesByTechnician } from "../../hooks/useBazzaRoutes";
 import { BazzaRoute, BazzaRouteStop, MaintenanceWithDetails } from "../../lib/types";
 
-// First formatTime function has been removed to avoid duplicate declaration
-
 // Icons
 import { 
   Calendar, 
   Clock, 
   ListOrdered, 
   MapPin, 
-  MoreHorizontal, 
   Plus, 
-  Route, 
   UserCheck 
-} from 'lucide-react';
-import { format, isToday, parseISO } from 'date-fns';
+} from "lucide-react";
+import { format } from "date-fns";
 
 type TechnicianRoutesViewProps = {
   technicians: { id: number; name: string }[];
@@ -55,7 +51,7 @@ export function TechnicianRoutesView({
 }: TechnicianRoutesViewProps) {
   // Get routes for selected technician
   const { 
-    technicianRoutes, 
+    technicianRoutes = [], 
     isTechnicianRoutesLoading, 
     technicianRoutesError 
   } = useBazzaRoutesByTechnician(selectedTechnicianId);
@@ -68,10 +64,12 @@ export function TechnicianRoutesView({
 
   // Function to filter routes by day
   const filteredRoutes = React.useMemo(() => {
-    if (!technicianRoutes) return [];
+    if (!technicianRoutes || !Array.isArray(technicianRoutes)) return [];
     
     if (selectedDay) {
-      return technicianRoutes.filter((route: BazzaRoute) => route.dayOfWeek.toLowerCase() === selectedDay.toLowerCase());
+      return technicianRoutes.filter((route: BazzaRoute) => 
+        route && route.dayOfWeek && route.dayOfWeek.toLowerCase() === selectedDay.toLowerCase()
+      );
     }
     
     return technicianRoutes;
@@ -132,207 +130,204 @@ export function TechnicianRoutesView({
   }
 
   return (
-    <Card className="shadow">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-center">
-          <div>
-            <CardTitle className="text-xl">Technician Routes</CardTitle>
-            <CardDescription>
-              {selectedTechnicianId ? `Routes for ${technicianName}` : 'Select a technician to view their routes'}
-            </CardDescription>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-xl font-semibold">Technician Routes</h2>
+          <p className="text-sm text-muted-foreground">
+            {selectedTechnicianId ? `Routes for ${technicianName}` : 'Select a technician to view their routes'}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <div className="w-48">
+            <Select 
+              value={selectedTechnicianId?.toString() || ''} 
+              onValueChange={(value) => onTechnicianSelect(value ? parseInt(value) : null)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select Technician" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Technicians</SelectItem>
+                {technicians.map(technician => (
+                  <SelectItem key={technician.id} value={technician.id.toString()}>
+                    {technician.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <div className="flex gap-2">
-            <div className="w-48">
-              <Select 
-                value={selectedTechnicianId?.toString() || ''} 
-                onValueChange={(value) => onTechnicianSelect(value ? parseInt(value) : null)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select Technician" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Technicians</SelectItem>
-                  {technicians.map(technician => (
-                    <SelectItem key={technician.id} value={technician.id.toString()}>
-                      {technician.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button onClick={onAddRouteClick} variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-1" />
-              Add Route
-            </Button>
+          <Button onClick={onAddRouteClick} variant="outline" size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Route
+          </Button>
+        </div>
+      </div>
+
+      <Tabs defaultValue={viewType} onValueChange={(value) => setViewType(value as 'list' | 'calendar')}>
+        <div className="flex justify-between items-center mb-4">
+          <TabsList>
+            <TabsTrigger value="list">
+              <ListOrdered className="h-4 w-4 mr-2" />
+              List View
+            </TabsTrigger>
+            <TabsTrigger value="calendar">
+              <Calendar className="h-4 w-4 mr-2" />
+              Calendar View
+            </TabsTrigger>
+          </TabsList>
+          
+          <div className="flex items-center gap-2">
+            <Label htmlFor="day-filter" className="text-sm">Filter by day:</Label>
+            <Select 
+              value={selectedDay || ''} 
+              onValueChange={(value) => setSelectedDay(value || null)}
+            >
+              <SelectTrigger id="day-filter" className="w-[150px]">
+                <SelectValue placeholder="All Days" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Days</SelectItem>
+                <SelectItem value="monday">Monday</SelectItem>
+                <SelectItem value="tuesday">Tuesday</SelectItem>
+                <SelectItem value="wednesday">Wednesday</SelectItem>
+                <SelectItem value="thursday">Thursday</SelectItem>
+                <SelectItem value="friday">Friday</SelectItem>
+                <SelectItem value="saturday">Saturday</SelectItem>
+                <SelectItem value="sunday">Sunday</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-      </CardHeader>
-      <CardContent>
-        <Tabs defaultValue={viewType} onValueChange={(value) => setViewType(value as 'list' | 'calendar')}>
-          <div className="flex justify-between items-center mb-4">
-            <TabsList>
-              <TabsTrigger value="list">
-                <ListOrdered className="h-4 w-4 mr-2" />
-                List View
-              </TabsTrigger>
-              <TabsTrigger value="calendar">
-                <Calendar className="h-4 w-4 mr-2" />
-                Calendar View
-              </TabsTrigger>
-            </TabsList>
-            
-            <div className="flex items-center gap-2">
-              <Label htmlFor="day-filter" className="text-sm">Filter by day:</Label>
-              <Select 
-                value={selectedDay || ''} 
-                onValueChange={(value) => setSelectedDay(value || null)}
-              >
-                <SelectTrigger id="day-filter" className="w-[150px]">
-                  <SelectValue placeholder="All Days" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="">All Days</SelectItem>
-                  <SelectItem value="monday">Monday</SelectItem>
-                  <SelectItem value="tuesday">Tuesday</SelectItem>
-                  <SelectItem value="wednesday">Wednesday</SelectItem>
-                  <SelectItem value="thursday">Thursday</SelectItem>
-                  <SelectItem value="friday">Friday</SelectItem>
-                  <SelectItem value="saturday">Saturday</SelectItem>
-                  <SelectItem value="sunday">Sunday</SelectItem>
-                </SelectContent>
-              </Select>
+
+        <TabsContent value="list" className="space-y-4">
+          {filteredRoutes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {selectedTechnicianId ? 
+                selectedDay ? 
+                  `No routes found for ${technicianName} on ${selectedDay}` : 
+                  `No routes found for ${technicianName}` : 
+                'Select a technician to view their routes'}
             </div>
-          </div>
-
-          <TabsContent value="list" className="space-y-4">
-            {filteredRoutes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                {selectedTechnicianId ? 
-                  selectedDay ? 
-                    `No routes found for ${technicianName} on ${selectedDay}` : 
-                    `No routes found for ${technicianName}` : 
-                  'Select a technician to view their routes'}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredRoutes.map((route: BazzaRoute) => (
-                  <Card 
-                    key={route.id} 
-                    className="cursor-pointer hover:border-primary/50 transition-colors"
-                    onClick={() => onRouteSelect && onRouteSelect(route)}
-                  >
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between">
-                        <CardTitle className="text-base">{route.name}</CardTitle>
-                        <Badge className={getDayColor(route.dayOfWeek)}>
-                          {route.dayOfWeek}
-                        </Badge>
-                      </div>
-                      <CardDescription className="text-xs">
-                        {route.description || 'No description'}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center text-sm">
-                          <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>
-                            {route.startTime ? (
-                              <>
-                                {formatTime(route.startTime)}
-                                {route.endTime ? ` - ${formatTime(route.endTime)}` : ''}
-                              </>
-                            ) : (
-                              'Flexible timing'
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex items-center text-sm">
-                          <UserCheck className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>{technicianName}</span>
-                        </div>
-                        <div className="flex items-center text-sm">
-                          <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                          <span>
-                            {/* Here you'd typically show number of stops or locations */}
-                            {Math.floor(Math.random() * 10) + 1} stops
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="calendar" className="space-y-4">
-            {filteredRoutes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                {selectedTechnicianId ? 
-                  selectedDay ? 
-                    `No routes found for ${technicianName} on ${selectedDay}` : 
-                    `No routes found for ${technicianName}` : 
-                  'Select a technician to view their routes'}
-              </div>
-            ) : (
-              <div className="grid grid-cols-7 gap-2">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
-                  <div key={day} className="text-center font-medium text-sm p-2 bg-gray-100 rounded">
-                    {day}
-                  </div>
-                ))}
-                {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
-                  const dayRoutes = filteredRoutes.filter((route: BazzaRoute) => route.dayOfWeek.toLowerCase() === day);
-                  const hasRoutes = dayRoutes.length > 0;
-                  
-                  return (
-                    <div 
-                      key={day}
-                      className={`border rounded-md p-3 min-h-[120px] ${
-                        selectedDay === day ? 'border-primary/70 bg-primary/5' : 'hover:border-gray-300'
-                      } ${hasRoutes ? 'cursor-pointer' : ''}`}
-                      onClick={() => hasRoutes && setSelectedDay(day)}
-                    >
-                      {hasRoutes ? (
-                        <div className="space-y-2">
-                          {dayRoutes.map((route: BazzaRoute) => (
-                            <div 
-                              key={route.id}
-                              className="text-xs p-2 rounded bg-white border shadow-sm hover:shadow-md cursor-pointer transition-shadow"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onRouteSelect && onRouteSelect(route);
-                              }}
-                            >
-                              <div className="font-medium truncate">{route.name}</div>
-                              <div className="flex items-center text-muted-foreground mt-1">
-                                <Clock className="h-3 w-3 mr-1" />
-                                <span>
-                                  {route.startTime ? formatTime(route.startTime) : 'Flexible'}
-                                </span>
-                              </div>
-                              <div className="flex items-center text-muted-foreground mt-1">
-                                <UserCheck className="h-3 w-3 mr-1" />
-                                <span>{technicianName}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center h-full">
-                          <span className="text-xs text-gray-400">No routes</span>
-                        </div>
-                      )}
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredRoutes.map((route: BazzaRoute) => (
+                <Card 
+                  key={route.id} 
+                  className="cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => onRouteSelect && onRouteSelect(route)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between">
+                      <CardTitle className="text-base">{route.name}</CardTitle>
+                      <Badge className={getDayColor(route.dayOfWeek)}>
+                        {route.dayOfWeek}
+                      </Badge>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
-      </CardContent>
-    </Card>
+                    <CardDescription className="text-xs">
+                      {route.description || 'No description'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm">
+                        <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <span>
+                          {route.startTime ? (
+                            <>
+                              {formatTime(route.startTime)}
+                              {route.endTime ? ` - ${formatTime(route.endTime)}` : ''}
+                            </>
+                          ) : (
+                            'Flexible timing'
+                          )}
+                        </span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <UserCheck className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <span>{technicianName}</span>
+                      </div>
+                      <div className="flex items-center text-sm">
+                        <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                        <span>
+                          {/* Here you'd typically show number of stops or locations */}
+                          {Math.floor(Math.random() * 10) + 1} stops
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="calendar" className="space-y-4">
+          {filteredRoutes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {selectedTechnicianId ? 
+                selectedDay ? 
+                  `No routes found for ${technicianName} on ${selectedDay}` : 
+                  `No routes found for ${technicianName}` : 
+                'Select a technician to view their routes'}
+            </div>
+          ) : (
+            <div className="grid grid-cols-7 gap-2">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(day => (
+                <div key={day} className="text-center font-medium text-sm p-2 bg-gray-100 rounded">
+                  {day}
+                </div>
+              ))}
+              {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => {
+                const dayRoutes = filteredRoutes.filter((route: BazzaRoute) => route.dayOfWeek.toLowerCase() === day);
+                const hasRoutes = dayRoutes.length > 0;
+                
+                return (
+                  <div 
+                    key={day}
+                    className={`border rounded-md p-3 min-h-[120px] ${
+                      selectedDay === day ? 'border-primary/70 bg-primary/5' : 'hover:border-gray-300'
+                    } ${hasRoutes ? 'cursor-pointer' : ''}`}
+                    onClick={() => hasRoutes && setSelectedDay(day)}
+                  >
+                    {hasRoutes ? (
+                      <div className="space-y-2">
+                        {dayRoutes.map((route: BazzaRoute) => (
+                          <div 
+                            key={route.id}
+                            className="text-xs p-2 rounded bg-white border shadow-sm hover:shadow-md cursor-pointer transition-shadow"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRouteSelect && onRouteSelect(route);
+                            }}
+                          >
+                            <div className="font-medium truncate">{route.name}</div>
+                            <div className="flex items-center text-muted-foreground mt-1">
+                              <Clock className="h-3 w-3 mr-1" />
+                              <span>
+                                {route.startTime ? formatTime(route.startTime) : 'Flexible'}
+                              </span>
+                            </div>
+                            <div className="flex items-center text-muted-foreground mt-1">
+                              <UserCheck className="h-3 w-3 mr-1" />
+                              <span>{technicianName}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <span className="text-xs text-gray-400">No routes</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }
 

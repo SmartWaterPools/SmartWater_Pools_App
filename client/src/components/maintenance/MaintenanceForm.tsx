@@ -55,6 +55,15 @@ const maintenanceFormSchema = z.object({
 
 type MaintenanceFormValues = z.infer<typeof maintenanceFormSchema>;
 
+// Type for API submission (with string date)
+interface MaintenanceSubmitValues {
+  clientId: number;
+  technicianId: number;
+  scheduleDate: string;
+  type: string;
+  notes?: string;
+}
+
 interface MaintenanceFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -88,13 +97,15 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
 
   // Create maintenance mutation
   const createMaintenanceMutation = useMutation({
-    mutationFn: async (values: MaintenanceFormValues) => {
+    mutationFn: async (values: MaintenanceSubmitValues) => {
+      console.log("Mutation function called with values:", values);
       return await apiRequest('/api/maintenances', {
         method: 'POST',
         body: JSON.stringify(values)
       });
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("Maintenance created successfully:", data);
       queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
       queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
@@ -125,20 +136,33 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
       return;
     }
     
-    // Convert date to ISO string for backend processing
-    const formattedData = {
-      ...data,
-      scheduleDate: new Date(data.scheduleDate)
-    };
-    
-    console.log("Submitting maintenance with date:", formattedData.scheduleDate);
-    
-    setIsSubmitting(true);
-    createMaintenanceMutation.mutate(formattedData, {
-      onSettled: () => {
-        setIsSubmitting(false);
-      }
-    });
+    try {
+      // Convert date to ISO string for backend processing
+      const formattedData: MaintenanceSubmitValues = {
+        clientId: Number(data.clientId),
+        technicianId: Number(data.technicianId),
+        scheduleDate: data.scheduleDate.toISOString(),
+        type: data.type,
+        notes: data.notes
+      };
+      
+      console.log("Submitting maintenance with data:", formattedData);
+      
+      setIsSubmitting(true);
+      createMaintenanceMutation.mutate(formattedData, {
+        onSettled: () => {
+          setIsSubmitting(false);
+        }
+      });
+    } catch (error) {
+      console.error("Error formatting maintenance data:", error);
+      toast({
+        title: "Form submission error",
+        description: "There was a problem with the form data. Please check all fields and try again.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+    }
   }
 
   // Format maintenance type for display
