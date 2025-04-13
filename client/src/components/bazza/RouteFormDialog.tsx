@@ -47,7 +47,8 @@ const routeFormSchema = z.object({
   type: z.string().min(1, 'Type is required'),
   technicianId: z.union([
     z.string().transform(val => val === '' ? null : parseInt(val, 10)),
-    z.number().nullable()
+    z.number().nullable(),
+    z.null()
   ]),
   dayOfWeek: z.string().min(1, 'Day of week is required'),
   startTime: z.string().nullable().optional(),
@@ -83,9 +84,9 @@ export function RouteFormDialog({
       name: route?.name || '',
       description: route?.description || '',
       type: route?.type || 'standard',
-      technicianId: route?.technicianId === null ? '' : 
+      technicianId: route?.technicianId === null ? null : 
                   route?.technicianId !== undefined ?
-                  route.technicianId.toString() : '',
+                  route.technicianId : null,
       dayOfWeek: route?.dayOfWeek || '',
       startTime: route?.startTime || '',
       endTime: route?.endTime || '',
@@ -247,7 +248,8 @@ export function RouteFormDialog({
                     <FormLabel>Technician</FormLabel>
                     <Select 
                       onValueChange={field.onChange} 
-                      value={field.value?.toString() || ''}
+                      value={field.value === null ? '' : 
+                            typeof field.value === 'number' ? field.value.toString() : (field.value || '')}
                     >
                       <FormControl>
                         <SelectTrigger>

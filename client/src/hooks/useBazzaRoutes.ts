@@ -34,7 +34,7 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
     queryKey: ['/api/bazza/routes/technician', technicianId],
     queryFn: () => technicianId ? fetchBazzaRoutesByTechnician(technicianId) : Promise.resolve([]),
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: !!technicianId
+    enabled: technicianId !== null
   });
 
   return {

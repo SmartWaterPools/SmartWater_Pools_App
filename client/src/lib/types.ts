@@ -342,3 +342,26 @@ export interface ClientWithUser {
   companyName?: string;
   contractType?: string | null;
 }
+
+// Technician with User interface
+export interface TechnicianWithUser {
+  id: number;
+  userId: number;
+  organizationId: number;
+  specialization?: string;
+  certifications?: string[];
+  status?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    role: string;
+    organizationId: number | null;
+    phone?: string;
+    address?: string;
+    photoUrl?: string;
+  };
+}

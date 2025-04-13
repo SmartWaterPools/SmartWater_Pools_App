@@ -99,10 +99,10 @@ export function MaintenanceMapView({
     let hasValidCoordinates = false;
 
     maintenances.forEach(maintenance => {
-      if (maintenance.client?.latitude && maintenance.client?.longitude) {
+      if (maintenance.client?.client?.latitude && maintenance.client?.client?.longitude) {
         bounds.extend({
-          lat: maintenance.client.latitude,
-          lng: maintenance.client.longitude
+          lat: maintenance.client.client.latitude,
+          lng: maintenance.client.client.longitude
         });
         hasValidCoordinates = true;
       }
@@ -163,12 +163,12 @@ export function MaintenanceMapView({
           {(clusterer) => (
             <div>
               {maintenances.map((maintenance) => (
-                maintenance.client?.latitude && maintenance.client?.longitude && (
+                maintenance.client?.client?.latitude && maintenance.client?.client?.longitude && (
                   <Marker
                     key={maintenance.id}
                     position={{
-                      lat: maintenance.client.latitude,
-                      lng: maintenance.client.longitude
+                      lat: maintenance.client.client.latitude,
+                      lng: maintenance.client.client.longitude
                     }}
                     onClick={() => setSelectedMaintenance(maintenance)}
                     clusterer={clusterer}
@@ -181,7 +181,7 @@ export function MaintenanceMapView({
 
         {/* Tooltips on markers */}
         {maintenances.map((maintenance) => (
-          maintenance.client?.latitude && maintenance.client?.longitude && (
+          maintenance.client?.client?.latitude && maintenance.client?.client?.longitude && (
             <TooltipProvider key={`tooltip-${maintenance.id}`}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -206,8 +206,8 @@ export function MaintenanceMapView({
         {selectedMaintenance && selectedMaintenance.client && (
           <InfoWindow
             position={{
-              lat: selectedMaintenance.client.latitude || defaultCenter.lat,
-              lng: selectedMaintenance.client.longitude || defaultCenter.lng
+              lat: selectedMaintenance.client.client?.latitude || defaultCenter.lat,
+              lng: selectedMaintenance.client.client?.longitude || defaultCenter.lng
             }}
             onCloseClick={() => setSelectedMaintenance(null)}
           >
@@ -222,7 +222,7 @@ export function MaintenanceMapView({
                   </Badge>
                 </div>
                 <div className="text-sm mb-2">
-                  <p><span className="font-medium">Address:</span> {selectedMaintenance.client.address || "No address"}</p>
+                  <p><span className="font-medium">Address:</span> {selectedMaintenance.client.client?.address || "No address"}</p>
                   <p><span className="font-medium">Date:</span> {formatDate(selectedMaintenance.scheduleDate)}</p>
                   {selectedMaintenance.startTime && (
                     <p><span className="font-medium">Time:</span> {new Date(selectedMaintenance.startTime).toLocaleTimeString()}</p>

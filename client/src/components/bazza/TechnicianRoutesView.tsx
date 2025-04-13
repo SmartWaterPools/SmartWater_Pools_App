@@ -21,29 +21,7 @@ import { Spinner } from "../../components/ui/spinner";
 import { useBazzaRoutesByTechnician } from "../../hooks/useBazzaRoutes";
 import { BazzaRoute, BazzaRouteStop, MaintenanceWithDetails } from "../../lib/types";
 
-/**
- * Format a time string (HH:MM:SS) to 12-hour format
- */
-const formatTime = (timeStr: string): string => {
-  if (!timeStr) return 'Flexible';
-  
-  try {
-    // Split the time string to get hours and minutes
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    
-    // Determine AM/PM
-    const period = hours >= 12 ? 'PM' : 'AM';
-    
-    // Convert to 12-hour format
-    const hours12 = hours % 12 || 12;
-    
-    // Format the output
-    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  } catch (error) {
-    console.error('Error formatting time:', error);
-    return timeStr;
-  }
-};
+// First formatTime function has been removed to avoid duplicate declaration
 
 // Icons
 import { 

@@ -89,7 +89,10 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
   // Create maintenance mutation
   const createMaintenanceMutation = useMutation({
     mutationFn: async (values: MaintenanceFormValues) => {
-      return await apiRequest('/api/maintenances', 'POST', values);
+      return await apiRequest('/api/maintenances', {
+        method: 'POST',
+        body: JSON.stringify(values)
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
@@ -171,7 +174,7 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
                     </FormControl>
                     <SelectContent>
                       {clients?.map((client) => (
-                        <SelectItem key={client.id} value={client.id.toString()}>
+                        <SelectItem key={client.id || 0} value={(client.id || 0).toString()}>
                           {client.user.name} {client.companyName ? `(${client.companyName})` : ''}
                         </SelectItem>
                       ))}

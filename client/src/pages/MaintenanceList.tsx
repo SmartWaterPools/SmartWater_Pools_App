@@ -95,7 +95,7 @@ export default function MaintenanceList() {
   // Filter maintenances based on search term
   const filteredMaintenances = maintenances?.filter(maintenance => {
     const clientName = maintenance.client.user?.name?.toLowerCase() || "";
-    const clientAddress = maintenance.client.address?.toLowerCase() || "";
+    const clientAddress = maintenance.client.client?.address?.toLowerCase() || "";
     const searchLower = searchTerm.toLowerCase();
     
     return clientName.includes(searchLower) || 
