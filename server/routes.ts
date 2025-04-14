@@ -33,6 +33,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register bazza routes with /api/bazza prefix
   app.use("/api/bazza", bazzaRoutes);
+  
+  // Get technicians endpoint
+  app.get("/api/technicians", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("[TECHNICIANS API] Processing request for technicians list");
+      const reqUser = req.user as any;
+      
+      // Log user details for debugging
+      console.log(`[TECHNICIANS API] Request by user:`, {
+        id: reqUser.id,
+        name: reqUser.name,
+        email: reqUser.email,
+        role: reqUser.role,
+        organizationId: reqUser.organizationId
+      });
+      
+      // Fetch technicians based on user's permissions
+      let technicians;
+      
+      if (reqUser.role === 'system_admin') {
+        // System admins can see all technicians
+        technicians = await storage.getTechnicians();
+        console.log(`[TECHNICIANS API] System admin - fetching all technicians (${technicians.length})`);
+      } else if (reqUser.organizationId) {
+        // Regular users get technicians from their organization only
+        technicians = await storage.getTechniciansByOrganizationId(reqUser.organizationId);
+        console.log(`[TECHNICIANS API] Regular user - fetching technicians for organization ${reqUser.organizationId} (${technicians.length})`);
+      } else {
+        console.error("[TECHNICIANS API] User has no organization ID:", reqUser);
+        return res.status(400).json({ error: "Invalid user data - missing organization" });
+      }
+      
+      // Return technicians with basic logging
+      console.log(`[TECHNICIANS API] Returning ${technicians.length} technicians`);
+      res.json(technicians);
+    } catch (error) {
+      console.error("[TECHNICIANS API] Error processing technicians request:", error);
+      res.status(500).json({ error: "Failed to fetch technicians" });
+    }
+  });
 
   // Google OAuth routes setup for login and signup
   

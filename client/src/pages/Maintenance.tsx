@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy } from "react";
+import { useState, Suspense, lazy, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
@@ -79,9 +79,32 @@ export default function Maintenance() {
   const [route, setRoute] = useState<BazzaRoute | undefined>(undefined);
 
   // Fetch technicians
-  const { data: technicians } = useQuery<any[]>({
+  const { 
+    data: technicians, 
+    isLoading: techniciansLoading, 
+    error: techniciansError 
+  } = useQuery<any[]>({
     queryKey: ["/api/technicians"],
+    staleTime: 60 * 1000, // 1 minute
+    refetchOnWindowFocus: false,
+    // Callbacks are moved to the onSuccess/onError options 
+    // which React Query correctly supports
+    onSuccess: (data: any[]) => {
+      console.log("Successfully loaded technicians:", data?.length || 0);
+    },
+    onError: (err: Error) => {
+      console.error("Error loading technicians:", err);
+    }
   });
+  
+  // Debug technicians loading
+  useEffect(() => {
+    console.log("Technicians data:", { 
+      loading: techniciansLoading, 
+      count: technicians?.length || 0,
+      error: techniciansError ? (techniciansError as Error).message : null 
+    });
+  }, [technicians, techniciansLoading, techniciansError]);
 
   // Fetch maintenances
   const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
@@ -439,7 +462,7 @@ export default function Maintenance() {
           <Card>
             <CardContent className="p-6">
               <TechnicianRoutesView 
-                technicians={technicians ? technicians.filter(t => t && (t.active !== false)) : []}
+                technicians={technicians ? technicians.filter((t: any) => t && (t.active !== false)) : []}
                 maintenances={filteredMaintenances || []}
                 selectedTechnicianId={selectedTechnician}
                 onTechnicianSelect={setSelectedTechnician}
@@ -506,7 +529,7 @@ export default function Maintenance() {
           isOpen={isRouteFormOpen}
           onClose={() => setIsRouteFormOpen(false)}
           route={route}
-          technicians={technicians ? technicians.filter(t => t && (t.active !== false)) : []}
+          technicians={technicians ? technicians.filter((t: any) => t && (t.active !== false)) : []}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
             setIsRouteFormOpen(false);

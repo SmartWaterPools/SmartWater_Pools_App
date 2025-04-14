@@ -98,6 +98,8 @@ export interface IStorage {
   // Technician operations
   getTechnician(id: number): Promise<Technician | undefined>;
   getTechnicianByUserId(userId: number): Promise<Technician | undefined>;
+  getTechnicians(): Promise<Technician[]>;
+  getTechniciansByOrganizationId(organizationId: number): Promise<Technician[]>;
   createTechnician(technician: InsertTechnician): Promise<Technician>;
   getAllTechnicians(): Promise<Technician[]>;
   getTechnicianWithUser(id: number): Promise<{ technician: Technician; user: User } | undefined>;
@@ -4642,6 +4644,35 @@ export class DatabaseStorage implements IStorage {
 
   async getAllTechnicians(): Promise<Technician[]> {
     return await db.select().from(technicians);
+  }
+  
+  async getTechnicians(): Promise<Technician[]> {
+    // This is an alias for getAllTechnicians for API consistency
+    return await this.getAllTechnicians();
+  }
+  
+  async getTechniciansByOrganizationId(organizationId: number): Promise<Technician[]> {
+    try {
+      // First get the users in this organization
+      const orgUsers = await db.select().from(users).where(eq(users.organizationId, organizationId));
+      
+      if (!orgUsers || orgUsers.length === 0) {
+        return [];
+      }
+      
+      // Get all user IDs from this organization
+      const userIds = orgUsers.map(user => user.id);
+      
+      // Now get all technicians with these user IDs
+      const techsList = await db.select()
+        .from(technicians)
+        .where(inArray(technicians.userId, userIds));
+      
+      return techsList;
+    } catch (error) {
+      console.error("Error in getTechniciansByOrganizationId:", error);
+      return [];
+    }
   }
 
   async getTechnicianWithUser(id: number): Promise<{ technician: Technician; user: User } | undefined> {
