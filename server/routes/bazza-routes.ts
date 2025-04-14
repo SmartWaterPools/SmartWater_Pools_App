@@ -75,7 +75,12 @@ router.put("/routes/:id", isAuthenticated, async (req: Request, res: Response) =
   }
 });
 
-// Get bazza routes by technician ID
+// IMPORTANT NOTE: In Express.js, route order matters!
+// More specific routes must be registered before generic routes with path parameters.
+// For example, "/routes/technician/:technicianId" must be registered before "/routes/:id"
+// Otherwise, Express will treat "technician" as an :id parameter value.
+
+// Get bazza routes by technician ID - specific route MUST come before generic ID route
 router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const technicianId = parseInt(req.params.technicianId);
@@ -89,7 +94,7 @@ router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Requ
   }
 });
 
-// Get bazza routes by day of week
+// Get bazza routes by day of week - specific route MUST come before generic ID route
 router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const dayOfWeek = req.params.dayOfWeek;
@@ -103,7 +108,7 @@ router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: 
   }
 });
 
-// Get a specific bazza route by ID
+// Get a specific bazza route by ID - MUST come after more specific routes
 router.get("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);

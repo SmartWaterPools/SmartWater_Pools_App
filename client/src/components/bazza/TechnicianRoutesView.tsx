@@ -59,6 +59,15 @@ export function TechnicianRoutesView({
     isTechnicianRoutesLoading, 
     technicianRoutesError 
   } = useBazzaRoutesByTechnician(selectedTechnicianId);
+  
+  // Debug logs to understand what's happening
+  console.log('TechnicianRoutesView - received props:', { 
+    technicianCount: technicians?.length || 0,
+    selectedTechnicianId,
+    routesLoading: isTechnicianRoutesLoading,
+    routesError: technicianRoutesError?.message,
+    routesCount: technicianRoutes?.length || 0
+  });
 
   // State for view type (list or calendar)
   const [viewType, setViewType] = useState<'list' | 'calendar'>('list');

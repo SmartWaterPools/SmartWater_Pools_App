@@ -2,8 +2,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useMutation } from '@tanstack/react-query';
-import { queryClient } from '../../lib/queryClient';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createBazzaRoute, updateBazzaRoute } from '../../services/bazzaService';
 import { useToast } from '../../hooks/use-toast';
 import { BazzaRoute } from '../../lib/types';
@@ -75,6 +74,7 @@ export function RouteFormDialog({
   onSuccess
 }: RouteFormDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const isEditMode = !!route;
 
   // Initialize the form
