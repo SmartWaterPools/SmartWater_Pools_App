@@ -108,6 +108,36 @@ router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: 
   }
 });
 
+// Bazza Route Stop endpoints
+
+// Get route stops for a specific route - make sure this comes after /routes/technician/ and /routes/day/ routes
+router.get("/routes/:routeId/stops", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const routeId = parseInt(req.params.routeId);
+    console.log(`[BAZZA ROUTES API] Processing request for stops for bazza route ID: ${routeId}`);
+    
+    const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
+    res.json(stops);
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error fetching stops for bazza route ${req.params.routeId}:`, error);
+    res.status(500).json({ error: "Failed to fetch bazza route stops" });
+  }
+});
+
+// Get maintenance assignments for a specific route - this must come before the generic ID route
+router.get("/routes/:routeId/assignments", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const routeId = parseInt(req.params.routeId);
+    console.log(`[BAZZA ROUTES API] Processing request for assignments for bazza route ID: ${routeId}`);
+    
+    const assignments = await storage.getBazzaMaintenanceAssignmentsByRouteId(routeId);
+    res.json(assignments);
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error fetching assignments for bazza route ${req.params.routeId}:`, error);
+    res.status(500).json({ error: "Failed to fetch bazza maintenance assignments" });
+  }
+});
+
 // Get a specific bazza route by ID - MUST come after more specific routes
 router.get("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
@@ -147,22 +177,6 @@ router.delete("/routes/:id", isAuthenticated, async (req: Request, res: Response
   } catch (error) {
     console.error(`[BAZZA ROUTES API] Error deleting bazza route ${req.params.id}:`, error);
     res.status(500).json({ error: "Failed to delete bazza route" });
-  }
-});
-
-// Bazza Route Stop endpoints
-
-// Get route stops for a specific route - make sure this comes after /routes/technician/ and /routes/day/ routes
-router.get("/routes/:routeId/stops", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const routeId = parseInt(req.params.routeId);
-    console.log(`[BAZZA ROUTES API] Processing request for stops for bazza route ID: ${routeId}`);
-    
-    const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
-    res.json(stops);
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error fetching stops for bazza route ${req.params.routeId}:`, error);
-    res.status(500).json({ error: "Failed to fetch bazza route stops" });
   }
 });
 
@@ -266,20 +280,6 @@ router.post("/routes/:routeId/reorder-stops", isAuthenticated, async (req: Reque
 });
 
 // Bazza Maintenance Assignment endpoints
-
-// Get maintenance assignments for a specific route - make sure this comes after specific routes but before generic ID routes
-router.get("/routes/:routeId/assignments", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const routeId = parseInt(req.params.routeId);
-    console.log(`[BAZZA ROUTES API] Processing request for assignments for bazza route ID: ${routeId}`);
-    
-    const assignments = await storage.getBazzaMaintenanceAssignmentsByRouteId(routeId);
-    res.json(assignments);
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error fetching assignments for bazza route ${req.params.routeId}:`, error);
-    res.status(500).json({ error: "Failed to fetch bazza maintenance assignments" });
-  }
-});
 
 // Get maintenance assignments for a specific maintenance
 router.get("/assignments/maintenance/:maintenanceId", isAuthenticated, async (req: Request, res: Response) => {
