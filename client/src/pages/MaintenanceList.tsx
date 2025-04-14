@@ -23,6 +23,7 @@ interface MaintenanceListProps {
 }
 
 export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceListProps) {
+  console.log("MaintenanceList component rendering with defaultTab:", defaultTab);
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
@@ -41,11 +42,14 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   
   // State for active tab - use the defaultTab prop or current URL path
   const [location] = useLocation();
+  console.log("Current location:", location, "defaultTab:", defaultTab);
   const [activeTab, setActiveTab] = useState<'list' | 'routes'>(() => {
     // If URL is /maintenance/routes, set the tab to 'routes' regardless of defaultTab
     if (location === '/maintenance/routes') {
+      console.log("Setting active tab to 'routes' based on URL");
       return 'routes';
     }
+    console.log("Setting active tab to defaultTab:", defaultTab);
     return defaultTab;
   });
   

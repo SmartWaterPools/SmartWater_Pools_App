@@ -53,6 +53,13 @@ export function TechnicianRoutesView({
   selectedDay: externalSelectedDay,
   onDayChange
 }: TechnicianRoutesViewProps) {
+  console.log("🚀 TechnicianRoutesView rendering with props:", {
+    technicianCount: technicians?.length || 0,
+    maintenanceCount: maintenances?.length || 0,
+    selectedTechnicianId,
+    externalSelectedDay
+  });
+
   // Get routes for selected technician
   const { 
     technicianRoutes = [], 
@@ -61,12 +68,13 @@ export function TechnicianRoutesView({
   } = useBazzaRoutesByTechnician(selectedTechnicianId);
   
   // Debug logs to understand what's happening
-  console.log('TechnicianRoutesView - received props:', { 
+  console.log('🚀 TechnicianRoutesView - API response:', { 
     technicianCount: technicians?.length || 0,
     selectedTechnicianId,
     routesLoading: isTechnicianRoutesLoading,
     routesError: technicianRoutesError?.message,
-    routesCount: technicianRoutes?.length || 0
+    routesCount: technicianRoutes?.length || 0,
+    routes: technicianRoutes
   });
 
   // State for view type (list or calendar)

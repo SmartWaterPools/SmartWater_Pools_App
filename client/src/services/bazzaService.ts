@@ -11,7 +11,18 @@ export const fetchBazzaRoute = async (id: number): Promise<BazzaRoute> => {
 };
 
 export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promise<BazzaRoute[]> => {
-  return apiRequest(`/api/bazza/routes/technician/${technicianId}`);
+  try {
+    const routes = await apiRequest(`/api/bazza/routes/technician/${technicianId}`);
+    return routes;
+  } catch (error) {
+    console.error(`Error fetching routes for technician ${technicianId}:`, error);
+    // If unauthorized, return empty array to prevent breaking the UI
+    if ((error as any)?.status === 401 || (error as any)?.message?.includes('Unauthorized')) {
+      console.warn('Unauthorized when fetching routes, returning empty array');
+      return [];
+    }
+    throw error; // Re-throw for other errors
+  }
 };
 
 export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRoute[]> => {
