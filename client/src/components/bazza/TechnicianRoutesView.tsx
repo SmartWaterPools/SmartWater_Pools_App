@@ -1,38 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { 
   Card, 
   CardContent, 
   CardDescription, 
   CardHeader, 
   CardTitle 
-} from "../../components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
-import { Button } from "../../components/ui/button";
-import { Badge } from "../../components/ui/badge";
-import { Label } from "../../components/ui/label";
-import { Spinner } from "../../components/ui/spinner";
+} from "../ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Label } from "../ui/label";
+import { Spinner } from "../ui/spinner";
 import { useBazzaRoutesByTechnician } from "../../hooks/useBazzaRoutes";
-import { BazzaRoute, BazzaRouteStop, MaintenanceWithDetails } from "../../lib/types";
-import { Alert, AlertDescription, AlertTitle } from "../../components/ui/alert";
-import { AlertCircle } from "lucide-react";
-
-// Icons
-import { 
-  Calendar, 
-  Clock, 
-  ListOrdered, 
-  MapPin, 
-  Plus, 
-  UserCheck 
-} from "lucide-react";
-import { format } from "date-fns";
+import { BazzaRoute, MaintenanceWithDetails } from "../../lib/types";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { AlertCircle, Calendar, Clock, ListOrdered, MapPin, Plus, UserCheck } from "lucide-react";
 
 type TechnicianRoutesViewProps = {
   technicians: { id: number; name: string }[];
@@ -41,8 +23,8 @@ type TechnicianRoutesViewProps = {
   onTechnicianSelect: (technicianId: number | null) => void;
   onRouteSelect?: (route: BazzaRoute) => void;
   onAddRouteClick?: () => void;
-  selectedDay?: string | null;
-  onDayChange?: (day: string | null) => void;
+  selectedDay?: string;
+  onDayChange?: (day: string) => void;
 };
 
 export function TechnicianRoutesView({

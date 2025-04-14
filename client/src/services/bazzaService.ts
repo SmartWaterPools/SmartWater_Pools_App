@@ -1,14 +1,40 @@
-import { enhancedApiRequest, ApiError } from "../lib/enhancedApiClient";
+import { apiRequest } from "../lib/queryClient";
 import { BazzaRoute, BazzaRouteStop, BazzaMaintenanceAssignment } from "../lib/types";
+
+// Simple error class with status code
+export class ApiError extends Error {
+  status: number;
+  
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+    this.name = 'ApiError';
+  }
+}
 
 /**
  * Enhanced Bazza Routes API functions with better error handling
  */
 
+// Enhanced API request function that wraps the standard apiRequest
+async function safeApiRequest<T>(url: string, options?: RequestInit): Promise<T> {
+  try {
+    return await apiRequest<T>(url, options);
+  } catch (error) {
+    // Extract status code from error message (e.g., "401: Unauthorized")
+    const errorMsg = (error as Error).message || '';
+    const statusMatch = errorMsg.match(/^(\d{3}):/);
+    const status = statusMatch ? parseInt(statusMatch[1]) : 0;
+    
+    // Create a more informative error
+    throw new ApiError(errorMsg, status);
+  }
+}
+
 // Fetch all routes
 export const fetchAllBazzaRoutes = async (): Promise<BazzaRoute[]> => {
   try {
-    return await enhancedApiRequest('/api/bazza/routes');
+    return await safeApiRequest<BazzaRoute[]>('/api/bazza/routes');
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn('Unauthorized when fetching all routes, returning empty array');
@@ -21,7 +47,7 @@ export const fetchAllBazzaRoutes = async (): Promise<BazzaRoute[]> => {
 // Fetch a specific route by ID
 export const fetchBazzaRoute = async (id: number): Promise<BazzaRoute> => {
   try {
-    return await enhancedApiRequest(`/api/bazza/routes/${id}`);
+    return await safeApiRequest<BazzaRoute>(`/api/bazza/routes/${id}`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching route ${id}, throwing error`);
@@ -34,7 +60,7 @@ export const fetchBazzaRoute = async (id: number): Promise<BazzaRoute> => {
 export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promise<BazzaRoute[]> => {
   try {
     console.log(`Fetching routes for technician ${technicianId}`);
-    const routes = await enhancedApiRequest(`/api/bazza/routes/technician/${technicianId}`);
+    const routes = await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/technician/${technicianId}`);
     console.log(`Successfully fetched ${routes.length} routes for technician ${technicianId}`);
     return routes;
   } catch (error) {
@@ -52,7 +78,7 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
 // Fetch routes for a day of week
 export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRoute[]> => {
   try {
-    return await enhancedApiRequest(`/api/bazza/routes/day/${dayOfWeek}`);
+    return await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/day/${dayOfWeek}`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching routes for day ${dayOfWeek}, returning empty array`);
@@ -70,7 +96,7 @@ export const createBazzaRoute = async (routeData: Omit<BazzaRoute, 'id'>): Promi
     updatedAt: new Date()
   };
   
-  return enhancedApiRequest('/api/bazza/routes', {
+  return safeApiRequest<BazzaRoute>('/api/bazza/routes', {
     method: 'POST',
     body: JSON.stringify(route),
   });
@@ -78,7 +104,7 @@ export const createBazzaRoute = async (routeData: Omit<BazzaRoute, 'id'>): Promi
 
 // Update an existing route
 export const updateBazzaRoute = async (id: number, routeData: Partial<BazzaRoute>): Promise<BazzaRoute> => {
-  return enhancedApiRequest(`/api/bazza/routes/${id}`, {
+  return safeApiRequest<BazzaRoute>(`/api/bazza/routes/${id}`, {
     method: 'PUT',
     body: JSON.stringify(routeData),
   });
@@ -86,7 +112,7 @@ export const updateBazzaRoute = async (id: number, routeData: Partial<BazzaRoute
 
 // Delete a route
 export const deleteBazzaRoute = async (id: number): Promise<void> => {
-  return enhancedApiRequest(`/api/bazza/routes/${id}`, {
+  return safeApiRequest<void>(`/api/bazza/routes/${id}`, {
     method: 'DELETE',
   });
 };
@@ -94,7 +120,7 @@ export const deleteBazzaRoute = async (id: number): Promise<void> => {
 // Fetch route stops
 export const fetchRouteStops = async (routeId: number): Promise<BazzaRouteStop[]> => {
   try {
-    return await enhancedApiRequest(`/api/bazza/routes/${routeId}/stops`);
+    return await safeApiRequest<BazzaRouteStop[]>(`/api/bazza/routes/${routeId}/stops`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching stops for route ${routeId}, returning empty array`);
@@ -107,7 +133,7 @@ export const fetchRouteStops = async (routeId: number): Promise<BazzaRouteStop[]
 // Fetch client stops
 export const fetchClientStops = async (clientId: number): Promise<BazzaRouteStop[]> => {
   try {
-    return await enhancedApiRequest(`/api/bazza/stops/client/${clientId}`);
+    return await safeApiRequest<BazzaRouteStop[]>(`/api/bazza/stops/client/${clientId}`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching stops for client ${clientId}, returning empty array`);
@@ -119,7 +145,7 @@ export const fetchClientStops = async (clientId: number): Promise<BazzaRouteStop
 
 // Create a new route stop
 export const createRouteStop = async (stopData: Omit<BazzaRouteStop, 'id'>): Promise<BazzaRouteStop> => {
-  return enhancedApiRequest('/api/bazza/stops', {
+  return safeApiRequest<BazzaRouteStop>('/api/bazza/stops', {
     method: 'POST',
     body: JSON.stringify(stopData),
   });
@@ -127,7 +153,7 @@ export const createRouteStop = async (stopData: Omit<BazzaRouteStop, 'id'>): Pro
 
 // Update an existing route stop
 export const updateRouteStop = async (id: number, stopData: Partial<BazzaRouteStop>): Promise<BazzaRouteStop> => {
-  return enhancedApiRequest(`/api/bazza/stops/${id}`, {
+  return safeApiRequest<BazzaRouteStop>(`/api/bazza/stops/${id}`, {
     method: 'PUT',
     body: JSON.stringify(stopData),
   });
@@ -135,14 +161,14 @@ export const updateRouteStop = async (id: number, stopData: Partial<BazzaRouteSt
 
 // Delete a route stop
 export const deleteRouteStop = async (id: number): Promise<void> => {
-  return enhancedApiRequest(`/api/bazza/stops/${id}`, {
+  return safeApiRequest<void>(`/api/bazza/stops/${id}`, {
     method: 'DELETE',
   });
 };
 
 // Reorder route stops
 export const reorderRouteStops = async (routeId: number, stopIds: number[]): Promise<BazzaRouteStop[]> => {
-  return enhancedApiRequest(`/api/bazza/routes/${routeId}/reorder-stops`, {
+  return safeApiRequest<BazzaRouteStop[]>(`/api/bazza/routes/${routeId}/reorder-stops`, {
     method: 'POST',
     body: JSON.stringify({ stopIds }),
   });
@@ -151,7 +177,7 @@ export const reorderRouteStops = async (routeId: number, stopIds: number[]): Pro
 // Fetch route assignments
 export const fetchRouteAssignments = async (routeId: number): Promise<BazzaMaintenanceAssignment[]> => {
   try {
-    return await enhancedApiRequest(`/api/bazza/routes/${routeId}/assignments`);
+    return await safeApiRequest<BazzaMaintenanceAssignment[]>(`/api/bazza/routes/${routeId}/assignments`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching assignments for route ${routeId}, returning empty array`);
@@ -164,7 +190,7 @@ export const fetchRouteAssignments = async (routeId: number): Promise<BazzaMaint
 // Fetch maintenance assignments
 export const fetchMaintenanceAssignments = async (maintenanceId: number): Promise<BazzaMaintenanceAssignment[]> => {
   try {
-    return await enhancedApiRequest(`/api/bazza/assignments/maintenance/${maintenanceId}`);
+    return await safeApiRequest<BazzaMaintenanceAssignment[]>(`/api/bazza/assignments/maintenance/${maintenanceId}`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching assignments for maintenance ${maintenanceId}, returning empty array`);
@@ -177,7 +203,7 @@ export const fetchMaintenanceAssignments = async (maintenanceId: number): Promis
 // Fetch assignments by date
 export const fetchAssignmentsByDate = async (date: string): Promise<BazzaMaintenanceAssignment[]> => {
   try {
-    return await enhancedApiRequest(`/api/bazza/assignments/date/${date}`);
+    return await safeApiRequest<BazzaMaintenanceAssignment[]>(`/api/bazza/assignments/date/${date}`);
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching assignments for date ${date}, returning empty array`);
@@ -194,7 +220,7 @@ export const fetchAssignmentsByTechnicianAndDateRange = async (
   endDate: string
 ): Promise<BazzaMaintenanceAssignment[]> => {
   try {
-    return await enhancedApiRequest(
+    return await safeApiRequest<BazzaMaintenanceAssignment[]>(
       `/api/bazza/assignments/technician/${technicianId}/date-range?startDate=${startDate}&endDate=${endDate}`
     );
   } catch (error) {
@@ -210,7 +236,7 @@ export const fetchAssignmentsByTechnicianAndDateRange = async (
 export const createAssignment = async (
   assignmentData: Omit<BazzaMaintenanceAssignment, 'id'>
 ): Promise<BazzaMaintenanceAssignment> => {
-  return enhancedApiRequest('/api/bazza/assignments', {
+  return safeApiRequest<BazzaMaintenanceAssignment>('/api/bazza/assignments', {
     method: 'POST',
     body: JSON.stringify(assignmentData),
   });
@@ -221,7 +247,7 @@ export const updateAssignment = async (
   id: number, 
   assignmentData: Partial<BazzaMaintenanceAssignment>
 ): Promise<BazzaMaintenanceAssignment> => {
-  return enhancedApiRequest(`/api/bazza/assignments/${id}`, {
+  return safeApiRequest<BazzaMaintenanceAssignment>(`/api/bazza/assignments/${id}`, {
     method: 'PUT',
     body: JSON.stringify(assignmentData),
   });
@@ -229,7 +255,7 @@ export const updateAssignment = async (
 
 // Delete an assignment
 export const deleteAssignment = async (id: number): Promise<void> => {
-  return enhancedApiRequest(`/api/bazza/assignments/${id}`, {
+  return safeApiRequest<void>(`/api/bazza/assignments/${id}`, {
     method: 'DELETE',
   });
 };

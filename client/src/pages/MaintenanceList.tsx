@@ -5,7 +5,6 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { Spinner } from "../components/ui/spinner";
 import { BazzaRoute, MaintenanceWithDetails } from "../lib/types";
@@ -70,7 +69,7 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   
   // Fetch technicians for routes view with error handling
   const { 
-    data: technicians = [],
+    data: technicians = [] as { id: number; name: string }[],
     isLoading: isTechniciansLoading,
     error: techniciansError
   } = useQuery({ 
@@ -199,14 +198,18 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
         <CardContent>
           <div className="flex justify-between items-center mb-4">
             <div className="w-full sm:max-w-sm">
-              <Input
-                type="text"
-                placeholder="Search..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full"
-                prefix={<Search className="h-4 w-4 text-muted-foreground" />}
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <Input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10"
+                />
+              </div>
             </div>
           </div>
           
@@ -236,7 +239,7 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
               ) : (
                 <LazyMaintenanceListView 
                   maintenances={maintenances as MaintenanceWithDetails[]} 
-                  searchTerm={searchTerm}
+                  isLoading={false}
                 />
               )}
             </TabsContent>

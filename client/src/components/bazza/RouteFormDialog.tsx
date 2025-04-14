@@ -2,10 +2,11 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { createBazzaRoute, updateBazzaRoute } from '../../services/bazzaService';
 import { useToast } from '../../hooks/use-toast';
 import { BazzaRoute } from '../../lib/types';
+import { queryClient } from '../../lib/queryClient';
 
 // UI Components
 import {
@@ -15,7 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../../components/ui/dialog";
+} from "../ui/dialog";
 import {
   Form,
   FormControl,
@@ -24,320 +25,228 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../components/ui/form";
+} from "../ui/form";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { Spinner } from "../ui/spinner";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../components/ui/select";
-import { Input } from "../../components/ui/input";
-import { Button } from "../../components/ui/button";
-import { Textarea } from "../../components/ui/textarea";
-import { Checkbox } from "../../components/ui/checkbox";
-import { Spinner } from "../../components/ui/spinner";
-import { Label } from "../../components/ui/label";
+} from "../ui/select";
+import { Checkbox } from "../ui/checkbox";
 
-// Define the form schema
+// Schema for the route form
 const routeFormSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.string().nullable().optional(),
-  type: z.string().min(1, 'Type is required'),
-  technicianId: z.union([
-    z.string().transform(val => val === '' ? null : parseInt(val, 10)),
-    z.number().nullable(),
-    z.null()
-  ]),
-  dayOfWeek: z.string().min(1, 'Day of week is required'),
-  startTime: z.string().nullable().optional(),
-  endTime: z.string().nullable().optional(),
-  color: z.string().nullable().optional(),
-  isActive: z.boolean().default(true),
+  name: z.string().min(1, "Route name is required"),
+  technicianId: z.string().min(1, "Technician is required"),
+  dayOfWeek: z.string().min(1, "Day of week is required"),
+  startTime: z.string().min(1, "Start time is required"),
+  endTime: z.string().min(1, "End time is required"),
+  region: z.string().optional(),
+  active: z.boolean().optional().default(true),
 });
 
 type RouteFormValues = z.infer<typeof routeFormSchema>;
 
-interface RouteFormDialogProps {
+type RouteFormDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  route?: BazzaRoute; // If provided, we're editing an existing route
+  onSubmit: () => void;
+  route?: BazzaRoute;
   technicians: { id: number; name: string }[];
-  onSuccess?: (route: BazzaRoute) => void;
-}
+};
 
 export function RouteFormDialog({
   isOpen,
   onClose,
+  onSubmit: onFormSubmit,
   route,
-  technicians = [], // Provide default empty array
-  onSuccess
+  technicians
 }: RouteFormDialogProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const isEditMode = !!route;
+  const isEditing = !!route;
   
-  // Debug logging to help diagnose technician issues
-  console.log("RouteFormDialog - received technicians:", {
-    count: technicians?.length || 0,
-    technicians
-  });
-
-  // Initialize the form
+  // Initialize form with default values or the route data if editing
   const form = useForm<RouteFormValues>({
     resolver: zodResolver(routeFormSchema),
     defaultValues: {
-      name: route?.name || '',
-      description: route?.description || '',
-      type: route?.type || 'standard',
-      technicianId: route?.technicianId === null ? null : 
-                  route?.technicianId !== undefined ?
-                  route.technicianId : null,
-      dayOfWeek: route?.dayOfWeek || '',
-      startTime: route?.startTime || '',
-      endTime: route?.endTime || '',
-      color: route?.color || '',
-      isActive: route?.isActive ?? true,
+      name: route?.name || "",
+      technicianId: route?.technicianId ? String(route.technicianId) : "",
+      dayOfWeek: route?.dayOfWeek || "",
+      startTime: route?.startTime || "08:00",
+      endTime: route?.endTime || "17:00",
+      region: route?.region || "",
+      active: route?.active ?? true,
     },
   });
-
-  // Create mutation
+  
+  // Create route mutation
   const createMutation = useMutation({
-    mutationFn: (data: Omit<BazzaRoute, 'id'>) => createBazzaRoute(data),
-    onSuccess: (newRoute) => {
-      // Use the imported queryClient directly
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+    mutationFn: (data: Omit<BazzaRoute, "id">) => createBazzaRoute(data),
+    onSuccess: () => {
       toast({
-        title: 'Route created',
-        description: 'The route has been created successfully.',
+        title: "Route created",
+        description: "The route has been successfully created."
       });
-      if (onSuccess) onSuccess(newRoute);
-      onClose();
+      form.reset();
+      onFormSubmit();
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
     },
     onError: (error) => {
+      console.error("Error creating route:", error);
       toast({
-        title: 'Error',
-        description: `Failed to create route: ${(error as Error).message}`,
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to create the route. Please try again.",
+        variant: "destructive"
       });
-    },
+    }
   });
-
-  // Update mutation
+  
+  // Update route mutation
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<BazzaRoute> }) => updateBazzaRoute(id, data),
-    onSuccess: (updatedRoute) => {
-      // Use the imported queryClient directly
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+    mutationFn: (data: Partial<BazzaRoute>) => {
+      if (!route) throw new Error("No route to update");
+      return updateBazzaRoute(route.id, data);
+    },
+    onSuccess: () => {
       toast({
-        title: 'Route updated',
-        description: 'The route has been updated successfully.',
+        title: "Route updated",
+        description: "The route has been successfully updated."
       });
-      if (onSuccess) onSuccess(updatedRoute);
-      onClose();
+      form.reset();
+      onFormSubmit();
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
     },
     onError: (error) => {
+      console.error("Error updating route:", error);
       toast({
-        title: 'Error',
-        description: `Failed to update route: ${(error as Error).message}`,
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to update the route. Please try again.",
+        variant: "destructive"
       });
-    },
+    }
   });
-
-  const onSubmit = (data: RouteFormValues) => {
+  
+  // Handle form submission
+  const handleSubmit = (values: RouteFormValues) => {
     // Convert form values to route data
     const routeData = {
-      name: data.name,
-      description: data.description,
-      type: data.type,
-      technicianId: typeof data.technicianId === 'string' && data.technicianId === '' ? null :
-                   typeof data.technicianId === 'string' ? 
-                   parseInt(data.technicianId, 10) : data.technicianId,
-      dayOfWeek: data.dayOfWeek,
-      startTime: data.startTime || null,
-      endTime: data.endTime || null,
-      color: data.color || null,
-      isActive: data.isActive,
+      name: values.name,
+      technicianId: parseInt(values.technicianId),
+      dayOfWeek: values.dayOfWeek,
+      startTime: values.startTime,
+      endTime: values.endTime,
+      region: values.region,
+      active: values.active,
     };
-
-    if (isEditMode && route) {
-      updateMutation.mutate({ id: route.id, data: routeData });
+    
+    if (isEditing && route) {
+      updateMutation.mutate(routeData);
     } else {
-      createMutation.mutate(routeData as Omit<BazzaRoute, 'id'>);
+      createMutation.mutate(routeData as Omit<BazzaRoute, "id">);
     }
   };
-
+  
   const isPending = createMutation.isPending || updateMutation.isPending;
-
+  
+  const daysOfWeek = [
+    { value: "monday", label: "Monday" },
+    { value: "tuesday", label: "Tuesday" },
+    { value: "wednesday", label: "Wednesday" },
+    { value: "thursday", label: "Thursday" },
+    { value: "friday", label: "Friday" },
+    { value: "saturday", label: "Saturday" },
+    { value: "sunday", label: "Sunday" },
+  ];
+  
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{isEditMode ? 'Edit Route' : 'Create New Route'}</DialogTitle>
+          <DialogTitle>{isEditing ? "Edit Route" : "Create New Route"}</DialogTitle>
           <DialogDescription>
-            {isEditMode 
-              ? 'Update the details of this maintenance route.'
-              : 'Create a new maintenance route for technicians.'}
+            {isEditing 
+              ? "Update the route details below." 
+              : "Fill in the details below to create a new route."
+            }
           </DialogDescription>
         </DialogHeader>
-
+        
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Route Name*</FormLabel>
+                  <FormLabel>Route Name</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="e.g., North Area Monday Route" />
+                    <Input placeholder="Enter route name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
+            
             <FormField
               control={form.control}
-              name="description"
+              name="technicianId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl>
-                    <Textarea 
-                      {...field} 
-                      value={field.value || ''}
-                      placeholder="Brief description of this route" 
-                      rows={3}
-                    />
-                  </FormControl>
+                  <FormLabel>Technician</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a technician" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {technicians.map(tech => (
+                        <SelectItem key={tech.id} value={String(tech.id)}>
+                          {tech.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
             />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Route Type*</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="standard">Standard</SelectItem>
-                        <SelectItem value="express">Express</SelectItem>
-                        <SelectItem value="custom">Custom</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="technicianId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Technician</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value === null ? '' : 
-                            typeof field.value === 'number' ? field.value.toString() : (field.value || '')}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select technician" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem>
-                        {technicians.map(tech => (
-                          <SelectItem key={tech.id} value={tech.id.toString()}>
-                            {tech.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="dayOfWeek"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Day of Week*</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select day" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Monday">Monday</SelectItem>
-                        <SelectItem value="Tuesday">Tuesday</SelectItem>
-                        <SelectItem value="Wednesday">Wednesday</SelectItem>
-                        <SelectItem value="Thursday">Thursday</SelectItem>
-                        <SelectItem value="Friday">Friday</SelectItem>
-                        <SelectItem value="Saturday">Saturday</SelectItem>
-                        <SelectItem value="Sunday">Sunday</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="color"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Route Color</FormLabel>
+            
+            <FormField
+              control={form.control}
+              name="dayOfWeek"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Day of Week</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
                     <FormControl>
-                      <div className="flex items-center gap-2">
-                        <Input 
-                          {...field} 
-                          value={field.value || ''} 
-                          placeholder="#RRGGBB" 
-                          type="text"
-                          className="flex-grow"
-                        />
-                        <Input 
-                          type="color" 
-                          value={field.value || '#3b82f6'} 
-                          onChange={(e) => field.onChange(e.target.value)}
-                          className="w-10 p-1 h-10"
-                        />
-                      </div>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a day" />
+                      </SelectTrigger>
                     </FormControl>
-                    <FormDescription className="text-xs">
-                      Choose a color for this route in the calendar
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
+                    <SelectContent>
+                      {daysOfWeek.map(day => (
+                        <SelectItem key={day.value} value={day.value}>
+                          {day.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -346,18 +255,13 @@ export function RouteFormDialog({
                   <FormItem>
                     <FormLabel>Start Time</FormLabel>
                     <FormControl>
-                      <Input 
-                        {...field} 
-                        value={field.value || ''} 
-                        type="time" 
-                        placeholder="Start time" 
-                      />
+                      <Input type="time" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
+              
               <FormField
                 control={form.control}
                 name="endTime"
@@ -365,24 +269,36 @@ export function RouteFormDialog({
                   <FormItem>
                     <FormLabel>End Time</FormLabel>
                     <FormControl>
-                      <Input 
-                        {...field} 
-                        value={field.value || ''} 
-                        type="time" 
-                        placeholder="End time" 
-                      />
+                      <Input type="time" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
-
+            
             <FormField
               control={form.control}
-              name="isActive"
+              name="region"
               render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                <FormItem>
+                  <FormLabel>Region</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter region" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Region or area where this route is located.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="active"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                   <FormControl>
                     <Checkbox
                       checked={field.value}
@@ -390,28 +306,30 @@ export function RouteFormDialog({
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
-                    <FormLabel>Active</FormLabel>
+                    <FormLabel>
+                      Active Route
+                    </FormLabel>
                     <FormDescription>
-                      Toggle whether this route is currently active
+                      Inactive routes will not be included in scheduling.
                     </FormDescription>
                   </div>
-                  <FormMessage />
                 </FormItem>
               )}
             />
-
-            <DialogFooter className="pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={onClose}
-                disabled={isPending}
-              >
+            
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isPending}>
-                {isPending && <Spinner className="mr-2 h-4 w-4" />}
-                {isEditMode ? 'Update Route' : 'Create Route'}
+                {isPending ? (
+                  <>
+                    <Spinner size="sm" className="mr-2" />
+                    {isEditing ? "Updating..." : "Creating..."}
+                  </>
+                ) : (
+                  isEditing ? "Update Route" : "Create Route"
+                )}
               </Button>
             </DialogFooter>
           </form>
@@ -420,5 +338,3 @@ export function RouteFormDialog({
     </Dialog>
   );
 }
-
-export default RouteFormDialog;

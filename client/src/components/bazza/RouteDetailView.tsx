@@ -6,10 +6,10 @@ import {
   CardFooter,
   CardHeader, 
   CardTitle 
-} from "../../components/ui/card";
-import { Button } from "../../components/ui/button";
-import { Spinner } from "../../components/ui/spinner";
-import { Badge } from "../../components/ui/badge";
+} from "../ui/card";
+import { Button } from "../ui/button";
+import { Spinner } from "../ui/spinner";
+import { Badge } from "../ui/badge";
 import {
   Table,
   TableBody,
@@ -17,442 +17,211 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "../../components/ui/dialog";
+} from "../ui/table";
+import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "../../components/ui/alert-dialog";
-import { useToast } from "../../hooks/use-toast";
-import { BazzaRoute, BazzaRouteStop, MaintenanceWithDetails } from "../../lib/types";
-import { fetchRouteStops, updateBazzaRoute, deleteRouteStop, reorderRouteStops } from "../../services/bazzaService";
-import { useQuery, useMutation } from '@tanstack/react-query';
-import { queryClient } from '../../lib/queryClient';
-
-// Icons
-import { ArrowLeft, Calendar, Clock, Edit, MapPin, Trash, User, GripVertical, Save } from 'lucide-react';
+  AlertCircle, 
+  ArrowLeft, 
+  Calendar, 
+  Clock, 
+  Edit, 
+  MapPin, 
+  MoreHorizontal, 
+  Plus, 
+  Route, 
+  Trash, 
+  User 
+} from "lucide-react";
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu";
+import { fetchRouteStops } from "../../services/bazzaService";
+import { useQuery } from "@tanstack/react-query";
+import { BazzaRoute, BazzaRouteStop } from "../../lib/types";
 
 type RouteDetailViewProps = {
   route: BazzaRoute;
   onBack: () => void;
-  onEdit: (route: BazzaRoute) => void;
-  onDelete: (routeId: number) => void;
-  technicians: { id: number; name: string }[];
-  clients: { id: number; name: string }[];
+  onEdit: () => void;
+  onDelete: () => void;
+  isDeleting?: boolean;
 };
 
-export function RouteDetailView({
-  route,
-  onBack,
-  onEdit,
-  onDelete,
-  technicians,
-  clients
-}: RouteDetailViewProps) {
-  const { toast } = useToast();
-  
-  // State for dialogs
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [selectedStop, setSelectedStop] = useState<BazzaRouteStop | null>(null);
-  const [isEditModeActive, setIsEditModeActive] = useState(false);
-  const [reorderedStops, setReorderedStops] = useState<BazzaRouteStop[]>([]);
-  
-  // Format time
-  const formatTime = (time: string | null) => {
-    if (!time) return 'Flexible';
-    try {
-      // Time is in HH:MM format
-      const [hours, minutes] = time.split(':');
-      const date = new Date();
-      date.setHours(parseInt(hours, 10));
-      date.setMinutes(parseInt(minutes, 10));
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (error) {
-      return time;
-    }
-  };
-  
-  // Get day color
-  const getDayColor = (day: string) => {
-    const dayColors: Record<string, string> = {
-      'monday': 'bg-blue-100 text-blue-800',
-      'tuesday': 'bg-green-100 text-green-800',
-      'wednesday': 'bg-purple-100 text-purple-800',
-      'thursday': 'bg-orange-100 text-orange-800',
-      'friday': 'bg-red-100 text-red-800',
-      'saturday': 'bg-teal-100 text-teal-800',
-      'sunday': 'bg-indigo-100 text-indigo-800'
-    };
-    
-    return dayColors[day.toLowerCase()] || 'bg-gray-100 text-gray-800';
-  };
-  
-  // Get technician name
-  const getTechnicianName = (technicianId: number | null) => {
-    if (!technicianId) return 'Unassigned';
-    const technician = technicians.find(t => t.id === technicianId);
-    return technician ? technician.name : 'Unknown Technician';
-  };
-  
-  // Get client name
-  const getClientName = (clientId: number) => {
-    const client = clients.find(c => c.id === clientId);
-    return client ? client.name : 'Unknown Client';
-  };
-  
-  // Query for route stops
+export function RouteDetailView({ route, onBack, onEdit, onDelete, isDeleting }: RouteDetailViewProps) {
+  // Fetch route stops
   const { 
-    data: stops, 
+    data: stops = [], 
     isLoading: isStopsLoading, 
     error: stopsError 
   } = useQuery({
     queryKey: ['/api/bazza/routes', route.id, 'stops'],
-    queryFn: () => fetchRouteStops(route.id),
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Start reordering mode
-  const handleStartReordering = () => {
-    if (stops) {
-      setReorderedStops([...stops]);
-      setIsEditModeActive(true);
+    queryFn: async () => {
+      try {
+        return await fetchRouteStops(route.id);
+      } catch (error) {
+        console.error(`Error fetching stops for route ${route.id}`, error);
+        throw error;
+      }
     }
-  };
-  
-  // Save reordered stops
-  const reorderMutation = useMutation({
-    mutationFn: ({ routeId, stopIds }: { routeId: number, stopIds: number[] }) => 
-      reorderRouteStops(routeId, stopIds),
-    onSuccess: () => {
-      import('../../lib/queryClient').then(({ queryClient }) => {
-        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes', route.id, 'stops'] });
-      });
-      toast({
-        title: 'Stops reordered',
-        description: 'The route stops have been successfully reordered.',
-      });
-      setIsEditModeActive(false);
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: `Failed to reorder stops: ${(error as Error).message}`,
-        variant: 'destructive',
-      });
-    },
   });
   
-  // Save reordered stops
-  const handleSaveReordering = () => {
-    if (reorderedStops.length > 0) {
-      const stopIds = reorderedStops.map(stop => stop.id);
-      reorderMutation.mutate({ routeId: route.id, stopIds });
-    }
-  };
-  
-  // Move stop up or down in order
-  const moveStop = (index: number, direction: 'up' | 'down') => {
-    if (!reorderedStops) return;
-    
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= reorderedStops.length) return;
-    
-    const newStops = [...reorderedStops];
-    const temp = newStops[index];
-    newStops[index] = newStops[newIndex];
-    newStops[newIndex] = temp;
-    
-    // Update positions
-    newStops.forEach((stop, i) => {
-      stop.position = i + 1;
-    });
-    
-    setReorderedStops(newStops);
-  };
-  
-  // Delete stop mutation
-  const deleteStopMutation = useMutation({
-    mutationFn: (stopId: number) => deleteRouteStop(stopId),
-    onSuccess: () => {
-      import('../../lib/queryClient').then(({ queryClient }) => {
-        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes', route.id, 'stops'] });
-      });
-      toast({
-        title: 'Stop removed',
-        description: 'The stop has been successfully removed from the route.',
-      });
-      setSelectedStop(null);
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: `Failed to remove stop: ${(error as Error).message}`,
-        variant: 'destructive',
-      });
-    },
-  });
-
-  // Handle stop deletion
-  const handleDeleteStop = () => {
-    if (selectedStop) {
-      deleteStopMutation.mutate(selectedStop.id);
-    }
-  };
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center mb-4">
-        <Button variant="ghost" onClick={onBack} className="mr-2">
-          <ArrowLeft className="h-4 w-4 mr-1" />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <Button variant="outline" size="sm" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Routes
         </Button>
-        <h2 className="text-2xl font-bold grow">{route.name}</h2>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => onEdit(route)}>
-            <Edit className="h-4 w-4 mr-1" />
+        <div className="flex space-x-2">
+          <Button variant="outline" size="sm" onClick={onEdit} disabled={isDeleting}>
+            <Edit className="h-4 w-4 mr-2" />
             Edit Route
           </Button>
-          <Button 
-            variant="destructive" 
-            onClick={() => setIsDeleteDialogOpen(true)}
-          >
-            <Trash className="h-4 w-4 mr-1" />
-            Delete
+          <Button variant="destructive" size="sm" onClick={onDelete} disabled={isDeleting}>
+            {isDeleting ? (
+              <>
+                <Spinner size="sm" className="mr-2" />
+                Deleting...
+              </>
+            ) : (
+              <>
+                <Trash className="h-4 w-4 mr-2" />
+                Delete Route
+              </>
+            )}
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="md:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle>Route Details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Day of Week</h3>
-                <Badge className={getDayColor(route.dayOfWeek)}>
-                  {route.dayOfWeek}
-                </Badge>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="text-2xl">{route.name}</CardTitle>
+              <CardDescription>
+                <span className="capitalize mt-1">{route.dayOfWeek}</span>
+              </CardDescription>
+            </div>
+            <Badge variant={route.active ? "default" : "outline"}>
+              {route.active ? "Active" : "Inactive"}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Time:</span>
+                <span>{route.startTime} - {route.endTime}</span>
               </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Time</h3>
-                <p className="flex items-center">
-                  <Clock className="h-4 w-4 mr-1 text-muted-foreground" />
-                  {route.startTime ? (
-                    <>
-                      {formatTime(route.startTime)}
-                      {route.endTime ? ` - ${formatTime(route.endTime)}` : ''}
-                    </>
-                  ) : (
-                    'Flexible timing'
-                  )}
-                </p>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Region:</span>
+                <span>{route.region || 'No region specified'}</span>
               </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Technician</h3>
-                <p className="flex items-center">
-                  <User className="h-4 w-4 mr-1 text-muted-foreground" />
-                  {getTechnicianName(route.technicianId)}
-                </p>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Technician:</span>
+                <span>{route.technicianName || 'Not assigned'}</span>
               </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
-                <Badge variant={route.isActive ? "default" : "secondary"}>
-                  {route.isActive ? 'Active' : 'Inactive'}
-                </Badge>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">Created:</span>
+                <span>
+                  {route.createdAt ? new Date(route.createdAt).toLocaleDateString() : 'Unknown'}
+                </span>
               </div>
-              
-              {route.description && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-                  <p className="text-sm">{route.description}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        
-        <div className="md:col-span-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Route Stops</CardTitle>
-                <CardDescription>
-                  {isStopsLoading ? 'Loading stops...' : 
-                   stops?.length ? `${stops.length} stops on this route` : 'No stops on this route'}
-                </CardDescription>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <h3 className="text-lg font-medium mb-4">Route Stops</h3>
+            
+            {isStopsLoading ? (
+              <div className="flex justify-center items-center py-10">
+                <Spinner size="lg" />
               </div>
-              
-              <div className="flex gap-2">
-                {isEditModeActive ? (
-                  <Button onClick={handleSaveReordering}>
-                    <Save className="h-4 w-4 mr-1" />
-                    Save Order
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={handleStartReordering}>
-                    <GripVertical className="h-4 w-4 mr-1" />
-                    Reorder Stops
-                  </Button>
-                )}
-                <Button variant="outline">
-                  <MapPin className="h-4 w-4 mr-1" />
+            ) : stopsError ? (
+              <Alert variant="destructive" className="my-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                  Failed to load route stops. Please try again.
+                </AlertDescription>
+              </Alert>
+            ) : stops.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground">
+                <Route className="h-10 w-10 mx-auto mb-4 opacity-30" />
+                <p>No stops have been added to this route yet.</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
                   Add Stop
                 </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              {isStopsLoading ? (
-                <div className="flex justify-center items-center h-48">
-                  <Spinner size="lg" />
-                  <span className="ml-2">Loading stops...</span>
-                </div>
-              ) : stopsError ? (
-                <div className="text-red-500 p-4">
-                  Error loading stops: {(stopsError as Error).message}
-                </div>
-              ) : (!stops || stops.length === 0) ? (
-                <div className="text-center py-8 text-gray-500">
-                  No stops have been added to this route yet.
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      {isEditModeActive && <TableHead className="w-[80px]">Actions</TableHead>}
-                      <TableHead className="w-[60px]">Order</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Est. Duration</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead className="w-[100px]">Actions</TableHead>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Order</TableHead>
+                    <TableHead>Client</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Notes</TableHead>
+                    <TableHead></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {stops.map((stop) => (
+                    <TableRow key={stop.id}>
+                      <TableCell>{stop.order}</TableCell>
+                      <TableCell>{stop.clientName}</TableCell>
+                      <TableCell>{stop.address}</TableCell>
+                      <TableCell>{stop.notes || 'No notes'}</TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="text-destructive">
+                              <Trash className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(isEditModeActive ? reorderedStops : stops).map((stop, index) => (
-                      <TableRow key={stop.id}>
-                        {isEditModeActive && (
-                          <TableCell>
-                            <div className="flex flex-col gap-1">
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => moveStop(index, 'up')}
-                                disabled={index === 0}
-                                className="h-6 w-6 p-0"
-                              >
-                                ↑
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => moveStop(index, 'down')}
-                                disabled={index === reorderedStops.length - 1}
-                                className="h-6 w-6 p-0"
-                              >
-                                ↓
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                        <TableCell className="font-medium">{stop.position}</TableCell>
-                        <TableCell>{getClientName(stop.clientId)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center">
-                            <MapPin className="h-4 w-4 mr-1 text-muted-foreground" />
-                            <span>Client Location</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {stop.estimatedDuration ? `${stop.estimatedDuration} min` : 'N/A'}
-                        </TableCell>
-                        <TableCell className="max-w-[200px] truncate">
-                          {stop.notes || 'No notes'}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0"
-                              onClick={() => {/* Edit stop */}}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
-                              onClick={() => {
-                                setSelectedStop(stop);
-                                setIsDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Delete Route Alert Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {selectedStop ? 'Delete Route Stop' : 'Delete Route'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {selectedStop 
-                ? `Are you sure you want to remove this stop from the route? This action cannot be undone.`
-                : `Are you sure you want to delete this route? This will remove all stops and assignments associated with this route and cannot be undone.`
-              }
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedStop(null)}>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={() => {
-                if (selectedStop) {
-                  handleDeleteStop();
-                } else {
-                  onDelete(route.id);
-                }
-                setIsDeleteDialogOpen(false);
-              }}
-              className="bg-red-500 hover:bg-red-600"
-            >
-              {selectedStop ? 'Delete Stop' : 'Delete Route'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button className="ml-auto" variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Stop
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
-
-export default RouteDetailView;

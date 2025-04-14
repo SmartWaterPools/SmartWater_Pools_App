@@ -1,6 +1,6 @@
 workflows:
   - name: Start application
-    command: npm run dev
+    command: NODE_ENV=development npm run dev
     environment: node
     metadata:
       port: 5000

@@ -3,10 +3,10 @@ import {
   fetchAllBazzaRoutes, 
   fetchBazzaRoutesByTechnician, 
   fetchAssignmentsByDate,
-  fetchAssignmentsByTechnicianAndDateRange
-} from '../services/bazzaService.new';
+  fetchAssignmentsByTechnicianAndDateRange,
+  ApiError
+} from '../services/bazzaService';
 import { BazzaRoute, BazzaMaintenanceAssignment } from '../lib/types';
-import { ApiError } from '../lib/enhancedApiClient';
 
 /**
  * Hook to fetch all bazza routes
