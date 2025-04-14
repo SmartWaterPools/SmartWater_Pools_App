@@ -826,6 +826,16 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         </div>
         
         <div 
+          onClick={(e) => handleSidebarNavigation(e, "/technicians")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnTechnicians ? "text-primary" : "text-gray-500")}>
+            <UserRound className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnTechnicians ? "text-primary font-medium" : "text-gray-500")}>Techs</span>
+        </div>
+        
+        <div 
           onClick={(e) => handleSidebarNavigation(e, "/business")}
           className="flex flex-col items-center px-3 py-1"
         >
