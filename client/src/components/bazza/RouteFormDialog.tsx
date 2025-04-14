@@ -70,12 +70,18 @@ export function RouteFormDialog({
   isOpen,
   onClose,
   route,
-  technicians,
+  technicians = [], // Provide default empty array
   onSuccess
 }: RouteFormDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const isEditMode = !!route;
+  
+  // Debug logging to help diagnose technician issues
+  console.log("RouteFormDialog - received technicians:", {
+    count: technicians?.length || 0,
+    technicians
+  });
 
   // Initialize the form
   const form = useForm<RouteFormValues>({

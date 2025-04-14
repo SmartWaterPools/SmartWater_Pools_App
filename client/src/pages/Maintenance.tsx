@@ -87,21 +87,26 @@ export default function Maintenance() {
     queryKey: ["/api/technicians"],
     staleTime: 60 * 1000, // 1 minute
     refetchOnWindowFocus: false,
-    // Callbacks are moved to the onSuccess/onError options 
-    // which React Query correctly supports
-    onSuccess: (data: any[]) => {
-      console.log("Successfully loaded technicians:", data?.length || 0);
-    },
-    onError: (err: Error) => {
-      console.error("Error loading technicians:", err);
-    }
+    retry: 2, // Only retry twice to avoid infinite loops if authentication fails
+    retryDelay: 1000, // Wait 1 second between retries
   });
+  
+  // Log technician data loading status separately to avoid TypeScript errors
+  useEffect(() => {
+    if (technicians) {
+      console.log("Successfully loaded technicians:", technicians?.length || 0);
+    }
+    if (techniciansError) {
+      console.error("Error loading technicians:", techniciansError);
+      // Don't show toast here - it creates a poor UX when not logged in
+    }
+  }, [technicians, techniciansError]);
   
   // Debug technicians loading
   useEffect(() => {
     console.log("Technicians data:", { 
       loading: techniciansLoading, 
-      count: technicians?.length || 0,
+      count: Array.isArray(technicians) ? technicians.length : 0,
       error: techniciansError ? (techniciansError as Error).message : null 
     });
   }, [technicians, techniciansLoading, techniciansError]);
@@ -462,7 +467,7 @@ export default function Maintenance() {
           <Card>
             <CardContent className="p-6">
               <TechnicianRoutesView 
-                technicians={technicians ? technicians.filter((t: any) => t && (t.active !== false)) : []}
+                technicians={Array.isArray(technicians) ? technicians.filter((t: any) => t && (t.active !== false)) : []}
                 maintenances={filteredMaintenances || []}
                 selectedTechnicianId={selectedTechnician}
                 onTechnicianSelect={setSelectedTechnician}
@@ -475,8 +480,18 @@ export default function Maintenance() {
                   });
                 }}
                 onAddRouteClick={() => {
-                  setRoute(undefined);
-                  setIsRouteFormOpen(true);
+                  try {
+                    console.log("Add Route button clicked - opening form dialog");
+                    setRoute(undefined);
+                    setIsRouteFormOpen(true);
+                  } catch (error) {
+                    console.error("Error opening route form:", error);
+                    toast({
+                      title: "Error",
+                      description: "There was an error opening the route form. Please try again.",
+                      variant: "destructive",
+                    });
+                  }
                 }}
               />
             </CardContent>
@@ -529,7 +544,7 @@ export default function Maintenance() {
           isOpen={isRouteFormOpen}
           onClose={() => setIsRouteFormOpen(false)}
           route={route}
-          technicians={technicians ? technicians.filter((t: any) => t && (t.active !== false)) : []}
+          technicians={Array.isArray(technicians) ? technicians.filter((t: any) => t && (t.active !== false)) : []}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
             setIsRouteFormOpen(false);
