@@ -23,7 +23,6 @@ interface MaintenanceListProps {
 }
 
 export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceListProps) {
-  console.log("MaintenanceList component rendering with defaultTab:", defaultTab);
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
@@ -42,322 +41,264 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   
   // State for active tab - use the defaultTab prop or current URL path
   const [location] = useLocation();
-  console.log("Current location:", location, "defaultTab:", defaultTab);
   const [activeTab, setActiveTab] = useState<'list' | 'routes'>(() => {
     // If URL is /maintenance/routes, set the tab to 'routes' regardless of defaultTab
     if (location === '/maintenance/routes') {
-      console.log("Setting active tab to 'routes' based on URL");
       return 'routes';
     }
-    console.log("Setting active tab to defaultTab:", defaultTab);
+    // Otherwise, use the defaultTab prop
     return defaultTab;
   });
   
-  // Log tab changes for debugging
-  useEffect(() => {
-    console.log("Active tab changed to:", activeTab);
-  }, [activeTab]);
-
-  // Fetch maintenance data
-  const { data: maintenances, isLoading, error } = useQuery<MaintenanceWithDetails[]>({
-    queryKey: ['/api/maintenances'],
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
-
-  // Fetch technicians data - using the users API
-  const { data: technicians = [], isLoading: isLoadingTechnicians } = useQuery<{id: number; name: string}[], Error, {id: number; name: string}[]>({
-    queryKey: ['/api/users'],
-    queryFn: async (): Promise<{id: number; name: string}[]> => {
-      try {
-        // Get all users from the API
-        const users = await fetch('/api/users').then(res => {
-          if (!res.ok) throw new Error('Failed to fetch users');
-          return res.json();
-        });
-        
-        console.log("Fetched users for technicians:", users);
-        
-        // For development/testing purposes, if there are no technicians, use all users
-        // In production, you would filter by role or technician status
-        return users
-          .filter((user: any) => 
-            user.role === 'technician' || 
-            user.isTechnician || 
-            user.userRole === 'technician' ||
-            (user.technician && user.technician.id) || 
-            true // Temporarily include all users as technicians for testing
-          )
-          .map((user: any) => ({
-            id: user.id,
-            name: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown'
-          }));
-      } catch (error) {
-        console.error("Error fetching technicians:", error);
-        return []; // Return empty array in case of error
+  // Fetch maintenances for list view with error handling
+  const { 
+    data: maintenances = [],
+    isLoading: isMaintenancesLoading,
+    error: maintenancesError
+  } = useQuery({ 
+    queryKey: ['/api/maintenances'], 
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error) => {
+      const errorObj = error as any;
+      if (errorObj?.status === 401 || errorObj?.message?.includes('Unauthorized')) {
+        return false;
       }
+      return failureCount < 3;
     },
-    staleTime: 15 * 60 * 1000, // 15 minutes
+    staleTime: 5 * 60 * 1000 // 5 minutes
   });
-
-  // Fetch clients data - simplified for this example
-  const { data: clients = [] } = useQuery<{id: number; name: string}[]>({
-    queryKey: ['/api/clients'],
-    // Fallback mock data (you would need to implement the real API)
-    queryFn: () => Promise.resolve([
-      { id: 1, name: 'Oceanside Resort' },
-      { id: 2, name: 'Mountain View Hotel' },
-      { id: 3, name: 'Sunshine Apartments' }
-    ]),
-    staleTime: 15 * 60 * 1000, // 15 minutes
+  
+  // Fetch technicians for routes view with error handling
+  const { 
+    data: technicians = [],
+    isLoading: isTechniciansLoading,
+    error: techniciansError
+  } = useQuery({ 
+    queryKey: ['/api/technicians'], 
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error) => {
+      const errorObj = error as any;
+      if (errorObj?.status === 401 || errorObj?.message?.includes('Unauthorized')) {
+        return false;
+      }
+      return failureCount < 3;
+    },
+    staleTime: 5 * 60 * 1000 // 5 minutes
   });
-
+  
   // Delete route mutation
   const deleteMutation = useMutation({
-    mutationFn: (routeId: number) => deleteBazzaRoute(routeId),
+    mutationFn: (id: number) => deleteBazzaRoute(id),
     onSuccess: () => {
-      import('../lib/queryClient').then(({ queryClient }) => {
-        queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
-      });
       toast({
-        title: 'Route deleted',
-        description: 'The route has been deleted successfully.',
+        title: "Route deleted",
+        description: "The route has been successfully deleted."
       });
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/technician'] });
       setSelectedRoute(null);
       setIsViewingRouteDetails(false);
     },
     onError: (error) => {
+      console.error("Error deleting route:", error);
       toast({
-        title: 'Error',
-        description: `Failed to delete route: ${(error as Error).message}`,
-        variant: 'destructive',
+        title: "Error",
+        description: "Failed to delete the route. Please try again.",
+        variant: "destructive"
       });
     }
   });
-
-  // Handle route deletion
-  const handleDeleteRoute = (routeId: number) => {
-    deleteMutation.mutate(routeId);
+  
+  // Effect to synchronize URL with active tab
+  useEffect(() => {
+    if (activeTab === 'routes' && location !== '/maintenance/routes') {
+      navigate('/maintenance/routes', { replace: true });
+    } else if (activeTab === 'list' && location !== '/maintenance/list' && location !== '/maintenance') {
+      navigate('/maintenance/list', { replace: true });
+    }
+  }, [activeTab, location, navigate]);
+  
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    if (value === 'list' || value === 'routes') {
+      setActiveTab(value);
+    }
   };
-
-  // Filter maintenances based on search term
-  const filteredMaintenances = maintenances?.filter(maintenance => {
-    const clientName = maintenance.client.user?.name?.toLowerCase() || "";
-    const clientAddress = maintenance.client.client?.address?.toLowerCase() || "";
-    const searchLower = searchTerm.toLowerCase();
-    
-    return clientName.includes(searchLower) || 
-           clientAddress.includes(searchLower) ||
-           maintenance.type?.toLowerCase().includes(searchLower) ||
-           maintenance.status.toLowerCase().includes(searchLower);
-  }) || [];
-
-  // Filter maintenances by technician
-  const technicianFilteredMaintenances = selectedTechnicianId 
-    ? filteredMaintenances.filter(m => m.technicianId === selectedTechnicianId)
-    : filteredMaintenances;
-
-  const handleAddMaintenance = () => {
-    navigate("/maintenance/add");
+  
+  // Handle route selection
+  const handleRouteSelect = (route: BazzaRoute) => {
+    setSelectedRoute(route);
+    setIsViewingRouteDetails(true);
   };
-
-  const handleAddRoute = () => {
+  
+  // Handle add route click
+  const handleAddRouteClick = () => {
     setRouteToEdit(undefined);
     setIsRouteFormOpen(true);
   };
-
-  const handleEditRoute = (route: BazzaRoute) => {
+  
+  // Handle edit route click
+  const handleEditRouteClick = (route: BazzaRoute) => {
     setRouteToEdit(route);
     setIsRouteFormOpen(true);
   };
-
-  const handleStatusUpdate = (maintenance: MaintenanceWithDetails, newStatus: string) => {
-    // This will be implemented when we add status update functionality
-    console.log(`Updating maintenance ${maintenance.id} status to ${newStatus}`);
-  };
-
-  const handleTabChange = (value: string) => {
-    if (value === 'list' || value === 'routes') {
-      console.log("Tab changed to:", value);
-      setActiveTab(value);
-      
-      // Reset route details view when switching tabs
-      setIsViewingRouteDetails(false);
-      setSelectedRoute(null);
-      
-      // Update URL based on tab without duplicating navigation
-      const currentPath = location;
-      const targetPath = value === 'list' ? '/maintenance/list' : '/maintenance/routes';
-      
-      // Only navigate if we're not already on the correct path
-      if (currentPath !== targetPath) {
-        navigate(targetPath);
-      }
-      
-      // Tab change logged via the useEffect hook
+  
+  // Handle delete route click
+  const handleDeleteRoute = (id: number) => {
+    if (window.confirm("Are you sure you want to delete this route?")) {
+      deleteMutation.mutate(id);
     }
   };
-
-  if (error) {
-    return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-red-500">
-              <p>Error loading maintenance data. Please try again later.</p>
-              <p className="text-sm mt-2">{(error as Error)?.message || "Unknown error"}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
+  
+  // Handle route form close
+  const handleRouteFormClose = () => {
+    setIsRouteFormOpen(false);
+    setRouteToEdit(undefined);
+  };
+  
+  // Handle route form submit
+  const handleRouteFormSubmit = () => {
+    setIsRouteFormOpen(false);
+    setRouteToEdit(undefined);
+    // Invalidate queries to refetch routes
+    queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/technician'] });
+  };
+  
+  // Handle back button click in route details view
+  const handleBackToRoutes = () => {
+    setSelectedRoute(null);
+    setIsViewingRouteDetails(false);
+  };
+  
+  // Handle day change
+  const handleDayChange = (day: string) => {
+    setFilterDay(day);
+  };
+  
   return (
-    <div className="container mx-auto p-4">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-        <h1 className="text-2xl font-bold mb-2 md:mb-0">Maintenance Schedule</h1>
-        <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-500" />
-            <Input
-              placeholder="Search maintenance..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          <Button onClick={handleAddMaintenance}>
-            <PlusCircle className="h-4 w-4 mr-2" />
-            Add Maintenance
+    <div>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Maintenance Management</h1>
+        <div className="flex space-x-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/maintenance/map')}>
+            <Map className="h-4 w-4 mr-2" />
+            Map View
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate('/maintenance')}>
+            <CalendarDays className="h-4 w-4 mr-2" />
+            Calendar
           </Button>
         </div>
       </div>
-
-      <Tabs defaultValue="list" className="w-full" value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="calendar" onClick={() => navigate("/maintenance")}>
-            <CalendarDays className="h-4 w-4 mr-2" />
-            Calendar
-          </TabsTrigger>
-          <TabsTrigger value="map" onClick={() => navigate("/maintenance/map")}>
-            <Map className="h-4 w-4 mr-2" />
-            Map View
-          </TabsTrigger>
-          <TabsTrigger value="list" onClick={() => navigate("/maintenance/list")}>
-            <ListFilter className="h-4 w-4 mr-2" />
-            List View
-          </TabsTrigger>
-          <TabsTrigger value="routes" onClick={() => navigate("/maintenance/routes")}>
-            <Route className="h-4 w-4 mr-2" />
-            Routes
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="list" className="mt-0">
-          <Card>
-            <CardHeader className="p-4 pb-0">
-              <CardTitle className="text-lg">Maintenance List</CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              {isLoading ? (
-                <div className="flex justify-center items-center h-[600px] bg-gray-50 rounded-lg">
-                  <Spinner size="lg" />
-                  <span className="ml-2">Loading maintenance data...</span>
-                </div>
-              ) : (
-                <LazyMaintenanceListView
-                  maintenances={technicianFilteredMaintenances}
-                  isLoading={isLoading}
-                  onStatusUpdate={handleStatusUpdate}
-                  isUpdatingStatus={false}
-                  selectedMaintenance={null}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="routes" className="mt-0">
-          {isViewingRouteDetails && selectedRoute ? (
-            <RouteDetailView
-              route={selectedRoute}
-              onBack={() => {
-                setIsViewingRouteDetails(false);
-                setSelectedRoute(null);
-              }}
-              onEdit={handleEditRoute}
-              onDelete={handleDeleteRoute}
-              technicians={technicians}
-              clients={clients}
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Technician Routes</h2>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">Filter by day:</span>
-                    <Select value={filterDay} onValueChange={setFilterDay}>
-                      <SelectTrigger className="w-[140px] h-9">
-                        <SelectValue placeholder="All Days" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Days</SelectItem>
-                        <SelectItem value="monday">Monday</SelectItem>
-                        <SelectItem value="tuesday">Tuesday</SelectItem>
-                        <SelectItem value="wednesday">Wednesday</SelectItem>
-                        <SelectItem value="thursday">Thursday</SelectItem>
-                        <SelectItem value="friday">Friday</SelectItem>
-                        <SelectItem value="saturday">Saturday</SelectItem>
-                        <SelectItem value="sunday">Sunday</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button 
-                    onClick={handleAddRoute} 
-                    className="bg-primary text-white font-medium hover:bg-primary/90"
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Route
-                  </Button>
-                </div>
-              </div>
-              
-              <TechnicianRoutesView
-                technicians={technicians}
-                maintenances={maintenances || []}
-                selectedTechnicianId={selectedTechnicianId}
-                onTechnicianSelect={setSelectedTechnicianId}
-                onRouteSelect={(route) => {
-                  setSelectedRoute(route);
-                  setIsViewingRouteDetails(true);
-                }}
-                onAddRouteClick={handleAddRoute}
-                selectedDay={filterDay !== 'all' ? filterDay : null}
-                onDayChange={(day) => setFilterDay(day || 'all')}
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Maintenance</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between items-center mb-4">
+            <div className="w-full sm:max-w-sm">
+              <Input
+                type="text"
+                placeholder="Search..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+                prefix={<Search className="h-4 w-4 text-muted-foreground" />}
               />
             </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Route Form Dialog */}
+          </div>
+          
+          <Tabs defaultValue={activeTab} onValueChange={handleTabChange} value={activeTab}>
+            <TabsList className="mb-4">
+              <TabsTrigger value="list">
+                <ListFilter className="h-4 w-4 mr-2" />
+                Maintenance List
+              </TabsTrigger>
+              <TabsTrigger value="routes">
+                <Route className="h-4 w-4 mr-2" />
+                Technician Routes
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="list" className="mt-0">
+              {isMaintenancesLoading ? (
+                <div className="flex justify-center items-center py-10">
+                  <Spinner size="lg" />
+                </div>
+              ) : maintenancesError ? (
+                <div className="text-center text-red-500 py-10">
+                  {(maintenancesError as Error)?.message?.includes('Unauthorized') 
+                    ? "You need to log in to view maintenance data." 
+                    : "Failed to load maintenances. Please try again."}
+                </div>
+              ) : (
+                <LazyMaintenanceListView 
+                  maintenances={maintenances as MaintenanceWithDetails[]} 
+                  searchTerm={searchTerm}
+                />
+              )}
+            </TabsContent>
+            
+            <TabsContent value="routes" className="mt-0">
+              {isViewingRouteDetails && selectedRoute ? (
+                <RouteDetailView 
+                  route={selectedRoute}
+                  onBack={handleBackToRoutes}
+                  onEdit={() => handleEditRouteClick(selectedRoute)}
+                  onDelete={() => handleDeleteRoute(selectedRoute.id)}
+                  isDeleting={deleteMutation.isPending}
+                />
+              ) : (
+                <>
+                  <div className="flex justify-between items-center mb-4">
+                    <Button 
+                      onClick={handleAddRouteClick} 
+                      variant="default" 
+                      className="ml-auto"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Route
+                    </Button>
+                  </div>
+                  
+                  {isTechniciansLoading ? (
+                    <div className="flex justify-center items-center py-10">
+                      <Spinner size="lg" />
+                    </div>
+                  ) : techniciansError ? (
+                    <div className="text-center text-red-500 py-10">
+                      {(techniciansError as Error)?.message?.includes('Unauthorized') 
+                        ? "You need to log in to view technician data." 
+                        : "Failed to load technicians. Please try again."}
+                    </div>
+                  ) : (
+                    <TechnicianRoutesView 
+                      technicians={technicians}
+                      maintenances={maintenances as MaintenanceWithDetails[]}
+                      selectedTechnicianId={selectedTechnicianId}
+                      onTechnicianSelect={setSelectedTechnicianId}
+                      onRouteSelect={handleRouteSelect}
+                      onAddRouteClick={handleAddRouteClick}
+                      selectedDay={filterDay}
+                      onDayChange={handleDayChange}
+                    />
+                  )}
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+      
       {isRouteFormOpen && (
         <RouteFormDialog
           isOpen={isRouteFormOpen}
-          onClose={() => {
-            setIsRouteFormOpen(false);
-            setRouteToEdit(undefined);
-          }}
+          onClose={handleRouteFormClose}
+          onSubmit={handleRouteFormSubmit}
           route={routeToEdit}
           technicians={technicians}
-          onSuccess={(route) => {
-            // If we were viewing route details and edited the route, update the selected route
-            if (isViewingRouteDetails && selectedRoute && selectedRoute.id === route.id) {
-              setSelectedRoute(route);
-            }
-          }}
         />
       )}
     </div>

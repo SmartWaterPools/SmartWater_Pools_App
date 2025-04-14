@@ -4,32 +4,60 @@ import {
   fetchBazzaRoutesByTechnician, 
   fetchAssignmentsByDate,
   fetchAssignmentsByTechnicianAndDateRange
-} from '../services/bazzaService';
+} from '../services/bazzaService.new';
 import { BazzaRoute, BazzaMaintenanceAssignment } from '../lib/types';
+import { ApiError } from '../lib/enhancedApiClient';
 
+/**
+ * Hook to fetch all bazza routes
+ */
 export function useBazzaRoutes() {
   const { 
-    data: routes, 
-    isLoading: isRoutesLoading, 
-    error: routesError 
+    data = [], 
+    isLoading, 
+    error 
   } = useQuery({
     queryKey: ['/api/bazza/routes'],
-    queryFn: fetchAllBazzaRoutes,
+    queryFn: async () => {
+      try {
+        return await fetchAllBazzaRoutes();
+      } catch (error) {
+        console.error('Error in useBazzaRoutes hook:', error);
+        
+        // Return empty array for 401 errors instead of throwing
+        if (error instanceof ApiError && error.status === 401) {
+          console.warn('Unauthorized when fetching routes, returning empty array');
+          return [];
+        }
+        throw error;
+      }
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      // Don't retry on 401/403 errors
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        return false;
+      }
+      // Retry other errors up to 3 times
+      return failureCount < 3;
+    }
   });
 
   return {
-    routes,
-    isRoutesLoading,
-    routesError
+    routes: data,
+    isRoutesLoading: isLoading,
+    routesError: error
   };
 }
 
+/**
+ * Hook to fetch routes for a specific technician
+ */
 export function useBazzaRoutesByTechnician(technicianId: number | null) {
   const { 
-    data: technicianRoutes = [], 
-    isLoading: isTechnicianRoutesLoading, 
-    error: technicianRoutesError 
+    data = [], 
+    isLoading, 
+    error 
   } = useQuery({
     queryKey: ['/api/bazza/routes/technician', technicianId],
     queryFn: async () => {
@@ -41,11 +69,10 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
         return result;
       } catch (error) {
         console.error(`Error fetching routes for technician ID: ${technicianId}`, error);
-        // If it's an unauthorized error, just return an empty array instead of throwing
-        const errorObj = error as any;
-        if (errorObj?.message?.includes('Unauthorized') || 
-            errorObj?.status === 401) {
-          console.warn('Unauthorized error when fetching routes, returning empty array');
+        
+        // Return empty array for 401 errors instead of throwing
+        if (error instanceof ApiError && error.status === 401) {
+          console.warn('Unauthorized when fetching routes by technician, returning empty array');
           return [];
         }
         throw error;
@@ -55,62 +82,104 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
     enabled: technicianId !== null && technicianId !== undefined,
     refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
-      // Don't retry on 401 errors (unauthorized)
-      const errorObj = error as any;
-      if (errorObj?.status === 401 || 
-          errorObj?.message?.includes('Unauthorized')) {
+      // Don't retry on 401/403 errors
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         return false;
       }
-      return failureCount < 3; // Only retry other errors up to 3 times
+      // Retry other errors up to 3 times
+      return failureCount < 3;
     }
   });
 
   return {
-    technicianRoutes: technicianRoutes || [],
-    isTechnicianRoutesLoading,
-    technicianRoutesError
+    technicianRoutes: data,
+    isTechnicianRoutesLoading: isLoading,
+    technicianRoutesError: error
   };
 }
 
+/**
+ * Hook to fetch assignments for a specific date
+ */
 export function useBazzaAssignmentsByDate(date: string) {
   const { 
-    data: assignments, 
-    isLoading: isAssignmentsLoading, 
-    error: assignmentsError 
+    data = [], 
+    isLoading, 
+    error 
   } = useQuery({
     queryKey: ['/api/bazza/assignments/date', date],
-    queryFn: () => fetchAssignmentsByDate(date),
+    queryFn: async () => {
+      try {
+        return await fetchAssignmentsByDate(date);
+      } catch (error) {
+        // Return empty array for 401 errors instead of throwing
+        if (error instanceof ApiError && error.status === 401) {
+          console.warn('Unauthorized when fetching assignments by date, returning empty array');
+          return [];
+        }
+        throw error;
+      }
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: (failureCount, error) => {
+      // Don't retry on 401/403 errors
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        return false;
+      }
+      // Retry other errors up to 3 times
+      return failureCount < 3;
+    }
   });
 
   return {
-    assignments,
-    isAssignmentsLoading,
-    assignmentsError
+    assignments: data,
+    isAssignmentsLoading: isLoading,
+    assignmentsError: error
   };
 }
 
+/**
+ * Hook to fetch assignments for a technician within a date range
+ */
 export function useBazzaAssignmentsByTechnicianAndDateRange(
   technicianId: number | null, 
   startDate: string, 
   endDate: string
 ) {
   const { 
-    data: assignments, 
-    isLoading: isAssignmentsLoading, 
-    error: assignmentsError 
+    data = [], 
+    isLoading, 
+    error 
   } = useQuery({
     queryKey: ['/api/bazza/assignments/technician/date-range', technicianId, startDate, endDate],
-    queryFn: () => technicianId 
-      ? fetchAssignmentsByTechnicianAndDateRange(technicianId, startDate, endDate) 
-      : Promise.resolve([]),
+    queryFn: async () => {
+      try {
+        if (!technicianId) return [];
+        return await fetchAssignmentsByTechnicianAndDateRange(technicianId, startDate, endDate);
+      } catch (error) {
+        // Return empty array for 401 errors instead of throwing
+        if (error instanceof ApiError && error.status === 401) {
+          console.warn('Unauthorized when fetching assignments by technician and date range, returning empty array');
+          return [];
+        }
+        throw error;
+      }
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: !!technicianId
+    enabled: !!technicianId,
+    retry: (failureCount, error) => {
+      // Don't retry on 401/403 errors
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        return false;
+      }
+      // Retry other errors up to 3 times
+      return failureCount < 3;
+    }
   });
 
   return {
-    assignments,
-    isAssignmentsLoading,
-    assignmentsError
+    assignments: data,
+    isAssignmentsLoading: isLoading,
+    assignmentsError: error
   };
 }

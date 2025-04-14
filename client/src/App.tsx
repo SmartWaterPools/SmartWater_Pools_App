@@ -185,16 +185,16 @@ function AppContent({
                     
                     {/* Maintenance routes */}
                     <Route path="/maintenance">
-                      <Maintenance />
+                      {() => <Maintenance />}
                     </Route>
                     <Route path="/maintenance/map">
-                      <MaintenanceMap />
+                      {() => <MaintenanceMap />}
                     </Route>
                     <Route path="/maintenance/list">
-                      <MaintenanceList />
+                      {() => <MaintenanceList />}
                     </Route>
                     <Route path="/maintenance/routes">
-                      <MaintenanceList defaultTab={"routes" as "list" | "routes"} />
+                      {() => <MaintenanceList defaultTab="routes" />}
                     </Route>
                     
                     {/* Repairs route */}

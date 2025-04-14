@@ -21,7 +21,68 @@ const insertBazzaMaintenanceAssignmentSchema = createInsertSchema(bazzaMaintenan
 
 // Bazza Route endpoints
 
-// Get all bazza routes
+// IMPORTANT NOTE: In Express.js, route order matters!
+// More specific routes must be registered before generic routes with path parameters.
+// For example, "/routes/technician/:technicianId" must be registered before "/routes/:id"
+// Otherwise, Express will treat "technician" as an :id parameter value.
+
+// Get bazza routes by technician ID - specific route MUST come before generic routes
+router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const technicianId = parseInt(req.params.technicianId);
+    console.log(`[BAZZA ROUTES API] Processing request for bazza routes for technician ID: ${technicianId}`);
+    
+    const routes = await storage.getBazzaRoutesByTechnicianId(technicianId);
+    res.json(routes);
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error fetching bazza routes for technician ${req.params.technicianId}:`, error);
+    res.status(500).json({ error: "Failed to fetch bazza routes for technician" });
+  }
+});
+
+// Get bazza routes by day of week - specific route MUST come before generic routes
+router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const dayOfWeek = req.params.dayOfWeek;
+    console.log(`[BAZZA ROUTES API] Processing request for bazza routes for day: ${dayOfWeek}`);
+    
+    const routes = await storage.getBazzaRoutesByDayOfWeek(dayOfWeek);
+    res.json(routes);
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error fetching bazza routes for day ${req.params.dayOfWeek}:`, error);
+    res.status(500).json({ error: "Failed to fetch bazza routes for day" });
+  }
+});
+
+// Get route stops for a specific route - specific route MUST come before generic routes
+router.get("/routes/:routeId/stops", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const routeId = parseInt(req.params.routeId);
+    console.log(`[BAZZA ROUTES API] Processing request for stops for bazza route ID: ${routeId}`);
+    
+    const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
+    res.json(stops);
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error fetching stops for bazza route ${req.params.routeId}:`, error);
+    res.status(500).json({ error: "Failed to fetch bazza route stops" });
+  }
+});
+
+// Get maintenance assignments for a specific route - specific route MUST come before generic routes
+router.get("/routes/:routeId/assignments", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const routeId = parseInt(req.params.routeId);
+    console.log(`[BAZZA ROUTES API] Processing request for assignments for bazza route ID: ${routeId}`);
+    
+    const assignments = await storage.getBazzaMaintenanceAssignmentsByRouteId(routeId);
+    res.json(assignments);
+  } catch (error) {
+    console.error(`[BAZZA ROUTES API] Error fetching assignments for bazza route ${req.params.routeId}:`, error);
+    res.status(500).json({ error: "Failed to fetch bazza maintenance assignments" });
+  }
+});
+
+// Get all bazza routes - generic endpoint should come after specific routes
 router.get("/routes", isAuthenticated, async (req: Request, res: Response) => {
   try {
     console.log("[BAZZA ROUTES API] Processing request for all bazza routes");
@@ -75,68 +136,13 @@ router.put("/routes/:id", isAuthenticated, async (req: Request, res: Response) =
   }
 });
 
-// IMPORTANT NOTE: In Express.js, route order matters!
-// More specific routes must be registered before generic routes with path parameters.
-// For example, "/routes/technician/:technicianId" must be registered before "/routes/:id"
-// Otherwise, Express will treat "technician" as an :id parameter value.
+// IMPORTANT: We had duplicate routes that were already defined above.
+// The code below is removed to avoid conflicts with the routes defined at the top of the file.
 
-// Get bazza routes by technician ID - specific route MUST come before generic ID route
-router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const technicianId = parseInt(req.params.technicianId);
-    console.log(`[BAZZA ROUTES API] Processing request for bazza routes for technician ID: ${technicianId}`);
-    
-    const routes = await storage.getBazzaRoutesByTechnicianId(technicianId);
-    res.json(routes);
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error fetching bazza routes for technician ${req.params.technicianId}:`, error);
-    res.status(500).json({ error: "Failed to fetch bazza routes for technician" });
-  }
-});
-
-// Get bazza routes by day of week - specific route MUST come before generic ID route
-router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const dayOfWeek = req.params.dayOfWeek;
-    console.log(`[BAZZA ROUTES API] Processing request for bazza routes for day: ${dayOfWeek}`);
-    
-    const routes = await storage.getBazzaRoutesByDayOfWeek(dayOfWeek);
-    res.json(routes);
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error fetching bazza routes for day ${req.params.dayOfWeek}:`, error);
-    res.status(500).json({ error: "Failed to fetch bazza routes for day" });
-  }
-});
+// IMPORTANT: We had duplicate routes that were already defined above.
+// The code below is removed to avoid conflicts with the routes defined at the top of the file.
 
 // Bazza Route Stop endpoints
-
-// Get route stops for a specific route - make sure this comes after /routes/technician/ and /routes/day/ routes
-router.get("/routes/:routeId/stops", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const routeId = parseInt(req.params.routeId);
-    console.log(`[BAZZA ROUTES API] Processing request for stops for bazza route ID: ${routeId}`);
-    
-    const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
-    res.json(stops);
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error fetching stops for bazza route ${req.params.routeId}:`, error);
-    res.status(500).json({ error: "Failed to fetch bazza route stops" });
-  }
-});
-
-// Get maintenance assignments for a specific route - this must come before the generic ID route
-router.get("/routes/:routeId/assignments", isAuthenticated, async (req: Request, res: Response) => {
-  try {
-    const routeId = parseInt(req.params.routeId);
-    console.log(`[BAZZA ROUTES API] Processing request for assignments for bazza route ID: ${routeId}`);
-    
-    const assignments = await storage.getBazzaMaintenanceAssignmentsByRouteId(routeId);
-    res.json(assignments);
-  } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error fetching assignments for bazza route ${req.params.routeId}:`, error);
-    res.status(500).json({ error: "Failed to fetch bazza maintenance assignments" });
-  }
-});
 
 // Get a specific bazza route by ID - MUST come after more specific routes
 router.get("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
