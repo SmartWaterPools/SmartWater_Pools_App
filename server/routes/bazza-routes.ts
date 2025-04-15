@@ -98,20 +98,30 @@ router.get("/routes", isAuthenticated, async (req: Request, res: Response) => {
 router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
   try {
     console.log("[BAZZA ROUTES API] Processing request to create new bazza route");
+    console.log("[BAZZA ROUTES API] Request body:", JSON.stringify(req.body));
     
     // Validate request body
     const validationResult = insertBazzaRouteSchema.safeParse(req.body);
     if (!validationResult.success) {
+      console.error("[BAZZA ROUTES API] Validation error:", JSON.stringify(validationResult.error.errors));
       return res.status(400).json({ 
         error: "Invalid route data", 
         details: validationResult.error.errors 
       });
     }
     
-    const newRoute = await storage.createBazzaRoute(validationResult.data as InsertBazzaRoute);
-    res.status(201).json(newRoute);
+    console.log("[BAZZA ROUTES API] Validated data:", JSON.stringify(validationResult.data));
+    
+    try {
+      const newRoute = await storage.createBazzaRoute(validationResult.data as InsertBazzaRoute);
+      console.log("[BAZZA ROUTES API] Successfully created route:", JSON.stringify(newRoute));
+      res.status(201).json(newRoute);
+    } catch (dbError) {
+      console.error("[BAZZA ROUTES API] Database error creating route:", dbError);
+      res.status(500).json({ error: "Failed to create bazza route in database", message: String(dbError) });
+    }
   } catch (error) {
-    console.error("[BAZZA ROUTES API] Error creating bazza route:", error);
+    console.error("[BAZZA ROUTES API] Unexpected error creating bazza route:", error);
     res.status(500).json({ error: "Failed to create bazza route" });
   }
 });

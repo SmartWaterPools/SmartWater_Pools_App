@@ -90,11 +90,20 @@ export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRou
 
 // Create a new route
 export const createBazzaRoute = async (routeData: Omit<BazzaRoute, 'id'>): Promise<BazzaRoute> => {
+  // Ensure we have all the required fields from the database schema
   const route = {
     ...routeData,
     createdAt: new Date(),
-    updatedAt: new Date()
+    updatedAt: new Date(),
+    // Ensure we don't send properties that don't exist in the database
+    description: routeData.description || null,
+    type: routeData.type || 'residential',
+    isRecurring: routeData.isRecurring !== undefined ? routeData.isRecurring : true,
+    frequency: routeData.frequency || 'weekly',
+    isActive: routeData.isActive !== undefined ? routeData.isActive : true,
   };
+  
+  console.log("Creating route with data:", route);
   
   return safeApiRequest<BazzaRoute>('/api/bazza/routes', {
     method: 'POST',

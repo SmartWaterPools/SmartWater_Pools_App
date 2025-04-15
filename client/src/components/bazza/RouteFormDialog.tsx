@@ -140,13 +140,22 @@ export function RouteFormDialog({
       startTime: values.startTime,
       endTime: values.endTime,
       region: values.region,
-      active: values.active,
-    };
+      isActive: values.active, // Note: active in the form maps to isActive in the database
+      // Add required fields from the schema
+      type: "residential", // Default type
+      isRecurring: true,
+      frequency: "weekly",
+      // Include other required fields with default values
+      description: null,
+      color: null,
+    } as unknown as Omit<BazzaRoute, "id">;
+    
+    console.log("Submitting route data:", routeData);
     
     if (isEditing && route) {
       updateMutation.mutate(routeData);
     } else {
-      createMutation.mutate(routeData as Omit<BazzaRoute, "id">);
+      createMutation.mutate(routeData);
     }
   };
   

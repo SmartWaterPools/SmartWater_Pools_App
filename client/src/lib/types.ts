@@ -199,6 +199,15 @@ export interface BazzaRoute {
   endTime: string | null;
   color: string | null;
   isActive: boolean;
+  
+  // Additional fields from schema
+  weekNumber?: number;
+  isRecurring?: boolean;
+  frequency?: string;
+  
+  // Field used in form but not in database schema
+  region?: string;
+  active?: boolean; // Compatibility alias for isActive
 }
 
 export interface BazzaRouteStop {
