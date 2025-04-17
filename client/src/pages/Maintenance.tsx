@@ -84,7 +84,7 @@ export default function Maintenance() {
     isLoading: techniciansLoading, 
     error: techniciansError 
   } = useQuery<any[]>({
-    queryKey: ["/api/technicians"],
+    queryKey: ["/api/technicians-with-users"],
     staleTime: 60 * 1000, // 1 minute
     refetchOnWindowFocus: false,
     retry: 2, // Only retry twice to avoid infinite loops if authentication fails

@@ -32,7 +32,7 @@ export default function Technicians() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const { data: technicians, isLoading } = useQuery<TechnicianWithUser[]>({
-    queryKey: ["/api/technicians"],
+    queryKey: ["/api/technicians-with-users"],
   });
 
   const filteredTechnicians = technicians?.filter(technician => {

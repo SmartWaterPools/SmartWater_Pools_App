@@ -4684,6 +4684,56 @@ export class DatabaseStorage implements IStorage {
 
     return { technician, user };
   }
+  
+  async getAllTechniciansWithUsers(): Promise<any[]> {
+    try {
+      // Get all technicians
+      const techsList = await this.getAllTechnicians();
+      const result = [];
+      
+      // For each technician, get the associated user
+      for (const tech of techsList) {
+        const [user] = await db.select().from(users).where(eq(users.id, tech.userId));
+        if (user) {
+          // Format the result to match TechnicianWithUser interface on the client
+          result.push({
+            ...tech,
+            user: user
+          });
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("Error in getAllTechniciansWithUsers:", error);
+      return [];
+    }
+  }
+  
+  async getTechniciansByOrganizationIdWithUsers(organizationId: number): Promise<any[]> {
+    try {
+      // Get all technicians for this organization
+      const techsList = await this.getTechniciansByOrganizationId(organizationId);
+      const result = [];
+      
+      // For each technician, get the associated user
+      for (const tech of techsList) {
+        const [user] = await db.select().from(users).where(eq(users.id, tech.userId));
+        if (user) {
+          // Format the result to match TechnicianWithUser interface on the client
+          result.push({
+            ...tech,
+            user: user
+          });
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("Error in getTechniciansByOrganizationIdWithUsers:", error);
+      return [];
+    }
+  }
 
   // Project operations
   async getProject(id: number): Promise<Project | undefined> {

@@ -53,23 +53,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let technicians;
       
       if (reqUser.role === 'system_admin') {
-        // System admins can see all technicians
-        technicians = await storage.getTechnicians();
-        console.log(`[TECHNICIANS API] System admin - fetching all technicians (${technicians.length})`);
+        // System admins can see all technicians with user info
+        technicians = await storage.getAllTechniciansWithUsers();
+        console.log(`[TECHNICIANS API] System admin - fetching all technicians with users (${technicians.length})`);
       } else if (reqUser.organizationId) {
-        // Regular users get technicians from their organization only
-        technicians = await storage.getTechniciansByOrganizationId(reqUser.organizationId);
-        console.log(`[TECHNICIANS API] Regular user - fetching technicians for organization ${reqUser.organizationId} (${technicians.length})`);
+        // Regular users get technicians from their organization only with user info
+        technicians = await storage.getTechniciansByOrganizationIdWithUsers(reqUser.organizationId);
+        console.log(`[TECHNICIANS API] Regular user - fetching technicians with users for organization ${reqUser.organizationId} (${technicians.length})`);
       } else {
         console.error("[TECHNICIANS API] User has no organization ID:", reqUser);
         return res.status(400).json({ error: "Invalid user data - missing organization" });
       }
       
       // Return technicians with basic logging
-      console.log(`[TECHNICIANS API] Returning ${technicians.length} technicians`);
+      console.log(`[TECHNICIANS API] Returning ${technicians.length} technicians with user data`);
       res.json(technicians);
     } catch (error) {
       console.error("[TECHNICIANS API] Error processing technicians request:", error);
+      res.status(500).json({ error: "Failed to fetch technicians" });
+    }
+  });
+  
+  // Development-only endpoint for technicians with users (no auth required)
+  // This is a temporary endpoint for development only
+  app.get("/api/technicians-with-users", async (req: Request, res: Response) => {
+    try {
+      console.log("[DEV API] Processing request for technicians list (no auth)");
+      
+      // Get all technicians with their user info
+      const technicians = await storage.getAllTechniciansWithUsers();
+      console.log(`[DEV API] Fetched ${technicians.length} technicians with users`);
+      
+      // Return technicians
+      res.json(technicians);
+    } catch (error) {
+      console.error("[DEV API] Error processing technicians request:", error);
       res.status(500).json({ error: "Failed to fetch technicians" });
     }
   });
