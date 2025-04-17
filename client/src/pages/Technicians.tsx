@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TechnicianList } from "@/components/technicians/TechnicianList";
+import { TechnicianForm } from "@/components/technicians/TechnicianForm";
 import { TechnicianWithUser } from "@/lib/types";
 
 export default function Technicians() {
@@ -74,8 +75,7 @@ export default function Technicians() {
                 <DialogTitle>Add New Technician</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2">
-                {/* Technician form would go here */}
-                <p className="text-sm text-gray-500">Form for adding new technicians</p>
+                <TechnicianForm onSuccess={() => setOpen(false)} />
               </div>
             </DialogContent>
           </Dialog>

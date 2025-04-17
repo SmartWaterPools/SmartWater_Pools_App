@@ -113,6 +113,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch technicians" });
     }
   });
+  
+  // Create technician endpoint - this creates both a user and a technician record
+  app.post("/api/technicians/create", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log("[TECHNICIANS API] Processing request to create technician");
+      const reqUser = req.user as any;
+      
+      // Log the authenticated user making the request
+      console.log(`[TECHNICIANS API] Create request by user:`, {
+        id: reqUser.id,
+        name: reqUser.name,
+        email: reqUser.email,
+        role: reqUser.role,
+        organizationId: reqUser.organizationId
+      });
+      
+      // Validate that the request has all required data
+      const { user, specialization, certifications, rate, notes } = req.body;
+      
+      if (!user || !user.name || !user.email) {
+        return res.status(400).json({ error: "Missing required user data" });
+      }
+      
+      if (!specialization) {
+        return res.status(400).json({ error: "Specialization is required" });
+      }
+      
+      // Check if a user with this email already exists
+      const existingUser = await storage.getUserByEmail(user.email);
+      if (existingUser) {
+        return res.status(409).json({ error: "A user with this email already exists" });
+      }
+      
+      // Generate a username from email if not provided
+      const username = user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 1000);
+      
+      try {
+        // Create the user first
+        const newUser = await storage.createUser({
+          username,
+          name: user.name,
+          email: user.email,
+          phone: user.phone || null,
+          address: user.address || null,
+          role: 'technician', // Set role to technician
+          active: true,
+          // Use the organization ID from the authenticated user
+          organizationId: reqUser.organizationId,
+          // Set temporary password (should be changed on first login)
+          password: Math.random().toString(36).slice(-8) + Math.random().toString(36).slice(-8)
+        });
+        
+        // Now create the technician with the newly created user ID
+        const newTechnician = await storage.createTechnician({
+          userId: newUser.id,
+          specialization,
+          certifications: certifications || null
+        });
+        
+        console.log(`[TECHNICIANS API] Successfully created technician with ID: ${newTechnician.id} for user ID: ${newUser.id}`);
+        
+        // Return the combined user and technician data
+        res.status(201).json({
+          ...newTechnician,
+          user: newUser,
+          rate,
+          notes
+        });
+      } catch (error) {
+        console.error("[TECHNICIANS API] Error creating technician or user:", error);
+        res.status(500).json({ error: "Failed to create technician" });
+      }
+    } catch (error) {
+      console.error("[TECHNICIANS API] Error processing technician creation request:", error);
+      res.status(500).json({ error: "Failed to process technician creation request" });
+    }
+  });
 
   // Google OAuth routes setup for login and signup
   
