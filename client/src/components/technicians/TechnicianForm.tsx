@@ -31,7 +31,22 @@ const technicianFormSchema = z.object({
   notes: z.string().optional(),
 });
 
+// Base form values from the schema
 type TechnicianFormValues = z.infer<typeof technicianFormSchema>;
+
+// Extended type for the API request with proper null handling
+interface TechnicianApiRequest {
+  user: {
+    name: string;
+    email: string;
+    phone: string | null;
+    address: string | null;
+  };
+  specialization: string;
+  certifications: string | null;
+  rate: string | null;
+  notes: string | null;
+}
 
 interface TechnicianFormProps {
   onSuccess?: () => void;
@@ -61,11 +76,27 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
 
   // Define mutation for creating technician
   const createTechnicianMutation = useMutation({
-    mutationFn: async (data: TechnicianFormValues) => {
-      return apiRequest("/api/technicians/create", {
-        method: "POST",
-        data,
-      });
+    mutationFn: async (data: TechnicianApiRequest) => {
+      try {
+        // Use apiRequest to communicate with our backend
+        const response = await fetch("/api/technicians/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create technician");
+        }
+        
+        return await response.json();
+      } catch (error: any) {
+        console.error("API Request Error:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       // Invalidate related queries to refresh data
@@ -86,11 +117,23 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
     onError: (error: any) => {
       console.error("Error creating technician:", error);
       
-      // Handle unauthorized errors specifically
-      if (error.status === 401) {
+      // Handle different types of errors
+      if (error.status === 401 || error.message?.includes("Unauthorized")) {
         toast({
           title: "Authentication Required",
           description: "You need to be logged in to create a technician. Please log in and try again.",
+          variant: "destructive",
+        });
+      } else if (error.message?.includes("Missing required user data")) {
+        toast({
+          title: "Missing Information",
+          description: "Please fill in all required fields including name and email.",
+          variant: "destructive",
+        });
+      } else if (error.message?.includes("exists")) {
+        toast({
+          title: "Email Already in Use",
+          description: "A user with this email already exists. Please use a different email address.",
           variant: "destructive",
         });
       } else {
@@ -123,9 +166,23 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
         return;
       }
       
+      // Make sure the user and required fields are properly structured
+      const formattedValues: TechnicianApiRequest = {
+        user: {
+          name: values.user.name.trim(),
+          email: values.user.email.trim(),
+          phone: values.user.phone ? values.user.phone.trim() : null,
+          address: values.user.address ? values.user.address.trim() : null
+        },
+        specialization: values.specialization.trim(),
+        certifications: values.certifications ? values.certifications.trim() : null,
+        rate: values.rate ? values.rate.trim() : null,
+        notes: values.notes ? values.notes.trim() : null
+      };
+      
       // If authenticated, proceed with the mutation
       setIsSubmitting(true);
-      createTechnicianMutation.mutate(values);
+      createTechnicianMutation.mutate(formattedValues);
     } catch (error) {
       console.error("Error checking authentication:", error);
       setIsSubmitting(false);
