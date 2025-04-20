@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -35,8 +35,19 @@ import {
   PlayCircle,
   User,
   XCircle,
+  ChevronDown
 } from "lucide-react";
-import { MaintenanceWithDetails, formatDate, getStatusClasses } from "../../lib/types";
+import { MaintenanceWithDetails, TechnicianWithUser, formatDate, getStatusClasses } from "../../lib/types";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "../../lib/queryClient";
+import { useToast } from "../../hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 
 type MaintenanceListViewProps = {
   maintenances: MaintenanceWithDetails[];
@@ -55,6 +66,48 @@ export function MaintenanceListView({
 }: MaintenanceListViewProps) {
   // State for grouping and pagination
   const [groupBy, setGroupBy] = useState<'date' | 'status' | 'client' | 'technician' | null>(null);
+  
+  // Get technicians for the dropdown
+  const { data: technicians = [], isLoading: isTechniciansLoading } = useQuery<TechnicianWithUser[]>({
+    queryKey: ['/api/technicians'],
+    staleTime: 5 * 60 * 1000 // 5 minutes
+  });
+  
+  const { toast } = useToast();
+  
+  // Mutation for updating technician assignment
+  const updateTechnicianMutation = useMutation({
+    mutationFn: async ({ maintenanceId, technicianId }: { maintenanceId: number, technicianId: number | null }) => {
+      const response = await fetch(`/api/maintenances/${maintenanceId}/technician`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ technicianId }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update technician');
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Technician updated',
+        description: 'Maintenance assignment has been updated successfully.',
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: `Failed to update technician: ${error.message}`,
+        variant: 'destructive',
+      });
+    },
+  });
 
   // Group maintenances based on the selected grouping option
   const groupedMaintenances = React.useMemo(() => {
@@ -189,7 +242,33 @@ export function MaintenanceListView({
                     </div>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      <span>{maintenance.technician?.user?.name || 'Unassigned'}</span>
+                      {!isTechniciansLoading ? (
+                        <Select
+                          value={maintenance.technicianId?.toString() || ''}
+                          onValueChange={(value) => {
+                            const techId = value === '' ? null : parseInt(value, 10);
+                            updateTechnicianMutation.mutate({ 
+                              maintenanceId: maintenance.id, 
+                              technicianId: techId 
+                            });
+                          }}
+                          disabled={updateTechnicianMutation.isPending}
+                        >
+                          <SelectTrigger className="h-7 w-[130px] text-xs">
+                            <SelectValue placeholder="Select technician" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Unassigned</SelectItem>
+                            {technicians.map((tech) => (
+                              <SelectItem key={tech.id} value={tech.id.toString()}>
+                                {tech.user?.name || `Technician #${tech.id}`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span>{maintenance.technician?.user?.name || 'Unassigned'}</span>
+                      )}
                     </div>
                   </div>
                   <div className="mt-2">

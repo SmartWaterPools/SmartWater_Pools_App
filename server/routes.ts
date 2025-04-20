@@ -1850,6 +1850,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Update maintenance technician endpoint
+  app.patch("/api/maintenances/:id/technician", isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      console.log(`\n[UPDATE MAINTENANCE TECHNICIAN API] Processing request to update technician for maintenance with ID: ${req.params.id}`);
+      const maintenanceId = parseInt(req.params.id, 10);
+      
+      if (isNaN(maintenanceId)) {
+        console.error("[UPDATE MAINTENANCE TECHNICIAN API] Invalid maintenance ID:", req.params.id);
+        return res.status(400).json({ error: "Invalid maintenance ID" });
+      }
+      
+      const { technicianId } = req.body;
+      
+      // Validate technician ID format (can be null)
+      if (technicianId !== null && (typeof technicianId !== 'number' || isNaN(technicianId))) {
+        console.error("[UPDATE MAINTENANCE TECHNICIAN API] Invalid technician ID format:", technicianId);
+        return res.status(400).json({ error: "Invalid technician ID format" });
+      }
+      
+      const reqUser = req.user as any;
+      if (!reqUser) {
+        console.error("[UPDATE MAINTENANCE TECHNICIAN API] No user found in request");
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      // Get the maintenance to check permissions
+      const maintenance = await typeSafeStorage.getMaintenance(maintenanceId);
+      
+      if (!maintenance) {
+        console.error(`[UPDATE MAINTENANCE TECHNICIAN API] Maintenance not found with ID: ${maintenanceId}`);
+        return res.status(404).json({ error: "Maintenance not found" });
+      }
+      
+      // Check if user has permission
+      if (reqUser.role !== "system_admin") {
+        const client = await typeSafeStorage.getClient(maintenance.clientId);
+        
+        if (!client || !reqUser.organizationId || client.organizationId !== reqUser.organizationId) {
+          console.error(`[UPDATE MAINTENANCE TECHNICIAN API] User does not have permission to update maintenance ${maintenanceId}`);
+          return res.status(403).json({ error: "You do not have permission to update this maintenance" });
+        }
+      }
+      
+      // Update only the technician ID field
+      console.log(`[UPDATE MAINTENANCE TECHNICIAN API] Updating technician for maintenance ID: ${maintenanceId} to technician ID: ${technicianId}`);
+      const updatedMaintenance = await typeSafeStorage.updateMaintenance(maintenanceId, { technicianId });
+      
+      if (!updatedMaintenance) {
+        console.error(`[UPDATE MAINTENANCE TECHNICIAN API] Failed to update technician for maintenance with ID: ${maintenanceId}`);
+        return res.status(500).json({ error: "Failed to update maintenance technician" });
+      }
+      
+      console.log(`[UPDATE MAINTENANCE TECHNICIAN API] Successfully updated technician for maintenance with ID: ${maintenanceId}`);
+      res.json(updatedMaintenance);
+    } catch (error) {
+      console.error("[UPDATE MAINTENANCE TECHNICIAN API] Error updating maintenance technician:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
   // Update maintenance endpoint
   app.patch("/api/maintenances/:id", isAuthenticated, async (req: Request, res: Response) => {
     try {
