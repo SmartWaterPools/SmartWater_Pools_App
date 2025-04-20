@@ -233,14 +233,20 @@ export function RouteFormDialog({
                           // Log each technician for debugging
                           console.log(`Rendering technician: ${tech.id} - ${tech.name}`);
                           
+                          // Enhanced debugging to see what technician data looks like
+                          console.log(`Tech data in dropdown:`, JSON.stringify(tech, null, 2));
+                          
                           // Ensure we always have a display name
                           let displayName = "Unnamed technician";
                           
                           if (tech.name && typeof tech.name === 'string' && tech.name.trim() !== '') {
                             displayName = tech.name;
+                          } else if (tech.user?.name && typeof tech.user.name === 'string') {
+                            displayName = tech.user.name;
+                            console.log(`Using user.name property: "${displayName}"`);
                           } else {
                             console.log(`Tech ${tech.id} has invalid name: "${tech.name}"`);
-                            displayName = `Technician #${tech.id}`;
+                            displayName = `Technician ${tech.id}`;
                           }
                           
                           return (

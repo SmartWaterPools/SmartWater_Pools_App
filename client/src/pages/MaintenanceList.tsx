@@ -278,7 +278,15 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                     </div>
                   ) : (
                     <TechnicianRoutesView 
-                      technicians={technicians}
+                      technicians={Array.isArray(technicians) 
+                        ? technicians.map((t: any) => ({
+                            id: t.id,
+                            name: t.user?.name || `Technician ${t.id}`,
+                            userId: t.userId,
+                            active: t.active
+                          }))
+                        : []
+                      }
                       maintenances={maintenances as MaintenanceWithDetails[]}
                       selectedTechnicianId={selectedTechnicianId}
                       onTechnicianSelect={setSelectedTechnicianId}
@@ -301,7 +309,15 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
           onClose={handleRouteFormClose}
           onSubmit={handleRouteFormSubmit}
           route={routeToEdit}
-          technicians={technicians}
+          technicians={Array.isArray(technicians) 
+            ? technicians.map((t: any) => ({
+                id: t.id,
+                name: t.user?.name || `Technician ${t.id}`,
+                userId: t.userId,
+                active: t.active
+              }))
+            : []
+          }
         />
       )}
     </div>

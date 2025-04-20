@@ -505,10 +505,18 @@ export default function Maintenance() {
             <CardContent className="p-6">
               <TechnicianRoutesView 
                 technicians={(() => {
+                  // Filter and map technicians with proper name handling
                   const filteredTechs = Array.isArray(technicians) ? 
-                    technicians.filter((t: any) => t && (t.active !== false)) : [];
-                  console.log("Filtered techs for routes view:", 
-                    filteredTechs.map(t => ({id: t.id, name: t?.user?.name || '?', active: t.active})));
+                    technicians
+                      .filter((t: any) => t && (t.active !== false))
+                      .map((t: any) => ({
+                        id: t.id,
+                        name: t.user?.name || `Technician ${t.id}`,
+                        userId: t.userId,
+                        active: t.active
+                      })) : [];
+                      
+                  console.log("Properly transformed techs for routes view:", filteredTechs);
                   return filteredTechs;
                 })()}
                 maintenances={filteredMaintenances || []}
@@ -592,12 +600,12 @@ export default function Maintenance() {
                 .filter((t: any) => t && (t.active !== false))
                 .map((t: any) => {
                   // Debug each technician object
-                  console.log(`Processing technician: ${t.id}`, t);
+                  console.log(`Processing technician for route form: ${t.id}`, t);
                   
-                  // Check for name in different possible locations (handle nested objects better)
-                  const name = t.name || 
-                              (t.user && typeof t.user === 'object' ? t.user.name : null) || 
-                              `Tech #${t.id}`;
+                  // Always prioritize getting name from user object
+                  const name = (t.user && typeof t.user === 'object' && t.user.name) 
+                    ? t.user.name 
+                    : (t.name || `Technician ${t.id}`);
                   
                   console.log(`Technician ${t.id} name resolved as: "${name}"`);
                   
