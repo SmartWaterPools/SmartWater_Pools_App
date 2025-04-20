@@ -45,7 +45,7 @@ const routeFormSchema = z.object({
   dayOfWeek: z.string().min(1, "Day of week is required"),
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
-  region: z.string().optional(),
+  description: z.string().optional(),
   active: z.boolean().optional().default(true),
 });
 
@@ -57,7 +57,15 @@ type RouteFormDialogProps = {
   onSubmit?: () => void;
   onSuccess?: () => void;
   route?: BazzaRoute;
-  technicians: { id: number; name: string }[];
+  technicians: { 
+    id: number; 
+    name: string;
+    user?: { 
+      id: number;
+      name: string;
+      email?: string | null;
+    } | null;
+  }[];
 };
 
 export function RouteFormDialog({
@@ -88,7 +96,7 @@ export function RouteFormDialog({
       dayOfWeek: route?.dayOfWeek || "",
       startTime: route?.startTime || "08:00",
       endTime: route?.endTime || "17:00",
-      region: route?.region || "",
+      description: route?.description || "",
       active: route?.active ?? true,
     },
   });
@@ -151,18 +159,18 @@ export function RouteFormDialog({
       dayOfWeek: values.dayOfWeek,
       startTime: values.startTime,
       endTime: values.endTime,
-      region: values.region,
+      // Use the description field properly from the form
+      description: values.description || null,
       isActive: values.active, // Note: active in the form maps to isActive in the database
       // Add required fields from the schema
       type: "residential", // Default type
       isRecurring: true,
       frequency: "weekly",
       // Include other required fields with default values
-      description: null,
       color: null,
     } as unknown as Omit<BazzaRoute, "id">;
     
-    console.log("Submitting route data:", routeData);
+    console.log("Submitting route data:", JSON.stringify(routeData, null, 2));
     
     if (isEditing && route) {
       updateMutation.mutate(routeData);
@@ -325,15 +333,15 @@ export function RouteFormDialog({
             
             <FormField
               control={form.control}
-              name="region"
+              name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Region</FormLabel>
+                  <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter region" {...field} />
+                    <Input placeholder="Enter route description" {...field} />
                   </FormControl>
                   <FormDescription>
-                    Region or area where this route is located.
+                    Optional description of this route.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
