@@ -244,9 +244,9 @@ export function MaintenanceListView({
                       <User className="h-4 w-4 text-muted-foreground" />
                       {!isTechniciansLoading ? (
                         <Select
-                          value={maintenance.technicianId?.toString() || ''}
+                          value={maintenance.technicianId?.toString() || 'unassigned'}
                           onValueChange={(value) => {
-                            const techId = value === '' ? null : parseInt(value, 10);
+                            const techId = value === 'unassigned' ? null : parseInt(value, 10);
                             updateTechnicianMutation.mutate({ 
                               maintenanceId: maintenance.id, 
                               technicianId: techId 
@@ -258,7 +258,7 @@ export function MaintenanceListView({
                             <SelectValue placeholder="Select technician" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Unassigned</SelectItem>
+                            <SelectItem value="unassigned">Unassigned</SelectItem>
                             {technicians.map((tech) => (
                               <SelectItem key={tech.id} value={tech.id.toString()}>
                                 {tech.user?.name || `Technician #${tech.id}`}
