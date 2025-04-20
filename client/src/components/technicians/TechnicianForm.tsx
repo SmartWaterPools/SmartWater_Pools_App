@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/contexts/AuthContext";
 
 // Define validation schema for technician form
 const technicianFormSchema = z.object({
@@ -56,6 +57,7 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isAuthenticated, user, checkSession } = useAuth();
 
   // Initialize form with default values
   const form = useForm<TechnicianFormValues>({
@@ -78,18 +80,22 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
   const createTechnicianMutation = useMutation({
     mutationFn: async (data: TechnicianApiRequest) => {
       try {
-        // Use apiRequest to communicate with our backend
+        // Use the apiRequest helper function which handles cookies and credentials
         const response = await fetch("/api/technicians/create", {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
+          credentials: "include", // Important for sending cookies with the request
           body: JSON.stringify(data)
         });
         
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to create technician");
+          // Add status code to error for better handling
+          const error = new Error(errorData.error || "Failed to create technician");
+          (error as any).status = response.status;
+          throw error;
         }
         
         return await response.json();
@@ -149,21 +155,31 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
     },
   });
 
+  // Add effect to verify authentication on component mount
+  useEffect(() => {
+    // Refresh the session when the component mounts to ensure we have the latest authentication state
+    checkSession().catch(error => {
+      console.error("Failed to check session on component mount:", error);
+    });
+  }, [checkSession]);
+
   // Form submission handler
   const onSubmit = async (values: TechnicianFormValues) => {
     try {
-      // First check if user is logged in by making a quick session check
-      const sessionResponse = await fetch('/api/auth/session');
-      const sessionData = await sessionResponse.json();
-      
-      if (!sessionData.isAuthenticated) {
-        setIsSubmitting(false);
-        toast({
-          title: "Authentication Required",
-          description: "You need to be logged in to create a technician. Please log in first.",
-          variant: "destructive",
-        });
-        return;
+      // Check authentication using context
+      if (!isAuthenticated) {
+        // Try to refresh authentication status
+        const authenticated = await checkSession();
+        
+        if (!authenticated) {
+          setIsSubmitting(false);
+          toast({
+            title: "Authentication Required",
+            description: "You need to be logged in to create a technician. Please login first.",
+            variant: "destructive",
+          });
+          return;
+        }
       }
       
       // Make sure the user and required fields are properly structured
@@ -184,11 +200,11 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
       setIsSubmitting(true);
       createTechnicianMutation.mutate(formattedValues);
     } catch (error) {
-      console.error("Error checking authentication:", error);
+      console.error("Error during form submission:", error);
       setIsSubmitting(false);
       toast({
         title: "Error",
-        description: "Failed to verify authentication status. Please try again.",
+        description: "Failed to process your request. Please try again.",
         variant: "destructive",
       });
     }
@@ -197,6 +213,17 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {!isAuthenticated && (
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-4">
+            <p className="text-amber-800 text-sm flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+              You must be logged in to add a technician. Please log in first.
+            </p>
+          </div>
+        )}
+        
         <div className="space-y-4">
           <h3 className="text-lg font-medium">User Information</h3>
           
@@ -337,9 +364,9 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
         <Button 
           type="submit" 
           className="w-full" 
-          disabled={isSubmitting}
+          disabled={isSubmitting || !isAuthenticated}
         >
-          {isSubmitting ? "Adding Technician..." : "Add Technician"}
+          {isSubmitting ? "Adding Technician..." : !isAuthenticated ? "Please Log In First" : "Add Technician"}
         </Button>
       </form>
     </Form>
