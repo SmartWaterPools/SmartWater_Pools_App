@@ -89,26 +89,43 @@ export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRou
 };
 
 // Create a new route
-export const createBazzaRoute = async (routeData: Omit<BazzaRoute, 'id'>): Promise<BazzaRoute> => {
-  // Ensure we have all the required fields from the database schema
-  const route = {
-    ...routeData,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    // Ensure we don't send properties that don't exist in the database
-    description: routeData.description || null,
+export const createBazzaRoute = async (routeData: any): Promise<BazzaRoute> => {
+  // Sanitize the data for the server - exactly match what the schema expects
+  const routeToSend = {
+    // Required fields
+    name: routeData.name,
+    technicianId: Number(routeData.technicianId), // Ensure it's a number
+    dayOfWeek: routeData.dayOfWeek,
     type: routeData.type || 'residential',
     isRecurring: routeData.isRecurring !== undefined ? routeData.isRecurring : true,
     frequency: routeData.frequency || 'weekly',
     isActive: routeData.isActive !== undefined ? routeData.isActive : true,
+    
+    // Optional fields
+    startTime: routeData.startTime || null,
+    endTime: routeData.endTime || null,
+    description: routeData.description || null,
+    color: routeData.color || null,
+    weekNumber: routeData.weekNumber || null,
+    
+    // Do NOT include these fields - they're set by the server
+    // id, createdAt, updatedAt
   };
   
-  console.log("Creating route with data:", route);
+  console.log("Creating route with data:", JSON.stringify(routeToSend, null, 2));
   
-  return safeApiRequest<BazzaRoute>('/api/bazza/routes', {
-    method: 'POST',
-    body: JSON.stringify(route),
-  });
+  try {
+    return await safeApiRequest<BazzaRoute>('/api/bazza/routes', {
+      method: 'POST',
+      body: JSON.stringify(routeToSend),
+    });
+  } catch (error) {
+    console.error("Error in createBazzaRoute:", error);
+    if (error instanceof ApiError) {
+      console.error("API Error details:", error.message, error.status);
+    }
+    throw error;
+  }
 };
 
 // Update an existing route

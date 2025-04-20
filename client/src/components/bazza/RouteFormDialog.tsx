@@ -152,30 +152,31 @@ export function RouteFormDialog({
   
   // Handle form submission
   const handleSubmit = (values: RouteFormValues) => {
-    // Convert form values to route data
+    // Match exactly what's expected by insertBazzaRouteSchema
     const routeData = {
       name: values.name,
       technicianId: parseInt(values.technicianId),
       dayOfWeek: values.dayOfWeek,
       startTime: values.startTime,
       endTime: values.endTime,
-      // Use the description field properly from the form
       description: values.description || null,
-      isActive: values.active, // Note: active in the form maps to isActive in the database
-      // Add required fields from the schema
-      type: "residential", // Default type
-      isRecurring: true,
-      frequency: "weekly",
-      // Include other required fields with default values
+      isActive: values.active,
+      // Add required fields from the schema with their exact names
+      type: "residential", // Default type - REQUIRED
+      isRecurring: true, // REQUIRED
+      frequency: "weekly", // REQUIRED
+      // Optional fields - use null for null values, undefined for fields to omit entirely
       color: null,
-    } as unknown as Omit<BazzaRoute, "id">;
+      weekNumber: null, // Explicitly send null
+    };
     
     console.log("Submitting route data:", JSON.stringify(routeData, null, 2));
     
+    // Modify the service call to send exactly the right schema
     if (isEditing && route) {
-      updateMutation.mutate(routeData);
+      updateMutation.mutate(routeData as any);
     } else {
-      createMutation.mutate(routeData);
+      createMutation.mutate(routeData as any);
     }
   };
   
