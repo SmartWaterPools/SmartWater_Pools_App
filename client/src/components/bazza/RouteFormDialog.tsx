@@ -41,11 +41,12 @@ import { Checkbox } from "../ui/checkbox";
 // Schema for the route form
 const routeFormSchema = z.object({
   name: z.string().min(1, "Route name is required"),
-  technicianId: z.string().min(1, "Technician is required"),
+  technicianId: z.string(), // Allow empty/null for unassigned
   dayOfWeek: z.string().min(1, "Day of week is required"),
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
   description: z.string().optional(),
+  region: z.string().optional(),
   active: z.boolean().optional().default(true),
 });
 
@@ -97,6 +98,7 @@ export function RouteFormDialog({
       startTime: route?.startTime || "08:00",
       endTime: route?.endTime || "17:00",
       description: route?.description || "",
+      region: route?.region || "",
       active: route?.active ?? true,
     },
   });
@@ -199,11 +201,12 @@ export function RouteFormDialog({
     // Match exactly what's expected by insertBazzaRouteSchema
     const routeData = {
       name: values.name,
-      technicianId: parseInt(values.technicianId),
+      technicianId: values.technicianId ? parseInt(values.technicianId) : null,
       dayOfWeek: values.dayOfWeek,
       startTime: values.startTime,
       endTime: values.endTime,
       description: values.description || null,
+      region: values.region || null,
       isActive: values.active,
       // Add required fields from the schema with their exact names
       type: "residential", // Default type - REQUIRED
@@ -281,14 +284,9 @@ export function RouteFormDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="">Unassigned</SelectItem>
                       {technicians.length > 0 ? (
                         technicians.map(tech => {
-                          // Log each technician for debugging
-                          console.log(`Rendering technician: ${tech.id} - ${tech.name}`);
-                          
-                          // Enhanced debugging to see what technician data looks like
-                          console.log(`Tech data in dropdown:`, JSON.stringify(tech, null, 2));
-                          
                           // Ensure we always have a display name
                           let displayName = "Unnamed technician";
                           
@@ -296,9 +294,7 @@ export function RouteFormDialog({
                             displayName = tech.name;
                           } else if (tech.user?.name && typeof tech.user.name === 'string') {
                             displayName = tech.user.name;
-                            console.log(`Using user.name property: "${displayName}"`);
                           } else {
-                            console.log(`Tech ${tech.id} has invalid name: "${tech.name}"`);
                             displayName = `Technician ${tech.id}`;
                           }
                           
@@ -375,6 +371,23 @@ export function RouteFormDialog({
                 )}
               />
             </div>
+            
+            <FormField
+              control={form.control}
+              name="region"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Region</FormLabel>
+                  <FormControl>
+                    <Input placeholder="Enter region (e.g., North, East, etc.)" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    Optional region for this route.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
             <FormField
               control={form.control}

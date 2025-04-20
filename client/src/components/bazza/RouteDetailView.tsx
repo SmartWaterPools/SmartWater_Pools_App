@@ -43,16 +43,26 @@ import {
 import { fetchRouteStops } from "../../services/bazzaService";
 import { useQuery } from "@tanstack/react-query";
 import { BazzaRoute, BazzaRouteStop } from "../../lib/types";
+import { StopFormDialog } from "./StopFormDialog";
 
 type RouteDetailViewProps = {
   route: BazzaRoute;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onAddStop?: () => void;
   isDeleting?: boolean;
 };
 
-export function RouteDetailView({ route, onBack, onEdit, onDelete, isDeleting }: RouteDetailViewProps) {
+export function RouteDetailView({ 
+  route, 
+  onBack, 
+  onEdit, 
+  onDelete, 
+  onAddStop = () => {}, 
+  isDeleting 
+}: RouteDetailViewProps) {
+  const [isStopDialogOpen, setIsStopDialogOpen] = useState(false);
   // Fetch route stops
   const { 
     data: stops = [], 
@@ -68,6 +78,13 @@ export function RouteDetailView({ route, onBack, onEdit, onDelete, isDeleting }:
         throw error;
       }
     }
+  });
+  
+  // Fetch client details for each stop
+  const { data: clients = [] } = useQuery({
+    queryKey: ['/api/clients'],
+    enabled: stops.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
   
   return (
@@ -130,7 +147,9 @@ export function RouteDetailView({ route, onBack, onEdit, onDelete, isDeleting }:
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">Technician:</span>
-                <span>{route.technicianName || 'Not assigned'}</span>
+                <span>
+                  {route.technicianId ? `Technician #${route.technicianId}` : 'Not assigned'}
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -164,6 +183,7 @@ export function RouteDetailView({ route, onBack, onEdit, onDelete, isDeleting }:
                 <Button 
                   variant="outline" 
                   className="mt-4"
+                  onClick={() => setIsStopDialogOpen(true)}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Stop
@@ -181,47 +201,82 @@ export function RouteDetailView({ route, onBack, onEdit, onDelete, isDeleting }:
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {stops.map((stop) => (
-                    <TableRow key={stop.id}>
-                      <TableCell>{stop.order}</TableCell>
-                      <TableCell>{stop.clientName}</TableCell>
-                      <TableCell>{stop.address}</TableCell>
-                      <TableCell>{stop.notes || 'No notes'}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">
-                              <Trash className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {stops.map((stop) => {
+                    // Find client information
+                    const client = Array.isArray(clients) ? 
+                      clients.find((c: any) => c.id === stop.clientId || c.client?.id === stop.clientId) : null;
+                    
+                    // Get client name
+                    const clientName = client ? 
+                      (client.user?.name || client.name || `Client #${stop.clientId}`) : 
+                      `Client #${stop.clientId}`;
+                    
+                    // Get client address
+                    const clientAddress = client ? 
+                      (client.user?.address || client.address || 
+                       client.client?.address || '-') : 
+                      '-';
+                      
+                    return (
+                      <TableRow key={stop.id}>
+                        <TableCell>{stop.position}</TableCell>
+                        <TableCell>{clientName}</TableCell>
+                        <TableCell>{clientAddress}</TableCell>
+                        <TableCell>{stop.notes || 'No notes'}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive">
+                                <Trash className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}
           </div>
         </CardContent>
         <CardFooter>
-          <Button className="ml-auto" variant="outline">
+          <Button 
+            className="ml-auto" 
+            variant="outline"
+            onClick={() => setIsStopDialogOpen(true)}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Add Stop
           </Button>
         </CardFooter>
       </Card>
     </div>
+    
+    {/* Stop Form Dialog */}
+    {isStopDialogOpen && (
+      <StopFormDialog
+        isOpen={isStopDialogOpen}
+        onClose={() => setIsStopDialogOpen(false)}
+        onSuccess={() => {
+          setIsStopDialogOpen(false);
+          // Optionally call the parent's onAddStop if needed
+          onAddStop();
+        }}
+        route={route}
+      />
+    )}
   );
 }

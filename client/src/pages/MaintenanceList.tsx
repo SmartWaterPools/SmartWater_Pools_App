@@ -251,6 +251,7 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                   onBack={handleBackToRoutes}
                   onEdit={() => handleEditRouteClick(selectedRoute)}
                   onDelete={() => handleDeleteRoute(selectedRoute.id)}
+                  onAddStop={() => alert("Add stop functionality coming soon!")}
                   isDeleting={deleteMutation.isPending}
                 />
               ) : (
