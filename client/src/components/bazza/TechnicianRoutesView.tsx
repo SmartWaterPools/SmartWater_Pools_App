@@ -37,6 +37,10 @@ export function TechnicianRoutesView({
   selectedDay = 'all',
   onDayChange
 }: TechnicianRoutesViewProps) {
+  // Debug logging
+  console.log("TechnicianRoutesView - Received technicians:", 
+    technicians.map(t => ({ id: t.id, name: t.name }))
+  );
   const daysOfWeek = [
     { value: 'all', label: 'All Days' },
     { value: 'monday', label: 'Monday' },
@@ -90,7 +94,11 @@ export function TechnicianRoutesView({
             >
               <CardContent className="p-4 flex items-center gap-2">
                 <UserCheck className="h-5 w-5 text-primary" />
-                <span>{technician.name}</span>
+                <span>{
+                  technician.name && technician.name.trim() !== '' 
+                    ? technician.name 
+                    : `Technician #${technician.id}`
+                }</span>
               </CardContent>
             </Card>
           ))}

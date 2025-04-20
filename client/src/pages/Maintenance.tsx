@@ -88,13 +88,50 @@ export default function Maintenance() {
     staleTime: 60 * 1000, // 1 minute
     refetchOnWindowFocus: false,
     retry: 2, // Only retry twice to avoid infinite loops if authentication fails
-    retryDelay: 1000, // Wait 1 second between retries
+    retryDelay: 1000, // Wait 1 second between retries,
+    select: (data) => {
+      console.log("Raw technicians data from API:", data);
+      if (Array.isArray(data)) {
+        console.log("Received technician count:", data.length);
+        console.log("Technician data example:", 
+          data.slice(0, 2).map(tech => ({
+            id: tech.id,
+            name: tech?.user?.name, 
+            active: tech.active,
+            hasUser: !!tech.user,
+            userId: tech.userId
+          }))
+        );
+      }
+      return data;
+    }
   });
   
   // Log technician data loading status separately to avoid TypeScript errors
   useEffect(() => {
     if (technicians) {
       console.log("Successfully loaded technicians:", technicians?.length || 0);
+      
+      // Add more detailed logging to inspect the technician data structure
+      if (Array.isArray(technicians) && technicians.length > 0) {
+        console.log("First technician object (full):", technicians[0]);
+        
+        // Log all technicians in a more compact format
+        console.log("All technicians summary:", 
+          technicians.map(t => ({
+            id: t.id, 
+            userId: t.userId,
+            user: t.user ? {
+              id: t.user.id,
+              name: t.user.name || "[No name]",
+              email: t.user.email || "[No email]"
+            } : "[No user]",
+            active: t.active
+          }))
+        );
+      } else {
+        console.log("Technician data not in expected array format or empty");
+      }
     }
     if (techniciansError) {
       console.error("Error loading technicians:", techniciansError);
@@ -467,7 +504,13 @@ export default function Maintenance() {
           <Card>
             <CardContent className="p-6">
               <TechnicianRoutesView 
-                technicians={Array.isArray(technicians) ? technicians.filter((t: any) => t && (t.active !== false)) : []}
+                technicians={(() => {
+                  const filteredTechs = Array.isArray(technicians) ? 
+                    technicians.filter((t: any) => t && (t.active !== false)) : [];
+                  console.log("Filtered techs for routes view:", 
+                    filteredTechs.map(t => ({id: t.id, name: t?.user?.name || '?', active: t.active})));
+                  return filteredTechs;
+                })()}
                 maintenances={filteredMaintenances || []}
                 selectedTechnicianId={selectedTechnician}
                 onTechnicianSelect={setSelectedTechnician}
@@ -544,7 +587,29 @@ export default function Maintenance() {
           isOpen={isRouteFormOpen}
           onClose={() => setIsRouteFormOpen(false)}
           route={route}
-          technicians={Array.isArray(technicians) ? technicians.filter((t: any) => t && (t.active !== false)) : []}
+          technicians={Array.isArray(technicians) 
+            ? technicians
+                .filter((t: any) => t && (t.active !== false))
+                .map((t: any) => {
+                  // Debug each technician object
+                  console.log(`Processing technician: ${t.id}`, t);
+                  
+                  // Check for name in different possible locations (handle nested objects better)
+                  const name = t.name || 
+                              (t.user && typeof t.user === 'object' ? t.user.name : null) || 
+                              `Tech #${t.id}`;
+                  
+                  console.log(`Technician ${t.id} name resolved as: "${name}"`);
+                  
+                  return {
+                    id: t.id,
+                    name: name,
+                    userId: t.userId,
+                    active: t.active
+                  };
+                })
+            : []
+          }
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
             setIsRouteFormOpen(false);

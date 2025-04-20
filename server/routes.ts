@@ -94,8 +94,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (reqUser.role === 'system_admin') {
         // System admins can see all technicians with user info
+        console.log(`[TECHNICIANS API] System admin detected - about to fetch all technicians`);
         technicians = await storage.getAllTechniciansWithUsers();
-        console.log(`[TECHNICIANS API] System admin - fetching all technicians with users (${technicians.length})`);
+        console.log(`[TECHNICIANS API] System admin - fetching all technicians with users (${technicians?.length || 0})`);
+        
+        // Debug the first technician in detail 
+        if (technicians && technicians.length > 0) {
+          const techSample = technicians[0];
+          console.log("[TECHNICIANS API] First technician detail:", {
+            technicianId: techSample.id,
+            userId: techSample.userId,
+            hasUser: !!techSample.user,
+            userName: techSample.user?.name,
+            userEmail: techSample.user?.email,
+            active: techSample.active
+          });
+        }
       } else if (reqUser.organizationId) {
         // Regular users get technicians from their organization only with user info
         technicians = await storage.getTechniciansByOrganizationIdWithUsers(reqUser.organizationId);
@@ -103,6 +117,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         console.error("[TECHNICIANS API] User has no organization ID:", reqUser);
         return res.status(400).json({ error: "Invalid user data - missing organization" });
+      }
+      
+      // Fix any technicians with missing user data to prevent frontend errors
+      if (technicians && technicians.length > 0) {
+        technicians = technicians.map(tech => {
+          if (!tech.user) {
+            return {
+              ...tech,
+              user: {
+                id: tech.userId,
+                name: `Technician #${tech.id}`,
+                email: null
+              }
+            };
+          }
+          return tech;
+        });
       }
       
       // Return technicians with basic logging

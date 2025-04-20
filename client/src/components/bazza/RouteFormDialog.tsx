@@ -54,7 +54,8 @@ type RouteFormValues = z.infer<typeof routeFormSchema>;
 type RouteFormDialogProps = {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSubmit?: () => void;
+  onSuccess?: () => void;
   route?: BazzaRoute;
   technicians: { id: number; name: string }[];
 };
@@ -63,9 +64,18 @@ export function RouteFormDialog({
   isOpen,
   onClose,
   onSubmit: onFormSubmit,
+  onSuccess,
   route,
   technicians
 }: RouteFormDialogProps) {
+  // Debug component initialization
+  console.log("RouteFormDialog: Initializing component", {
+    isOpen,
+    routeId: route?.id,
+    technicianCount: technicians?.length || 0,
+    technicians: technicians?.map(t => ({ id: t.id, name: t.name }))
+  });
+  
   const { toast } = useToast();
   const isEditing = !!route;
   
@@ -92,7 +102,8 @@ export function RouteFormDialog({
         description: "The route has been successfully created."
       });
       form.reset();
-      onFormSubmit();
+      if (onFormSubmit) onFormSubmit();
+      if (onSuccess) onSuccess();
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
     },
     onError: (error) => {
@@ -117,7 +128,8 @@ export function RouteFormDialog({
         description: "The route has been successfully updated."
       });
       form.reset();
-      onFormSubmit();
+      if (onFormSubmit) onFormSubmit();
+      if (onSuccess) onSuccess();
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
     },
     onError: (error) => {
@@ -216,11 +228,30 @@ export function RouteFormDialog({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {technicians.map(tech => (
-                        <SelectItem key={tech.id} value={String(tech.id)}>
-                          {tech.name}
-                        </SelectItem>
-                      ))}
+                      {technicians.length > 0 ? (
+                        technicians.map(tech => {
+                          // Log each technician for debugging
+                          console.log(`Rendering technician: ${tech.id} - ${tech.name}`);
+                          
+                          // Ensure we always have a display name
+                          let displayName = "Unnamed technician";
+                          
+                          if (tech.name && typeof tech.name === 'string' && tech.name.trim() !== '') {
+                            displayName = tech.name;
+                          } else {
+                            console.log(`Tech ${tech.id} has invalid name: "${tech.name}"`);
+                            displayName = `Technician #${tech.id}`;
+                          }
+                          
+                          return (
+                            <SelectItem key={tech.id} value={String(tech.id)}>
+                              {displayName}
+                            </SelectItem>
+                          );
+                        })
+                      ) : (
+                        <SelectItem value="no-techs" disabled>No technicians available</SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
                   <FormMessage />
