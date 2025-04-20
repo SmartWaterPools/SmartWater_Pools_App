@@ -207,7 +207,9 @@ export interface BazzaRoute {
   
   // Field used in form but not in database schema
   region?: string;
-  active?: boolean; // Compatibility alias for isActive
+  
+  // Compatibility alias for isActive - ensuring routes display properly
+  active?: boolean;
 }
 
 export interface BazzaRouteStop {

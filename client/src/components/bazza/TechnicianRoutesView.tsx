@@ -163,8 +163,8 @@ export function TechnicianRoutesView({
                     <CardHeader className="pb-2">
                       <div className="flex justify-between items-start">
                         <CardTitle className="text-lg">{route.name}</CardTitle>
-                        <Badge variant={route.active ? "default" : "outline"}>
-                          {route.active ? "Active" : "Inactive"}
+                        <Badge variant={route.isActive ? "default" : "outline"}>
+                          {route.isActive ? "Active" : "Inactive"}
                         </Badge>
                       </div>
                       <CardDescription>
@@ -182,11 +182,11 @@ export function TechnicianRoutesView({
                         </div>
                         <div className="flex items-center gap-2">
                           <ListOrdered className="h-4 w-4 text-muted-foreground" />
-                          <span>{route.stopCount || 0} stops</span>
+                          <span>{(route as any).stopCount || 0} stops</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
-                          <span>{route.region || 'No region specified'}</span>
+                          <span>{route.description || 'No description provided'}</span>
                         </div>
                       </div>
                     </CardContent>

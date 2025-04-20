@@ -34,7 +34,17 @@ async function safeApiRequest<T>(url: string, options?: RequestInit): Promise<T>
 // Fetch all routes
 export const fetchAllBazzaRoutes = async (): Promise<BazzaRoute[]> => {
   try {
-    return await safeApiRequest<BazzaRoute[]>('/api/bazza/routes');
+    const routes = await safeApiRequest<BazzaRoute[]>('/api/bazza/routes');
+    
+    // Process each route to ensure both isActive and active properties exist
+    return routes.map(route => {
+      if (route.isActive !== undefined && route.active === undefined) {
+        return { ...route, active: route.isActive };
+      } else if (route.active !== undefined && route.isActive === undefined) {
+        return { ...route, isActive: route.active };
+      }
+      return route;
+    });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn('Unauthorized when fetching all routes, returning empty array');
@@ -47,7 +57,16 @@ export const fetchAllBazzaRoutes = async (): Promise<BazzaRoute[]> => {
 // Fetch a specific route by ID
 export const fetchBazzaRoute = async (id: number): Promise<BazzaRoute> => {
   try {
-    return await safeApiRequest<BazzaRoute>(`/api/bazza/routes/${id}`);
+    const route = await safeApiRequest<BazzaRoute>(`/api/bazza/routes/${id}`);
+    
+    // Ensure response has both isActive and active properties for UI consistency
+    if (route.isActive !== undefined && route.active === undefined) {
+      (route as any).active = route.isActive;
+    } else if (route.active !== undefined && route.isActive === undefined) {
+      (route as any).isActive = route.active;
+    }
+    
+    return route;
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching route ${id}, throwing error`);
@@ -61,8 +80,19 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
   try {
     console.log(`Fetching routes for technician ${technicianId}`);
     const routes = await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/technician/${technicianId}`);
-    console.log(`Successfully fetched ${routes.length} routes for technician ${technicianId}`);
-    return routes;
+    
+    // Process each route to ensure both isActive and active properties exist
+    const processedRoutes = routes.map(route => {
+      if (route.isActive !== undefined && route.active === undefined) {
+        return { ...route, active: route.isActive };
+      } else if (route.active !== undefined && route.isActive === undefined) {
+        return { ...route, isActive: route.active };
+      }
+      return route;
+    });
+    
+    console.log(`Successfully fetched ${processedRoutes.length} routes for technician ${technicianId}`);
+    return processedRoutes;
   } catch (error) {
     console.error(`Error fetching routes for technician ${technicianId}:`, error);
     
@@ -78,7 +108,17 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
 // Fetch routes for a day of week
 export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRoute[]> => {
   try {
-    return await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/day/${dayOfWeek}`);
+    const routes = await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/day/${dayOfWeek}`);
+    
+    // Process each route to ensure both isActive and active properties exist
+    return routes.map(route => {
+      if (route.isActive !== undefined && route.active === undefined) {
+        return { ...route, active: route.isActive };
+      } else if (route.active !== undefined && route.isActive === undefined) {
+        return { ...route, isActive: route.active };
+      }
+      return route;
+    });
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching routes for day ${dayOfWeek}, returning empty array`);
@@ -115,10 +155,19 @@ export const createBazzaRoute = async (routeData: any): Promise<BazzaRoute> => {
   console.log("Creating route with data:", JSON.stringify(routeToSend, null, 2));
   
   try {
-    return await safeApiRequest<BazzaRoute>('/api/bazza/routes', {
+    const response = await safeApiRequest<BazzaRoute>('/api/bazza/routes', {
       method: 'POST',
       body: JSON.stringify(routeToSend),
     });
+    
+    // Ensure response has both isActive and active properties for UI consistency
+    if (response.isActive !== undefined && response.active === undefined) {
+      (response as any).active = response.isActive;
+    } else if (response.active !== undefined && response.isActive === undefined) {
+      (response as any).isActive = response.active;
+    }
+    
+    return response;
   } catch (error) {
     console.error("Error in createBazzaRoute:", error);
     if (error instanceof ApiError) {
@@ -130,10 +179,27 @@ export const createBazzaRoute = async (routeData: any): Promise<BazzaRoute> => {
 
 // Update an existing route
 export const updateBazzaRoute = async (id: number, routeData: Partial<BazzaRoute>): Promise<BazzaRoute> => {
-  return safeApiRequest<BazzaRoute>(`/api/bazza/routes/${id}`, {
+  // If only one of isActive/active is provided, make sure both are sent to the server
+  const dataToSend = { ...routeData };
+  if (dataToSend.isActive !== undefined && dataToSend.active === undefined) {
+    (dataToSend as any).active = dataToSend.isActive;
+  } else if (dataToSend.active !== undefined && dataToSend.isActive === undefined) {
+    (dataToSend as any).isActive = dataToSend.active;
+  }
+  
+  const response = await safeApiRequest<BazzaRoute>(`/api/bazza/routes/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(routeData),
+    body: JSON.stringify(dataToSend),
   });
+  
+  // Ensure response has both isActive and active properties
+  if (response.isActive !== undefined && response.active === undefined) {
+    (response as any).active = response.isActive;
+  } else if (response.active !== undefined && response.isActive === undefined) {
+    (response as any).isActive = response.active;
+  }
+  
+  return response;
 };
 
 // Delete a route

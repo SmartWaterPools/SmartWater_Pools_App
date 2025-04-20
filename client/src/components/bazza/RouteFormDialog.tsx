@@ -104,7 +104,8 @@ export function RouteFormDialog({
   // Create route mutation
   const createMutation = useMutation({
     mutationFn: (data: Omit<BazzaRoute, "id">) => createBazzaRoute(data),
-    onSuccess: () => {
+    onSuccess: (newRoute) => {
+      console.log("Route created successfully:", newRoute);
       toast({
         title: "Route created",
         description: "The route has been successfully created."
@@ -112,7 +113,31 @@ export function RouteFormDialog({
       form.reset();
       if (onFormSubmit) onFormSubmit();
       if (onSuccess) onSuccess();
+      
+      // Invalidate all route queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      
+      // Also invalidate technician-specific routes 
+      if (newRoute && newRoute.technicianId) {
+        console.log(`Invalidating technician routes for ID: ${newRoute.technicianId}`);
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/bazza/routes/technician', newRoute.technicianId] 
+        });
+      } else {
+        // If we don't have technician ID from the response, invalidate based on the form data
+        const techId = parseInt(form.getValues().technicianId);
+        if (techId) {
+          console.log(`Invalidating technician routes for form value ID: ${techId}`);
+          queryClient.invalidateQueries({ 
+            queryKey: ['/api/bazza/routes/technician', techId] 
+          });
+        }
+      }
+      
+      // Invalidate all technician routes for safety
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/bazza/routes/technician'] 
+      });
     },
     onError: (error) => {
       console.error("Error creating route:", error);
@@ -130,7 +155,8 @@ export function RouteFormDialog({
       if (!route) throw new Error("No route to update");
       return updateBazzaRoute(route.id, data);
     },
-    onSuccess: () => {
+    onSuccess: (updatedRoute) => {
+      console.log("Route updated successfully:", updatedRoute);
       toast({
         title: "Route updated",
         description: "The route has been successfully updated."
@@ -138,7 +164,25 @@ export function RouteFormDialog({
       form.reset();
       if (onFormSubmit) onFormSubmit();
       if (onSuccess) onSuccess();
+      
+      // Invalidate all route queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      
+      // Also invalidate technician-specific routes
+      const techId = route?.technicianId || (updatedRoute?.technicianId || 
+                     (form.getValues().technicianId ? parseInt(form.getValues().technicianId) : null));
+                     
+      if (techId) {
+        console.log(`Invalidating technician routes for ID: ${techId}`);
+        queryClient.invalidateQueries({ 
+          queryKey: ['/api/bazza/routes/technician', techId] 
+        });
+      }
+      
+      // Invalidate all technician routes for safety
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/bazza/routes/technician'] 
+      });
     },
     onError: (error) => {
       console.error("Error updating route:", error);

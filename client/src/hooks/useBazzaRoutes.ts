@@ -20,7 +20,19 @@ export function useBazzaRoutes() {
     queryKey: ['/api/bazza/routes'],
     queryFn: async () => {
       try {
-        return await fetchAllBazzaRoutes();
+        const result = await fetchAllBazzaRoutes();
+        
+        // Ensure all routes have both isActive and active properties
+        const processedRoutes = result.map(route => {
+          if (route.isActive !== undefined && route.active === undefined) {
+            return { ...route, active: route.isActive };
+          } else if (route.active !== undefined && route.isActive === undefined) {
+            return { ...route, isActive: route.active };
+          }
+          return route;
+        });
+        
+        return processedRoutes;
       } catch (error) {
         console.error('Error in useBazzaRoutes hook:', error);
         
@@ -65,8 +77,19 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
       try {
         if (!technicianId) return [];
         const result = await fetchBazzaRoutesByTechnician(technicianId);
-        console.log(`Successfully fetched ${result.length} routes for technician ID: ${technicianId}`);
-        return result;
+        
+        // Ensure all routes have both isActive and active properties
+        const processedRoutes = result.map(route => {
+          if (route.isActive !== undefined && route.active === undefined) {
+            return { ...route, active: route.isActive };
+          } else if (route.active !== undefined && route.isActive === undefined) {
+            return { ...route, isActive: route.active };
+          }
+          return route;
+        });
+        
+        console.log(`Successfully fetched ${processedRoutes.length} routes for technician ID: ${technicianId}`);
+        return processedRoutes;
       } catch (error) {
         console.error(`Error fetching routes for technician ID: ${technicianId}`, error);
         
