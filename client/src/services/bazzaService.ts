@@ -340,17 +340,7 @@ export const getOrCreateRouteStop = async (
   try {
     console.log(`Attempting to get or create route stop for route ${routeId}`);
     
-    // First try to get existing stops for this route
-    const stops = await fetchRouteStops(routeId);
-    console.log(`Found ${stops.length} existing stops for route ${routeId}`);
-    
-    if (stops && stops.length > 0) {
-      // Return the ID of the first stop
-      console.log(`Using existing stop ID ${stops[0].id}`);
-      return stops[0].id;
-    }
-    
-    // If no stops exist, create one using the client from the maintenance
+    // First validate that we have all the client information we need
     if (!maintenance.client) {
       console.error("Maintenance has no client object");
       throw new Error("Cannot create route stop: maintenance has no client data");
@@ -367,7 +357,34 @@ export const getOrCreateRouteStop = async (
     }
     
     const clientId = maintenance.client.client.id;
+    
+    // Try to get existing stops for this route
+    const stops = await fetchRouteStops(routeId);
+    console.log(`Found ${stops.length} existing stops for route ${routeId}`);
+    
+    // First check if this client already has a stop on this route
+    const existingClientStop = stops.find(stop => stop.clientId === clientId);
+    if (existingClientStop) {
+      console.log(`Found existing stop for this client: ID ${existingClientStop.id}`);
+      return existingClientStop.id;
+    }
+    
+    // Then check if any stop exists we can use
+    if (stops && stops.length > 0) {
+      console.log(`Using existing stop ID ${stops[0].id}`);
+      return stops[0].id;
+    }
+    
+    // If we get here, we need to create a new stop
     console.log(`Creating new stop for client ID ${clientId} on route ${routeId}`);
+    
+    // First verify the route exists by checking its details
+    try {
+      await safeApiRequest<BazzaRoute>(`/api/bazza/routes/${routeId}`);
+    } catch (error) {
+      console.error(`Error verifying route ${routeId}:`, error);
+      throw new Error(`Unable to verify route ${routeId}. Route may not exist.`);
+    }
     
     try {
       // Create a new stop for this client
@@ -384,26 +401,54 @@ export const getOrCreateRouteStop = async (
     } catch (stopError) {
       console.error("Error creating route stop:", stopError);
       
-      // Check if there's a more specific error we can report
-      if (stopError instanceof ApiError) {
-        if (stopError.status === 400) {
-          throw new Error(`Bad request creating route stop: ${stopError.message}`);
-        } else if (stopError.status === 404) {
-          throw new Error(`Route or client not found: ${stopError.message}`);
-        } else if (stopError.status === 500) {
-          throw new Error(`Server error creating route stop: ${stopError.message}`);
+      // In some cases, the API might return a 400 error but the stop is actually created
+      // Let's double check once more if stops exist now
+      try {
+        const doubleCheckStops = await fetchRouteStops(routeId);
+        if (doubleCheckStops && doubleCheckStops.length > 0) {
+          const freshClientStop = doubleCheckStops.find(stop => stop.clientId === clientId);
+          if (freshClientStop) {
+            console.log(`Found client stop after error: ID ${freshClientStop.id}`);
+            return freshClientStop.id;
+          }
+          
+          console.log(`Using first available stop after error: ID ${doubleCheckStops[0].id}`);
+          return doubleCheckStops[0].id;
         }
+      } catch (checkError) {
+        console.error("Error double-checking stops:", checkError);
       }
       
-      // If we can't create a stop, check one more time for existing stops
-      // (another process might have created one in the meantime)
-      const retryStops = await fetchRouteStops(routeId);
-      if (retryStops && retryStops.length > 0) {
-        console.log(`Found existing stop on retry with ID ${retryStops[0].id}`);
-        return retryStops[0].id;
+      // If we get here, we couldn't create or find a stop - try creating with minimal data as last resort
+      try {
+        console.log("Trying simplified route stop creation as fallback");
+        const fallbackStop = await safeApiRequest<BazzaRouteStop>('/api/bazza/stops', {
+          method: 'POST',
+          body: JSON.stringify({
+            routeId: routeId,
+            clientId: clientId,
+            position: 1
+          }),
+        });
+        
+        console.log(`Created fallback stop with ID ${fallbackStop.id}`);
+        return fallbackStop.id;
+      } catch (fallbackError) {
+        console.error("Fallback stop creation failed:", fallbackError);
+        
+        // Provide a very specific error based on what we received
+        if (stopError instanceof ApiError) {
+          if (stopError.status === 400) {
+            throw new Error(`Bad request creating route stop: ${stopError.message}`);
+          } else if (stopError.status === 404) {
+            throw new Error(`Route or client not found: ${stopError.message}`);
+          } else if (stopError.status === 500) {
+            throw new Error(`Server error creating route stop: ${stopError.message}`);
+          }
+        }
+        
+        throw new Error(`Failed to create route stop: ${stopError instanceof Error ? stopError.message : 'Unknown error'}`);
       }
-      
-      throw new Error(`Failed to create route stop: ${stopError instanceof Error ? stopError.message : 'Unknown error'}`);
     }
   } catch (error) {
     console.error("Error getting or creating route stop:", error);

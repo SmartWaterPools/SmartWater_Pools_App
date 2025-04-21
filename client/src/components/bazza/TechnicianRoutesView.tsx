@@ -93,7 +93,11 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
   // Configure drag source
   const [{ isDragging }, drag] = useDrag(() => ({
     type: ItemTypes.MAINTENANCE,
-    item: { maintenanceId: maintenance.id, maintenance },
+    item: { 
+      maintenanceId: maintenance.id, 
+      maintenance: maintenance,
+      type: ItemTypes.MAINTENANCE 
+    },
     collect: (monitor) => ({
       isDragging: !!monitor.isDragging(),
     }),
@@ -256,13 +260,28 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
   // Configure drop target
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ItemTypes.MAINTENANCE,
-    drop: (item: { maintenanceId: number, maintenance: MaintenanceWithDetails }) => {
-      handleMaintenanceDrop(item.maintenanceId, item.maintenance);
+    drop: (item: { maintenanceId: number, maintenance: MaintenanceWithDetails, type: string }) => {
+      console.log("Drop received item:", item);
+      if (item.maintenanceId && item.maintenance) {
+        handleMaintenanceDrop(item.maintenanceId, item.maintenance);
+      } else {
+        console.error("Invalid drop item received:", item);
+        toast({
+          title: "Error",
+          description: "Could not process the dragged item. Please try again.",
+          variant: "destructive"
+        });
+      }
       return { routeId: route.id };
     },
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
     }),
+    // This will show in the console why items aren't droppable
+    canDrop: (item) => {
+      console.log("Checking if item can be dropped:", item);
+      return true;
+    }
   }));
   
   // Handle maintenance drop
