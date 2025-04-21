@@ -1,5 +1,5 @@
 import { apiRequest } from "../lib/queryClient";
-import { BazzaRoute, BazzaRouteStop, BazzaMaintenanceAssignment } from "../lib/types";
+import { BazzaRoute, BazzaRouteStop, BazzaMaintenanceAssignment, MaintenanceWithDetails } from "../lib/types";
 
 // Simple error class with status code
 export class ApiError extends Error {
@@ -236,7 +236,15 @@ export const fetchClientStops = async (clientId: number): Promise<BazzaRouteStop
 };
 
 // Create a new route stop
-export const createRouteStop = async (stopData: Omit<BazzaRouteStop, 'id'>): Promise<BazzaRouteStop> => {
+export const createRouteStop = async (
+  stopData: {
+    routeId: number;
+    clientId: number;
+    position: number;
+    estimatedDuration?: number | null;
+    notes?: string | null;
+  }
+): Promise<BazzaRouteStop> => {
   return safeApiRequest<BazzaRouteStop>('/api/bazza/stops', {
     method: 'POST',
     body: JSON.stringify(stopData),
@@ -324,14 +332,174 @@ export const fetchAssignmentsByTechnicianAndDateRange = async (
   }
 };
 
-// Create a new assignment
+// Get or create a route stop for a maintenance
+export const getOrCreateRouteStop = async (
+  routeId: number, 
+  maintenance: MaintenanceWithDetails
+): Promise<number> => {
+  try {
+    console.log(`Attempting to get or create route stop for route ${routeId}`);
+    
+    // First try to get existing stops for this route
+    const stops = await fetchRouteStops(routeId);
+    console.log(`Found ${stops.length} existing stops for route ${routeId}`);
+    
+    if (stops && stops.length > 0) {
+      // Return the ID of the first stop
+      console.log(`Using existing stop ID ${stops[0].id}`);
+      return stops[0].id;
+    }
+    
+    // If no stops exist, create one using the client from the maintenance
+    if (!maintenance.client) {
+      console.error("Maintenance has no client object");
+      throw new Error("Cannot create route stop: maintenance has no client data");
+    }
+    
+    if (!maintenance.client.client) {
+      console.error("Maintenance client has no client object");
+      throw new Error("Cannot create route stop: client data is incomplete");
+    }
+    
+    if (!maintenance.client.client.id) {
+      console.error("Maintenance client has no ID");
+      throw new Error("Cannot create route stop: client has no ID");
+    }
+    
+    const clientId = maintenance.client.client.id;
+    console.log(`Creating new stop for client ID ${clientId} on route ${routeId}`);
+    
+    try {
+      // Create a new stop for this client
+      const newStop = await createRouteStop({
+        routeId: routeId,
+        clientId: clientId,
+        position: 1, // First position
+        estimatedDuration: 60, // Default 60 minutes
+        notes: null
+      });
+      
+      console.log(`Successfully created new stop with ID ${newStop.id}`);
+      return newStop.id;
+    } catch (stopError) {
+      console.error("Error creating route stop:", stopError);
+      
+      // Check if there's a more specific error we can report
+      if (stopError instanceof ApiError) {
+        if (stopError.status === 400) {
+          throw new Error(`Bad request creating route stop: ${stopError.message}`);
+        } else if (stopError.status === 404) {
+          throw new Error(`Route or client not found: ${stopError.message}`);
+        } else if (stopError.status === 500) {
+          throw new Error(`Server error creating route stop: ${stopError.message}`);
+        }
+      }
+      
+      // If we can't create a stop, check one more time for existing stops
+      // (another process might have created one in the meantime)
+      const retryStops = await fetchRouteStops(routeId);
+      if (retryStops && retryStops.length > 0) {
+        console.log(`Found existing stop on retry with ID ${retryStops[0].id}`);
+        return retryStops[0].id;
+      }
+      
+      throw new Error(`Failed to create route stop: ${stopError instanceof Error ? stopError.message : 'Unknown error'}`);
+    }
+  } catch (error) {
+    console.error("Error getting or creating route stop:", error);
+    throw error;
+  }
+};
+
+// Create a new assignment with automatic route stop handling
 export const createAssignment = async (
-  assignmentData: Omit<BazzaMaintenanceAssignment, 'id'>
+  assignmentData: {
+    routeId: number;
+    maintenanceId: number;
+    date: string;
+    status?: string;
+    notes?: string | null;
+    maintenance?: MaintenanceWithDetails; // Add this to pass the maintenance data
+  }
 ): Promise<BazzaMaintenanceAssignment> => {
-  return safeApiRequest<BazzaMaintenanceAssignment>('/api/bazza/assignments', {
-    method: 'POST',
-    body: JSON.stringify(assignmentData),
-  });
+  // If routeStopId is not provided, try to get or create one
+  if (!('routeStopId' in assignmentData) && assignmentData.maintenance) {
+    try {
+      console.log("Creating assignment with auto stop creation for maintenance:", assignmentData.maintenanceId);
+      console.log("Maintenance client data:", 
+        assignmentData.maintenance.client?.client?.id ? 
+        `Client ID: ${assignmentData.maintenance.client.client.id}` : 
+        "No client ID found");
+      
+      // First check if route exists
+      let routeResponse = await safeApiRequest<BazzaRoute>(`/api/bazza/routes/${assignmentData.routeId}`);
+      console.log("Route found:", routeResponse.id, routeResponse.name);
+      
+      const routeStopId = await getOrCreateRouteStop(assignmentData.routeId, assignmentData.maintenance);
+      console.log("Using route stop ID:", routeStopId);
+      
+      // Create a cleaned up version of the assignment data without the maintenance field
+      const cleanedData = {
+        routeId: assignmentData.routeId,
+        routeStopId: routeStopId,
+        maintenanceId: assignmentData.maintenanceId,
+        date: assignmentData.date,
+        status: assignmentData.status || 'scheduled',
+        notes: assignmentData.notes
+      };
+      
+      console.log("Sending assignment data to API:", JSON.stringify(cleanedData, null, 2));
+      
+      try {
+        const result = await safeApiRequest<BazzaMaintenanceAssignment>('/api/bazza/assignments', {
+          method: 'POST',
+          body: JSON.stringify(cleanedData),
+        });
+        console.log("Assignment created successfully:", result.id);
+        return result;
+      } catch (apiError) {
+        console.error("API error creating assignment:", apiError);
+        // Try with a different approach if we get a specific error
+        if (apiError instanceof ApiError && apiError.message.includes("Foreign key constraint")) {
+          console.log("Foreign key error detected, trying alternative approach...");
+          
+          // Query existing stops for this route
+          const stops = await fetchRouteStops(assignmentData.routeId);
+          if (!stops || stops.length === 0) {
+            console.error("No stops found for route, can't assign maintenance");
+            throw new Error("No stops found for this route. Please add a stop first.");
+          }
+          
+          // Use the first stop
+          const firstStop = stops[0];
+          console.log("Using existing stop as fallback:", firstStop.id);
+          
+          const fallbackData = {
+            ...cleanedData,
+            routeStopId: firstStop.id
+          };
+          
+          return safeApiRequest<BazzaMaintenanceAssignment>('/api/bazza/assignments', {
+            method: 'POST',
+            body: JSON.stringify(fallbackData),
+          });
+        }
+        throw apiError;
+      }
+    } catch (error) {
+      console.error("Error in creating assignment with auto stop:", error);
+      throw error;
+    }
+  } else {
+    // If routeStopId is provided, use it directly
+    console.log("Creating assignment with provided routeStopId:", 
+      'routeStopId' in assignmentData ? assignmentData.routeStopId : 'None');
+    
+    return safeApiRequest<BazzaMaintenanceAssignment>('/api/bazza/assignments', {
+      method: 'POST',
+      body: JSON.stringify(assignmentData),
+    });
+  }
 };
 
 // Update an existing assignment

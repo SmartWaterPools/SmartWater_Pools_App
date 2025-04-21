@@ -226,9 +226,10 @@ export interface BazzaRouteStop {
 export interface BazzaMaintenanceAssignment {
   id: number;
   routeId: number;
+  routeStopId: number;
   maintenanceId: number;
   date: string;
-  completed: boolean;
+  status: string;
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
