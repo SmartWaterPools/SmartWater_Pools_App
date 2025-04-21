@@ -95,7 +95,10 @@ export function StopFormDialog({
   
   // Create stop mutation
   const createMutation = useMutation({
-    mutationFn: (data: any) => createRouteStop(data),
+    mutationFn: (data: any) => {
+      console.log("Creating route stop with data:", data);
+      return createRouteStop(data);
+    },
     onSuccess: () => {
       toast({
         title: "Stop added",
@@ -128,13 +131,13 @@ export function StopFormDialog({
   
   // Handle form submission
   const handleSubmit = (values: StopFormValues) => {
-    // Convert clientId to number
+    // Convert clientId to number and match the expected schema field names
     const stopData = {
       routeId: route.id,
       clientId: parseInt(values.clientId, 10),
-      position: values.position,
+      orderIndex: values.position, // Schema expects orderIndex, not position
       estimatedDuration: values.estimatedDuration || null,
-      notes: values.notes || null,
+      customInstructions: values.notes || null // Schema expects customInstructions, not notes
     };
     
     console.log("Submitting stop data:", stopData);
