@@ -134,8 +134,22 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       });
       
       // Invalidate related queries to refresh the data
+      console.log("Invalidating queries to refresh UI after adding maintenance to route");
+      
+      // More comprehensive query invalidation to ensure all related data is refreshed
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${routeId}/assignments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${routeId}/stops`] }); // Refresh stops for this route
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${routeId}`] }); // Refresh the route itself
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] }); // Refresh all routes
       queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] }); // Refresh maintenances
+      
+      // Force update the technician routes if we know the technician ID
+      const route = availableRoutes.find(r => r.id === routeId);
+      if (route?.technicianId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/bazza/routes/technician/${route.technicianId}`] 
+        });
+      }
       
       console.log("Successfully added maintenance to route");
       toast({
@@ -312,13 +326,27 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
       });
       
       // Invalidate related queries to refresh the routes data
+      console.log("Invalidating queries to refresh UI after maintenance drop");
+      
+      // More comprehensive query invalidation to ensure all related data is refreshed
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}/assignments`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}/stops`] }); // Refresh stops for this route
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}`] }); // Refresh the route itself
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] }); // Refresh all routes
       queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] }); // Refresh maintenances
+      
+      // Force update the technician routes as well
+      if (route.technicianId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/bazza/routes/technician/${route.technicianId}`] 
+        });
+      }
       
       console.log("Successfully added maintenance to route via drag and drop");
       toast({
         title: "Maintenance Added",
         description: `Added maintenance task to route "${route.name}"`,
+        duration: 3000, // Show for 3 seconds
       });
     } catch (error) {
       console.error("Error adding maintenance to route:", error);

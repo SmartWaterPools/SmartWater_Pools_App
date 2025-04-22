@@ -240,15 +240,38 @@ export const createRouteStop = async (
   stopData: {
     routeId: number;
     clientId: number;
-    position: number;
+    position?: number; // Renamed from position but kept for backward compatibility
+    orderIndex?: number;
     estimatedDuration?: number | null;
-    notes?: string | null;
+    notes?: string | null; // Kept for backward compatibility 
+    customInstructions?: string | null;
   }
 ): Promise<BazzaRouteStop> => {
-  return safeApiRequest<BazzaRouteStop>('/api/bazza/stops', {
-    method: 'POST',
-    body: JSON.stringify(stopData),
-  });
+  console.log("Creating route stop with raw data:", stopData);
+  
+  // Create a properly formatted object matching the schema expected by the server
+  const formattedStopData = {
+    routeId: stopData.routeId,
+    clientId: stopData.clientId,
+    orderIndex: stopData.orderIndex || stopData.position || 1, // Use either orderIndex or position, defaulting to 1
+    estimatedDuration: stopData.estimatedDuration || null,
+    customInstructions: stopData.customInstructions || stopData.notes || null, // Use either customInstructions or notes
+  };
+  
+  console.log("Formatted stop data for API:", formattedStopData);
+  
+  try {
+    const result = await safeApiRequest<BazzaRouteStop>('/api/bazza/stops', {
+      method: 'POST',
+      body: JSON.stringify(formattedStopData),
+    });
+    
+    console.log("Successfully created route stop:", result);
+    return result;
+  } catch (error) {
+    console.error("Error creating route stop:", error);
+    throw error;
+  }
 };
 
 // Update an existing route stop
@@ -391,9 +414,9 @@ export const getOrCreateRouteStop = async (
       const newStop = await createRouteStop({
         routeId: routeId,
         clientId: clientId,
-        position: 1, // First position
+        orderIndex: 1, // Using correct field name matching the schema
         estimatedDuration: 60, // Default 60 minutes
-        notes: null
+        customInstructions: null
       });
       
       console.log(`Successfully created new stop with ID ${newStop.id}`);
@@ -427,7 +450,7 @@ export const getOrCreateRouteStop = async (
           body: JSON.stringify({
             routeId: routeId,
             clientId: clientId,
-            position: 1
+            orderIndex: 1 // Using the correct field name that matches the schema
           }),
         });
         

@@ -216,9 +216,11 @@ export interface BazzaRouteStop {
   id: number;
   routeId: number;
   clientId: number;
-  position: number;
+  position: number;              // Legacy field name
+  orderIndex?: number;           // New field name that replaced position
   estimatedDuration: number | null;
-  notes: string | null;
+  notes: string | null;          // Legacy field name
+  customInstructions?: string | null; // New field name that replaced notes
   createdAt: Date;
   updatedAt: Date;
 }

@@ -67,12 +67,16 @@ export function RouteDetailView({
   const { 
     data: stops = [], 
     isLoading: isStopsLoading, 
-    error: stopsError 
+    error: stopsError,
+    refetch: refetchStops
   } = useQuery({
-    queryKey: ['/api/bazza/routes', route.id, 'stops'],
+    queryKey: [`/api/bazza/routes/${route.id}/stops`], // Updated to match our query invalidation pattern
     queryFn: async () => {
       try {
-        return await fetchRouteStops(route.id);
+        console.log(`Fetching stops for route ${route.id}`);
+        const data = await fetchRouteStops(route.id);
+        console.log(`Successfully fetched ${data.length} stops for route ${route.id}`);
+        return data;
       } catch (error) {
         console.error(`Error fetching stops for route ${route.id}`, error);
         throw error;
@@ -220,10 +224,10 @@ export function RouteDetailView({
                         
                       return (
                         <TableRow key={stop.id}>
-                          <TableCell>{stop.position}</TableCell>
+                          <TableCell>{stop.orderIndex || stop.position || '-'}</TableCell>
                           <TableCell>{clientName}</TableCell>
                           <TableCell>{clientAddress}</TableCell>
-                          <TableCell>{stop.notes || 'No notes'}</TableCell>
+                          <TableCell>{stop.customInstructions || stop.notes || 'No notes'}</TableCell>
                           <TableCell>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>

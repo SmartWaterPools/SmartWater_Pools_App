@@ -73,14 +73,16 @@ export function StopFormDialog({
   
   // Fetch existing stops to determine next position
   const { data: existingStops = [] } = useQuery<BazzaRouteStop[]>({
-    queryKey: ['/api/bazza/routes', route.id, 'stops'],
+    queryKey: [`/api/bazza/routes/${route.id}/stops`], // Updated to match our query invalidation pattern
     staleTime: 1 * 60 * 1000, // 1 minute
   });
   
-  // Calculate next position
+  // Calculate next position using either orderIndex or position field
   const nextPosition = Array.isArray(existingStops) && existingStops.length > 0 
-    ? Math.max(...existingStops.map((stop) => stop.position || 0)) + 1 
+    ? Math.max(...existingStops.map((stop) => stop.orderIndex || stop.position || 0)) + 1 
     : 1;
+    
+  console.log("Calculated next position:", nextPosition, "from stops:", existingStops);
   
   // Initialize form
   const form = useForm<StopFormValues>({
@@ -105,8 +107,20 @@ export function StopFormDialog({
         description: "The stop has been successfully added to the route."
       });
       
-      // Invalidate relevant queries
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes', route.id, 'stops'] });
+      console.log("Successfully added stop to route. Invalidating queries...");
+      
+      // Comprehensive query invalidation to ensure UI updates
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}/stops`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      
+      // If we know the technician ID, invalidate their routes too
+      if (route.technicianId) {
+        queryClient.invalidateQueries({ 
+          queryKey: [`/api/bazza/routes/technician/${route.technicianId}`] 
+        });
+      }
+      
       form.reset();
       
       if (onSuccess) onSuccess();
