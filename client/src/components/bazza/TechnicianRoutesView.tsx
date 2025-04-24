@@ -325,8 +325,18 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
         maintenance: maintenance // Pass the maintenance object to help with route stop creation
       });
       
-      // Invalidate related queries to refresh the routes data
-      console.log("Invalidating queries to refresh UI after maintenance drop");
+      // Force immediate data refresh for maintenances
+      // This is critical for UI consistency - we need to fetch the updated data right away
+      try {
+        console.log("Forcing immediate refresh of maintenance data");
+        const updatedMaintenances = await apiRequest('/api/maintenances');
+        queryClient.setQueryData(['/api/maintenances'], updatedMaintenances);
+      } catch (refreshError) {
+        console.error("Error refreshing maintenance data:", refreshError);
+      }
+      
+      // After setting the updated data, still invalidate queries to ensure everything is in sync
+      console.log("Invalidating related queries for complete UI refresh");
       
       // More comprehensive query invalidation to ensure all related data is refreshed
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}/assignments`] });

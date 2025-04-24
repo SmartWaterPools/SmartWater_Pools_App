@@ -75,20 +75,22 @@ app.use(
     proxy: true,         // Trust the reverse proxy for secure cookies
     unset: 'keep',       // Keep session in store even if unset
     cookie: {
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours instead of 30 days, shorter session to prevent timeouts
       httpOnly: true,    // Prevent JavaScript access to the cookie
       path: '/',         // Ensure cookie is available for the entire site
 
       // For Replit environments, we need to properly configure cookie security
       // In production/Replit: secure=true, sameSite=none (for cross-domain OAuth)
       // Secure must be true when sameSite is 'none'
-      secure: isReplitEnv ? true : false,
+      // Since we're setting sameSite to 'none', we must set secure to true always
+      secure: true,
       
       // SameSite strategy:
-      // 'none' - Allows cross-site cookies, needed for OAuth redirects.
+      // 'none' - Allows cross-site cookies, needed for OAuth redirects and Replit environment.
       // This is required because Google OAuth redirects across domains.
-      // Combined with 'secure: true', this provides the best OAuth compatibility
-      sameSite: isReplitEnv ? 'none' : 'lax',
+      // Combined with 'secure: true', this provides the best compatibility
+      // For Replit, we always use 'none' to ensure cross-origin requests work properly
+      sameSite: 'none',
       
       // Domain should be undefined to use the current domain
       domain: undefined,
