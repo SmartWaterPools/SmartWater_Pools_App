@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -42,6 +42,7 @@ import {
 import { createAssignment } from "../../services/bazzaService";
 import { useToast } from "../../hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "../../lib/queryClient";
 
 // Define drag item types
 const ItemTypes = {
@@ -133,6 +134,23 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
         maintenance: maintenance // Pass the maintenance object to help with route stop creation
       });
       
+      // Update the assignment cache immediately for a responsive UI
+      try {
+        // Update the cached assignment status directly
+        const maintenanceAssignmentsCache = queryClient.getQueryData<Record<number, boolean>>(['maintenanceAssignments']) || {};
+        const updatedAssignments = { 
+          ...maintenanceAssignmentsCache,
+          [maintenance.id]: true // Mark this maintenance as assigned to a route
+        };
+        queryClient.setQueryData(['maintenanceAssignments'], updatedAssignments);
+        
+        // Also try to force a refresh of the maintenance data
+        const updatedMaintenances = await apiRequest('/api/maintenances');
+        queryClient.setQueryData(['/api/maintenances'], updatedMaintenances);
+      } catch (refreshError) {
+        console.error("Error updating assignment cache:", refreshError);
+      }
+      
       // Invalidate related queries to refresh the data
       console.log("Invalidating queries to refresh UI after adding maintenance to route");
       
@@ -142,6 +160,7 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${routeId}`] }); // Refresh the route itself
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] }); // Refresh all routes
       queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] }); // Refresh maintenances
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/assignments/maintenance/${maintenance.id}`] }); // Refresh assignments for this maintenance
       
       // Force update the technician routes if we know the technician ID
       const route = availableRoutes.find(r => r.id === routeId);
@@ -329,6 +348,16 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
       // This is critical for UI consistency - we need to fetch the updated data right away
       try {
         console.log("Forcing immediate refresh of maintenance data");
+        
+        // Update the cached assignment status directly
+        const maintenanceAssignmentsCache = queryClient.getQueryData<Record<number, boolean>>(['maintenanceAssignments']) || {};
+        const updatedAssignments = { 
+          ...maintenanceAssignmentsCache,
+          [maintenanceId]: true // Mark this maintenance as assigned to a route
+        };
+        queryClient.setQueryData(['maintenanceAssignments'], updatedAssignments);
+        
+        // Also refresh the complete maintenances data
         const updatedMaintenances = await apiRequest('/api/maintenances');
         queryClient.setQueryData(['/api/maintenances'], updatedMaintenances);
       } catch (refreshError) {
@@ -344,6 +373,7 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}`] }); // Refresh the route itself
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] }); // Refresh all routes
       queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] }); // Refresh maintenances
+      queryClient.invalidateQueries({ queryKey: [`/api/bazza/assignments/maintenance/${maintenanceId}`] }); // Refresh assignments for this maintenance
       
       // Force update the technician routes as well
       if (route.technicianId) {
@@ -465,6 +495,34 @@ export function TechnicianRoutesView({
   });
   
   // Find maintenances assigned to this technician but not routed
+  const [maintenanceAssignments, setMaintenanceAssignments] = useState<Record<number, boolean>>({});
+  
+  // Use effect to load assignments for each maintenance
+  useEffect(() => {
+    if (!maintenances || maintenances.length === 0) return;
+    
+    // Create an object to track which maintenances are assigned to routes
+    const checkAssignments = async () => {
+      const assignmentStatus: Record<number, boolean> = {};
+      
+      // Check each maintenance if it's assigned to a route
+      for (const maintenance of maintenances) {
+        try {
+          // Fetch assignments for this maintenance
+          const assignments = await apiRequest(`/api/bazza/assignments/maintenance/${maintenance.id}`);
+          assignmentStatus[maintenance.id] = assignments && assignments.length > 0;
+        } catch (error) {
+          console.error(`Error checking assignments for maintenance ${maintenance.id}:`, error);
+          assignmentStatus[maintenance.id] = false;
+        }
+      }
+      
+      setMaintenanceAssignments(assignmentStatus);
+    };
+    
+    checkAssignments();
+  }, [maintenances]);
+  
   const unroutedMaintenances = useMemo(() => {
     if (!selectedTechnicianId || !maintenances) return [];
     
@@ -477,19 +535,23 @@ export function TechnicianRoutesView({
       const isAssignedToThisTech = maintenance.technicianId === selectedTechnicianId;
       // Check if status is appropriate
       const hasActiveStatus = ['scheduled', 'in_progress'].includes(maintenance.status || '');
+      // Check if this maintenance is already assigned to a route
+      const isAlreadyRouted = maintenanceAssignments[maintenance.id] || false;
       
       if (isAssignedToThisTech) {
         console.log("Found maintenance assigned to technician:", maintenance.id, 
           "status:", maintenance.status, 
-          "client:", maintenance.client?.user?.name || 'Unknown');
+          "client:", maintenance.client?.user?.name || 'Unknown',
+          "already routed:", isAlreadyRouted ? "Yes" : "No");
       }
       
-      return isAssignedToThisTech && hasActiveStatus;
+      // Only include if assigned to this technician, has active status, and NOT already routed
+      return isAssignedToThisTech && hasActiveStatus && !isAlreadyRouted;
     });
     
     console.log("Found unrouted maintenances:", filtered.length);
     return filtered;
-  }, [selectedTechnicianId, maintenances]);
+  }, [selectedTechnicianId, maintenances, maintenanceAssignments]);
   
   // Format maintenance type for display
   const formatMaintenanceType = (type: string | null | undefined): string => {
