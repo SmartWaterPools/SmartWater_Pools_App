@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, createContext } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -44,6 +44,11 @@ import { useToast } from "../../hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../../lib/queryClient";
 
+// Create a context to share the maintenance assignments state
+type MaintenanceAssignmentsContextType = 
+  React.Dispatch<React.SetStateAction<Record<number, boolean>>> | null;
+const MaintenanceAssignmentsContext = createContext<MaintenanceAssignmentsContextType>(null);
+
 // Define drag item types
 const ItemTypes = {
   MAINTENANCE: 'maintenance'
@@ -71,6 +76,7 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isAddingToRoute, setIsAddingToRoute] = useState(false);
+  const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
   
   // Format maintenance type for display
   const formatMaintenanceType = (type: string | null | undefined): string => {
@@ -136,6 +142,14 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       
       // Update the assignment cache immediately for a responsive UI
       try {
+        // IMPORTANT: Update the local state to immediately hide this maintenance from the unrouted list
+        if (setMaintenanceAssignments) {
+          setMaintenanceAssignments((prev: Record<number, boolean>) => ({
+            ...prev,
+            [maintenance.id]: true // Mark as assigned immediately in local state
+          }));
+        }
+        
         // Update the cached assignment status directly
         const maintenanceAssignmentsCache = queryClient.getQueryData<Record<number, boolean>>(['maintenanceAssignments']) || {};
         const updatedAssignments = { 
@@ -290,6 +304,9 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Get the setMaintenanceAssignments function from context
+  const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
+  
   // Configure drop target
   const [{ isOver }, drop] = useDrop(() => ({
     accept: ItemTypes.MAINTENANCE,
@@ -333,6 +350,15 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
       }
       
       const date = new Date(maintenance.scheduleDate);
+      
+      // IMPORTANT: Update the local state immediately to hide this maintenance from the unrouted list
+      // This makes the UI feel more responsive, even before the server confirms the assignment
+      if (setMaintenanceAssignments) {
+        setMaintenanceAssignments((prev: Record<number, boolean>) => ({
+          ...prev,
+          [maintenanceId]: true // Mark as assigned immediately in local state
+        }));
+      }
       
       // Create assignment for this maintenance on this route using the enhanced createAssignment function
       await createAssignment({
@@ -466,6 +492,9 @@ export function TechnicianRoutesView({
   selectedDay = 'all',
   onDayChange
 }: TechnicianRoutesViewProps) {
+  // Get React Query client for cache operations
+  const queryClient = useQueryClient();
+  
   // Debug logging
   console.log("TechnicianRoutesView - Received technicians:", 
     technicians.map(t => ({ id: t.id, name: t.name }))
@@ -503,6 +532,7 @@ export function TechnicianRoutesView({
     
     // Create an object to track which maintenances are assigned to routes
     const checkAssignments = async () => {
+      console.log("Checking route assignments for all maintenances...");
       const assignmentStatus: Record<number, boolean> = {};
       
       // Check each maintenance if it's assigned to a route
@@ -510,18 +540,36 @@ export function TechnicianRoutesView({
         try {
           // Fetch assignments for this maintenance
           const assignments = await apiRequest(`/api/bazza/assignments/maintenance/${maintenance.id}`);
-          assignmentStatus[maintenance.id] = assignments && assignments.length > 0;
+          const isAssigned = assignments && Array.isArray(assignments) && assignments.length > 0;
+          
+          console.log(`Maintenance ${maintenance.id} (${maintenance.client?.user?.name || 'Unknown'}) assignments:`, 
+            isAssigned ? `Found ${assignments.length} assignments` : "No assignments");
+          
+          assignmentStatus[maintenance.id] = isAssigned;
         } catch (error) {
           console.error(`Error checking assignments for maintenance ${maintenance.id}:`, error);
           assignmentStatus[maintenance.id] = false;
         }
       }
       
+      console.log("All maintenance assignment statuses:", assignmentStatus);
       setMaintenanceAssignments(assignmentStatus);
+      
+      // Also save to query cache for others to use
+      queryClient.setQueryData(['maintenanceAssignments'], assignmentStatus);
     };
     
     checkAssignments();
-  }, [maintenances]);
+    
+    // We also need to set up interval polling to check for changes made by other users or processes
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        checkAssignments();
+      }
+    }, 15000); // Refresh every 15 seconds if the tab is visible
+    
+    return () => clearInterval(intervalId);
+  }, [maintenances, queryClient]);
   
   const unroutedMaintenances = useMemo(() => {
     if (!selectedTechnicianId || !maintenances) return [];
@@ -588,33 +636,38 @@ export function TechnicianRoutesView({
   
   return (
     <DndProvider backend={HTML5Backend}>
-      <div>
-        <div className="mb-6 space-y-4">
-          <Label>Select Technician</Label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {technicians.map(technician => (
-              <Card 
-                key={technician.id}
-                className={`cursor-pointer hover:bg-accent transition-colors ${
-                  selectedTechnicianId === technician.id ? 'bg-accent' : ''
-                }`}
-                onClick={() => onTechnicianSelect(technician.id)}
-              >
-                <CardContent className="p-4 flex items-center gap-2">
-                  <UserCheck className="h-5 w-5 text-primary" />
-                  <span>{
-                    technician.name && technician.name.trim() !== '' 
-                      ? technician.name 
-                      : `Technician #${technician.id}`
-                  }</span>
-                </CardContent>
-              </Card>
-            ))}
+      <MaintenanceAssignmentsContext.Provider value={setMaintenanceAssignments}>
+        <div className="space-y-6">
+          {/* Technician Selection Section */}
+          <div className="space-y-4">
+            <Label>Select Technician</Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {technicians.map(technician => (
+                <Card 
+                  key={technician.id}
+                  className={`cursor-pointer hover:bg-accent transition-colors ${
+                    selectedTechnicianId === technician.id ? 'bg-accent' : ''
+                  }`}
+                  onClick={() => onTechnicianSelect(technician.id)}
+                >
+                  <CardContent className="p-4 flex items-center gap-2">
+                    <UserCheck className="h-5 w-5 text-primary" />
+                    <span>{
+                      technician.name && technician.name.trim() !== '' 
+                        ? technician.name 
+                        : `Technician #${technician.id}`
+                    }</span>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
           
+          {/* Routes Section - Only shown when a technician is selected */}
           {selectedTechnicianId && (
-            <div className="mt-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div className="space-y-4">
+              {/* Day Filter */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <Label>Filter by Day</Label>
                   <Select value={selectedDay} onValueChange={handleDayChange}>
@@ -632,9 +685,9 @@ export function TechnicianRoutesView({
                 </div>
               </div>
               
-              {/* Display unrouted maintenance tasks at the top */}
+              {/* Unrouted Maintenance Tasks */}
               {unroutedMaintenances.length > 0 && (
-                <div className="border border-amber-300 bg-amber-50 rounded-lg p-4 mb-6">
+                <div className="border border-amber-300 bg-amber-50 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-4">
                     <Clock className="h-5 w-5 text-amber-500" />
                     <h3 className="text-lg font-medium text-amber-700">
@@ -666,49 +719,52 @@ export function TechnicianRoutesView({
                 </div>
               )}
               
-              {isTechnicianRoutesLoading ? (
-                <div className="flex justify-center items-center py-10">
-                  <Spinner size="lg" />
-                </div>
-              ) : technicianRoutesError ? (
-                <Alert variant="destructive" className="my-4">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Error</AlertTitle>
-                  <AlertDescription>
-                    {(technicianRoutesError as Error)?.message?.includes('Unauthorized') 
-                      ? "Authentication error. Please log in to view route data." 
-                      : "Failed to load routes. Please try again."}
-                  </AlertDescription>
-                </Alert>
-              ) : filteredRoutes.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground">
-                  <p>No routes found for this technician{selectedDay !== 'all' ? ` on ${selectedDay}` : ''}.</p>
-                  {onAddRouteClick && (
-                    <Button 
-                      onClick={onAddRouteClick} 
-                      variant="outline" 
-                      className="mt-4"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Route
-                    </Button>
-                  )}
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  {filteredRoutes.map(route => (
-                    <DroppableRouteCard 
-                      key={route.id} 
-                      route={route}
-                      onRouteClick={handleRouteClick}
-                    />
-                  ))}
-                </div>
-              )}
+              {/* Routes Display Section */}
+              <div className="mt-4">
+                {isTechnicianRoutesLoading ? (
+                  <div className="flex justify-center items-center py-10">
+                    <Spinner size="lg" />
+                  </div>
+                ) : technicianRoutesError ? (
+                  <Alert variant="destructive" className="my-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                      {(technicianRoutesError as Error)?.message?.includes('Unauthorized') 
+                        ? "Authentication error. Please log in to view route data." 
+                        : "Failed to load routes. Please try again."}
+                    </AlertDescription>
+                  </Alert>
+                ) : filteredRoutes.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p>No routes found for this technician{selectedDay !== 'all' ? ` on ${selectedDay}` : ''}.</p>
+                    {onAddRouteClick && (
+                      <Button 
+                        onClick={onAddRouteClick} 
+                        variant="outline" 
+                        className="mt-4"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Route
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {filteredRoutes.map(route => (
+                      <DroppableRouteCard 
+                        key={route.id} 
+                        route={route}
+                        onRouteClick={handleRouteClick}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
-      </div>
+      </MaintenanceAssignmentsContext.Provider>
     </DndProvider>
   );
 }

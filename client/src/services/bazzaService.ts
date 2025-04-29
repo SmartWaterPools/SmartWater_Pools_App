@@ -34,10 +34,11 @@ async function safeApiRequest<T>(url: string, options?: RequestInit): Promise<T>
 // Fetch all routes
 export const fetchAllBazzaRoutes = async (): Promise<BazzaRoute[]> => {
   try {
+    console.log('Fetching all routes');
     const routes = await safeApiRequest<BazzaRoute[]>('/api/bazza/routes');
     
     // Process each route to ensure both isActive and active properties exist
-    return routes.map(route => {
+    const processedRoutes = routes.map(route => {
       if (route.isActive !== undefined && route.active === undefined) {
         return { ...route, active: route.isActive };
       } else if (route.active !== undefined && route.isActive === undefined) {
@@ -45,7 +46,14 @@ export const fetchAllBazzaRoutes = async (): Promise<BazzaRoute[]> => {
       }
       return route;
     });
+    
+    console.log(`Successfully fetched ${processedRoutes.length} routes`);
+    
+    // Enhance routes with stop counts
+    const enhancedRoutes = await enhanceRoutesWithStopCounts(processedRoutes);
+    return enhancedRoutes;
   } catch (error) {
+    console.error('Error fetching all routes:', error);
     if (error instanceof ApiError && error.status === 401) {
       console.warn('Unauthorized when fetching all routes, returning empty array');
       return [];
@@ -75,6 +83,44 @@ export const fetchBazzaRoute = async (id: number): Promise<BazzaRoute> => {
   }
 };
 
+// Enhance routes with stop counts
+export const enhanceRoutesWithStopCounts = async (routes: BazzaRoute[]): Promise<BazzaRoute[]> => {
+  try {
+    console.log(`Enhancing ${routes.length} routes with stop counts`);
+    
+    // Process routes sequentially to avoid overwhelming the server with requests
+    const enhancedRoutes = [];
+    
+    for (const route of routes) {
+      try {
+        // Fetch stops for this route
+        const stops = await fetchRouteStops(route.id);
+        console.log(`Route ${route.id} (${route.name}) has ${stops.length} stops`);
+        
+        // Enhance the route with stop count
+        enhancedRoutes.push({
+          ...route,
+          stopCount: stops.length
+        });
+      } catch (error) {
+        console.error(`Error fetching stops for route ${route.id}:`, error);
+        // Include the route anyway, but with 0 stops
+        enhancedRoutes.push({
+          ...route,
+          stopCount: 0
+        });
+      }
+    }
+    
+    console.log(`Successfully enhanced ${enhancedRoutes.length} routes with stop counts`);
+    return enhancedRoutes;
+  } catch (error) {
+    console.error(`Error enhancing routes with stop counts:`, error);
+    // Return the original routes if enhancement fails
+    return routes;
+  }
+};
+
 // Fetch routes for a technician
 export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promise<BazzaRoute[]> => {
   try {
@@ -92,7 +138,10 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
     });
     
     console.log(`Successfully fetched ${processedRoutes.length} routes for technician ${technicianId}`);
-    return processedRoutes;
+    
+    // Enhance routes with stop counts
+    const enhancedRoutes = await enhanceRoutesWithStopCounts(processedRoutes);
+    return enhancedRoutes;
   } catch (error) {
     console.error(`Error fetching routes for technician ${technicianId}:`, error);
     
@@ -108,10 +157,11 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
 // Fetch routes for a day of week
 export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRoute[]> => {
   try {
+    console.log(`Fetching routes for day: ${dayOfWeek}`);
     const routes = await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/day/${dayOfWeek}`);
     
     // Process each route to ensure both isActive and active properties exist
-    return routes.map(route => {
+    const processedRoutes = routes.map(route => {
       if (route.isActive !== undefined && route.active === undefined) {
         return { ...route, active: route.isActive };
       } else if (route.active !== undefined && route.isActive === undefined) {
@@ -119,7 +169,14 @@ export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRou
       }
       return route;
     });
+    
+    console.log(`Successfully fetched ${processedRoutes.length} routes for day ${dayOfWeek}`);
+    
+    // Enhance routes with stop counts
+    const enhancedRoutes = await enhanceRoutesWithStopCounts(processedRoutes);
+    return enhancedRoutes;
   } catch (error) {
+    console.error(`Error fetching routes for day ${dayOfWeek}:`, error);
     if (error instanceof ApiError && error.status === 401) {
       console.warn(`Unauthorized when fetching routes for day ${dayOfWeek}, returning empty array`);
       return [];
@@ -392,10 +449,13 @@ export const getOrCreateRouteStop = async (
       return existingClientStop.id;
     }
     
-    // Then check if any stop exists we can use
+    // We used to reuse the first stop, but we want each client to have their own stop
+    // Create a new stop for this client instead of reusing the first one
+    console.log(`Not reusing existing stops - each client should have their own stop`);
+    
+    // Just for debugging, log how many stops already exist
     if (stops && stops.length > 0) {
-      console.log(`Using existing stop ID ${stops[0].id}`);
-      return stops[0].id;
+      console.log(`Route already has ${stops.length} stops, creating a new one for this client`);
     }
     
     // If we get here, we need to create a new stop
@@ -435,8 +495,8 @@ export const getOrCreateRouteStop = async (
             return freshClientStop.id;
           }
           
-          console.log(`Using first available stop after error: ID ${doubleCheckStops[0].id}`);
-          return doubleCheckStops[0].id;
+          // Instead of using the first stop, we'll need to create a new one
+          console.log("No appropriate stop found after error, will create new one in fallback path");
         }
       } catch (checkError) {
         console.error("Error double-checking stops:", checkError);
@@ -531,20 +591,30 @@ export const createAssignment = async (
         if (apiError instanceof ApiError && apiError.message.includes("Foreign key constraint")) {
           console.log("Foreign key error detected, trying alternative approach...");
           
-          // Query existing stops for this route
-          const stops = await fetchRouteStops(assignmentData.routeId);
-          if (!stops || stops.length === 0) {
-            console.error("No stops found for route, can't assign maintenance");
-            throw new Error("No stops found for this route. Please add a stop first.");
+          // Try to create a new stop just for this client instead of reusing existing stops
+          console.log("Creating a dedicated stop for this client as fallback");
+          
+          if (!assignmentData.maintenance || !assignmentData.maintenance.client || 
+              !assignmentData.maintenance.client.client || !assignmentData.maintenance.client.client.id) {
+            console.error("Cannot create a client-specific stop: missing client information");
+            throw new Error("Cannot assign maintenance: missing client information");
           }
           
-          // Use the first stop
-          const firstStop = stops[0];
-          console.log("Using existing stop as fallback:", firstStop.id);
+          // Create a new stop specifically for this client
+          const clientId = assignmentData.maintenance.client.client.id;
+          const emergencyStop = await createRouteStop({
+            routeId: assignmentData.routeId,
+            clientId: clientId,
+            orderIndex: 1,
+            estimatedDuration: 60,
+            customInstructions: "Created as fallback after assignment error"
+          });
+          
+          console.log("Created emergency fallback stop:", emergencyStop.id);
           
           const fallbackData = {
             ...cleanedData,
-            routeStopId: firstStop.id
+            routeStopId: emergencyStop.id
           };
           
           return safeApiRequest<BazzaMaintenanceAssignment>('/api/bazza/assignments', {
