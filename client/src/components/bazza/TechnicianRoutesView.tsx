@@ -148,6 +148,9 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
             ...prev,
             [maintenance.id]: true // Mark as assigned immediately in local state
           }));
+          
+          // Set this as the last assigned maintenance to ensure it's hidden immediately in the parent component
+          (window as any).lastAssignedMaintenanceId = maintenance.id;
         }
         
         // Update the cached assignment status directly
@@ -306,6 +309,10 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
   
   // Get the setMaintenanceAssignments function from context
   const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
+  // Access the parent component's state setter for lastAssignedMaintenance
+  const setLastAssignedMaintenance = (id: number) => {
+    (window as any).lastAssignedMaintenanceId = id;
+  };
   
   // Configure drop target
   const [{ isOver }, drop] = useDrop(() => ({
@@ -358,6 +365,9 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
           ...prev,
           [maintenanceId]: true // Mark as assigned immediately in local state
         }));
+        
+        // Set this maintenance as the last assigned one to ensure it's hidden in the UI
+        setLastAssignedMaintenance(maintenanceId);
       }
       
       // Create assignment for this maintenance on this route using the enhanced createAssignment function
@@ -492,6 +502,15 @@ export function TechnicianRoutesView({
   selectedDay = 'all',
   onDayChange
 }: TechnicianRoutesViewProps) {
+  // Initialize our global window variables on component mount
+  useEffect(() => {
+    (window as any).lastAssignedMaintenanceId = null;
+    return () => {
+      // Clean up on unmount
+      (window as any).lastAssignedMaintenanceId = null;
+    };
+  }, []);
+  
   // Get React Query client for cache operations
   const queryClient = useQueryClient();
   
@@ -525,6 +544,7 @@ export function TechnicianRoutesView({
   
   // Find maintenances assigned to this technician but not routed
   const [maintenanceAssignments, setMaintenanceAssignments] = useState<Record<number, boolean>>({});
+  const [lastAssignedMaintenance, setLastAssignedMaintenance] = useState<number | null>(null);
   
   // Use effect to load assignments for each maintenance
   useEffect(() => {
@@ -533,11 +553,28 @@ export function TechnicianRoutesView({
     // Create an object to track which maintenances are assigned to routes
     const checkAssignments = async () => {
       console.log("Checking route assignments for all maintenances...");
-      const assignmentStatus: Record<number, boolean> = {};
+      const assignmentStatus: Record<number, boolean> = { ...maintenanceAssignments }; // Start with existing assignments
       
       // Check each maintenance if it's assigned to a route
       for (const maintenance of maintenances) {
         try {
+          // Always treat the last assigned maintenance as assigned to immediately hide it from UI
+          if (lastAssignedMaintenance === maintenance.id || 
+              (window as any).lastAssignedMaintenanceId === maintenance.id) {
+            console.log(`Maintenance ${maintenance.id} was just assigned, treating as routed`);
+            assignmentStatus[maintenance.id] = true;
+            // Reset the window variable if it matches
+            if ((window as any).lastAssignedMaintenanceId === maintenance.id) {
+              // Set our state to match for the next render
+              setLastAssignedMaintenance(maintenance.id);
+              // Clear the window variable after processing
+              setTimeout(() => {
+                (window as any).lastAssignedMaintenanceId = null;
+              }, 500);
+            }
+            continue;
+          }
+          
           // Fetch assignments for this maintenance
           const assignments = await apiRequest(`/api/bazza/assignments/maintenance/${maintenance.id}`);
           const isAssigned = assignments && Array.isArray(assignments) && assignments.length > 0;
@@ -548,7 +585,10 @@ export function TechnicianRoutesView({
           assignmentStatus[maintenance.id] = isAssigned;
         } catch (error) {
           console.error(`Error checking assignments for maintenance ${maintenance.id}:`, error);
-          assignmentStatus[maintenance.id] = false;
+          // Don't override an existing "true" status if there's an error
+          if (!assignmentStatus[maintenance.id]) {
+            assignmentStatus[maintenance.id] = false;
+          }
         }
       }
       
@@ -569,7 +609,7 @@ export function TechnicianRoutesView({
     }, 15000); // Refresh every 15 seconds if the tab is visible
     
     return () => clearInterval(intervalId);
-  }, [maintenances, queryClient]);
+  }, [maintenances, queryClient, lastAssignedMaintenance, maintenanceAssignments]);
   
   const unroutedMaintenances = useMemo(() => {
     if (!selectedTechnicianId || !maintenances) return [];

@@ -470,11 +470,19 @@ export const getOrCreateRouteStop = async (
     }
     
     try {
+      // Calculate the next order index (max + 1)
+      let nextOrderIndex = 1;
+      if (stops && stops.length > 0) {
+        const maxOrderIndex = Math.max(...stops.map(stop => stop.orderIndex || 0));
+        nextOrderIndex = maxOrderIndex + 1;
+        console.log(`Calculated next order index: ${nextOrderIndex} (max was ${maxOrderIndex})`);
+      }
+      
       // Create a new stop for this client
       const newStop = await createRouteStop({
         routeId: routeId,
         clientId: clientId,
-        orderIndex: 1, // Using correct field name matching the schema
+        orderIndex: nextOrderIndex, // Use the calculated next order index
         estimatedDuration: 60, // Default 60 minutes
         customInstructions: null
       });
@@ -505,12 +513,22 @@ export const getOrCreateRouteStop = async (
       // If we get here, we couldn't create or find a stop - try creating with minimal data as last resort
       try {
         console.log("Trying simplified route stop creation as fallback");
+        
+        // Fetch the latest stops to calculate the next order index
+        const latestStops = await fetchRouteStops(routeId);
+        let nextOrderIndex = 1;
+        if (latestStops && latestStops.length > 0) {
+          const maxOrderIndex = Math.max(...latestStops.map(stop => stop.orderIndex || 0));
+          nextOrderIndex = maxOrderIndex + 1;
+          console.log(`Fallback: Calculated next order index: ${nextOrderIndex} (max was ${maxOrderIndex})`);
+        }
+        
         const fallbackStop = await safeApiRequest<BazzaRouteStop>('/api/bazza/stops', {
           method: 'POST',
           body: JSON.stringify({
             routeId: routeId,
             clientId: clientId,
-            orderIndex: 1 // Using the correct field name that matches the schema
+            orderIndex: nextOrderIndex // Use proper ordering
           }),
         });
         
@@ -602,10 +620,20 @@ export const createAssignment = async (
           
           // Create a new stop specifically for this client
           const clientId = assignmentData.maintenance.client.client.id;
+          
+          // Calculate proper order index for this emergency stop
+          const latestStops = await fetchRouteStops(assignmentData.routeId);
+          let nextOrderIndex = 1;
+          if (latestStops && latestStops.length > 0) {
+            const maxOrderIndex = Math.max(...latestStops.map(stop => stop.orderIndex || 0));
+            nextOrderIndex = maxOrderIndex + 1;
+            console.log(`Emergency: Calculated next order index: ${nextOrderIndex} (max was ${maxOrderIndex})`);
+          }
+          
           const emergencyStop = await createRouteStop({
             routeId: assignmentData.routeId,
             clientId: clientId,
-            orderIndex: 1,
+            orderIndex: nextOrderIndex, // Use proper order index
             estimatedDuration: 60,
             customInstructions: "Created as fallback after assignment error"
           });

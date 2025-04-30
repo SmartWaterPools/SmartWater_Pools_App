@@ -5927,8 +5927,40 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBazzaRoute(route: InsertBazzaRoute): Promise<BazzaRoute> {
-    const [newRoute] = await db.insert(bazzaRoutes).values(route).returning();
-    return newRoute;
+    try {
+      console.log(`Creating new bazza route with name: "${route.name}"`);
+      
+      // Make sure all required fields are present
+      if (!route.name || !route.dayOfWeek || !route.type) {
+        const missingFields = [];
+        if (!route.name) missingFields.push('name');
+        if (!route.dayOfWeek) missingFields.push('dayOfWeek');
+        if (!route.type) missingFields.push('type');
+        
+        console.error(`Cannot create route: missing required fields: ${missingFields.join(', ')}`);
+        throw new Error(`Missing required fields for route: ${missingFields.join(', ')}`);
+      }
+      
+      // Ensure we have valid values
+      const technicianId = route.technicianId === undefined ? null : route.technicianId;
+      
+      // Create a new, clean route object with all necessary fields
+      const routeToInsert = {
+        ...route,
+        technicianId,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      console.log(`Creating bazza route with data: ${JSON.stringify(routeToInsert)}`);
+      
+      const [newRoute] = await db.insert(bazzaRoutes).values(routeToInsert).returning();
+      console.log(`Successfully created bazza route with ID: ${newRoute.id}`);
+      return newRoute;
+    } catch (error) {
+      console.error(`Error in createBazzaRoute:`, error);
+      throw error;
+    }
   }
 
   async updateBazzaRoute(id: number, route: Partial<BazzaRoute>): Promise<BazzaRoute | undefined> {
@@ -5943,23 +5975,62 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBazzaRoute(id: number): Promise<boolean> {
-    const route = await this.getBazzaRoute(id);
-    if (!route) return false;
+    try {
+      const route = await this.getBazzaRoute(id);
+      if (!route) {
+        console.log(`Route with ID ${id} not found for deletion`);
+        return false;
+      }
 
-    // First delete all route stops and maintenance assignments associated with this route
-    const stops = await this.getBazzaRouteStopsByRouteId(id);
-    for (const stop of stops) {
-      await this.deleteBazzaRouteStop(stop.id);
+      console.log(`Starting deletion process for route ID: ${id}, name: ${route.name}`);
+      
+      // First delete all route stops associated with this route
+      try {
+        const stops = await this.getBazzaRouteStopsByRouteId(id);
+        console.log(`Found ${stops.length} stops to delete for route ID: ${id}`);
+        
+        for (const stop of stops) {
+          try {
+            await this.deleteBazzaRouteStop(stop.id);
+            console.log(`Successfully deleted stop ID: ${stop.id} for route ID: ${id}`);
+          } catch (stopError) {
+            console.error(`Error deleting route stop ID: ${stop.id}:`, stopError);
+            // Continue deleting other stops despite error
+          }
+        }
+      } catch (stopsError) {
+        console.error(`Error fetching stops for route ID: ${id}:`, stopsError);
+        // Continue with other deletions despite error
+      }
+
+      // Then delete maintenance assignments associated with this route
+      try {
+        const assignments = await this.getBazzaMaintenanceAssignmentsByRouteId(id);
+        console.log(`Found ${assignments.length} assignments to delete for route ID: ${id}`);
+        
+        for (const assignment of assignments) {
+          try {
+            await this.deleteBazzaMaintenanceAssignment(assignment.id);
+            console.log(`Successfully deleted assignment ID: ${assignment.id} for route ID: ${id}`);
+          } catch (assignmentError) {
+            console.error(`Error deleting assignment ID: ${assignment.id}:`, assignmentError);
+            // Continue deleting other assignments despite error
+          }
+        }
+      } catch (assignmentsError) {
+        console.error(`Error fetching assignments for route ID: ${id}:`, assignmentsError);
+        // Continue with route deletion despite error
+      }
+
+      // Finally delete the route itself
+      console.log(`Executing final route deletion for ID: ${id}`);
+      await db.delete(bazzaRoutes).where(eq(bazzaRoutes.id, id));
+      console.log(`Successfully deleted route ID: ${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Error in deleteBazzaRoute for route ID: ${id}:`, error);
+      throw error; // Let the caller handle the error
     }
-
-    const assignments = await this.getBazzaMaintenanceAssignmentsByRouteId(id);
-    for (const assignment of assignments) {
-      await this.deleteBazzaMaintenanceAssignment(assignment.id);
-    }
-
-    // Then delete the route itself
-    await db.delete(bazzaRoutes).where(eq(bazzaRoutes.id, id));
-    return true;
   }
 
   async getAllBazzaRoutes(): Promise<BazzaRoute[]> {
@@ -5991,8 +6062,48 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBazzaRouteStop(stop: InsertBazzaRouteStop): Promise<BazzaRouteStop> {
-    const [newStop] = await db.insert(bazzaRouteStops).values(stop).returning();
-    return newStop;
+    try {
+      console.log(`Creating new bazza route stop for route ID: ${stop.routeId}, client ID: ${stop.clientId}`);
+      
+      // Make sure all required fields are present
+      if (!stop.routeId || !stop.clientId) {
+        const missingFields = [];
+        if (!stop.routeId) missingFields.push('routeId');
+        if (!stop.clientId) missingFields.push('clientId');
+        
+        console.error(`Cannot create route stop: missing required fields: ${missingFields.join(', ')}`);
+        throw new Error(`Missing required fields for route stop: ${missingFields.join(', ')}`);
+      }
+      
+      // Calculate the orderIndex if not provided
+      if (!stop.orderIndex) {
+        console.log(`No orderIndex provided, calculating the next available index for route ID: ${stop.routeId}`);
+        
+        // Find the maximum orderIndex for this route
+        const existingStops = await this.getBazzaRouteStopsByRouteId(stop.routeId);
+        const maxOrderIndex = existingStops.reduce((max, s) => (s.orderIndex > max ? s.orderIndex : max), 0);
+        
+        // Set the new stop's orderIndex to the next available (max + 1)
+        stop.orderIndex = maxOrderIndex + 1;
+        console.log(`Calculated orderIndex for new stop: ${stop.orderIndex}`);
+      }
+      
+      // Create a new, clean stop object with all necessary fields
+      const stopToInsert = {
+        ...stop,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      console.log(`Creating bazza route stop with data: ${JSON.stringify(stopToInsert)}`);
+      
+      const [newStop] = await db.insert(bazzaRouteStops).values(stopToInsert).returning();
+      console.log(`Successfully created bazza route stop with ID: ${newStop.id}`);
+      return newStop;
+    } catch (error) {
+      console.error(`Error in createBazzaRouteStop:`, error);
+      throw error;
+    }
   }
 
   async updateBazzaRouteStop(id: number, stop: Partial<BazzaRouteStop>): Promise<BazzaRouteStop | undefined> {
@@ -6007,20 +6118,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBazzaRouteStop(id: number): Promise<boolean> {
-    const stop = await this.getBazzaRouteStop(id);
-    if (!stop) return false;
+    try {
+      const stop = await this.getBazzaRouteStop(id);
+      if (!stop) {
+        console.log(`Route stop with ID ${id} not found for deletion`);
+        return false;
+      }
 
-    // First delete any maintenance assignments associated with this stop
-    const assignments = await db.select().from(bazzaMaintenanceAssignments)
-      .where(eq(bazzaMaintenanceAssignments.routeStopId, id));
-    
-    for (const assignment of assignments) {
-      await this.deleteBazzaMaintenanceAssignment(assignment.id);
+      console.log(`Starting deletion process for route stop ID: ${id}, for route ID: ${stop.routeId}`);
+      
+      // First delete any maintenance assignments associated with this stop
+      try {
+        const assignments = await db.select().from(bazzaMaintenanceAssignments)
+          .where(eq(bazzaMaintenanceAssignments.routeStopId, id));
+        
+        console.log(`Found ${assignments.length} maintenance assignments to delete for route stop ID: ${id}`);
+        
+        for (const assignment of assignments) {
+          try {
+            await this.deleteBazzaMaintenanceAssignment(assignment.id);
+            console.log(`Successfully deleted assignment ID: ${assignment.id} for route stop ID: ${id}`);
+          } catch (assignmentError) {
+            console.error(`Error deleting assignment ID: ${assignment.id} for route stop ID: ${id}:`, assignmentError);
+            // Continue with other assignments despite error
+          }
+        }
+      } catch (assignmentsError) {
+        console.error(`Error fetching assignments for route stop ID: ${id}:`, assignmentsError);
+        // Continue with stop deletion despite error
+      }
+
+      // Then delete the stop
+      console.log(`Executing final route stop deletion for ID: ${id}`);
+      await db.delete(bazzaRouteStops).where(eq(bazzaRouteStops.id, id));
+      console.log(`Successfully deleted route stop ID: ${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Error in deleteBazzaRouteStop for ID: ${id}:`, error);
+      throw error; // Let the caller handle the error
     }
-
-    // Then delete the stop
-    await db.delete(bazzaRouteStops).where(eq(bazzaRouteStops.id, id));
-    return true;
   }
 
   async getBazzaRouteStopsByRouteId(routeId: number): Promise<BazzaRouteStop[]> {
@@ -6062,8 +6198,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBazzaMaintenanceAssignment(assignment: InsertBazzaMaintenanceAssignment): Promise<BazzaMaintenanceAssignment> {
-    const [newAssignment] = await db.insert(bazzaMaintenanceAssignments).values(assignment).returning();
-    return newAssignment;
+    try {
+      console.log(`Creating new bazza maintenance assignment for route ID: ${assignment.routeId}, maintenance ID: ${assignment.maintenanceId}`);
+      
+      // Make sure all required fields are present
+      if (!assignment.routeId || !assignment.maintenanceId) {
+        const missingFields = [];
+        if (!assignment.routeId) missingFields.push('routeId');
+        if (!assignment.maintenanceId) missingFields.push('maintenanceId');
+        
+        console.error(`Cannot create maintenance assignment: missing required fields: ${missingFields.join(', ')}`);
+        throw new Error(`Missing required fields for maintenance assignment: ${missingFields.join(', ')}`);
+      }
+      
+      // Create a new, clean assignment object with all necessary fields
+      const assignmentToInsert = {
+        ...assignment,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      console.log(`Creating bazza maintenance assignment with data: ${JSON.stringify(assignmentToInsert)}`);
+      
+      const [newAssignment] = await db.insert(bazzaMaintenanceAssignments).values(assignmentToInsert).returning();
+      console.log(`Successfully created bazza maintenance assignment with ID: ${newAssignment.id}`);
+      return newAssignment;
+    } catch (error) {
+      console.error(`Error in createBazzaMaintenanceAssignment:`, error);
+      throw error;
+    }
   }
 
   async updateBazzaMaintenanceAssignment(id: number, assignment: Partial<BazzaMaintenanceAssignment>): Promise<BazzaMaintenanceAssignment | undefined> {
@@ -6078,11 +6241,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteBazzaMaintenanceAssignment(id: number): Promise<boolean> {
-    const assignment = await this.getBazzaMaintenanceAssignment(id);
-    if (!assignment) return false;
+    try {
+      const assignment = await this.getBazzaMaintenanceAssignment(id);
+      if (!assignment) {
+        console.log(`Maintenance assignment with ID ${id} not found for deletion`);
+        return false;
+      }
 
-    await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id));
-    return true;
+      console.log(`Deleting maintenance assignment ID: ${id}, for route ID: ${assignment.routeId}, maintenance ID: ${assignment.maintenanceId}`);
+      
+      await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id));
+      console.log(`Successfully deleted maintenance assignment ID: ${id}`);
+      return true;
+    } catch (error) {
+      console.error(`Error in deleteBazzaMaintenanceAssignment for ID: ${id}:`, error);
+      throw error; // Let the caller handle the error
+    }
   }
 
   async getBazzaMaintenanceAssignmentsByRouteId(routeId: number): Promise<BazzaMaintenanceAssignment[]> {

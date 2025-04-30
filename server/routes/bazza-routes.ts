@@ -181,18 +181,36 @@ router.delete("/routes/:id", isAuthenticated, async (req: Request, res: Response
     // Check if route exists
     const existingRoute = await storage.getBazzaRoute(id);
     if (!existingRoute) {
+      console.log(`[BAZZA ROUTES API] Route ID ${id} not found for deletion`);
       return res.status(404).json({ error: "Bazza route not found" });
     }
     
-    const result = await storage.deleteBazzaRoute(id);
-    if (result) {
-      res.status(204).end();
-    } else {
-      res.status(500).json({ error: "Failed to delete bazza route" });
+    console.log(`[BAZZA ROUTES API] Found route "${existingRoute.name}" (ID: ${id}), proceeding with deletion`);
+    
+    try {
+      const result = await storage.deleteBazzaRoute(id);
+      if (result) {
+        console.log(`[BAZZA ROUTES API] Successfully deleted route ID: ${id}`);
+        res.status(204).end();
+      } else {
+        console.error(`[BAZZA ROUTES API] Storage returned false for route deletion ID: ${id}`);
+        res.status(500).json({ error: "Failed to delete bazza route" });
+      }
+    } catch (storageError) {
+      console.error(`[BAZZA ROUTES API] Storage error while deleting route ID ${id}:`, storageError);
+      // More detailed error response with specific error message if available
+      const errorMessage = storageError instanceof Error ? storageError.message : "Unknown error";
+      res.status(500).json({ 
+        error: "Failed to delete bazza route due to a database error",
+        details: errorMessage
+      });
     }
   } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error deleting bazza route ${req.params.id}:`, error);
-    res.status(500).json({ error: "Failed to delete bazza route" });
+    console.error(`[BAZZA ROUTES API] Error in route deletion handler for ID ${req.params.id}:`, error);
+    res.status(500).json({ 
+      error: "Failed to process bazza route deletion request",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 });
 
@@ -247,18 +265,35 @@ router.delete("/stops/:id", isAuthenticated, async (req: Request, res: Response)
     // Check if stop exists
     const existingStop = await storage.getBazzaRouteStop(id);
     if (!existingStop) {
+      console.log(`[BAZZA ROUTES API] Route stop ID ${id} not found for deletion`);
       return res.status(404).json({ error: "Bazza route stop not found" });
     }
     
-    const result = await storage.deleteBazzaRouteStop(id);
-    if (result) {
-      res.status(204).end();
-    } else {
-      res.status(500).json({ error: "Failed to delete bazza route stop" });
+    console.log(`[BAZZA ROUTES API] Found route stop ID: ${id} for route ID: ${existingStop.routeId}, proceeding with deletion`);
+    
+    try {
+      const result = await storage.deleteBazzaRouteStop(id);
+      if (result) {
+        console.log(`[BAZZA ROUTES API] Successfully deleted route stop ID: ${id}`);
+        res.status(204).end();
+      } else {
+        console.error(`[BAZZA ROUTES API] Storage returned false for route stop deletion ID: ${id}`);
+        res.status(500).json({ error: "Failed to delete bazza route stop" });
+      }
+    } catch (storageError) {
+      console.error(`[BAZZA ROUTES API] Storage error while deleting route stop ID ${id}:`, storageError);
+      const errorMessage = storageError instanceof Error ? storageError.message : "Unknown error";
+      res.status(500).json({ 
+        error: "Failed to delete bazza route stop due to a database error",
+        details: errorMessage
+      });
     }
   } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error deleting bazza route stop ${req.params.id}:`, error);
-    res.status(500).json({ error: "Failed to delete bazza route stop" });
+    console.error(`[BAZZA ROUTES API] Error in route stop deletion handler for ID ${req.params.id}:`, error);
+    res.status(500).json({ 
+      error: "Failed to process bazza route stop deletion request",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 });
 
@@ -420,18 +455,35 @@ router.delete("/assignments/:id", isAuthenticated, async (req: Request, res: Res
     // Check if assignment exists
     const existingAssignment = await storage.getBazzaMaintenanceAssignment(id);
     if (!existingAssignment) {
+      console.log(`[BAZZA ROUTES API] Maintenance assignment ID ${id} not found for deletion`);
       return res.status(404).json({ error: "Bazza maintenance assignment not found" });
     }
     
-    const result = await storage.deleteBazzaMaintenanceAssignment(id);
-    if (result) {
-      res.status(204).end();
-    } else {
-      res.status(500).json({ error: "Failed to delete bazza maintenance assignment" });
+    console.log(`[BAZZA ROUTES API] Found assignment for route ID: ${existingAssignment.routeId}, maintenance ID: ${existingAssignment.maintenanceId}, proceeding with deletion`);
+    
+    try {
+      const result = await storage.deleteBazzaMaintenanceAssignment(id);
+      if (result) {
+        console.log(`[BAZZA ROUTES API] Successfully deleted maintenance assignment ID: ${id}`);
+        res.status(204).end();
+      } else {
+        console.error(`[BAZZA ROUTES API] Storage returned false for maintenance assignment deletion ID: ${id}`);
+        res.status(500).json({ error: "Failed to delete bazza maintenance assignment" });
+      }
+    } catch (storageError) {
+      console.error(`[BAZZA ROUTES API] Storage error while deleting maintenance assignment ID ${id}:`, storageError);
+      const errorMessage = storageError instanceof Error ? storageError.message : "Unknown error";
+      res.status(500).json({ 
+        error: "Failed to delete bazza maintenance assignment due to a database error",
+        details: errorMessage
+      });
     }
   } catch (error) {
-    console.error(`[BAZZA ROUTES API] Error deleting bazza maintenance assignment ${req.params.id}:`, error);
-    res.status(500).json({ error: "Failed to delete bazza maintenance assignment" });
+    console.error(`[BAZZA ROUTES API] Error in maintenance assignment deletion handler for ID ${req.params.id}:`, error);
+    res.status(500).json({ 
+      error: "Failed to process bazza maintenance assignment deletion request",
+      details: error instanceof Error ? error.message : "Unknown error"
+    });
   }
 });
 
