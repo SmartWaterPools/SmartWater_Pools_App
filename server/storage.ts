@@ -5984,51 +5984,59 @@ export class DatabaseStorage implements IStorage {
 
       console.log(`Starting deletion process for route ID: ${id}, name: ${route.name}`);
       
-      // First delete all route stops associated with this route
-      try {
-        const stops = await this.getBazzaRouteStopsByRouteId(id);
-        console.log(`Found ${stops.length} stops to delete for route ID: ${id}`);
-        
-        for (const stop of stops) {
-          try {
-            await this.deleteBazzaRouteStop(stop.id);
-            console.log(`Successfully deleted stop ID: ${stop.id} for route ID: ${id}`);
-          } catch (stopError) {
-            console.error(`Error deleting route stop ID: ${stop.id}:`, stopError);
-            // Continue deleting other stops despite error
+      // Use a transaction to ensure all operations succeed or fail together
+      return await db.transaction(async (tx) => {
+        // First, delete all route stops associated with this route
+        try {
+          const stops = await this.getBazzaRouteStopsByRouteId(id);
+          console.log(`Found ${stops.length} stops to delete for route ID: ${id}`);
+          
+          if (stops.length > 0) {
+            console.log(`Batch deleting ${stops.length} stops for route ID: ${id}`);
+            // Batch delete all stops for this route
+            await tx.delete(bazzaRouteStops).where(eq(bazzaRouteStops.routeId, id));
+            console.log(`Successfully deleted all stops for route ID: ${id}`);
           }
+        } catch (stopsError) {
+          console.error(`Error deleting stops for route ID: ${id}:`, stopsError);
+          throw stopsError; // This will trigger transaction rollback
         }
-      } catch (stopsError) {
-        console.error(`Error fetching stops for route ID: ${id}:`, stopsError);
-        // Continue with other deletions despite error
-      }
 
-      // Then delete maintenance assignments associated with this route
-      try {
-        const assignments = await this.getBazzaMaintenanceAssignmentsByRouteId(id);
-        console.log(`Found ${assignments.length} assignments to delete for route ID: ${id}`);
-        
-        for (const assignment of assignments) {
-          try {
-            await this.deleteBazzaMaintenanceAssignment(assignment.id);
-            console.log(`Successfully deleted assignment ID: ${assignment.id} for route ID: ${id}`);
-          } catch (assignmentError) {
-            console.error(`Error deleting assignment ID: ${assignment.id}:`, assignmentError);
-            // Continue deleting other assignments despite error
+        // Then delete maintenance assignments associated with this route
+        try {
+          const assignments = await this.getBazzaMaintenanceAssignmentsByRouteId(id);
+          console.log(`Found ${assignments.length} assignments to delete for route ID: ${id}`);
+          
+          if (assignments.length > 0) {
+            console.log(`Batch deleting ${assignments.length} assignments for route ID: ${id}`);
+            // Batch delete all assignments for this route
+            await tx.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.routeId, id));
+            console.log(`Successfully deleted all assignments for route ID: ${id}`);
           }
+        } catch (assignmentsError) {
+          console.error(`Error deleting assignments for route ID: ${id}:`, assignmentsError);
+          throw assignmentsError; // This will trigger transaction rollback
         }
-      } catch (assignmentsError) {
-        console.error(`Error fetching assignments for route ID: ${id}:`, assignmentsError);
-        // Continue with route deletion despite error
-      }
 
-      // Finally delete the route itself
-      console.log(`Executing final route deletion for ID: ${id}`);
-      await db.delete(bazzaRoutes).where(eq(bazzaRoutes.id, id));
-      console.log(`Successfully deleted route ID: ${id}`);
-      return true;
+        // Finally delete the route itself
+        console.log(`Executing final route deletion for ID: ${id}`);
+        await tx.delete(bazzaRoutes).where(eq(bazzaRoutes.id, id));
+        console.log(`Successfully deleted route ID: ${id}`);
+        
+        return true; // Transaction succeeded
+      });
     } catch (error) {
       console.error(`Error in deleteBazzaRoute for route ID: ${id}:`, error);
+      
+      // Handle specific error types for better debugging
+      if (error instanceof Error) {
+        if (error.message.includes('foreign key constraint')) {
+          console.error(`Foreign key constraint error when deleting route ID: ${id}. The route might be referenced by other records.`);
+        } else if (error.message.includes('deadlock')) {
+          console.error(`Deadlock detected when deleting route ID: ${id}. Database is busy with conflicting operations.`);
+        }
+      }
+      
       throw error; // Let the caller handle the error
     }
   }
@@ -6081,11 +6089,20 @@ export class DatabaseStorage implements IStorage {
         
         // Find the maximum orderIndex for this route
         const existingStops = await this.getBazzaRouteStopsByRouteId(stop.routeId);
-        const maxOrderIndex = existingStops.reduce((max, s) => (s.orderIndex > max ? s.orderIndex : max), 0);
         
-        // Set the new stop's orderIndex to the next available (max + 1)
-        stop.orderIndex = maxOrderIndex + 1;
-        console.log(`Calculated orderIndex for new stop: ${stop.orderIndex}`);
+        // If no stops exist yet, start with orderIndex 1
+        if (existingStops.length === 0) {
+          stop.orderIndex = 1;
+          console.log(`No existing stops found, starting with orderIndex 1`);
+        } else {
+          // Find the maximum orderIndex
+          const maxOrderIndex = existingStops.reduce((max, s) => (s.orderIndex > max ? s.orderIndex : max), 0);
+          
+          // Set the new stop's orderIndex to the next available (max + 1)
+          stop.orderIndex = maxOrderIndex + 1;
+          console.log(`Found ${existingStops.length} existing stops with max orderIndex: ${maxOrderIndex}`);
+          console.log(`Calculated orderIndex for new stop: ${stop.orderIndex}`);
+        }
       }
       
       // Create a new, clean stop object with all necessary fields
@@ -6127,34 +6144,45 @@ export class DatabaseStorage implements IStorage {
 
       console.log(`Starting deletion process for route stop ID: ${id}, for route ID: ${stop.routeId}`);
       
-      // First delete any maintenance assignments associated with this stop
-      try {
-        const assignments = await db.select().from(bazzaMaintenanceAssignments)
-          .where(eq(bazzaMaintenanceAssignments.routeStopId, id));
-        
-        console.log(`Found ${assignments.length} maintenance assignments to delete for route stop ID: ${id}`);
-        
-        for (const assignment of assignments) {
-          try {
-            await this.deleteBazzaMaintenanceAssignment(assignment.id);
-            console.log(`Successfully deleted assignment ID: ${assignment.id} for route stop ID: ${id}`);
-          } catch (assignmentError) {
-            console.error(`Error deleting assignment ID: ${assignment.id} for route stop ID: ${id}:`, assignmentError);
-            // Continue with other assignments despite error
+      // Use a transaction to ensure all operations succeed or fail together
+      return await db.transaction(async (tx) => {
+        try {
+          // First, get all assignments associated with this stop
+          const assignments = await db.select().from(bazzaMaintenanceAssignments)
+            .where(eq(bazzaMaintenanceAssignments.routeStopId, id));
+          
+          console.log(`Found ${assignments.length} maintenance assignments to delete for route stop ID: ${id}`);
+          
+          if (assignments.length > 0) {
+            // Batch delete all assignments for this stop
+            await tx.delete(bazzaMaintenanceAssignments)
+              .where(eq(bazzaMaintenanceAssignments.routeStopId, id));
+            console.log(`Successfully deleted all assignments for route stop ID: ${id}`);
           }
+          
+          // Then delete the stop
+          console.log(`Executing route stop deletion for ID: ${id}`);
+          await tx.delete(bazzaRouteStops).where(eq(bazzaRouteStops.id, id));
+          console.log(`Successfully deleted route stop ID: ${id}`);
+          
+          return true;
+        } catch (txError) {
+          console.error(`Transaction error deleting route stop ID: ${id}:`, txError);
+          throw txError; // This will roll back the transaction
         }
-      } catch (assignmentsError) {
-        console.error(`Error fetching assignments for route stop ID: ${id}:`, assignmentsError);
-        // Continue with stop deletion despite error
-      }
-
-      // Then delete the stop
-      console.log(`Executing final route stop deletion for ID: ${id}`);
-      await db.delete(bazzaRouteStops).where(eq(bazzaRouteStops.id, id));
-      console.log(`Successfully deleted route stop ID: ${id}`);
-      return true;
+      });
     } catch (error) {
       console.error(`Error in deleteBazzaRouteStop for ID: ${id}:`, error);
+      
+      // Handle specific error types for better debugging
+      if (error instanceof Error) {
+        if (error.message.includes('foreign key constraint')) {
+          console.error(`Foreign key constraint error when deleting route stop ID: ${id}. The stop might be referenced by other records.`);
+        } else if (error.message.includes('deadlock')) {
+          console.error(`Deadlock detected when deleting route stop ID: ${id}. Database is busy with conflicting operations.`);
+        }
+      }
+      
       throw error; // Let the caller handle the error
     }
   }
@@ -6172,22 +6200,46 @@ export class DatabaseStorage implements IStorage {
   }
 
   async reorderBazzaRouteStops(routeId: number, stopIds: number[]): Promise<BazzaRouteStop[]> {
-    const updatedStops: BazzaRouteStop[] = [];
-
-    // Update each stop with its new order index
-    for (let index = 0; index < stopIds.length; index++) {
-      const id = stopIds[index];
-      const stop = await this.getBazzaRouteStop(id);
+    try {
+      console.log(`Reordering stops for route ID: ${routeId}, stop IDs: ${stopIds.join(', ')}`);
       
-      if (stop && stop.routeId === routeId) {
-        const updatedStop = await this.updateBazzaRouteStop(stop.id, { orderIndex: index });
-        if (updatedStop) {
-          updatedStops.push(updatedStop);
+      const updatedStops: BazzaRouteStop[] = [];
+
+      // First, verify all stops exist and belong to the route
+      const stopsToUpdate: { id: number, stop: BazzaRouteStop }[] = [];
+      for (const id of stopIds) {
+        const stop = await this.getBazzaRouteStop(id);
+        if (stop && stop.routeId === routeId) {
+          stopsToUpdate.push({ id, stop });
+        } else {
+          console.warn(`Stop ID ${id} does not exist or doesn't belong to route ${routeId}`);
         }
       }
-    }
+      
+      console.log(`Found ${stopsToUpdate.length} valid stops to reorder`);
 
-    return updatedStops;
+      // Update each stop with its new order index
+      for (let index = 0; index < stopsToUpdate.length; index++) {
+        const { id, stop } = stopsToUpdate[index];
+        
+        // Use sequential numbers starting from 1 (not 0) for better user display
+        const orderIndex = index + 1; 
+        console.log(`Setting stop ID ${id} to orderIndex ${orderIndex}`);
+        
+        const updatedStop = await this.updateBazzaRouteStop(id, { orderIndex });
+        if (updatedStop) {
+          updatedStops.push(updatedStop);
+          console.log(`Successfully updated stop ID: ${id}`);
+        } else {
+          console.error(`Failed to update stop ID: ${id}`);
+        }
+      }
+
+      return updatedStops;
+    } catch (error) {
+      console.error(`Error in reorderBazzaRouteStops for route ID: ${routeId}:`, error);
+      throw error;
+    }
   }
 
   // Bazza Maintenance Assignment operations
@@ -6250,11 +6302,25 @@ export class DatabaseStorage implements IStorage {
 
       console.log(`Deleting maintenance assignment ID: ${id}, for route ID: ${assignment.routeId}, maintenance ID: ${assignment.maintenanceId}`);
       
-      await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id));
-      console.log(`Successfully deleted maintenance assignment ID: ${id}`);
-      return true;
+      // Use a transaction to ensure atomicity
+      return await db.transaction(async (tx) => {
+        // Delete the assignment
+        await tx.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id));
+        console.log(`Successfully deleted maintenance assignment ID: ${id}`);
+        return true;
+      });
     } catch (error) {
       console.error(`Error in deleteBazzaMaintenanceAssignment for ID: ${id}:`, error);
+      
+      // Handle specific error types for better debugging
+      if (error instanceof Error) {
+        if (error.message.includes('foreign key constraint')) {
+          console.error(`Foreign key constraint error when deleting assignment ID: ${id}. The assignment might be referenced by other records.`);
+        } else if (error.message.includes('deadlock')) {
+          console.error(`Deadlock detected when deleting assignment ID: ${id}. Database is busy with conflicting operations.`);
+        }
+      }
+      
       throw error; // Let the caller handle the error
     }
   }

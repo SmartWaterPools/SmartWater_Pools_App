@@ -187,31 +187,52 @@ export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRou
 
 // Create a new route
 export const createBazzaRoute = async (routeData: any): Promise<BazzaRoute> => {
-  // Sanitize the data for the server - exactly match what the schema expects
-  const routeToSend = {
-    // Required fields
-    name: routeData.name,
-    technicianId: Number(routeData.technicianId), // Ensure it's a number
-    dayOfWeek: routeData.dayOfWeek,
-    type: routeData.type || 'residential',
-    isRecurring: routeData.isRecurring !== undefined ? routeData.isRecurring : true,
-    frequency: routeData.frequency || 'weekly',
-    isActive: routeData.isActive !== undefined ? routeData.isActive : true,
-    
-    // Optional fields
-    startTime: routeData.startTime || null,
-    endTime: routeData.endTime || null,
-    description: routeData.description || null,
-    color: routeData.color || null,
-    weekNumber: routeData.weekNumber || null,
-    
-    // Do NOT include these fields - they're set by the server
-    // id, createdAt, updatedAt
-  };
-  
-  console.log("Creating route with data:", JSON.stringify(routeToSend, null, 2));
-  
   try {
+    // Validate required fields on client-side before sending to server
+    const requiredFields = ['name', 'technicianId', 'dayOfWeek'];
+    const missingFields = requiredFields.filter(field => !routeData[field]);
+    
+    if (missingFields.length > 0) {
+      console.error(`Missing required fields: ${missingFields.join(', ')}`);
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+    
+    // Convert technicianId to a number and validate
+    let technicianId: number;
+    try {
+      technicianId = Number(routeData.technicianId);
+      if (isNaN(technicianId) || technicianId <= 0) {
+        throw new Error(`Invalid technician ID: ${routeData.technicianId}`);
+      }
+    } catch (e) {
+      console.error(`Error parsing technicianId`, e);
+      throw new Error(`Invalid technician ID. Please select a valid technician.`);
+    }
+    
+    // Sanitize the data for the server - exactly match what the schema expects
+    const routeToSend = {
+      // Required fields
+      name: routeData.name.trim(),
+      technicianId: technicianId,
+      dayOfWeek: routeData.dayOfWeek,
+      type: routeData.type || 'residential',
+      isRecurring: routeData.isRecurring !== undefined ? routeData.isRecurring : true,
+      frequency: routeData.frequency || 'weekly',
+      isActive: routeData.isActive !== undefined ? routeData.isActive : true,
+      
+      // Optional fields
+      startTime: routeData.startTime || null,
+      endTime: routeData.endTime || null,
+      description: routeData.description || null,
+      color: routeData.color || null,
+      weekNumber: routeData.weekNumber || null,
+      
+      // Do NOT include these fields - they're set by the server
+      // id, createdAt, updatedAt
+    };
+    
+    console.log("Creating route with data:", JSON.stringify(routeToSend, null, 2));
+    
     const response = await safeApiRequest<BazzaRoute>('/api/bazza/routes', {
       method: 'POST',
       body: JSON.stringify(routeToSend),
@@ -261,9 +282,32 @@ export const updateBazzaRoute = async (id: number, routeData: Partial<BazzaRoute
 
 // Delete a route
 export const deleteBazzaRoute = async (id: number): Promise<void> => {
-  return safeApiRequest<void>(`/api/bazza/routes/${id}`, {
-    method: 'DELETE',
-  });
+  try {
+    console.log(`Deleting route with ID: ${id}`);
+    
+    const response = await safeApiRequest<void>(`/api/bazza/routes/${id}`, {
+      method: 'DELETE',
+    });
+    
+    console.log(`Successfully deleted route ID: ${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Error deleting route ID: ${id}:`, error);
+    
+    // Enhance error information for better debugging
+    if (error instanceof ApiError) {
+      console.error(`API error status: ${error.status}`);
+      
+      if (error.status === 404) {
+        throw new Error(`Route with ID ${id} not found. It may have been deleted already.`);
+      } else if (error.status === 403) {
+        throw new Error('You do not have permission to delete this route.');
+      }
+    }
+    
+    // Rethrow the error with additional context
+    throw new Error(`Failed to delete route ID: ${id}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 };
 
 // Fetch route stops
@@ -341,9 +385,32 @@ export const updateRouteStop = async (id: number, stopData: Partial<BazzaRouteSt
 
 // Delete a route stop
 export const deleteRouteStop = async (id: number): Promise<void> => {
-  return safeApiRequest<void>(`/api/bazza/stops/${id}`, {
-    method: 'DELETE',
-  });
+  try {
+    console.log(`Deleting route stop with ID: ${id}`);
+    
+    const response = await safeApiRequest<void>(`/api/bazza/stops/${id}`, {
+      method: 'DELETE',
+    });
+    
+    console.log(`Successfully deleted route stop ID: ${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Error deleting route stop ID: ${id}:`, error);
+    
+    // Enhance error information for better debugging
+    if (error instanceof ApiError) {
+      console.error(`API error status: ${error.status}`);
+      
+      if (error.status === 404) {
+        throw new Error(`Route stop with ID ${id} not found. It may have been deleted already.`);
+      } else if (error.status === 403) {
+        throw new Error('You do not have permission to delete this route stop.');
+      }
+    }
+    
+    // Rethrow the error with additional context
+    throw new Error(`Failed to delete route stop ID: ${id}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 };
 
 // Reorder route stops
@@ -681,7 +748,30 @@ export const updateAssignment = async (
 
 // Delete an assignment
 export const deleteAssignment = async (id: number): Promise<void> => {
-  return safeApiRequest<void>(`/api/bazza/assignments/${id}`, {
-    method: 'DELETE',
-  });
+  try {
+    console.log(`Deleting maintenance assignment with ID: ${id}`);
+    
+    const response = await safeApiRequest<void>(`/api/bazza/assignments/${id}`, {
+      method: 'DELETE',
+    });
+    
+    console.log(`Successfully deleted maintenance assignment ID: ${id}`);
+    return response;
+  } catch (error) {
+    console.error(`Error deleting maintenance assignment ID: ${id}:`, error);
+    
+    // Enhance error information for better debugging
+    if (error instanceof ApiError) {
+      console.error(`API error status: ${error.status}`);
+      
+      if (error.status === 404) {
+        throw new Error(`Assignment with ID ${id} not found. It may have been deleted already.`);
+      } else if (error.status === 403) {
+        throw new Error('You do not have permission to delete this assignment.');
+      }
+    }
+    
+    // Rethrow the error with additional context
+    throw new Error(`Failed to delete assignment ID: ${id}. ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 };

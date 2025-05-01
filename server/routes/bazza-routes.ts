@@ -100,7 +100,36 @@ router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
     console.log("[BAZZA ROUTES API] Processing request to create new bazza route");
     console.log("[BAZZA ROUTES API] Request body:", JSON.stringify(req.body));
     
-    // Validate request body
+    // First, ensure required fields exist in the request body
+    if (!req.body.name || !req.body.dayOfWeek || !req.body.type || req.body.technicianId === undefined) {
+      const missingFields = [];
+      if (!req.body.name) missingFields.push('name');
+      if (!req.body.dayOfWeek) missingFields.push('dayOfWeek');
+      if (!req.body.type) missingFields.push('type');
+      if (req.body.technicianId === undefined) missingFields.push('technicianId');
+      
+      console.error(`[BAZZA ROUTES API] Missing required fields: ${missingFields.join(', ')}`);
+      return res.status(400).json({ 
+        error: "Missing required fields", 
+        details: missingFields.join(', ') 
+      });
+    }
+    
+    // Ensure technicianId is an integer
+    try {
+      req.body.technicianId = parseInt(req.body.technicianId);
+      if (isNaN(req.body.technicianId)) {
+        throw new Error('Invalid technicianId: Not a number');
+      }
+    } catch (e) {
+      console.error(`[BAZZA ROUTES API] Invalid technicianId: ${req.body.technicianId}`);
+      return res.status(400).json({ 
+        error: "Invalid technicianId", 
+        details: "technicianId must be a valid integer" 
+      });
+    }
+    
+    // Validate request body with schema
     const validationResult = insertBazzaRouteSchema.safeParse(req.body);
     if (!validationResult.success) {
       console.error("[BAZZA ROUTES API] Validation error:", JSON.stringify(validationResult.error.errors));
@@ -113,7 +142,25 @@ router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
     console.log("[BAZZA ROUTES API] Validated data:", JSON.stringify(validationResult.data));
     
     try {
-      const newRoute = await storage.createBazzaRoute(validationResult.data as InsertBazzaRoute);
+      // Create an explicit InsertBazzaRoute object with all required fields
+      const routeData: InsertBazzaRoute = {
+        name: req.body.name,
+        dayOfWeek: req.body.dayOfWeek,
+        type: req.body.type,
+        technicianId: req.body.technicianId,
+        description: req.body.description || null,
+        weekNumber: req.body.weekNumber || null,
+        isRecurring: req.body.isRecurring !== undefined ? req.body.isRecurring : true,
+        frequency: req.body.frequency || 'weekly',
+        color: req.body.color || null,
+        startTime: req.body.startTime || null,
+        endTime: req.body.endTime || null,
+        isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+      };
+      
+      console.log("[BAZZA ROUTES API] Prepared route data:", JSON.stringify(routeData));
+      
+      const newRoute = await storage.createBazzaRoute(routeData);
       console.log("[BAZZA ROUTES API] Successfully created route:", JSON.stringify(newRoute));
       res.status(201).json(newRoute);
     } catch (dbError) {

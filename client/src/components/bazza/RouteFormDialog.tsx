@@ -41,11 +41,12 @@ import { Checkbox } from "../ui/checkbox";
 // Schema for the route form
 const routeFormSchema = z.object({
   name: z.string().min(1, "Route name is required"),
-  technicianId: z.string(), // Allow empty/null for unassigned
+  technicianId: z.string().min(1, "Technician is required"),
   dayOfWeek: z.string().min(1, "Day of week is required"),
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
   description: z.string().optional(),
+  type: z.string().default("residential"), // Add required type field (residential, commercial, mixed)
   region: z.string().optional(),
   active: z.boolean().optional().default(true),
 });
@@ -98,6 +99,7 @@ export function RouteFormDialog({
       startTime: route?.startTime || "08:00",
       endTime: route?.endTime || "17:00",
       description: route?.description || "",
+      type: route?.type || "residential", // Add default type value
       region: route?.region || "",
       active: route?.active ?? true,
     },
@@ -209,7 +211,7 @@ export function RouteFormDialog({
       region: values.region || null,
       isActive: values.active,
       // Add required fields from the schema with their exact names
-      type: "residential", // Default type - REQUIRED
+      type: values.type || "residential", // Use form value or default type - REQUIRED
       isRecurring: true, // REQUIRED
       frequency: "weekly", // REQUIRED
       // Optional fields - use null for null values, undefined for fields to omit entirely
@@ -335,6 +337,32 @@ export function RouteFormDialog({
                           {day.label}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="type"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Route Type</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select route type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="residential">Residential</SelectItem>
+                      <SelectItem value="commercial">Commercial</SelectItem>
+                      <SelectItem value="mixed">Mixed</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
