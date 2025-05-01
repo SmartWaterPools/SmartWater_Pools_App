@@ -276,41 +276,42 @@ export function RouteFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Technician</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
+                  <FormControl>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a technician" />
                       </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
-                      {technicians.length > 0 ? (
-                        technicians.map(tech => {
-                          // Ensure we always have a display name
-                          let displayName = "Unnamed technician";
-                          
-                          if (tech.name && typeof tech.name === 'string' && tech.name.trim() !== '') {
-                            displayName = tech.name;
-                          } else if (tech.user?.name && typeof tech.user.name === 'string') {
-                            displayName = tech.user.name;
-                          } else {
-                            displayName = `Technician ${tech.id}`;
-                          }
-                          
-                          return (
-                            <SelectItem key={tech.id} value={String(tech.id)}>
-                              {displayName}
-                            </SelectItem>
-                          );
-                        })
-                      ) : (
-                        <SelectItem value="no-techs" disabled>No technicians available</SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                      <SelectContent>
+                        <SelectItem value="">Unassigned</SelectItem>
+                        {technicians && technicians.length > 0 ? (
+                          technicians.map(tech => {
+                            // Ensure we always have a display name
+                            let displayName = "Unnamed technician";
+                            
+                            if (tech.name && typeof tech.name === 'string' && tech.name.trim() !== '') {
+                              displayName = tech.name;
+                            } else if (tech.user?.name && typeof tech.user.name === 'string') {
+                              displayName = tech.user.name;
+                            } else {
+                              displayName = `Technician ${tech.id}`;
+                            }
+                            
+                            return (
+                              <SelectItem key={tech.id} value={String(tech.id)}>
+                                {displayName}
+                              </SelectItem>
+                            );
+                          })
+                        ) : (
+                          <SelectItem value="no-techs" disabled>No technicians available</SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -322,23 +323,24 @@ export function RouteFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Day of Week</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
+                  <FormControl>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select a day" />
                       </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {daysOfWeek.map(day => (
-                        <SelectItem key={day.value} value={day.value}>
-                          {day.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                      <SelectContent>
+                        {daysOfWeek.map(day => (
+                          <SelectItem key={day.value} value={day.value}>
+                            {day.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -350,21 +352,22 @@ export function RouteFormDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Route Type</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
+                  <FormControl>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      value={field.value}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select route type" />
                       </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="commercial">Commercial</SelectItem>
-                      <SelectItem value="mixed">Mixed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                      <SelectContent>
+                        <SelectItem value="residential">Residential</SelectItem>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                        <SelectItem value="mixed">Mixed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
