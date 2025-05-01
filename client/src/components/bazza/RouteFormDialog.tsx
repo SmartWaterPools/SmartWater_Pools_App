@@ -78,8 +78,8 @@ export function RouteFormDialog({
   route,
   technicians
 }: RouteFormDialogProps) {
-  // Debug component initialization
-  console.log("RouteFormDialog: Initializing component", {
+  // Debug component initialization with more details
+  console.log("RouteFormDialog: Initializing component with details", {
     isOpen,
     routeId: route?.id,
     technicianCount: technicians?.length || 0,
@@ -241,8 +241,20 @@ export function RouteFormDialog({
     { value: "sunday", label: "Sunday" },
   ];
   
+  // Simplified dialog implementation to ensure it works properly
+  console.log("RouteFormDialog: Rendering Dialog component with isOpen =", isOpen);
+  
+  // Force the dialog to be open if isOpen is true
+  if (!isOpen) {
+    console.log("RouteFormDialog: Dialog is not open, returning null");
+    return null;
+  }
+  
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={true} onOpenChange={(open) => {
+      console.log("RouteFormDialog: Dialog onOpenChange triggered with", open);
+      if (!open) onClose();
+    }}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Route" : "Create New Route"}</DialogTitle>

@@ -132,6 +132,7 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   
   // Handle add route click
   const handleAddRouteClick = () => {
+    console.log("Add Route button clicked - MaintenanceList");
     setRouteToEdit(undefined);
     setIsRouteFormOpen(true);
   };
@@ -304,23 +305,22 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
         </CardContent>
       </Card>
       
-      {isRouteFormOpen && (
-        <RouteFormDialog
-          isOpen={isRouteFormOpen}
-          onClose={handleRouteFormClose}
-          onSubmit={handleRouteFormSubmit}
-          route={routeToEdit}
-          technicians={Array.isArray(technicians) 
-            ? technicians.map((t: any) => ({
-                id: t.id,
-                name: t.user?.name || `Technician ${t.id}`,
-                userId: t.userId,
-                active: t.active
-              }))
-            : []
-          }
-        />
-      )}
+      {/* Force the RouteFormDialog to render when isRouteFormOpen is true */}
+      <RouteFormDialog
+        isOpen={isRouteFormOpen}
+        onClose={handleRouteFormClose}
+        onSubmit={handleRouteFormSubmit}
+        route={routeToEdit}
+        technicians={Array.isArray(technicians) 
+          ? technicians.map((t: any) => ({
+              id: t.id,
+              name: t.user?.name || `Technician ${t.id}`,
+              userId: t.userId,
+              active: t.active
+            }))
+          : []
+        }
+      />
     </div>
   );
 }
