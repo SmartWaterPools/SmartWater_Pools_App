@@ -57,6 +57,7 @@ import OAuthDebug from "./pages/OAuthDebug"; // OAuth debugging page
 import DebugHome from "./pages/DebugHome"; // Debug home page
 import InvitePage from "./pages/InvitePage";
 import OrganizationSelection from "./pages/OrganizationSelection";
+import TestPage from "./pages/TestPage"; // Test page for debugging dialogs
 
 // App Content component that uses auth context
 function AppContent({ 
@@ -139,6 +140,9 @@ function AppContent({
           </Route>
           <Route path="/oauth-debug">
             <OAuthDebug />
+          </Route>
+          <Route path="/test">
+            <TestPage />
           </Route>
           
           {/* All routes including dashboard with login card */}
@@ -277,6 +281,11 @@ function AppContent({
                     {/* Demo pages */}
                     <Route path="/demo/data-table">
                       <DataTableDemo />
+                    </Route>
+                    
+                    {/* Test page for dialog debugging - accessible within the app */}
+                    <Route path="/test-page">
+                      <TestPage />
                     </Route>
                     
                     {/* Catch-all */}

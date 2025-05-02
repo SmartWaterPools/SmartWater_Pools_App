@@ -11,6 +11,7 @@ import { BazzaRoute, MaintenanceWithDetails } from "../lib/types";
 import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
 import { RouteDetailView } from "../components/bazza/RouteDetailView";
 import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
+import { SimpleTestDialog } from "../components/bazza/SimpleTestDialog";
 import { useBazzaRoutes } from "../hooks/useBazzaRoutes";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
@@ -119,8 +120,17 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   
   // Handle tab change
   const handleTabChange = (value: string) => {
+    console.log(`Tab changed to: ${value}`);
     if (value === 'list' || value === 'routes') {
       setActiveTab(value);
+      // If routes tab is selected, log debugging info
+      if (value === 'routes') {
+        console.log("Routes tab selected - current state:", {
+          techniciansCount: Array.isArray(technicians) ? technicians.length : 0,
+          isLoading: isTechniciansLoading,
+          hasError: !!techniciansError
+        });
+      }
     }
   };
   
@@ -133,8 +143,20 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   // Handle add route click
   const handleAddRouteClick = () => {
     console.log("Add Route button clicked - MaintenanceList");
+    
+    // Clear any existing route being edited
     setRouteToEdit(undefined);
-    setIsRouteFormOpen(true);
+    
+    // Open the route form dialog
+    setIsRouteFormOpen(prevState => {
+      console.log(`Setting isRouteFormOpen from ${prevState} to true`);
+      return true;
+    });
+    
+    // Debug current state after state change is scheduled
+    setTimeout(() => {
+      console.log("Current isRouteFormOpen state after update:", isRouteFormOpen);
+    }, 0);
   };
   
   // Handle edit route click
@@ -259,7 +281,10 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                 <>
                   <div className="flex justify-between items-center mb-4">
                     <Button 
-                      onClick={handleAddRouteClick} 
+                      onClick={() => {
+                        console.log("Add Route button direct click");
+                        handleAddRouteClick();
+                      }} 
                       variant="default" 
                       className="ml-auto"
                     >
@@ -305,7 +330,7 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
         </CardContent>
       </Card>
       
-      {/* Force the RouteFormDialog to render when isRouteFormOpen is true */}
+      {/* Route Form Dialog */}
       <RouteFormDialog
         isOpen={isRouteFormOpen}
         onClose={handleRouteFormClose}

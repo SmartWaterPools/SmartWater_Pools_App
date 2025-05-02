@@ -46,7 +46,7 @@ const routeFormSchema = z.object({
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
   description: z.string().optional(),
-  type: z.string().default("residential"), // Add required type field (residential, commercial, mixed)
+  type: z.string().default("residential"),
   region: z.string().optional(),
   active: z.boolean().optional().default(true),
 });
@@ -78,13 +78,7 @@ export function RouteFormDialog({
   route,
   technicians
 }: RouteFormDialogProps) {
-  // Debug component initialization with more details
-  console.log("RouteFormDialog: Initializing component with details", {
-    isOpen,
-    routeId: route?.id,
-    technicianCount: technicians?.length || 0,
-    technicians: technicians?.map(t => ({ id: t.id, name: t.name }))
-  });
+  console.log("RouteFormDialog: Rendering with isOpen =", isOpen);
   
   const { toast } = useToast();
   const isEditing = !!route;
@@ -99,7 +93,7 @@ export function RouteFormDialog({
       startTime: route?.startTime || "08:00",
       endTime: route?.endTime || "17:00",
       description: route?.description || "",
-      type: route?.type || "residential", // Add default type value
+      type: route?.type || "residential",
       region: route?.region || "",
       active: route?.active ?? true,
     },
@@ -211,17 +205,16 @@ export function RouteFormDialog({
       region: values.region || null,
       isActive: values.active,
       // Add required fields from the schema with their exact names
-      type: values.type || "residential", // Use form value or default type - REQUIRED
-      isRecurring: true, // REQUIRED
-      frequency: "weekly", // REQUIRED
-      // Optional fields - use null for null values, undefined for fields to omit entirely
+      type: values.type || "residential", 
+      isRecurring: true, 
+      frequency: "weekly", 
+      // Optional fields - use null for null values
       color: null,
-      weekNumber: null, // Explicitly send null
+      weekNumber: null,
     };
     
     console.log("Submitting route data:", JSON.stringify(routeData, null, 2));
     
-    // Modify the service call to send exactly the right schema
     if (isEditing && route) {
       updateMutation.mutate(routeData as any);
     } else {
@@ -241,20 +234,13 @@ export function RouteFormDialog({
     { value: "sunday", label: "Sunday" },
   ];
   
-  // Simplified dialog implementation to ensure it works properly
-  console.log("RouteFormDialog: Rendering Dialog component with isOpen =", isOpen);
-  
-  // Force the dialog to be open if isOpen is true
+  // If dialog is not open, don't render anything
   if (!isOpen) {
-    console.log("RouteFormDialog: Dialog is not open, returning null");
     return null;
   }
   
   return (
-    <Dialog open={true} onOpenChange={(open) => {
-      console.log("RouteFormDialog: Dialog onOpenChange triggered with", open);
-      if (!open) onClose();
-    }}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Route" : "Create New Route"}</DialogTitle>
