@@ -1,0 +1,364 @@
+2inject.js:1 Port connected
+lockdown-install.js:1 Removing unpermitted intrinsics
+index-DjHgts8M.js:1072 DOMContentLoaded event fired, attempting to render React app
+index-DjHgts8M.js:1081 React app successfully rendered
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:778 Dashboard: Checking authentication status
+index-DjHgts8M.js:733 Checking session... (attempt 1)
+index-DjHgts8M.js:773 ProtectedRoute: Not authenticated, allowing access to the route to show login card
+index-DjHgts8M.js:733 Auth provider initialized, checking session
+index-DjHgts8M.js:733 Checking session... (attempt 1)
+index-DjHgts8M.js:773 GoogleMapsContext: Loading API key
+index-DjHgts8M.js:773 Fetching Google Maps API key from: https://smartwaterpools.replit.app/api/google-maps-key?_t=1746150320935
+index-DjHgts8M.js:1072 Auth loading state: true
+index-DjHgts8M.js:1072 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-DjHgts8M.js:773 ProtectedRoute: Auth is loading but showing content to prevent getting stuck
+index-DjHgts8M.js:1072 Auth loading state: true
+index-DjHgts8M.js:1072 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-DjHgts8M.js:773 GoogleMapsContext: API key loaded: Valid key received
+index-DjHgts8M.js:773 GoogleMapsContext: Map components loaded successfully
+index-DjHgts8M.js:733 Session response: Object
+index-DjHgts8M.js:733 Session contains authenticated user: travis@smartwaterpools.com
+index-DjHgts8M.js:778 Dashboard: Authentication check result: Authenticated
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:773 ProtectedRoute: On root path and authenticated, redirecting to dashboard
+index-DjHgts8M.js:773 ProtectedRoute: Auth state changed Object
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:778 Dashboard: Checking authentication status
+index-DjHgts8M.js:733 Checking session... (attempt 1)
+index-DjHgts8M.js:778 Fetching data from: /api/dashboard/summary
+index-DjHgts8M.js:773 ProtectedRoute: Auth state changed Object
+index-DjHgts8M.js:1072 Auth loading state: true
+index-DjHgts8M.js:1072 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-DjHgts8M.js:773 ProtectedRoute: Auth is loading but showing content to prevent getting stuck
+index-DjHgts8M.js:1072 Auth loading state: true
+index-DjHgts8M.js:1072 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-DjHgts8M.js:733 Session response: Object
+index-DjHgts8M.js:733 Session contains authenticated user: travis@smartwaterpools.com
+index-DjHgts8M.js:733 Initial session check complete: Authenticated
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:773 ProtectedRoute: Auth state changed Object
+index-DjHgts8M.js:733 Session response: Object
+index-DjHgts8M.js:733 Session contains authenticated user: travis@smartwaterpools.com
+index-DjHgts8M.js:778 Dashboard: Authentication check result: Authenticated
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:773 ProtectedRoute: Auth state changed Object
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:808 Properly transformed techs for routes view: Array(0)
+index-DjHgts8M.js:48 Fetching data from: /api/technicians-with-users
+index-DjHgts8M.js:808 Technicians data: Object
+index-DjHgts8M.js:48 Fetching data from: /api/maintenances
+index-DjHgts8M.js:773 ProtectedRoute: Auth state changed Object
+index-DjHgts8M.js:808 Raw technicians data from API: Array(2)
+index-DjHgts8M.js:808 Received technician count: 2
+index-DjHgts8M.js:808 Technician data example: Array(2)
+index-DjHgts8M.js:808 Raw technicians data from API: Array(2)
+index-DjHgts8M.js:808 Received technician count: 2
+index-DjHgts8M.js:808 Technician data example: Array(2)
+index-DjHgts8M.js:808 Properly transformed techs for routes view: Array(2)
+index-DjHgts8M.js:808 Successfully loaded technicians: 2
+index-DjHgts8M.js:808 First technician object (full): Object
+index-DjHgts8M.js:808 All technicians summary: Array(2)
+index-DjHgts8M.js:808 Technicians data: Object
+index-DjHgts8M.js:808 Raw maintenance data from API: Array(20)
+index-DjHgts8M.js:808 Found March 9 record - ID: 11, Date: 2025-03-09
+index-DjHgts8M.js:808 Found 1 maintenance records for March 9, 2025:
+index-DjHgts8M.js:808 - ID: 11, Client: Michael Wilson, Status: completed
+index-DjHgts8M.js:808   Date value: "2025-03-09" (string)
+index-DjHgts8M.js:808 Raw technicians data from API: Array(2)
+index-DjHgts8M.js:808 Received technician count: 2
+index-DjHgts8M.js:808 Technician data example: Array(2)
+index-DjHgts8M.js:808 Raw maintenance data from API: Array(20)
+index-DjHgts8M.js:808 Found March 9 record - ID: 11, Date: 2025-03-09
+index-DjHgts8M.js:808 Found 1 maintenance records for March 9, 2025:
+index-DjHgts8M.js:808 - ID: 11, Client: Michael Wilson, Status: completed
+index-DjHgts8M.js:808   Date value: "2025-03-09" (string)
+index-DjHgts8M.js:808 Filtering maintenance record: 18 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #18 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 23 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #23 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 4 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-03-06" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-03-06" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #4 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 3 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-03-06" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-03-06" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #3 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 24 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #24 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 11 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-03-09" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-03-09" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #11 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 6 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #6 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 2 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #2 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 20 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #20 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 19 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #19 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 9 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #9 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 10 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #10 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 22 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #22 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 5 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #5 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 17 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #17 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 21 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #21 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 1 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #1 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 12 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #12 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 8 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #8 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 7 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #7 - date strings don't match
+index-DjHgts8M.js:808 Properly transformed techs for routes view: Array(2)
+index-DjHgts8M.js:808 Raw technicians data from API: Array(2)
+index-DjHgts8M.js:808 Received technician count: 2
+index-DjHgts8M.js:808 Technician data example: Array(2)
+index-DjHgts8M.js:808 Raw maintenance data from API: Array(20)
+index-DjHgts8M.js:808 Found March 9 record - ID: 11, Date: 2025-03-09
+index-DjHgts8M.js:808 Found 1 maintenance records for March 9, 2025:
+index-DjHgts8M.js:808 - ID: 11, Client: Michael Wilson, Status: completed
+index-DjHgts8M.js:808   Date value: "2025-03-09" (string)
+index-DjHgts8M.js:808 Filtering maintenance record: 18 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #18 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 23 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #23 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 4 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-03-06" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-03-06" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #4 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 3 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-03-06" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-03-06" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #3 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 24 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #24 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 11 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-03-09" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-03-09" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #11 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 6 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #6 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 2 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #2 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 20 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #20 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 19 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #19 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 9 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #9 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 10 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #10 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 22 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #22 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 5 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #5 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 17 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #17 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 21 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #21 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 1 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #1 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 12 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #12 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 8 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #8 - date strings don't match
+index-DjHgts8M.js:808 Filtering maintenance record: 7 Object
+index-DjHgts8M.js:808 Comparing maintenance date "2025-05-02" with filter date "2025-05-01"
+index-DjHgts8M.js:808 String comparison: "2025-05-02" vs "2025-05-01"
+index-DjHgts8M.js:808 Date filter excluded maintenance #7 - date strings don't match
+index-DjHgts8M.js:808 Properly transformed techs for routes view: Array(2)
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:808 RouteFormDialog: Initializing component with details Object
+index-DjHgts8M.js:808 RouteFormDialog: Rendering Dialog component with isOpen = false
+index-DjHgts8M.js:808 RouteFormDialog: Dialog is not open, returning null
+index-DjHgts8M.js:48 Fetching data from: /api/technicians
+index-DjHgts8M.js:773 ProtectedRoute: Auth state changed Object
+index-DjHgts8M.js:808 RouteFormDialog: Initializing component with details Object
+index-DjHgts8M.js:808 RouteFormDialog: Rendering Dialog component with isOpen = false
+index-DjHgts8M.js:808 RouteFormDialog: Dialog is not open, returning null
+index-DjHgts8M.js:808 RouteFormDialog: Initializing component with details Object
+index-DjHgts8M.js:808 RouteFormDialog: Rendering Dialog component with isOpen = false
+index-DjHgts8M.js:808 RouteFormDialog: Dialog is not open, returning null
+index-DjHgts8M.js:1072 Auth loading state: false
+index-DjHgts8M.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-DjHgts8M.js:808 RouteFormDialog: Initializing component with details Object
+index-DjHgts8M.js:808 RouteFormDialog: Rendering Dialog component with isOpen = false
+index-DjHgts8M.js:808 RouteFormDialog: Dialog is not open, returning null
+index-DjHgts8M.js:808 Checking route assignments for all maintenances...
+index-DjHgts8M.js:773 ProtectedRoute: Auth state changed Object
+index-DjHgts8M.js:808 Maintenance 18 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 23 (Don DeRisi) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 4 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 3 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 24 (Stevie Wonder) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 11 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 6 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-DjHgts8M.js:808 Finding unrouted maintenances for technician: 2
+index-DjHgts8M.js:808 Total maintenances: 20
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 18 status: scheduled client: Sarah pistachio already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 23 status: scheduled client: Don DeRisi already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 24 status: scheduled client: Stevie Wonder already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 10 status: scheduled client: John Smith already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 5 status: scheduled client: Michael Wilson already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 8 status: scheduled client: Michael Wilson already routed: No
+index-DjHgts8M.js:808 Found unrouted maintenances: 6
+index-DjHgts8M.js:808 RouteFormDialog: Initializing component with details Object
+index-DjHgts8M.js:808 RouteFormDialog: Rendering Dialog component with isOpen = false
+index-DjHgts8M.js:808 RouteFormDialog: Dialog is not open, returning null
+index-DjHgts8M.js:807 Fetching routes for technician ID: 2
+index-DjHgts8M.js:807 Fetching routes for technician 2
+index-DjHgts8M.js:808 Maintenance 2 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:807 Successfully fetched 0 routes for technician 2
+index-DjHgts8M.js:807 Enhancing 0 routes with stop counts
+index-DjHgts8M.js:807 Successfully enhanced 0 routes with stop counts
+index-DjHgts8M.js:807 Successfully fetched 0 routes for technician ID: 2
+index-DjHgts8M.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-DjHgts8M.js:808 Maintenance 20 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 19 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 9 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 10 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 22 (Don DeRisi) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 5 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 17 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 21 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 1 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 12 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 8 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 7 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 All maintenance assignment statuses: Object
+index-DjHgts8M.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-DjHgts8M.js:808 Finding unrouted maintenances for technician: 2
+index-DjHgts8M.js:808 Total maintenances: 20
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 18 status: scheduled client: Sarah pistachio already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 23 status: scheduled client: Don DeRisi already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 24 status: scheduled client: Stevie Wonder already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 10 status: scheduled client: John Smith already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 5 status: scheduled client: Michael Wilson already routed: No
+index-DjHgts8M.js:808 Found maintenance assigned to technician: 8 status: scheduled client: Michael Wilson already routed: No
+index-DjHgts8M.js:808 Found unrouted maintenances: 6
+index-DjHgts8M.js:808 Checking route assignments for all maintenances...
+index-DjHgts8M.js:808 Add Route button clicked - MaintenanceList
+index-DjHgts8M.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-DjHgts8M.js:808 RouteFormDialog: Initializing component with details Object
+index-DjHgts8M.js:808 RouteFormDialog: Rendering Dialog component with isOpen = true
+index-DjHgts8M.js:40 Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+    at index-DjHgts8M.js:778:100038
+    at EC (index-DjHgts8M.js:38:17018)
+    at hE (index-DjHgts8M.js:40:1571)
+    at HO (index-DjHgts8M.js:40:46033)
+    at VO (index-DjHgts8M.js:40:39790)
+    at wq (index-DjHgts8M.js:40:39718)
+    at B0 (index-DjHgts8M.js:40:39570)
+    at cb (index-DjHgts8M.js:40:35934)
+    at NE (index-DjHgts8M.js:40:36738)
+    at rd (index-DjHgts8M.js:38:3279)
+Qj @ index-DjHgts8M.js:40Understand this error
+index-DjHgts8M.js:38 Uncaught Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+    at index-DjHgts8M.js:778:100038
+    at EC (index-DjHgts8M.js:38:17018)
+    at hE (index-DjHgts8M.js:40:1571)
+    at HO (index-DjHgts8M.js:40:46033)
+    at VO (index-DjHgts8M.js:40:39790)
+    at wq (index-DjHgts8M.js:40:39718)
+    at B0 (index-DjHgts8M.js:40:39570)
+    at cb (index-DjHgts8M.js:40:35934)
+    at NE (index-DjHgts8M.js:40:36738)
+    at rd (index-DjHgts8M.js:38:3279)Understand this error
+index-DjHgts8M.js:808 Maintenance 18 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 23 (Don DeRisi) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 4 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 3 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 24 (Stevie Wonder) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 11 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 6 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 2 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 20 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 19 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 9 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 10 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 22 (Don DeRisi) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 5 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 17 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 21 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 1 (John Smith) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 12 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 8 (Michael Wilson) assignments: No assignments
+index-DjHgts8M.js:808 Maintenance 7 (Sarah pistachio) assignments: No assignments
+index-DjHgts8M.js:808 All maintenance assignment statuses: Object

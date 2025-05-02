@@ -254,10 +254,19 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                   <Spinner size="lg" />
                 </div>
               ) : maintenancesError ? (
-                <div className="text-center text-red-500 py-10">
-                  {(maintenancesError as Error)?.message?.includes('Unauthorized') 
-                    ? "You need to log in to view maintenance data." 
-                    : "Failed to load maintenances. Please try again."}
+                <div className="text-center py-10">
+                  <div className="text-red-500 mb-4">
+                    {(maintenancesError as Error)?.message?.includes('Unauthorized') 
+                      ? "You need to log in to view maintenance data." 
+                      : "Failed to load maintenances. Please try again."}
+                  </div>
+                  {(maintenancesError as Error)?.message?.includes('Unauthorized') && (
+                    <div className="mt-4">
+                      <a href="/api/auth/google" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        Log in with Google
+                      </a>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <LazyMaintenanceListView 
@@ -298,10 +307,19 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                       <Spinner size="lg" />
                     </div>
                   ) : techniciansError ? (
-                    <div className="text-center text-red-500 py-10">
-                      {(techniciansError as Error)?.message?.includes('Unauthorized') 
-                        ? "You need to log in to view technician data." 
-                        : "Failed to load technicians. Please try again."}
+                    <div className="text-center py-10">
+                      <div className="text-red-500 mb-4">
+                        {(techniciansError as Error)?.message?.includes('Unauthorized') 
+                          ? "You need to log in to view technician data." 
+                          : "Failed to load technicians. Please try again."}
+                      </div>
+                      {(techniciansError as Error)?.message?.includes('Unauthorized') && (
+                        <div className="mt-4">
+                          <a href="/api/auth/google" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                            Log in with Google
+                          </a>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <TechnicianRoutesView 
