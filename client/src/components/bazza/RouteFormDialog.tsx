@@ -234,11 +234,7 @@ export function RouteFormDialog({
     { value: "sunday", label: "Sunday" },
   ];
   
-  // If dialog is not open, don't render anything
-  if (!isOpen) {
-    return null;
-  }
-  
+  // Always render the Dialog component, but control its open state
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">

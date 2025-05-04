@@ -746,7 +746,14 @@ export function TechnicianRoutesView({
                   {onAddRouteClick && (
                     <div className="mt-4 text-center">
                       <Button 
-                        onClick={onAddRouteClick} 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (onAddRouteClick) {
+                            onAddRouteClick(e);
+                          }
+                          return false;
+                        }} 
                         variant="default" 
                         size="sm"
                         className="bg-amber-600 hover:bg-amber-700"
@@ -780,7 +787,14 @@ export function TechnicianRoutesView({
                     <p>No routes found for this technician{selectedDay !== 'all' ? ` on ${selectedDay}` : ''}.</p>
                     {onAddRouteClick && (
                       <Button 
-                        onClick={onAddRouteClick} 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (onAddRouteClick) {
+                            onAddRouteClick(e);
+                          }
+                          return false;
+                        }} 
                         variant="outline" 
                         className="mt-4"
                       >

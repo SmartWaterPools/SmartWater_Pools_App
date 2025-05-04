@@ -141,22 +141,29 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   };
   
   // Handle add route click
-  const handleAddRouteClick = () => {
+  const handleAddRouteClick = (e?: React.MouseEvent) => {
+    // Prevent default navigation if event is provided
+    if (e && e.preventDefault) {
+      e.preventDefault();
+    }
+    
     console.log("Add Route button clicked - MaintenanceList");
     
     // Clear any existing route being edited
     setRouteToEdit(undefined);
     
-    // Open the route form dialog
-    setIsRouteFormOpen(prevState => {
-      console.log(`Setting isRouteFormOpen from ${prevState} to true`);
-      return true;
-    });
+    // Open the route form dialog - this is critical for showing the modal
+    setIsRouteFormOpen(true);
+    
+    console.log("Route form dialog should be opening now with isRouteFormOpen=true");
     
     // Debug current state after state change is scheduled
     setTimeout(() => {
       console.log("Current isRouteFormOpen state after update:", isRouteFormOpen);
-    }, 0);
+    }, 10);
+    
+    // Return false to prevent any potential navigation
+    return false;
   };
   
   // Handle edit route click
@@ -290,9 +297,12 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                 <>
                   <div className="flex justify-between items-center mb-4">
                     <Button 
-                      onClick={() => {
+                      onClick={(e) => {
                         console.log("Add Route button direct click");
-                        handleAddRouteClick();
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleAddRouteClick(e);
+                        return false;
                       }} 
                       variant="default" 
                       className="ml-auto"
