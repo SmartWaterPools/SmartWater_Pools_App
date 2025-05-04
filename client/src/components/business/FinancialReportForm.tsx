@@ -68,7 +68,7 @@ const reportFormSchema = z.object({
       message: "End date must be after start date.",
     }
   ),
-  scheduleFrequency: z.string().nullable(),
+  scheduleFrequency: z.string().default("on-demand"),
   isPublic: z.boolean().default(false),
   notes: z.string().optional(),
 });
@@ -110,7 +110,7 @@ export function FinancialReportForm({ reportToEdit, onClose }: FinancialReportFo
     endDate: reportToEdit?.endDate 
       ? new Date(reportToEdit.endDate) 
       : new Date(), // Today
-    scheduleFrequency: reportToEdit?.scheduleFrequency || null,
+    scheduleFrequency: reportToEdit?.scheduleFrequency || "on-demand",
     isPublic: reportToEdit?.isPublic || false,
     notes: reportToEdit?.notes || "",
   };
@@ -348,7 +348,7 @@ export function FinancialReportForm({ reportToEdit, onClose }: FinancialReportFo
                       <FormLabel>Schedule Frequency (Optional)</FormLabel>
                       <Select
                         onValueChange={field.onChange}
-                        value={field.value || ""}
+                        value={field.value || "on-demand"}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -356,7 +356,7 @@ export function FinancialReportForm({ reportToEdit, onClose }: FinancialReportFo
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">On-demand only</SelectItem>
+                          <SelectItem value="on-demand">On-demand only</SelectItem>
                           <SelectItem value="daily">Daily</SelectItem>
                           <SelectItem value="weekly">Weekly</SelectItem>
                           <SelectItem value="monthly">Monthly</SelectItem>

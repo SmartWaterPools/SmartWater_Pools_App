@@ -103,35 +103,62 @@ function MaintenanceCard({
   let clientName = 'Unknown Client';
   let clientAddress = 'No address';
   
-  // Handle different possible client data structures
+  // Handle different possible client data structures with proper type safety
   if (maintenance.client) {
-    // Direct properties
-    if (typeof maintenance.client.companyName === 'string') {
+    // Direct properties - safely access companyName
+    if (maintenance.client && 
+        typeof maintenance.client === 'object' && 
+        'companyName' in maintenance.client && 
+        typeof maintenance.client.companyName === 'string') {
       clientName = maintenance.client.companyName;
     }
     
-    if (typeof maintenance.client.address === 'string') {
-      clientAddress = maintenance.client.address;
+    // Safely check for address property
+    if (maintenance.client && 
+        typeof maintenance.client === 'object' && 
+        'address' in maintenance.client && 
+        typeof (maintenance.client as any).address === 'string') {
+      clientAddress = (maintenance.client as any).address;
     }
     
-    // Nested client object (client.client structure)
-    if (maintenance.client.client) {
-      if (!clientName && typeof maintenance.client.client.companyName === 'string') {
-        clientName = maintenance.client.client.companyName;
+    // Nested client object (client.client structure) with safe property access
+    const nestedClient = maintenance.client && 
+                        typeof maintenance.client === 'object' && 
+                        'client' in maintenance.client ? 
+                        (maintenance.client as any).client : null;
+    
+    if (nestedClient && typeof nestedClient === 'object') {
+      // Safe property access
+      if (!clientName && 
+          'companyName' in nestedClient && 
+          typeof nestedClient.companyName === 'string') {
+        clientName = nestedClient.companyName;
       }
       
-      if (!clientName && typeof maintenance.client.client.name === 'string') {
-        clientName = maintenance.client.client.name;
+      // Safely check for name
+      if (!clientName && 
+          'name' in nestedClient && 
+          typeof nestedClient.name === 'string') {
+        clientName = nestedClient.name;
       }
       
-      if (!clientAddress && typeof maintenance.client.client.address === 'string') {
-        clientAddress = maintenance.client.client.address;
+      // Safely check for address
+      if (!clientAddress && 
+          'address' in nestedClient && 
+          typeof nestedClient.address === 'string') {
+        clientAddress = nestedClient.address;
       }
       
       // Handle location object if present
-      if (maintenance.client.client.location) {
-        if (!clientAddress && typeof maintenance.client.client.location.street === 'string') {
-          clientAddress = maintenance.client.client.location.street;
+      const location = nestedClient && 
+                      'location' in nestedClient ? 
+                      nestedClient.location : null;
+                      
+      if (location && typeof location === 'object') {
+        if (!clientAddress && 
+            'street' in location && 
+            typeof location.street === 'string') {
+          clientAddress = location.street;
         }
       }
     }
@@ -209,14 +236,20 @@ export default function SimpleRoutesView({
     { value: 'sunday', label: 'Sunday' },
   ];
   
-  // Query routes for selected technician
+  // Query routes for selected technician with extra safety
   const { 
-    technicianRoutes: routes, 
+    technicianRoutes: routes = [], 
     isTechnicianRoutesLoading: isRoutesLoading, 
     technicianRoutesError: routesError 
   } = useBazzaRoutesByTechnician(
     selectedTechnicianId
   );
+  
+  // Add protective log
+  console.log("SimpleRoutesView - loaded routes:", 
+    Array.isArray(routes) ? routes.length : "Not an array", 
+    "isLoading:", isRoutesLoading, 
+    "hasError:", !!routesError);
   
   // Filter routes by day
   const filteredRoutes = useMemo(() => {
@@ -248,7 +281,7 @@ export default function SimpleRoutesView({
   
   // Handle technician selection from dropdown
   const handleTechnicianSelect = (value: string) => {
-    if (value === '') {
+    if (value === 'all') {
       onTechnicianSelect(null);
     } else {
       onTechnicianSelect(parseInt(value));
@@ -278,15 +311,32 @@ export default function SimpleRoutesView({
       // Make sure we have a valid client ID - try different potential structures
       let clientId = null;
       
-      // Check for the client ID in different locations in the object
+      // Check for the client ID in different locations in the object with proper type safety
       if (maintenance.client) {
-        if (maintenance.client.id) {
-          clientId = maintenance.client.id;
-        } else if (maintenance.client.client && maintenance.client.client.id) {
-          clientId = maintenance.client.client.id;
-        } else if (maintenance.clientId) {
+        // Using type assertions and property checks for safety
+        const client = maintenance.client as any;
+        
+        // Check for direct id property
+        if (client && typeof client === 'object' && 'id' in client && client.id) {
+          clientId = client.id;
+        } 
+        // Check for nested client.client.id structure 
+        else if (client && 
+                typeof client === 'object' && 
+                'client' in client && 
+                client.client && 
+                typeof client.client === 'object' && 
+                'id' in client.client && 
+                client.client.id) {
+          clientId = client.client.id;
+        } 
+        // Check for maintenance.clientId as fallback
+        else if ('clientId' in maintenance && maintenance.clientId) {
           clientId = maintenance.clientId;
         }
+        
+        // Log which strategy worked
+        console.log("Client ID resolution method:", clientId ? "Found ID: " + clientId : "No ID found");
       }
       
       if (!clientId) {
@@ -343,14 +393,14 @@ export default function SimpleRoutesView({
         <div className="mb-4">
           <Label htmlFor="technician-select">Technician</Label>
           <Select 
-            value={selectedTechnicianId ? String(selectedTechnicianId) : ''} 
+            value={selectedTechnicianId ? String(selectedTechnicianId) : 'all'} 
             onValueChange={handleTechnicianSelect}
           >
             <SelectTrigger id="technician-select">
               <SelectValue placeholder="Select a technician" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Technicians</SelectItem>
+              <SelectItem value="all">All Technicians</SelectItem>
               {technicians && technicians.length > 0 ? (
                 technicians.map(technician => (
                   <SelectItem key={technician.id} value={String(technician.id)}>

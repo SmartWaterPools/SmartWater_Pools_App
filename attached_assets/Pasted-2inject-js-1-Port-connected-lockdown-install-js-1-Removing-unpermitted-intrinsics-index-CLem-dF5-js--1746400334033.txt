@@ -1,0 +1,182 @@
+2inject.js:1 Port connected
+lockdown-install.js:1 Removing unpermitted intrinsics
+index-CLem-dF5.js:1083 DOMContentLoaded event fired, attempting to render React app
+index-CLem-dF5.js:1092 React app successfully rendered
+index-CLem-dF5.js:1083 Auth loading state: false
+index-CLem-dF5.js:773 Dashboard: Checking authentication status
+index-CLem-dF5.js:728 Checking session... (attempt 1)
+index-CLem-dF5.js:768 ProtectedRoute: Not authenticated, allowing access to the route to show login card
+index-CLem-dF5.js:728 Auth provider initialized, checking session
+index-CLem-dF5.js:728 Checking session... (attempt 1)
+index-CLem-dF5.js:768 GoogleMapsContext: Loading API key
+index-CLem-dF5.js:768 Fetching Google Maps API key from: https://smartwaterpools.replit.app/api/google-maps-key?_t=1746398815434
+index-CLem-dF5.js:1083 Auth loading state: true
+index-CLem-dF5.js:1083 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-CLem-dF5.js:768 ProtectedRoute: Auth is loading but showing content to prevent getting stuck
+index-CLem-dF5.js:1083 Auth loading state: true
+index-CLem-dF5.js:1083 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-CLem-dF5.js:728 Session response: Object
+index-CLem-dF5.js:728 Session contains authenticated user: travis@smartwaterpools.com
+index-CLem-dF5.js:773 Dashboard: Authentication check result: Authenticated
+index-CLem-dF5.js:768 GoogleMapsContext: API key loaded: Valid key received
+index-CLem-dF5.js:768 GoogleMapsContext: Map components loaded successfully
+index-CLem-dF5.js:728 Session response: Object
+index-CLem-dF5.js:728 Session contains authenticated user: travis@smartwaterpools.com
+index-CLem-dF5.js:728 Initial session check complete: Authenticated
+index-CLem-dF5.js:1083 Auth loading state: false
+index-CLem-dF5.js:768 ProtectedRoute: On root path and authenticated, redirecting to dashboard
+index-CLem-dF5.js:768 ProtectedRoute: Auth state changed Object
+index-CLem-dF5.js:1083 Auth loading state: false
+index-CLem-dF5.js:773 Dashboard: Checking authentication status
+index-CLem-dF5.js:728 Checking session... (attempt 1)
+index-CLem-dF5.js:773 Fetching data from: /api/dashboard/summary
+index-CLem-dF5.js:768 ProtectedRoute: Auth state changed Object
+index-CLem-dF5.js:1083 Auth loading state: true
+index-CLem-dF5.js:1083 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-CLem-dF5.js:768 ProtectedRoute: Auth is loading but showing content to prevent getting stuck
+index-CLem-dF5.js:1083 Auth loading state: true
+index-CLem-dF5.js:1083 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-CLem-dF5.js:728 Session response: Object
+index-CLem-dF5.js:728 Session contains authenticated user: travis@smartwaterpools.com
+index-CLem-dF5.js:773 Dashboard: Authentication check result: Authenticated
+index-CLem-dF5.js:1083 Auth loading state: false
+index-CLem-dF5.js:768 ProtectedRoute: Auth state changed Object
+index-CLem-dF5.js:1083 Auth loading state: false
+index-CLem-dF5.js:819 RouteFormDialog: Rendering with isOpen = false
+index-CLem-dF5.js:48 Fetching data from: /api/maintenances
+index-CLem-dF5.js:48 Fetching data from: /api/technicians-with-users
+index-CLem-dF5.js:768 ProtectedRoute: Auth state changed Object
+2index-CLem-dF5.js:819 RouteFormDialog: Rendering with isOpen = false
+index-CLem-dF5.js:48 Fetching data from: /api/technicians
+index-CLem-dF5.js:819 Tab changed to: routes
+index-CLem-dF5.js:819 Routes tab selected - current state: Object
+index-CLem-dF5.js:819 RouteFormDialog: Rendering with isOpen = false
+index-CLem-dF5.js:1083 Auth loading state: false
+index-CLem-dF5.js:819 RouteFormDialog: Rendering with isOpen = false
+index-CLem-dF5.js:768 ProtectedRoute: Auth state changed Object
+index-CLem-dF5.js:40 Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+    at index-CLem-dF5.js:773:100038
+    at wC (index-CLem-dF5.js:38:17018)
+    at nE (index-CLem-dF5.js:40:1571)
+    at SR (index-CLem-dF5.js:40:46033)
+    at bR (index-CLem-dF5.js:40:39790)
+    at JH (index-CLem-dF5.js:40:39718)
+    at z0 (index-CLem-dF5.js:40:39570)
+    at ib (index-CLem-dF5.js:40:35934)
+    at mE (index-CLem-dF5.js:40:36738)
+    at rd (index-CLem-dF5.js:38:3279)
+Gj @ index-CLem-dF5.js:40Understand this error
+        
+          
+      
+        
+        
+          
+            Explanation
+          
+          
+        
+        
+          
+                
+          
+          
+          
+        
+        
+      
+    
+          
+        
+          
+        Understanding the problemThis error message, "A <Select.Item /> must have a value prop that is not an empty string," indicates that one of the Select.Item components within a Select component in your React application is missing or has an empty string value for its value prop. The value prop is essential for identifying and selecting items within the Select component, and an empty string is reserved for clearing the selection.Suggested fixEnsure that every Select.Item component inside your Select component has a unique and non-empty string value for its value prop.Here's an example of how to fix this issue:
+      
+        
+          Code
+          
+      
+        
+                
+          
+          
+          
+        
+        
+      
+        
+        
+      
+        // Before:<Select>  <Select.Item value="">Item 1</Select.Item> {/* This is causing the error */}  <Select.Item value="item2">Item 2</Select.Item></Select>// After:<Select>  <Select.Item value="item1">Item 1</Select.Item> {/* Added a non-empty value */}  <Select.Item value="item2">Item 2</Select.Item></Select>
+      
+    
+      
+      
+      
+        Use code snippets with caution
+      
+    
+    Locate the Select component in your code and verify that each Select.Item within it has a valid value prop.SummaryThe error arises when a Select.Item component is missing or has an empty string as its value prop. To fix this, provide a unique and non-empty string for the value prop of every Select.Item.
+      
+          
+          
+          
+            Data used to understand this message
+            
+        
+            
+            Console message
+          
+            
+            Stacktrace
+          
+            
+            Related code
+          
+        
+      
+          
+          
+            
+          
+          
+          
+      Use search instead
+    
+        
+          
+        
+          
+        
+          
+      AI tools may generate inaccurate info that doesn't represent Google's views.
+      The content you submit and that is generated by this feature will not be used to improve Google’s AI models.
+      Open settings
+      or
+      learn more
+    
+        
+        
+        
+          
+          
+                
+          
+          
+          
+        
+        
+
+      
+        
+      
+index-CLem-dF5.js:38 Uncaught Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+    at index-CLem-dF5.js:773:100038
+    at wC (index-CLem-dF5.js:38:17018)
+    at nE (index-CLem-dF5.js:40:1571)
+    at SR (index-CLem-dF5.js:40:46033)
+    at bR (index-CLem-dF5.js:40:39790)
+    at JH (index-CLem-dF5.js:40:39718)
+    at z0 (index-CLem-dF5.js:40:39570)
+    at ib (index-CLem-dF5.js:40:35934)
+    at mE (index-CLem-dF5.js:40:36738)
+    at rd (index-CLem-dF5.js:38:3279)Understand this error

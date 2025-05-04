@@ -582,7 +582,7 @@ export default function TechnicianRoutesView({
   
   // Handle technician selection from dropdown
   const handleTechnicianSelect = (value: string) => {
-    if (value === '') {
+    if (value === 'all') {
       onTechnicianSelect(null);
     } else {
       onTechnicianSelect(parseInt(value));
@@ -670,14 +670,14 @@ export default function TechnicianRoutesView({
           <div className="mb-4">
             <Label htmlFor="technician-select">Technician</Label>
             <Select 
-              value={selectedTechnicianId ? String(selectedTechnicianId) : ''} 
+              value={selectedTechnicianId ? String(selectedTechnicianId) : 'all'} 
               onValueChange={handleTechnicianSelect}
             >
               <SelectTrigger id="technician-select">
                 <SelectValue placeholder="Select a technician" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Technicians</SelectItem>
+                <SelectItem value="all">All Technicians</SelectItem>
                 {technicians && technicians.length > 0 ? (
                   technicians.map(technician => (
                     <SelectItem key={technician.id} value={String(technician.id)}>

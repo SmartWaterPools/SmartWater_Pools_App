@@ -64,6 +64,7 @@ export function useBazzaRoutes() {
 
 /**
  * Hook to fetch routes for a specific technician
+ * With added safety to handle all potential errors
  */
 export function useBazzaRoutesByTechnician(technicianId: number | null) {
   const { 
@@ -75,34 +76,69 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
     queryFn: async () => {
       console.log(`Fetching routes for technician ID: ${technicianId}`);
       try {
-        if (!technicianId) return [];
-        const result = await fetchBazzaRoutesByTechnician(technicianId);
+        // Handle null/undefined technician ID
+        if (technicianId === null || technicianId === undefined) {
+          console.log('No technician ID provided, returning empty routes array');
+          return [];
+        }
+        
+        // Make the API call with additional safety
+        let result;
+        try {
+          result = await fetchBazzaRoutesByTechnician(technicianId);
+        } catch (apiError) {
+          console.error(`API error when fetching routes for technician ${technicianId}:`, apiError);
+          
+          // Handle unauthorized errors gracefully
+          if (apiError instanceof ApiError && (apiError.status === 401 || apiError.status === 403)) {
+            console.warn('Authorization error when fetching routes, returning empty array');
+            return [];
+          }
+          
+          // For any other API error, return empty array instead of crashing
+          console.warn('Non-auth error when fetching routes, returning empty array');
+          return [];
+        }
+        
+        // Verify result is an array to prevent crashes
+        if (!Array.isArray(result)) {
+          console.error('Expected array but received:', typeof result);
+          return [];
+        }
         
         // Ensure all routes have both isActive and active properties
         const processedRoutes = result.map(route => {
-          if (route.isActive !== undefined && route.active === undefined) {
-            return { ...route, active: route.isActive };
-          } else if (route.active !== undefined && route.isActive === undefined) {
-            return { ...route, isActive: route.active };
+          try {
+            // First ensure route is a valid object
+            if (!route || typeof route !== 'object') {
+              console.warn('Invalid route found in results, skipping:', route);
+              return null;
+            }
+            
+            // Clone with both active properties for consistency
+            if (route.isActive !== undefined && route.active === undefined) {
+              return { ...route, active: route.isActive };
+            } else if (route.active !== undefined && route.isActive === undefined) {
+              return { ...route, isActive: route.active };
+            }
+            
+            return route;
+          } catch (processingError) {
+            console.error('Error processing route:', processingError);
+            return null;
           }
-          return route;
-        });
+        }).filter(route => route !== null) as BazzaRoute[]; // Filter out nulls
         
         console.log(`Successfully fetched ${processedRoutes.length} routes for technician ID: ${technicianId}`);
         return processedRoutes;
       } catch (error) {
-        console.error(`Error fetching routes for technician ID: ${technicianId}`, error);
-        
-        // Return empty array for 401 errors instead of throwing
-        if (error instanceof ApiError && error.status === 401) {
-          console.warn('Unauthorized when fetching routes by technician, returning empty array');
-          return [];
-        }
-        throw error;
+        console.error(`Unhandled error in useBazzaRoutesByTechnician for ID: ${technicianId}`, error);
+        // Return empty array for all errors rather than crashing the component
+        return [];
       }
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
-    enabled: technicianId !== null && technicianId !== undefined,
+    enabled: true, // Always enable the query, but handle empty technician ID inside queryFn
     refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
       // Don't retry on 401/403 errors
