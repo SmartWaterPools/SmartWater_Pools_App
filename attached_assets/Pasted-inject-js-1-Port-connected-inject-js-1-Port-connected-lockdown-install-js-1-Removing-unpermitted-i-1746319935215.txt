@@ -1,0 +1,108 @@
+inject.js:1 Port connected
+inject.js:1 Port connected
+lockdown-install.js:1 Removing unpermitted intrinsics
+index-Bq_aSOLH.js:1072 DOMContentLoaded event fired, attempting to render React app
+index-Bq_aSOLH.js:1081 React app successfully rendered
+index-Bq_aSOLH.js:1072 Auth loading state: false
+index-Bq_aSOLH.js:778 Dashboard: Checking authentication status
+index-Bq_aSOLH.js:733 Checking session... (attempt 1)
+index-Bq_aSOLH.js:773 ProtectedRoute: Not authenticated, allowing access to the route to show login card
+index-Bq_aSOLH.js:733 Auth provider initialized, checking session
+index-Bq_aSOLH.js:733 Checking session... (attempt 1)
+index-Bq_aSOLH.js:773 GoogleMapsContext: Loading API key
+index-Bq_aSOLH.js:773 Fetching Google Maps API key from: https://smartwaterpools.replit.app/api/google-maps-key?_t=1746319848146
+index-Bq_aSOLH.js:1072 Auth loading state: true
+index-Bq_aSOLH.js:1072 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-Bq_aSOLH.js:773 ProtectedRoute: Auth is loading but showing content to prevent getting stuck
+index-Bq_aSOLH.js:1072 Auth loading state: true
+index-Bq_aSOLH.js:1072 Auth is still loading, but we're rendering UI anyway to avoid getting stuck
+index-Bq_aSOLH.js:733 Session response: Object
+index-Bq_aSOLH.js:733 Session contains authenticated user: travis@smartwaterpools.com
+index-Bq_aSOLH.js:733 Initial session check complete: Authenticated
+index-Bq_aSOLH.js:1072 Auth loading state: false
+index-Bq_aSOLH.js:778 Fetching data from: /api/dashboard/summary
+index-Bq_aSOLH.js:773 ProtectedRoute: Auth state changed Object
+index-Bq_aSOLH.js:773 GoogleMapsContext: API key loaded: Valid key received
+index-Bq_aSOLH.js:773 GoogleMapsContext: Map components loaded successfully
+index-Bq_aSOLH.js:733 Session response: Object
+index-Bq_aSOLH.js:733 Session contains authenticated user: travis@smartwaterpools.com
+index-Bq_aSOLH.js:778 Dashboard: Authentication check result: Authenticated
+index-Bq_aSOLH.js:1072 Auth loading state: false
+index-Bq_aSOLH.js:773 ProtectedRoute: Auth state changed Object
+index-Bq_aSOLH.js:1072 Auth loading state: false
+index-Bq_aSOLH.js:808 RouteFormDialog: Rendering with isOpen = false
+index-Bq_aSOLH.js:48 Fetching data from: /api/maintenances
+index-Bq_aSOLH.js:48 Fetching data from: /api/technicians-with-users
+index-Bq_aSOLH.js:773 ProtectedRoute: Auth state changed Object
+index-Bq_aSOLH.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-Bq_aSOLH.js:808 RouteFormDialog: Rendering with isOpen = false
+index-Bq_aSOLH.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-Bq_aSOLH.js:808 RouteFormDialog: Rendering with isOpen = false
+index-Bq_aSOLH.js:808 Checking route assignments for all maintenances...
+index-Bq_aSOLH.js:808 Maintenance 18 (Sarah pistachio) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 23 (Don DeRisi) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 4 (John Smith) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 3 (Michael Wilson) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 24 (Stevie Wonder) assignments: No assignments
+index-Bq_aSOLH.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-Bq_aSOLH.js:808 Finding unrouted maintenances for technician: 2
+index-Bq_aSOLH.js:808 Total maintenances: 20
+index-Bq_aSOLH.js:808 Found maintenance assigned to technician: 18 status: scheduled client: Sarah pistachio already routed: No
+index-Bq_aSOLH.js:808 Found maintenance assigned to technician: 23 status: scheduled client: Don DeRisi already routed: No
+index-Bq_aSOLH.js:808 Found maintenance assigned to technician: 24 status: scheduled client: Stevie Wonder already routed: No
+index-Bq_aSOLH.js:808 Found maintenance assigned to technician: 10 status: scheduled client: John Smith already routed: No
+index-Bq_aSOLH.js:808 Found maintenance assigned to technician: 5 status: scheduled client: Michael Wilson already routed: No
+index-Bq_aSOLH.js:808 Found maintenance assigned to technician: 8 status: scheduled client: Michael Wilson already routed: No
+index-Bq_aSOLH.js:808 Found unrouted maintenances: 6
+index-Bq_aSOLH.js:808 RouteFormDialog: Rendering with isOpen = false
+index-Bq_aSOLH.js:807 Fetching routes for technician ID: 2
+index-Bq_aSOLH.js:807 Fetching routes for technician 2
+index-Bq_aSOLH.js:808 Maintenance 11 (Michael Wilson) assignments: No assignments
+index-Bq_aSOLH.js:807 Successfully fetched 0 routes for technician 2
+index-Bq_aSOLH.js:807 Enhancing 0 routes with stop counts
+index-Bq_aSOLH.js:807 Successfully enhanced 0 routes with stop counts
+index-Bq_aSOLH.js:807 Successfully fetched 0 routes for technician ID: 2
+index-Bq_aSOLH.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-Bq_aSOLH.js:808 Maintenance 20 (John Smith) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 19 (Michael Wilson) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 9 (Michael Wilson) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 10 (John Smith) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 22 (Don DeRisi) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 21 (John Smith) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 1 (John Smith) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 7 (Sarah pistachio) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 6 (Sarah pistachio) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 5 (Michael Wilson) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 12 (Sarah pistachio) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 2 (Sarah pistachio) assignments: No assignments
+index-Bq_aSOLH.js:808 Maintenance 17 (John Smith) assignments: No assignments
+index-Bq_aSOLH.js:808 Add Route button clicked - MaintenanceList
+index-Bq_aSOLH.js:808 Route form dialog should be opening now with isRouteFormOpen=true
+index-Bq_aSOLH.js:808 TechnicianRoutesView - Received technicians: Array(2)
+index-Bq_aSOLH.js:808 RouteFormDialog: Rendering with isOpen = true
+index-Bq_aSOLH.js:40 Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+    at index-Bq_aSOLH.js:778:100038
+    at EC (index-Bq_aSOLH.js:38:17018)
+    at hE (index-Bq_aSOLH.js:40:1571)
+    at WO (index-Bq_aSOLH.js:40:46033)
+    at UO (index-Bq_aSOLH.js:40:39790)
+    at jq (index-Bq_aSOLH.js:40:39718)
+    at B0 (index-Bq_aSOLH.js:40:39570)
+    at cb (index-Bq_aSOLH.js:40:35934)
+    at NE (index-Bq_aSOLH.js:40:36738)
+    at rd (index-Bq_aSOLH.js:38:3279)
+Qj @ index-Bq_aSOLH.js:40
+index-Bq_aSOLH.js:38 Uncaught Error: A <Select.Item /> must have a value prop that is not an empty string. This is because the Select value can be set to an empty string to clear the selection and show the placeholder.
+    at index-Bq_aSOLH.js:778:100038
+    at EC (index-Bq_aSOLH.js:38:17018)
+    at hE (index-Bq_aSOLH.js:40:1571)
+    at WO (index-Bq_aSOLH.js:40:46033)
+    at UO (index-Bq_aSOLH.js:40:39790)
+    at jq (index-Bq_aSOLH.js:40:39718)
+    at B0 (index-Bq_aSOLH.js:40:39570)
+    at cb (index-Bq_aSOLH.js:40:35934)
+    at NE (index-Bq_aSOLH.js:40:36738)
+    at rd (index-Bq_aSOLH.js:38:3279)
+index-Bq_aSOLH.js:808 Current isRouteFormOpen state after update: false
+index-Bq_aSOLH.js:808 Maintenance 8 (Michael Wilson) assignments: No assignments
+index-Bq_aSOLH.js:808 All maintenance assignment statuses: Object

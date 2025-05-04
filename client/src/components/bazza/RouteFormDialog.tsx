@@ -197,7 +197,7 @@ export function RouteFormDialog({
     // Match exactly what's expected by insertBazzaRouteSchema
     const routeData = {
       name: values.name,
-      technicianId: values.technicianId ? parseInt(values.technicianId) : null,
+      technicianId: values.technicianId && values.technicianId !== "0" ? parseInt(values.technicianId) : null,
       dayOfWeek: values.dayOfWeek,
       startTime: values.startTime,
       endTime: values.endTime,
@@ -280,7 +280,7 @@ export function RouteFormDialog({
                         <SelectValue placeholder="Select a technician" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem>
+                        <SelectItem value="0">Unassigned</SelectItem>
                         {technicians && technicians.length > 0 ? (
                           technicians.map(tech => {
                             // Ensure we always have a display name

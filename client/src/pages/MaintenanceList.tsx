@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { Spinner } from "../components/ui/spinner";
 import { BazzaRoute, MaintenanceWithDetails } from "../lib/types";
-import TechnicianRoutesView from "../components/bazza/FixedTechnicianRoutesView";
+import SimpleRoutesView from "../components/bazza/SimpleRoutesView";
 import { RouteDetailView } from "../components/bazza/RouteDetailView";
 import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
 import { SimpleTestDialog } from "../components/bazza/SimpleTestDialog";
@@ -17,8 +17,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { deleteBazzaRoute } from "../services/bazzaService";
 import { useToast } from "../hooks/use-toast";
-import { DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+// Drag and drop removed to improve stability
 
 interface MaintenanceListProps {
   defaultTab?: 'list' | 'routes';
@@ -338,7 +337,7 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                       )}
                     </div>
                   ) : (
-                    <TechnicianRoutesView 
+                    <SimpleRoutesView 
                       technicians={Array.isArray(technicians) 
                         ? technicians
                             .filter((t: any) => t && t.active !== false)
