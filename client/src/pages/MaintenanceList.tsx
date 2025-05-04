@@ -70,11 +70,11 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   
   // Fetch technicians for routes view with error handling
   const { 
-    data: technicians = [] as { id: number; name: string }[],
+    data: technicians = [] as any[],
     isLoading: isTechniciansLoading,
     error: techniciansError
   } = useQuery({ 
-    queryKey: ['/api/technicians'], 
+    queryKey: ['/api/technicians-with-users'], // Changed to fetch technicians with user data
     refetchOnWindowFocus: false,
     retry: (failureCount, error) => {
       const errorObj = error as any;
@@ -334,12 +334,14 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                   ) : (
                     <TechnicianRoutesView 
                       technicians={Array.isArray(technicians) 
-                        ? technicians.map((t: any) => ({
-                            id: t.id,
-                            name: t.user?.name || `Technician ${t.id}`,
-                            userId: t.userId,
-                            active: t.active
-                          }))
+                        ? technicians
+                            .filter((t: any) => t && t.active !== false)
+                            .map((t: any) => ({
+                              id: t.id,
+                              name: t.user?.name || `Technician ${t.id}`,
+                              userId: t.userId,
+                              active: t.active
+                            }))
                         : []
                       }
                       maintenances={maintenances as MaintenanceWithDetails[]}
@@ -365,12 +367,14 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
         onSubmit={handleRouteFormSubmit}
         route={routeToEdit}
         technicians={Array.isArray(technicians) 
-          ? technicians.map((t: any) => ({
-              id: t.id,
-              name: t.user?.name || `Technician ${t.id}`,
-              userId: t.userId,
-              active: t.active
-            }))
+          ? technicians
+              .filter((t: any) => t && t.active !== false)
+              .map((t: any) => ({
+                id: t.id,
+                name: t.user?.name || `Technician ${t.id}`,
+                userId: t.userId,
+                active: t.active
+              }))
           : []
         }
       />

@@ -60,7 +60,7 @@ type TechnicianRoutesViewProps = {
   selectedTechnicianId: number | null;
   onTechnicianSelect: (technicianId: number | null) => void;
   onRouteSelect?: (route: BazzaRoute) => void;
-  onAddRouteClick?: () => void;
+  onAddRouteClick?: (e?: React.MouseEvent) => void;
   selectedDay?: string;
   onDayChange?: (day: string) => void;
 };
@@ -536,11 +536,17 @@ export function TechnicianRoutesView({
     technicianRoutesError 
   } = useBazzaRoutesByTechnician(selectedTechnicianId);
   
-  // Filter routes by day of week
-  const filteredRoutes = technicianRoutes.filter(route => {
-    if (selectedDay === 'all') return true;
-    return route.dayOfWeek?.toLowerCase() === selectedDay.toLowerCase();
-  });
+  // Filter routes by day of week with safety checks
+  const filteredRoutes = Array.isArray(technicianRoutes) 
+    ? technicianRoutes
+        .filter(route => route && typeof route === 'object' && route.id)
+        .filter(route => {
+          if (selectedDay === 'all') return true;
+          return route.dayOfWeek && 
+                 typeof route.dayOfWeek === 'string' && 
+                 route.dayOfWeek.toLowerCase() === selectedDay.toLowerCase();
+        })
+    : [];
   
   // Find maintenances assigned to this technician but not routed
   const [maintenanceAssignments, setMaintenanceAssignments] = useState<Record<number, boolean>>({});
@@ -682,7 +688,7 @@ export function TechnicianRoutesView({
           <div className="space-y-4">
             <Label>Select Technician</Label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {technicians.map(technician => (
+              {Array.isArray(technicians) && technicians.filter(tech => tech && typeof tech === 'object' && tech.id).map(technician => (
                 <Card 
                   key={technician.id}
                   className={`cursor-pointer hover:bg-accent transition-colors ${
@@ -693,7 +699,7 @@ export function TechnicianRoutesView({
                   <CardContent className="p-4 flex items-center gap-2">
                     <UserCheck className="h-5 w-5 text-primary" />
                     <span>{
-                      technician.name && technician.name.trim() !== '' 
+                      technician.name && typeof technician.name === 'string' && technician.name.trim() !== '' 
                         ? technician.name 
                         : `Technician #${technician.id}`
                     }</span>
