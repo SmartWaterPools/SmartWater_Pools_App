@@ -43,7 +43,7 @@ import { Badge } from "../components/ui/badge";
 import { MaintenanceCalendar } from "../components/maintenance/MaintenanceCalendar";
 import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
-import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
+import TechnicianRoutesView from "../components/bazza/FixedTechnicianRoutesView";
 import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
 import { MaintenanceForm } from "../components/maintenance/MaintenanceForm";
 import { MaintenanceReportForm } from "../components/maintenance/MaintenanceReportForm";

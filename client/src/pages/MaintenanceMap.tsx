@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
 import { Spinner } from "../components/ui/spinner";
 import { BazzaRoute, MaintenanceWithDetails } from "../lib/types";
-import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
+import TechnicianRoutesView from "../components/bazza/FixedTechnicianRoutesView";
 
 export default function MaintenanceMap() {
   const [, navigate] = useLocation();

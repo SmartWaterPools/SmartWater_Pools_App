@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { Spinner } from "../components/ui/spinner";
 import { BazzaRoute, MaintenanceWithDetails } from "../lib/types";
-import { TechnicianRoutesView } from "../components/bazza/TechnicianRoutesView";
+import TechnicianRoutesView from "../components/bazza/FixedTechnicianRoutesView";
 import { RouteDetailView } from "../components/bazza/RouteDetailView";
 import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
 import { SimpleTestDialog } from "../components/bazza/SimpleTestDialog";
@@ -17,6 +17,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { deleteBazzaRoute } from "../services/bazzaService";
 import { useToast } from "../hooks/use-toast";
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 interface MaintenanceListProps {
   defaultTab?: 'list' | 'routes';
@@ -141,29 +143,35 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
   };
   
   // Handle add route click
-  const handleAddRouteClick = (e?: React.MouseEvent) => {
-    // Prevent default navigation if event is provided
-    if (e && e.preventDefault) {
-      e.preventDefault();
+  const handleAddRouteClick = () => {
+    try {
+      // No need to prevent default navigation as we're not accepting the event parameter
+      
+      console.log("Add Route button clicked - MaintenanceList");
+      
+      // Clear any existing route being edited
+      setRouteToEdit(undefined);
+      
+      // Open the route form dialog - this is critical for showing the modal
+      setIsRouteFormOpen(true);
+      
+      console.log("Route form dialog should be opening now with isRouteFormOpen=true");
+      
+      // Debug current state after state change is scheduled
+      setTimeout(() => {
+        console.log("Current isRouteFormOpen state after update:", isRouteFormOpen);
+      }, 10);
+      
+      // Return false to prevent any potential navigation
+      return false;
+    } catch (error) {
+      console.error("Error in handleAddRouteClick:", error);
+      toast({
+        title: "Error",
+        description: "Failed to open route form. Please try again."
+      });
+      return false;
     }
-    
-    console.log("Add Route button clicked - MaintenanceList");
-    
-    // Clear any existing route being edited
-    setRouteToEdit(undefined);
-    
-    // Open the route form dialog - this is critical for showing the modal
-    setIsRouteFormOpen(true);
-    
-    console.log("Route form dialog should be opening now with isRouteFormOpen=true");
-    
-    // Debug current state after state change is scheduled
-    setTimeout(() => {
-      console.log("Current isRouteFormOpen state after update:", isRouteFormOpen);
-    }, 10);
-    
-    // Return false to prevent any potential navigation
-    return false;
   };
   
   // Handle edit route click
@@ -297,11 +305,9 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
                 <>
                   <div className="flex justify-between items-center mb-4">
                     <Button 
-                      onClick={(e) => {
+                      onClick={() => {
                         console.log("Add Route button direct click");
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleAddRouteClick(e);
+                        handleAddRouteClick();
                         return false;
                       }} 
                       variant="default" 
@@ -368,10 +374,16 @@ export default function MaintenanceList({ defaultTab = 'list' }: MaintenanceList
         route={routeToEdit}
         technicians={Array.isArray(technicians) 
           ? technicians
-              .filter((t: any) => t && t.active !== false)
+              .filter((t: any) => t && typeof t === 'object')
+              .filter((t: any) => t.active !== false)
               .map((t: any) => ({
                 id: t.id,
-                name: t.user?.name || `Technician ${t.id}`,
+                name: (t.user && t.user.name) || `Technician ${t.id}`,
+                user: t.user ? {
+                  id: t.user.id || 0,
+                  name: t.user.name || '',
+                  email: t.user.email || null
+                } : null,
                 userId: t.userId,
                 active: t.active
               }))
