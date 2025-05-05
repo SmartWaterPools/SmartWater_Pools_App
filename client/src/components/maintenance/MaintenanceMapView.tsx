@@ -199,7 +199,12 @@ export function MaintenanceMapView({
                     </div>
                     <div className="flex items-center">
                       <MapPin className="h-3.5 w-3.5 mr-1.5 text-gray-500" />
-                      <span className="truncate">{maintenance.client?.client?.address || "No address"}</span>
+                      <span className="truncate">
+                        {maintenance.client?.user?.address || 
+                        (maintenance.client as any).address || 
+                        maintenance.client?.client?.address || 
+                        "No address"}
+                      </span>
                     </div>
                     {maintenance.technician && (
                       <div className="flex items-center">
@@ -244,26 +249,48 @@ export function MaintenanceMapView({
         <MarkerClusterer>
           {(clusterer) => (
             <div>
-              {maintenances.map((maintenance) => (
-                maintenance.client?.client?.latitude && maintenance.client?.client?.longitude && (
+              {maintenances.map((maintenance) => {
+                // Check all possible locations for lat/lng
+                const clientLatitude = 
+                  maintenance.client?.user?.latitude || 
+                  (maintenance.client as any)?.latitude || 
+                  maintenance.client?.client?.latitude;
+                  
+                const clientLongitude = 
+                  maintenance.client?.user?.longitude || 
+                  (maintenance.client as any)?.longitude || 
+                  maintenance.client?.client?.longitude;
+                
+                return clientLatitude && clientLongitude ? (
                   <Marker
                     key={maintenance.id}
                     position={{
-                      lat: maintenance.client.client.latitude,
-                      lng: maintenance.client.client.longitude
+                      lat: clientLatitude,
+                      lng: clientLongitude
                     }}
                     onClick={() => setSelectedMaintenance(maintenance)}
                     clusterer={clusterer}
                   />
-                )
-              ))}
+                ) : null;
+              })}
             </div>
           )}
         </MarkerClusterer>
 
         {/* Tooltips on markers */}
-        {maintenances.map((maintenance) => (
-          maintenance.client?.client?.latitude && maintenance.client?.client?.longitude && (
+        {maintenances.map((maintenance) => {
+          // Reuse the same coordinate finding logic from markers
+          const clientLatitude = 
+            maintenance.client?.user?.latitude || 
+            (maintenance.client as any)?.latitude || 
+            maintenance.client?.client?.latitude;
+            
+          const clientLongitude = 
+            maintenance.client?.user?.longitude || 
+            (maintenance.client as any)?.longitude || 
+            maintenance.client?.client?.longitude;
+            
+          return clientLatitude && clientLongitude ? (
             <TooltipProvider key={`tooltip-${maintenance.id}`}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -281,15 +308,21 @@ export function MaintenanceMapView({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          )
-        ))}
+          ) : null;
+        })}
 
         {/* Info Window for selected maintenance */}
         {selectedMaintenance && selectedMaintenance.client && (
           <InfoWindow
             position={{
-              lat: selectedMaintenance.client.client?.latitude || defaultCenter.lat,
-              lng: selectedMaintenance.client.client?.longitude || defaultCenter.lng
+              lat: selectedMaintenance.client?.user?.latitude || 
+                  (selectedMaintenance.client as any)?.latitude || 
+                  selectedMaintenance.client?.client?.latitude || 
+                  defaultCenter.lat,
+              lng: selectedMaintenance.client?.user?.longitude || 
+                  (selectedMaintenance.client as any)?.longitude || 
+                  selectedMaintenance.client?.client?.longitude || 
+                  defaultCenter.lng
             }}
             onCloseClick={() => setSelectedMaintenance(null)}
           >
@@ -304,7 +337,12 @@ export function MaintenanceMapView({
                   </Badge>
                 </div>
                 <div className="text-sm mb-2">
-                  <p><span className="font-medium">Address:</span> {selectedMaintenance.client.client?.address || "No address"}</p>
+                  <p><span className="font-medium">Address:</span> {
+                    selectedMaintenance.client?.user?.address || 
+                    (selectedMaintenance.client as any).address || 
+                    selectedMaintenance.client?.client?.address || 
+                    "No address"
+                  }</p>
                   <p><span className="font-medium">Date:</span> {formatDate(selectedMaintenance.scheduleDate)}</p>
                   {selectedMaintenance.startTime && (
                     <p><span className="font-medium">Time:</span> {new Date(selectedMaintenance.startTime).toLocaleTimeString()}</p>
