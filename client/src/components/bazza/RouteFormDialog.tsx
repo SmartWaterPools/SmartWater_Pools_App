@@ -237,7 +237,7 @@ export function RouteFormDialog({
   // Always render the Dialog component, but control its open state
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[85vh] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Edit Route" : "Create New Route"}</DialogTitle>
           <DialogDescription>
@@ -249,7 +249,8 @@ export function RouteFormDialog({
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 pb-16 overflow-y-auto"
+                style={{maxHeight: 'calc(80vh - 120px)'}}>
             <FormField
               control={form.control}
               name="name"
@@ -454,7 +455,7 @@ export function RouteFormDialog({
               )}
             />
             
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 pt-4 pb-3 bg-background mt-4">
               <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>
                 Cancel
               </Button>
