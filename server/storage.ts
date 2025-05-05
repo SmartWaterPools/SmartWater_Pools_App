@@ -6054,50 +6054,75 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  // Enhanced function with special handling for Travis Donald and better logging
+  // Enhanced function with universal fallback mechanism and better logging
   async getBazzaRoutesByTechnicianId(technicianId: number): Promise<BazzaRoute[]> {
-    // Special handling for Travis Donald (ID = 10)
-    const isTravisDonald = technicianId === 10; // Adjust this ID if needed
+    // Enhanced logging for technicians that have had issues in the past
+    const isKnownProblemTechnician = technicianId === 10; // ID 10 is Travis Donald
     
-    if (isTravisDonald) {
-      console.log(`[STORAGE] Special handling for Travis Donald's routes (ID: ${technicianId})`);
+    if (isKnownProblemTechnician) {
+      console.log(`[STORAGE] Enhanced handling for known problem technician (ID: ${technicianId})`);
     } else {
       console.log(`[STORAGE] Fetching routes for technician ID: ${technicianId}`);
     }
     
     try {
+      // Primary query approach - using where clause
       const routes = await db.select().from(bazzaRoutes)
         .where(eq(bazzaRoutes.technicianId, technicianId))
         .orderBy(bazzaRoutes.dayOfWeek);
       
-      console.log(`[STORAGE] Found ${routes.length} routes for technician ID: ${technicianId}`);
+      // Log the results for debugging
+      console.log(`[STORAGE] Primary query found ${routes.length} routes for technician ID: ${technicianId}`);
       
-      // Special case for Travis Donald - log more details
-      if (isTravisDonald) {
-        if (routes.length === 0) {
-          console.log(`[STORAGE] No routes found for Travis Donald in the direct query`);
-          
-          // Try a different query approach for Travis - without the where clause
-          console.log(`[STORAGE] Attempting to find Travis Donald's routes with a different query approach`);
-          const allRoutes = await db.select().from(bazzaRoutes);
-          console.log(`[STORAGE] Total routes in database: ${allRoutes.length}`);
-          
-          // Manually filter for Travis Donald's routes
-          const travisRoutes = allRoutes.filter(route => route.technicianId === technicianId);
-          console.log(`[STORAGE] Found ${travisRoutes.length} routes for Travis Donald through alternative query`);
-          
-          if (travisRoutes.length > 0) {
-            return travisRoutes;
-          }
+      // Log details for known problem technicians or empty results
+      if (isKnownProblemTechnician || routes.length === 0) {
+        if (routes.length > 0) {
+          console.log(`[STORAGE] Routes found: ${JSON.stringify(routes.map(r => ({ id: r.id, name: r.name })))}`);
         } else {
-          console.log(`[STORAGE] Routes found for Travis Donald: ${JSON.stringify(routes.map(r => ({ id: r.id, name: r.name })))}`);
+          console.log(`[STORAGE] No routes found in primary query - will attempt fallback`);
         }
       }
       
+      // Universal fallback for any technician with no routes
+      if (routes.length === 0) {
+        console.log(`[STORAGE] Attempting fallback query approach for technician ID ${technicianId}`);
+        
+        // Get all routes without filtering
+        const allRoutes = await db.select().from(bazzaRoutes);
+        console.log(`[STORAGE] Fallback query retrieved ${allRoutes.length} total routes from database`);
+        
+        // Manually filter for the technician's routes
+        const technicianRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+        console.log(`[STORAGE] Fallback filtering found ${technicianRoutes.length} routes for technician ID ${technicianId}`);
+        
+        // If we found routes with the fallback approach, return them
+        if (technicianRoutes.length > 0) {
+          console.log(`[STORAGE] Using fallback results for technician ID ${technicianId}`);
+          return technicianRoutes.sort((a, b) => {
+            // Sort by day of week to match the primary query's ordering
+            return a.dayOfWeek.localeCompare(b.dayOfWeek);
+          });
+        }
+      }
+      
+      // Return the routes from the primary query if no fallback was needed or fallback found nothing
       return routes;
     } catch (error) {
-      console.error(`[STORAGE] Error fetching routes for technician ID ${technicianId}: ${error}`);
-      throw error;
+      console.error(`[STORAGE] Error in primary query for technician ID ${technicianId}: ${error}`);
+      
+      // Second fallback - if the primary query failed with an error
+      try {
+        console.log(`[STORAGE] Attempting emergency fallback query after error`);
+        const allRoutes = await db.select().from(bazzaRoutes);
+        const filteredRoutes = allRoutes.filter(route => route.technicianId === technicianId)
+          .sort((a, b) => a.dayOfWeek.localeCompare(b.dayOfWeek));
+        
+        console.log(`[STORAGE] Emergency fallback found ${filteredRoutes.length} routes`);
+        return filteredRoutes;
+      } catch (fallbackError) {
+        console.error(`[STORAGE] Emergency fallback also failed: ${fallbackError}`);
+        throw error; // Throw the original error if fallback also fails
+      }
     }
   }
 

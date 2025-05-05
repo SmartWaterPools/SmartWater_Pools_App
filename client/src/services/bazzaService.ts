@@ -121,27 +121,24 @@ export const enhanceRoutesWithStopCounts = async (routes: BazzaRoute[]): Promise
   }
 };
 
-// Fetch routes for a technician with enhanced error handling and fallback mechanism
+// Fetch routes for a technician with enhanced error handling and universal fallback mechanism
 export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promise<BazzaRoute[]> => {
   try {
-    // Special identification for Travis Donald
-    const isTravisDonald = technicianId === 10; // Adjust this ID if needed
-    if (isTravisDonald) {
-      console.log(`Fetching routes for Travis Donald (ID: ${technicianId}) - using enhanced processing`);
+    // Special case logging for certain technicians (like Travis Donald) for tracking specific issues
+    const isKnownProblemTechnician = technicianId === 10; // ID 10 is Travis Donald, but we handle all technicians properly
+    
+    if (isKnownProblemTechnician) {
+      console.log(`Fetching routes for known problem technician ID: ${technicianId} - using enhanced processing`);
     } else {
       console.log(`Fetching routes for technician ${technicianId}`);
     }
     
+    // Make primary API request
     const routes = await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/technician/${technicianId}`);
     
-    // Special logging for Travis Donald
-    if (isTravisDonald) {
-      console.log(`Raw routes data for Travis Donald:`, routes);
-      console.log(`Routes array length: ${routes.length}`);
-      
-      if (routes.length === 0) {
-        console.log(`No routes found for Travis Donald through direct API query - will attempt fallback`);
-      }
+    // Enhanced debugging for empty results or known problem technicians
+    if (routes.length === 0 || isKnownProblemTechnician) {
+      console.log(`Results for technician ${technicianId}: ${routes.length} routes found in direct query`);
     }
     
     // Process each route to ensure both isActive and active properties exist
@@ -154,33 +151,33 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
       return route;
     });
     
-    console.log(`Successfully fetched ${processedRoutes.length} routes for technician ${technicianId}`);
+    console.log(`Successfully processed ${processedRoutes.length} routes for technician ${technicianId}`);
     
     // Enhance routes with stop counts
     const enhancedRoutes = await enhanceRoutesWithStopCounts(processedRoutes);
     
-    // Special case for Travis Donald - if no routes found, use a fallback
-    if (isTravisDonald && enhancedRoutes.length === 0) {
-      console.log(`Attempting fallback for Travis Donald - manually looking for his routes`);
+    // Universal fallback mechanism - if no routes found for any technician, try the alternative approach
+    if (enhancedRoutes.length === 0) {
+      console.log(`No routes found for technician ${technicianId} - attempting universal fallback`);
       try {
-        // Fetch all routes and manually filter for Travis Donald
+        // Fetch all routes and manually filter for this technician
         const allRoutes = await fetchAllBazzaRoutes();
-        console.log(`Fetched ${allRoutes.length} total routes to search for Travis Donald's routes`);
+        console.log(`Fetched ${allRoutes.length} total routes for fallback search`);
         
-        // Filter for routes assigned to Travis Donald
-        const travisRoutes = allRoutes.filter(route => {
+        // Filter for routes assigned to this technician
+        const technicianRoutes = allRoutes.filter(route => {
           const matched = route.technicianId === technicianId;
           if (matched) {
-            console.log(`Found Travis Donald route:`, route);
+            console.log(`Found route for technician ${technicianId} through fallback:`, route.name);
           }
           return matched;
         });
         
-        if (travisRoutes.length > 0) {
-          console.log(`Found ${travisRoutes.length} routes for Travis Donald through fallback`);
+        if (technicianRoutes.length > 0) {
+          console.log(`Found ${technicianRoutes.length} routes for technician ${technicianId} through fallback`);
           
           // Process and enhance these routes
-          const processedTravisRoutes = travisRoutes.map(route => {
+          const processedTechnicianRoutes = technicianRoutes.map(route => {
             if (route.isActive !== undefined && route.active === undefined) {
               return { ...route, active: route.isActive };
             } else if (route.active !== undefined && route.isActive === undefined) {
@@ -189,13 +186,13 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
             return route;
           });
           
-          const enhancedTravisRoutes = await enhanceRoutesWithStopCounts(processedTravisRoutes);
-          return enhancedTravisRoutes;
+          const enhancedTechnicianRoutes = await enhanceRoutesWithStopCounts(processedTechnicianRoutes);
+          return enhancedTechnicianRoutes;
         } else {
-          console.log(`No routes found for Travis Donald through fallback either`);
+          console.log(`No routes found for technician ${technicianId} through fallback either`);
         }
       } catch (fallbackError) {
-        console.error(`Error in fallback route fetching for Travis Donald:`, fallbackError);
+        console.error(`Error in fallback route fetching for technician ${technicianId}:`, fallbackError);
       }
     }
     
@@ -208,6 +205,31 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
       console.warn(`Unauthorized when fetching routes for technician ${technicianId}, returning empty array`);
       return [];
     }
+    
+    // Try fallback approach on error
+    try {
+      console.log(`Error in primary route fetching for technician ${technicianId} - trying fallback approach`);
+      const allRoutes = await fetchAllBazzaRoutes();
+      const technicianRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+      
+      if (technicianRoutes.length > 0) {
+        console.log(`Fallback successful - found ${technicianRoutes.length} routes`);
+        const processedRoutes = technicianRoutes.map(route => {
+          if (route.isActive !== undefined && route.active === undefined) {
+            return { ...route, active: route.isActive };
+          } else if (route.active !== undefined && route.isActive === undefined) {
+            return { ...route, isActive: route.active };
+          }
+          return route;
+        });
+        
+        return await enhanceRoutesWithStopCounts(processedRoutes);
+      }
+    } catch (fallbackError) {
+      console.error(`Fallback approach also failed:`, fallbackError);
+    }
+    
+    // If we still have errors, throw the original one
     throw error;
   }
 };

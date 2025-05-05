@@ -31,11 +31,11 @@ router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Requ
   try {
     const technicianId = parseInt(req.params.technicianId);
     
-    // Special handling for Travis Donald's routes (ID = 10)
-    const isTravisDonald = technicianId === 10; // Adjust this ID if needed
+    // Track problem technicians for extra logging - identify known issues
+    const isKnownProblemTechnician = technicianId === 10; // Travis Donald is technician ID 10
     
-    if (isTravisDonald) {
-      console.log(`[BAZZA ROUTES API] Special handling for Travis Donald's routes (ID: ${technicianId})`);
+    if (isKnownProblemTechnician) {
+      console.log(`[BAZZA ROUTES API] Enhanced handling for known problem technician (ID: ${technicianId})`);
     } else {
       console.log(`[BAZZA ROUTES API] Processing request for bazza routes for technician ID: ${technicianId}`);
     }
@@ -43,37 +43,59 @@ router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Requ
     // Fetch routes from storage
     const routes = await storage.getBazzaRoutesByTechnicianId(technicianId);
     
-    // Enhanced logging for Travis Donald
-    if (isTravisDonald) {
-      console.log(`[BAZZA ROUTES API] Found ${routes.length} routes for Travis Donald`);
+    // Enhanced logging for any empty results or known problem technicians
+    if (routes.length === 0 || isKnownProblemTechnician) {
+      console.log(`[BAZZA ROUTES API] Found ${routes.length} routes for technician ID: ${technicianId}`);
+    }
+    
+    // Universal fallback for any technician with no routes
+    if (routes.length === 0) {
+      console.log(`[BAZZA ROUTES API] No routes found in direct query - attempting universal fallback`);
       
-      // If Travis Donald has no routes, try to get all routes and filter
-      if (routes.length === 0) {
-        console.log(`[BAZZA ROUTES API] Attempting fallback for Travis Donald - querying all routes`);
+      try {
+        // Get all routes as a fallback
+        const allRoutes = await storage.getAllBazzaRoutes();
+        console.log(`[BAZZA ROUTES API] Found ${allRoutes.length} total routes in system`);
         
-        try {
-          // Get all routes
-          const allRoutes = await storage.getAllBazzaRoutes();
-          console.log(`[BAZZA ROUTES API] Found ${allRoutes.length} total routes`);
-          
-          // Filter for Travis Donald's routes
-          const travisRoutes = allRoutes.filter(route => route.technicianId === technicianId);
-          console.log(`[BAZZA ROUTES API] Found ${travisRoutes.length} routes for Travis Donald in all routes`);
-          
-          if (travisRoutes.length > 0) {
-            console.log(`[BAZZA ROUTES API] Using fallback routes for Travis Donald`);
-            res.json(travisRoutes);
-            return;
-          }
-        } catch (fallbackError) {
-          console.error(`[BAZZA ROUTES API] Error in fallback for Travis Donald:`, fallbackError);
+        // Filter routes for the requested technician
+        const technicianRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+        console.log(`[BAZZA ROUTES API] Found ${technicianRoutes.length} routes for technician ID ${technicianId} in all routes`);
+        
+        if (technicianRoutes.length > 0) {
+          console.log(`[BAZZA ROUTES API] Using fallback routes for technician ID ${technicianId}`);
+          res.json(technicianRoutes);
+          return;
         }
+      } catch (fallbackError) {
+        console.error(`[BAZZA ROUTES API] Error in fallback for technician ID ${technicianId}:`, fallbackError);
       }
     }
     
+    // Return the routes found through the direct query if fallback wasn't used or didn't find anything
     res.json(routes);
   } catch (error) {
     console.error(`[BAZZA ROUTES API] Error fetching bazza routes for technician ${req.params.technicianId}:`, error);
+    
+    // Try one last fallback approach in case of error
+    try {
+      console.log(`[BAZZA ROUTES API] Attempting emergency fallback on error for technician ID ${req.params.technicianId}`);
+      const allRoutes = await storage.getAllBazzaRoutes();
+      const technicianId = parseInt(req.params.technicianId);
+      
+      if (!isNaN(technicianId)) {
+        const technicianRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+        
+        if (technicianRoutes.length > 0) {
+          console.log(`[BAZZA ROUTES API] Emergency fallback successful - found ${technicianRoutes.length} routes`);
+          res.json(technicianRoutes);
+          return;
+        }
+      }
+    } catch (fallbackError) {
+      console.error(`[BAZZA ROUTES API] Emergency fallback also failed:`, fallbackError);
+    }
+    
+    // If all fallbacks fail, return error
     res.status(500).json({ error: "Failed to fetch bazza routes for technician" });
   }
 });
