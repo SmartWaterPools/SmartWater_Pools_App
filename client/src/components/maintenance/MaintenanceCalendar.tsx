@@ -657,11 +657,16 @@ export function MaintenanceCalendar({
                       )}
                     </CardContent>
                     <CardFooter className="border-t pt-3 flex justify-between">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground flex flex-col">
                         {maintenance.technician?.user?.name ? (
-                          <span>Assigned to: {maintenance.technician.user.name}</span>
+                          <span>Technician: {maintenance.technician.user.name}</span>
                         ) : (
-                          <span className="text-amber-500 font-medium">Not assigned</span>
+                          <span className="text-amber-500 font-medium">No technician assigned</span>
+                        )}
+                        {(maintenance as any).routeId ? (
+                          <span className="mt-1">Route: {(maintenance as any).routeName || `Route #${(maintenance as any).routeId}`}</span>
+                        ) : (
+                          <span className="text-amber-500 font-medium mt-1">No route assigned</span>
                         )}
                       </div>
                       

@@ -10,8 +10,7 @@ interface MaintenanceItemProps {
 }
 
 export function MaintenanceItem({ maintenance }: MaintenanceItemProps) {
-  // Format date 
-  const date = new Date(maintenance.scheduleDate);
+  // No need to create a new Date object, we'll use the scheduleDate directly
   
   // Get status styling
   const statusClasses = getStatusClasses(maintenance.status);
@@ -34,7 +33,7 @@ export function MaintenanceItem({ maintenance }: MaintenanceItemProps) {
         <div className="flex flex-col space-y-1.5 mt-2">
           <div className="flex items-center text-sm">
             <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-            <span>{formatDate(date)}</span>
+            <span>{formatDate(maintenance.scheduleDate)}</span>
           </div>
           
           {/* Time information is stored in notes now */}
@@ -43,12 +42,13 @@ export function MaintenanceItem({ maintenance }: MaintenanceItemProps) {
             <span>Time varies</span>
           </div>
           
-          {maintenance.client.user.address && (
-            <div className="flex items-start text-sm">
-              <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-              <span>{maintenance.client.user.address}</span>
-            </div>
-          )}
+          <div className="flex items-start text-sm">
+            <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
+            <span>{maintenance.client.user.address || 
+                  (maintenance.client as any).address || 
+                  maintenance.client.client?.address || 
+                  'No address'}</span>
+          </div>
         </div>
         
         {/* Note content can be in notes or the old description field */}
