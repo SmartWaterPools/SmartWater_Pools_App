@@ -4,9 +4,10 @@ import {
   fetchBazzaRoutesByTechnician, 
   fetchAssignmentsByDate,
   fetchAssignmentsByTechnicianAndDateRange,
+  fetchRouteStops,
   ApiError
 } from '../services/bazzaService';
-import { BazzaRoute, BazzaMaintenanceAssignment } from '../lib/types';
+import { BazzaRoute, BazzaMaintenanceAssignment, BazzaRouteStop } from '../lib/types';
 
 /**
  * Hook to fetch all bazza routes
@@ -240,5 +241,47 @@ export function useBazzaAssignmentsByTechnicianAndDateRange(
     assignments: data,
     isAssignmentsLoading: isLoading,
     assignmentsError: error
+  };
+}
+
+/**
+ * Hook to fetch stops for a specific route
+ */
+export function useRouteStops(routeId: number | null) {
+  const { 
+    data = [], 
+    isLoading, 
+    error 
+  } = useQuery({
+    queryKey: ['/api/bazza/routes/stops', routeId],
+    queryFn: async () => {
+      try {
+        if (!routeId) return [];
+        return await fetchRouteStops(routeId);
+      } catch (error) {
+        // Return empty array for 401 errors instead of throwing
+        if (error instanceof ApiError && error.status === 401) {
+          console.warn('Unauthorized when fetching route stops, returning empty array');
+          return [];
+        }
+        throw error;
+      }
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!routeId,
+    retry: (failureCount, error) => {
+      // Don't retry on 401/403 errors
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        return false;
+      }
+      // Retry other errors up to 3 times
+      return failureCount < 3;
+    }
+  });
+
+  return {
+    stops: data,
+    isStopsLoading: isLoading,
+    stopsError: error
   };
 }

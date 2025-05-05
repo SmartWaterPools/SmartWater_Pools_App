@@ -12,7 +12,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
 import { Spinner } from "../ui/spinner";
-import { useBazzaRoutesByTechnician } from "../../hooks/useBazzaRoutes";
+import { useBazzaRoutesByTechnician, useRouteStops } from "../../hooks/useBazzaRoutes";
 import { BazzaRoute, MaintenanceWithDetails } from "../../lib/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { 
@@ -303,6 +303,9 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Get route stops to display stop count
+  const { stops = [] } = useRouteStops(route.id);
+  
   // Get the setMaintenanceAssignments function from context
   const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
   
@@ -457,13 +460,18 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
               {formatDayOfWeek(route.dayOfWeek)}
             </CardDescription>
           </div>
-          <Badge className={`${route.type === 'residential' 
-            ? 'bg-sky-100 text-sky-800' 
-            : route.type === 'commercial' 
-              ? 'bg-indigo-100 text-indigo-800' 
-              : 'bg-purple-100 text-purple-800'} hover:bg-opacity-80`}>
-            {route.type.charAt(0).toUpperCase() + route.type.slice(1)}
-          </Badge>
+          <div className="flex flex-col items-end gap-1">
+            <Badge className={`${route.type === 'residential' 
+              ? 'bg-sky-100 text-sky-800' 
+              : route.type === 'commercial' 
+                ? 'bg-indigo-100 text-indigo-800' 
+                : 'bg-purple-100 text-purple-800'} hover:bg-opacity-80`}>
+              {route.type.charAt(0).toUpperCase() + route.type.slice(1)}
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              {stops.length} {stops.length === 1 ? 'Stop' : 'Stops'}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="py-2">

@@ -10,7 +10,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
 import { Spinner } from "../ui/spinner";
-import { useBazzaRoutesByTechnician } from "../../hooks/useBazzaRoutes";
+import { useBazzaRoutesByTechnician, useRouteStops } from "../../hooks/useBazzaRoutes";
 import { BazzaRoute, MaintenanceWithDetails } from "../../lib/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { 
@@ -46,15 +46,23 @@ function RouteCard({ route, onRouteClick }: { route: BazzaRoute; onRouteClick: (
   // Determine technician name based on available data
   const technicianName = route.technicianId ? `Technician ${route.technicianId}` : 'No technician';
   
+  // Get route stops to display stop count
+  const { stops = [] } = useRouteStops(route.id);
+  
   return (
     <Card 
       className="cursor-pointer hover:bg-accent transition-colors"
       onClick={() => onRouteClick(route)}
     >
       <CardContent className="p-4">
-        <div className="font-medium flex items-center">
-          <Route className="h-4 w-4 mr-2 text-primary" />
-          {route.name}
+        <div className="font-medium flex items-center justify-between">
+          <div className="flex items-center">
+            <Route className="h-4 w-4 mr-2 text-primary" />
+            {route.name}
+          </div>
+          <Badge variant="outline" className="text-xs">
+            {stops.length} {stops.length === 1 ? 'Stop' : 'Stops'}
+          </Badge>
         </div>
         
         <div className="mt-2 text-sm text-muted-foreground">
@@ -105,44 +113,68 @@ function MaintenanceCard({
   
   // Handle different possible client data structures with proper type safety
   if (maintenance.client) {
-    // Direct properties - safely access companyName
-    if (maintenance.client && 
-        typeof maintenance.client === 'object' && 
-        'companyName' in maintenance.client && 
-        typeof maintenance.client.companyName === 'string') {
-      clientName = maintenance.client.companyName;
+    const client = maintenance.client as any;
+    
+    // Check for user property first (highest priority)
+    if (client && typeof client === 'object' && 'user' in client && client.user) {
+      const user = client.user;
+      // Get name from user object
+      if (typeof user === 'object' && 'name' in user && typeof user.name === 'string') {
+        clientName = user.name;
+      }
+      
+      // Get address from user object
+      if (typeof user === 'object' && 'address' in user && typeof user.address === 'string') {
+        clientAddress = user.address;
+      }
     }
     
-    // Safely check for address property
-    if (maintenance.client && 
-        typeof maintenance.client === 'object' && 
-        'address' in maintenance.client && 
-        typeof (maintenance.client as any).address === 'string') {
-      clientAddress = (maintenance.client as any).address;
+    // Direct properties - safely access companyName (if name not set from user)
+    if (!clientName && 
+        typeof client === 'object' && 
+        'companyName' in client && 
+        typeof client.companyName === 'string') {
+      clientName = client.companyName;
+    }
+    
+    // Direct name property (if company name not set)
+    if (!clientName && 
+        typeof client === 'object' && 
+        'name' in client && 
+        typeof client.name === 'string') {
+      clientName = client.name;
+    }
+    
+    // Safely check for address property (if not set from user)
+    if (!clientAddress && 
+        typeof client === 'object' && 
+        'address' in client && 
+        typeof client.address === 'string') {
+      clientAddress = client.address;
     }
     
     // Nested client object (client.client structure) with safe property access
-    const nestedClient = maintenance.client && 
-                        typeof maintenance.client === 'object' && 
-                        'client' in maintenance.client ? 
-                        (maintenance.client as any).client : null;
+    const nestedClient = client && 
+                        typeof client === 'object' && 
+                        'client' in client ? 
+                        client.client : null;
     
     if (nestedClient && typeof nestedClient === 'object') {
-      // Safe property access
+      // Safe property access for name (if not already set)
       if (!clientName && 
           'companyName' in nestedClient && 
           typeof nestedClient.companyName === 'string') {
         clientName = nestedClient.companyName;
       }
       
-      // Safely check for name
+      // Safely check for name (if not already set)
       if (!clientName && 
           'name' in nestedClient && 
           typeof nestedClient.name === 'string') {
         clientName = nestedClient.name;
       }
       
-      // Safely check for address
+      // Safely check for address (if not already set)
       if (!clientAddress && 
           'address' in nestedClient && 
           typeof nestedClient.address === 'string') {
@@ -390,48 +422,6 @@ export default function SimpleRoutesView({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
       <div className="lg:col-span-3">
-        <div className="mb-4">
-          <Label htmlFor="technician-select">Technician</Label>
-          <Select 
-            value={selectedTechnicianId ? String(selectedTechnicianId) : 'all'} 
-            onValueChange={handleTechnicianSelect}
-          >
-            <SelectTrigger id="technician-select">
-              <SelectValue placeholder="Select a technician" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Technicians</SelectItem>
-              {technicians && technicians.length > 0 ? (
-                technicians.map(technician => (
-                  <SelectItem key={technician.id} value={String(technician.id)}>
-                    {technician.name}
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem value="loading" disabled>No technicians available</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="mb-6">
-          <Label htmlFor="day-select">Day</Label>
-          <Select 
-            value={selectedDay} 
-            onValueChange={handleDayChange}
-          >
-            <SelectTrigger id="day-select">
-              <SelectValue placeholder="Select a day" />
-            </SelectTrigger>
-            <SelectContent>
-              {daysOfWeek.map(day => (
-                <SelectItem key={day.value} value={day.value}>
-                  {day.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
         
         <div className="mb-4">
           <h3 className="text-lg font-semibold mb-2">Technicians</h3>
