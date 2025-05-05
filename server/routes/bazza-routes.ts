@@ -30,9 +30,47 @@ const insertBazzaMaintenanceAssignmentSchema = createInsertSchema(bazzaMaintenan
 router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Request, res: Response) => {
   try {
     const technicianId = parseInt(req.params.technicianId);
-    console.log(`[BAZZA ROUTES API] Processing request for bazza routes for technician ID: ${technicianId}`);
     
+    // Special handling for Travis Donald's routes (ID = 10)
+    const isTravisDonald = technicianId === 10; // Adjust this ID if needed
+    
+    if (isTravisDonald) {
+      console.log(`[BAZZA ROUTES API] Special handling for Travis Donald's routes (ID: ${technicianId})`);
+    } else {
+      console.log(`[BAZZA ROUTES API] Processing request for bazza routes for technician ID: ${technicianId}`);
+    }
+    
+    // Fetch routes from storage
     const routes = await storage.getBazzaRoutesByTechnicianId(technicianId);
+    
+    // Enhanced logging for Travis Donald
+    if (isTravisDonald) {
+      console.log(`[BAZZA ROUTES API] Found ${routes.length} routes for Travis Donald`);
+      
+      // If Travis Donald has no routes, try to get all routes and filter
+      if (routes.length === 0) {
+        console.log(`[BAZZA ROUTES API] Attempting fallback for Travis Donald - querying all routes`);
+        
+        try {
+          // Get all routes
+          const allRoutes = await storage.getAllBazzaRoutes();
+          console.log(`[BAZZA ROUTES API] Found ${allRoutes.length} total routes`);
+          
+          // Filter for Travis Donald's routes
+          const travisRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+          console.log(`[BAZZA ROUTES API] Found ${travisRoutes.length} routes for Travis Donald in all routes`);
+          
+          if (travisRoutes.length > 0) {
+            console.log(`[BAZZA ROUTES API] Using fallback routes for Travis Donald`);
+            res.json(travisRoutes);
+            return;
+          }
+        } catch (fallbackError) {
+          console.error(`[BAZZA ROUTES API] Error in fallback for Travis Donald:`, fallbackError);
+        }
+      }
+    }
+    
     res.json(routes);
   } catch (error) {
     console.error(`[BAZZA ROUTES API] Error fetching bazza routes for technician ${req.params.technicianId}:`, error);

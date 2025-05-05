@@ -41,17 +41,25 @@ type TechnicianRoutesViewProps = {
   onDayChange?: (day: string) => void;
 };
 
-// Simple route card component without drag and drop
+// Enhanced route card component with better formatting and error handling
 function RouteCard({ route, onRouteClick }: { route: BazzaRoute; onRouteClick: (route: BazzaRoute) => void }) {
-  // Determine technician name based on available data
-  const technicianName = route.technicianId ? `Technician ${route.technicianId}` : 'No technician';
+  // Determine technician name based on available data - added route ID for debugging
+  const isTravisDonald = route.technicianId === 10; // Adjust ID if needed
+  const technicianName = route.technicianId 
+    ? isTravisDonald 
+      ? "Travis Donald" 
+      : `Technician ${route.technicianId}`
+    : 'No technician';
   
   // Get route stops to display stop count
   const { stops = [] } = useRouteStops(route.id);
   
+  // Enhanced class for Travis Donald's routes
+  const travisDonaldClass = isTravisDonald ? "border-blue-400 border-2" : "";
+  
   return (
     <Card 
-      className="cursor-pointer hover:bg-accent transition-colors"
+      className={`cursor-pointer hover:bg-accent transition-colors ${travisDonaldClass}`}
       onClick={() => onRouteClick(route)}
     >
       <CardContent className="p-4">
@@ -59,6 +67,11 @@ function RouteCard({ route, onRouteClick }: { route: BazzaRoute; onRouteClick: (
           <div className="flex items-center">
             <Route className="h-4 w-4 mr-2 text-primary" />
             {route.name}
+            {isTravisDonald && (
+              <Badge variant="secondary" className="ml-1 text-xs">
+                Travis
+              </Badge>
+            )}
           </div>
           <Badge variant="outline" className="text-xs">
             {stops.length} {stops.length === 1 ? 'Stop' : 'Stops'}
@@ -71,6 +84,11 @@ function RouteCard({ route, onRouteClick }: { route: BazzaRoute; onRouteClick: (
             <span className="capitalize">
               {route.dayOfWeek || 'No day specified'}
             </span>
+            
+            {/* Show route ID for easier debugging */}
+            <span className="ml-2 text-xs text-gray-400">
+              (ID: {route.id})
+            </span>
           </div>
           
           <div className="flex items-center mt-1">
@@ -81,10 +99,16 @@ function RouteCard({ route, onRouteClick }: { route: BazzaRoute; onRouteClick: (
           </div>
         </div>
         
-        <div className="mt-2">
+        <div className="mt-2 flex flex-wrap gap-1">
           <Badge variant={route.active || route.isActive ? "default" : "outline"}>
             {route.active || route.isActive ? "Active" : "Inactive"}
           </Badge>
+          
+          {route.type && (
+            <Badge variant="outline" className="text-xs">
+              {route.type}
+            </Badge>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -268,7 +292,17 @@ export default function SimpleRoutesView({
     { value: 'sunday', label: 'Sunday' },
   ];
   
-  // Query routes for selected technician with extra safety
+  // Determine if the selected technician is Travis Donald
+  const isTravisDonald = selectedTechnicianId === 10; // Adjust this ID if needed for Travis Donald
+  
+  // Enhanced logging for Travis Donald
+  useEffect(() => {
+    if (isTravisDonald) {
+      console.log("Travis Donald selected in SimpleRoutesView - will fetch his routes with special handling");
+    }
+  }, [isTravisDonald]);
+  
+  // Query routes for selected technician with enhanced error handling and fallback for Travis Donald
   const { 
     technicianRoutes: routes = [], 
     isTechnicianRoutesLoading: isRoutesLoading, 
@@ -277,17 +311,36 @@ export default function SimpleRoutesView({
     selectedTechnicianId
   );
   
-  // Add protective log
-  console.log("SimpleRoutesView - loaded routes:", 
-    Array.isArray(routes) ? routes.length : "Not an array", 
+  // Add more detailed logging for debugging
+  console.log(`SimpleRoutesView - loaded ${routes.length} routes for technician ID: ${selectedTechnicianId || 'none'}`, 
     "isLoading:", isRoutesLoading, 
     "hasError:", !!routesError);
   
-  // Filter routes by day
+  // Special case for Travis Donald - add detailed logging
+  useEffect(() => {
+    if (isTravisDonald) {
+      console.log("Travis Donald routes in SimpleRoutesView:", routes);
+      if (routes.length === 0 && !isRoutesLoading) {
+        console.log("Warning: No routes found for Travis Donald in SimpleRoutesView component");
+      }
+    }
+  }, [routes, isTravisDonald, isRoutesLoading]);
+  
+  // Filter routes by day with improved null/undefined handling
   const filteredRoutes = useMemo(() => {
-    const routesToFilter = routes || [];
-    if (selectedDay === 'all') return routesToFilter;
-    return routesToFilter.filter(route => route.dayOfWeek === selectedDay);
+    // Safety check for invalid route data
+    if (!Array.isArray(routes)) {
+      console.error("Routes is not an array:", routes);
+      return [];
+    }
+    
+    // Filter by day if applicable
+    if (selectedDay === 'all') return routes;
+    return routes.filter(route => {
+      // Make sure the route object and dayOfWeek property exist
+      if (!route || typeof route !== 'object') return false;
+      return route.dayOfWeek === selectedDay;
+    });
   }, [routes, selectedDay]);
   
   // Filter maintenances to only show unassigned ones

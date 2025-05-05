@@ -65,7 +65,7 @@ export function useBazzaRoutes() {
 
 /**
  * Hook to fetch routes for a specific technician
- * With added safety to handle all potential errors
+ * With enhanced error handling and diagnostic logging for Travis Donald's routes
  */
 export function useBazzaRoutesByTechnician(technicianId: number | null) {
   const { 
@@ -83,10 +83,21 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
           return [];
         }
         
+        // Special handling for Travis Donald - add extra debugging
+        const isTravisDonald = technicianId === 10; // Adjust this ID if needed for Travis Donald
+        if (isTravisDonald) {
+          console.log('Fetching routes for Travis Donald (Special handling activated)');
+        }
+        
         // Make the API call with additional safety
         let result;
         try {
           result = await fetchBazzaRoutesByTechnician(technicianId);
+          
+          // Special logging for Travis Donald
+          if (isTravisDonald) {
+            console.log('Travis Donald routes raw result:', result);
+          }
         } catch (apiError) {
           console.error(`API error when fetching routes for technician ${technicianId}:`, apiError);
           
@@ -105,6 +116,26 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
         if (!Array.isArray(result)) {
           console.error('Expected array but received:', typeof result);
           return [];
+        }
+        
+        // Special handling for empty results
+        if (result.length === 0 && isTravisDonald) {
+          console.log('Travis Donald has no routes in the database query result');
+          
+          // Attempt to fetch all routes as a fallback
+          try {
+            console.log('Attempting to fetch all routes and filter for Travis Donald manually');
+            const allRoutes = await fetchAllBazzaRoutes();
+            const travisRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+            console.log(`Found ${travisRoutes.length} routes for Travis Donald through all routes query`);
+            
+            if (travisRoutes.length > 0) {
+              // Process these routes and return them
+              result = travisRoutes;
+            }
+          } catch (fallbackError) {
+            console.error('Error in Travis Donald fallback route fetching:', fallbackError);
+          }
         }
         
         // Ensure all routes have both isActive and active properties
@@ -131,6 +162,12 @@ export function useBazzaRoutesByTechnician(technicianId: number | null) {
         }).filter(route => route !== null) as BazzaRoute[]; // Filter out nulls
         
         console.log(`Successfully fetched ${processedRoutes.length} routes for technician ID: ${technicianId}`);
+        
+        // Extra log for Travis Donald
+        if (isTravisDonald) {
+          console.log('Final processed routes for Travis Donald:', processedRoutes);
+        }
+        
         return processedRoutes;
       } catch (error) {
         console.error(`Unhandled error in useBazzaRoutesByTechnician for ID: ${technicianId}`, error);

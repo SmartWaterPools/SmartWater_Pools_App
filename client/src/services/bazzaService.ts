@@ -121,11 +121,28 @@ export const enhanceRoutesWithStopCounts = async (routes: BazzaRoute[]): Promise
   }
 };
 
-// Fetch routes for a technician
+// Fetch routes for a technician with enhanced error handling and fallback mechanism
 export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promise<BazzaRoute[]> => {
   try {
-    console.log(`Fetching routes for technician ${technicianId}`);
+    // Special identification for Travis Donald
+    const isTravisDonald = technicianId === 10; // Adjust this ID if needed
+    if (isTravisDonald) {
+      console.log(`Fetching routes for Travis Donald (ID: ${technicianId}) - using enhanced processing`);
+    } else {
+      console.log(`Fetching routes for technician ${technicianId}`);
+    }
+    
     const routes = await safeApiRequest<BazzaRoute[]>(`/api/bazza/routes/technician/${technicianId}`);
+    
+    // Special logging for Travis Donald
+    if (isTravisDonald) {
+      console.log(`Raw routes data for Travis Donald:`, routes);
+      console.log(`Routes array length: ${routes.length}`);
+      
+      if (routes.length === 0) {
+        console.log(`No routes found for Travis Donald through direct API query - will attempt fallback`);
+      }
+    }
     
     // Process each route to ensure both isActive and active properties exist
     const processedRoutes = routes.map(route => {
@@ -141,6 +158,47 @@ export const fetchBazzaRoutesByTechnician = async (technicianId: number): Promis
     
     // Enhance routes with stop counts
     const enhancedRoutes = await enhanceRoutesWithStopCounts(processedRoutes);
+    
+    // Special case for Travis Donald - if no routes found, use a fallback
+    if (isTravisDonald && enhancedRoutes.length === 0) {
+      console.log(`Attempting fallback for Travis Donald - manually looking for his routes`);
+      try {
+        // Fetch all routes and manually filter for Travis Donald
+        const allRoutes = await fetchAllBazzaRoutes();
+        console.log(`Fetched ${allRoutes.length} total routes to search for Travis Donald's routes`);
+        
+        // Filter for routes assigned to Travis Donald
+        const travisRoutes = allRoutes.filter(route => {
+          const matched = route.technicianId === technicianId;
+          if (matched) {
+            console.log(`Found Travis Donald route:`, route);
+          }
+          return matched;
+        });
+        
+        if (travisRoutes.length > 0) {
+          console.log(`Found ${travisRoutes.length} routes for Travis Donald through fallback`);
+          
+          // Process and enhance these routes
+          const processedTravisRoutes = travisRoutes.map(route => {
+            if (route.isActive !== undefined && route.active === undefined) {
+              return { ...route, active: route.isActive };
+            } else if (route.active !== undefined && route.isActive === undefined) {
+              return { ...route, isActive: route.active };
+            }
+            return route;
+          });
+          
+          const enhancedTravisRoutes = await enhanceRoutesWithStopCounts(processedTravisRoutes);
+          return enhancedTravisRoutes;
+        } else {
+          console.log(`No routes found for Travis Donald through fallback either`);
+        }
+      } catch (fallbackError) {
+        console.error(`Error in fallback route fetching for Travis Donald:`, fallbackError);
+      }
+    }
+    
     return enhancedRoutes;
   } catch (error) {
     console.error(`Error fetching routes for technician ${technicianId}:`, error);

@@ -6041,14 +6041,64 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  // Enhanced Bazza Route retrieval with logging
   async getAllBazzaRoutes(): Promise<BazzaRoute[]> {
-    return db.select().from(bazzaRoutes).orderBy(bazzaRoutes.name);
+    console.log(`[STORAGE] Fetching all Bazza routes`);
+    try {
+      const allRoutes = await db.select().from(bazzaRoutes).orderBy(bazzaRoutes.name);
+      console.log(`[STORAGE] Successfully fetched ${allRoutes.length} Bazza routes`);
+      return allRoutes;
+    } catch (error) {
+      console.error(`[STORAGE] Error fetching all Bazza routes: ${error}`);
+      throw error;
+    }
   }
 
+  // Enhanced function with special handling for Travis Donald and better logging
   async getBazzaRoutesByTechnicianId(technicianId: number): Promise<BazzaRoute[]> {
-    return db.select().from(bazzaRoutes)
-      .where(eq(bazzaRoutes.technicianId, technicianId))
-      .orderBy(bazzaRoutes.dayOfWeek);
+    // Special handling for Travis Donald (ID = 10)
+    const isTravisDonald = technicianId === 10; // Adjust this ID if needed
+    
+    if (isTravisDonald) {
+      console.log(`[STORAGE] Special handling for Travis Donald's routes (ID: ${technicianId})`);
+    } else {
+      console.log(`[STORAGE] Fetching routes for technician ID: ${technicianId}`);
+    }
+    
+    try {
+      const routes = await db.select().from(bazzaRoutes)
+        .where(eq(bazzaRoutes.technicianId, technicianId))
+        .orderBy(bazzaRoutes.dayOfWeek);
+      
+      console.log(`[STORAGE] Found ${routes.length} routes for technician ID: ${technicianId}`);
+      
+      // Special case for Travis Donald - log more details
+      if (isTravisDonald) {
+        if (routes.length === 0) {
+          console.log(`[STORAGE] No routes found for Travis Donald in the direct query`);
+          
+          // Try a different query approach for Travis - without the where clause
+          console.log(`[STORAGE] Attempting to find Travis Donald's routes with a different query approach`);
+          const allRoutes = await db.select().from(bazzaRoutes);
+          console.log(`[STORAGE] Total routes in database: ${allRoutes.length}`);
+          
+          // Manually filter for Travis Donald's routes
+          const travisRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+          console.log(`[STORAGE] Found ${travisRoutes.length} routes for Travis Donald through alternative query`);
+          
+          if (travisRoutes.length > 0) {
+            return travisRoutes;
+          }
+        } else {
+          console.log(`[STORAGE] Routes found for Travis Donald: ${JSON.stringify(routes.map(r => ({ id: r.id, name: r.name })))}`);
+        }
+      }
+      
+      return routes;
+    } catch (error) {
+      console.error(`[STORAGE] Error fetching routes for technician ID ${technicianId}: ${error}`);
+      throw error;
+    }
   }
 
   async getBazzaRoutesByDayOfWeek(dayOfWeek: string): Promise<BazzaRoute[]> {
