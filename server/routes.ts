@@ -757,18 +757,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isNewOAuthUser: user.isNewOAuthUser,
           needsOrganization: user.needsOrganization,
           organizationId: user.organizationId,
-          id: user.id
+          id: user.id,
+          suggestedOrganizationId: user.suggestedOrganizationId,
+          suggestedOrganizationName: user.suggestedOrganizationName,
+          googleId: user.googleId
         });
         
-        // Check if user has a suggested organization (same domain)
-        if (user.suggestedOrganizationId && user.suggestedOrganizationName) {
-          console.log(`Redirecting user to organization selection with suggested org: ${user.suggestedOrganizationName}`);
-          return res.redirect(`/organization-selection/${user.googleId}?suggested=${user.suggestedOrganizationId}`);
-        } else {
-          // Force redirect to root page instead of dashboard - this will show the paywall login card
-          console.log("Redirecting new OAuth user to paywall (root page)");
-          return res.redirect('/?needs-organization=true');
+        // All new OAuth users should go to organization selection page
+        console.log(`Redirecting new OAuth user to organization selection page with googleId: ${user.googleId}`);
+        
+        // Build redirect URL with suggested organization if available
+        let redirectUrl = `/organization-selection/${user.googleId}`;
+        if (user.suggestedOrganizationId) {
+          redirectUrl += `?suggested=${user.suggestedOrganizationId}`;
+          console.log(`Including suggested organization: ${user.suggestedOrganizationName} (ID: ${user.suggestedOrganizationId})`);
         }
+        
+        return res.redirect(redirectUrl);
       } else {
         console.log("Existing user with valid organization - redirecting to main dashboard");
         return res.redirect('/dashboard');
