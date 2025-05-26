@@ -164,6 +164,40 @@ export class EmailService {
   }
 
   /**
+   * Get organization email settings for a user
+   */
+  private async getOrganizationEmailSettings(userId: number): Promise<{
+    fromName: string;
+    fromAddress: string;
+    signature?: string;
+  }> {
+    try {
+      const user = await db.query.users.findFirst({
+        where: (users, { eq }) => eq(users.id, userId),
+        with: {
+          organization: true
+        }
+      });
+
+      if (user?.organization?.emailFromName && user?.organization?.emailFromAddress) {
+        return {
+          fromName: user.organization.emailFromName,
+          fromAddress: user.organization.emailFromAddress,
+          signature: user.organization.emailSignature || undefined
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching organization email settings:', error);
+    }
+
+    // Fallback to default
+    return {
+      fromName: 'Smart Water Pools',
+      fromAddress: 'noreply@smartwaterpools.com'
+    };
+  }
+
+  /**
    * Send password reset email
    */
   async sendPasswordResetEmail(user: User): Promise<boolean> {
@@ -188,6 +222,9 @@ export class EmailService {
     try {
       const token = this.storeToken(user.id, user.email, 'password-reset');
       
+      // Get organization email settings
+      const orgEmailSettings = await this.getOrganizationEmailSettings(user.id);
+      
       // Always use the production URL for password reset
       let baseUrl = 'https://smartwaterpools.replit.app';
       
@@ -210,7 +247,7 @@ export class EmailService {
       
       const userName = user.name || user.username;
       
-      // Create email content from template
+      // Create email content from template with organization branding
       const emailOptions: EmailOptions = {
         to: user.email,
         subject: emailTemplates.passwordReset.subject,

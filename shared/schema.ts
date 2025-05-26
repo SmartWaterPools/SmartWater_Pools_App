@@ -32,6 +32,11 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   isSystemAdmin: boolean("is_system_admin").default(false), // If true, this is the SmartWater organization
   
+  // Email configuration for organization-specific emails
+  emailFromName: text("email_from_name"), // Company name for "From" field
+  emailFromAddress: text("email_from_address"), // Reply-to email address
+  emailSignature: text("email_signature"), // Company email signature
+  
   // Subscription related fields
   subscriptionId: integer("subscription_id"), // No foreign key reference to avoid circular dependency
   stripeCustomerId: text("stripe_customer_id"), // Stripe Customer ID
