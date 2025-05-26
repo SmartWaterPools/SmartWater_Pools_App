@@ -219,8 +219,13 @@ export const UserManagementCard = () => {
             <div className="text-center mb-4">
               <h3 className="font-medium text-green-600">Welcome to SmartWater Pools!</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Please provide your organization details to complete your account setup
+                Complete your account setup with your organization details
               </p>
+              {user && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Signed in as: {user.name} ({user.email})
+                </p>
+              )}
             </div>
             
             {error && (
@@ -230,53 +235,81 @@ export const UserManagementCard = () => {
             )}
             
             <Form {...oauthForm}>
-              <form onSubmit={oauthForm.handleSubmit(onOAuthCompletionSubmit)} className="space-y-3">
+              <form onSubmit={oauthForm.handleSubmit(onOAuthCompletionSubmit)} className="space-y-4">
                 <FormField
                   control={oauthForm.control}
                   name="organizationName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Organization Name</FormLabel>
+                      <FormLabel>Organization Name *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your organization name" {...field} disabled={loginLoading} />
+                        <Input 
+                          placeholder="Enter your company/organization name" 
+                          {...field} 
+                          disabled={loginLoading} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 
-                <FormField
-                  control={oauthForm.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Role</FormLabel>
-                      <Select disabled={loginLoading} onValueChange={field.onChange} defaultValue={field.value}>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={oauthForm.control}
+                    name="role"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Your Role *</FormLabel>
+                        <Select disabled={loginLoading} onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select your role" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="client">Client/Owner</SelectItem>
+                            <SelectItem value="technician">Technician</SelectItem>
+                            <SelectItem value="manager">Manager</SelectItem>
+                            <SelectItem value="admin">Administrator</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={oauthForm.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select your role" />
-                          </SelectTrigger>
+                          <Input 
+                            placeholder="(555) 123-4567" 
+                            {...field} 
+                            disabled={loginLoading} 
+                          />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="client">Client</SelectItem>
-                          <SelectItem value="technician">Technician</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="admin">Administrator</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
                 
                 <FormField
                   control={oauthForm.control}
-                  name="phone"
+                  name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone (Optional)</FormLabel>
+                      <FormLabel>Address (Optional)</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter your phone number" {...field} disabled={loginLoading} />
+                        <Input 
+                          placeholder="Your business address" 
+                          {...field} 
+                          disabled={loginLoading} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -287,10 +320,10 @@ export const UserManagementCard = () => {
                   {loginLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Completing Setup...
+                      Setting up your account...
                     </>
                   ) : (
-                    "Complete Registration"
+                    "Complete Account Setup"
                   )}
                 </Button>
               </form>
