@@ -2413,5 +2413,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.error('Failed to load CRM communications routes:', error);
   }
 
+  // Register OAuth email provider routes
+  try {
+    const emailProviderOAuthRoutes = await import('./routes/email-provider-oauth-routes');
+    app.use("/api/email-providers", emailProviderOAuthRoutes.default);
+  } catch (error) {
+    console.error('Failed to load OAuth email provider routes:', error);
+  }
+
+  // Register OAuth email provider routes
+  try {
+    const emailProviderOAuthRoutes = await import('./routes/email-provider-oauth');
+    app.use("/api/email-providers", emailProviderOAuthRoutes.default);
+  } catch (error) {
+    console.error('Failed to load email provider OAuth routes:', error);
+  }
+
   return httpServer;
 }

@@ -40,6 +40,9 @@ export const organizations = pgTable("organizations", {
   // Custom email templates (JSON storage)
   customEmailTemplates: jsonb("custom_email_templates"), // Store custom templates as JSON
   
+  // Email provider configuration (OAuth-based)
+  emailConfig: jsonb("email_config"), // Store secure email provider config
+  
   // Subscription related fields
   subscriptionId: integer("subscription_id"), // No foreign key reference to avoid circular dependency
   stripeCustomerId: text("stripe_customer_id"), // Stripe Customer ID
