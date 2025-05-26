@@ -108,6 +108,9 @@ function AppContent({
       <div className="flex h-screen overflow-hidden bg-background">
         <Switch>
           {/* Public routes, no login page required as it will be a card on dashboard */}
+          <Route path="/login">
+            <Login />
+          </Route>
           <Route path="/register">
             <Register />
           </Route>
