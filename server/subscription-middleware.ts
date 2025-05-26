@@ -106,6 +106,12 @@ export function requireActiveSubscription(storage: IStorage) {
         return next();
       }
       
+      // Special handling for new OAuth users who need to select an organization
+      if (user.isNewOAuthUser || user.needsOrganization || !user.organizationId) {
+        console.log(`New OAuth user ${user.email} needs organization selection - allowing dashboard access`);
+        return next();
+      }
+      
       // Get the user's organization
       const organization = await storage.getOrganization(user.organizationId);
       
