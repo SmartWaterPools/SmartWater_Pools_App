@@ -248,4 +248,173 @@ SmartWater Pools System`,
   }
 });
 
+/**
+ * Update organization email template
+ * PUT /api/organizations/:id/email-templates/:templateType
+ */
+router.put('/:id/email-templates/:templateType', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const organizationId = parseInt(req.params.id);
+    const templateType = req.params.templateType;
+    const userId = (req as any).user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Validate template type
+    const validTemplateTypes = ['serviceCompletion', 'appointmentReminder', 'maintenanceAlert'];
+    if (!validTemplateTypes.includes(templateType)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid template type'
+      });
+    }
+
+    // Validate request body
+    const templateSchema = z.object({
+      subject: z.string().min(1, "Subject is required"),
+      htmlTemplate: z.string().min(1, "HTML template is required"),
+      textTemplate: z.string().min(1, "Text template is required")
+    });
+
+    const validationResult = templateSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid template data',
+        errors: validationResult.error.errors
+      });
+    }
+
+    // Check if user has permission to update this organization
+    const user = await db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.id, userId),
+      with: {
+        organization: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role !== 'org_admin' || user.organizationId !== organizationId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to update this organization\'s email templates'
+      });
+    }
+
+    // Get current custom templates or initialize empty object
+    const currentTemplates = user.organization?.customEmailTemplates || {};
+    
+    // Update the specific template
+    const updatedTemplates = {
+      ...currentTemplates,
+      [templateType]: {
+        subject: validationResult.data.subject,
+        htmlTemplate: validationResult.data.htmlTemplate,
+        textTemplate: validationResult.data.textTemplate,
+        updatedAt: new Date().toISOString()
+      }
+    };
+
+    // Update organization with new templates
+    const updatedOrganization = await db
+      .update(organizations)
+      .set({
+        customEmailTemplates: updatedTemplates
+      })
+      .where(eq(organizations.id, organizationId))
+      .returning();
+
+    if (updatedOrganization.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Organization not found'
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Email template updated successfully',
+      data: {
+        templateType,
+        template: updatedTemplates[templateType]
+      }
+    });
+
+  } catch (error) {
+    console.error('Error updating email template:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred while updating the email template'
+    });
+  }
+});
+
+/**
+ * Get organization email templates
+ * GET /api/organizations/:id/email-templates
+ */
+router.get('/:id/email-templates', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const organizationId = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
+      });
+    }
+
+    // Check if user has permission to view this organization's templates
+    const user = await db.query.users.findFirst({
+      where: (users, { eq }) => eq(users.id, userId),
+      with: {
+        organization: true
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    if (user.role !== 'org_admin' || user.organizationId !== organizationId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to view this organization\'s email templates'
+      });
+    }
+
+    const customTemplates = user.organization?.customEmailTemplates || {};
+
+    return res.json({
+      success: true,
+      data: {
+        customTemplates,
+        organizationId
+      }
+    });
+
+  } catch (error) {
+    console.error('Error fetching email templates:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'An error occurred while fetching email templates'
+    });
+  }
+});
+
 export default router;

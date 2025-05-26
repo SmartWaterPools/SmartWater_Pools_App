@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Building, Mail, Users, Settings } from "lucide-react";
 import { OrganizationEmailSettings } from "@/components/settings/OrganizationEmailSettings";
+import { EmailTemplateManager } from "@/components/settings/EmailTemplateManager";
 
 export default function OrganizationSettings() {
   const { user } = useAuth();
@@ -33,10 +34,14 @@ export default function OrganizationSettings() {
       </div>
 
       <Tabs defaultValue="email" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="email" className="flex items-center gap-2">
             <Mail className="h-4 w-4" />
             Email Settings
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="flex items-center gap-2">
+            <Mail className="h-4 w-4" />
+            Email Templates
           </TabsTrigger>
           <TabsTrigger value="company" className="flex items-center gap-2">
             <Building className="h-4 w-4" />
@@ -94,6 +99,10 @@ export default function OrganizationSettings() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="templates" className="space-y-6">
+          <EmailTemplateManager organizationId={user.organizationId} />
         </TabsContent>
 
         <TabsContent value="company" className="space-y-6">
