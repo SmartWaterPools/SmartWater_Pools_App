@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex, doublePrecision, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, time, uniqueIndex, doublePrecision, jsonb, varchar, index } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -14,6 +14,17 @@ export type BillingCycle = typeof BILLING_CYCLES[number];
 // Subscription plan status
 export const SUBSCRIPTION_STATUSES = ['active', 'inactive', 'past_due', 'canceled', 'trialing'] as const;
 export type SubscriptionStatus = typeof SUBSCRIPTION_STATUSES[number];
+
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
 
 // Organization schema first to avoid circular dependencies
 export const organizations = pgTable("organizations", {
@@ -222,26 +233,19 @@ export const insertPaymentRecordSchema = createInsertSchema(paymentRecords).omit
   createdAt: true,
 });
 
-// User schema
+// User storage table for Replit Auth
 export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password"),  // Can be null for OAuth users
-  name: text("name").notNull(),
-  email: text("email").notNull(),
-  role: text("role").notNull().default("client"), // system_admin, org_admin, manager, technician, client, office_staff
-  phone: text("phone"),
-  address: text("address"),
-  active: boolean("active").notNull().default(true),
-  organizationId: integer("organization_id").references(() => organizations.id).notNull(),
-  googleId: text("google_id").unique(), // Google OAuth ID
-  photoUrl: text("photo_url"), // User's profile photo from Google
-  authProvider: text("auth_provider").default("local"), // 'local', 'google', etc.
+  id: varchar("id").primaryKey().notNull(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({
-  id: true,
-});
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
 
 // Valid contract types
 export const CONTRACT_TYPES = ['residential', 'commercial', 'service', 'maintenance'] as const;
