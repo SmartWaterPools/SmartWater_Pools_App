@@ -12,7 +12,7 @@ import {
   organizations
 } from '../shared/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
-import { isAuthenticated } from './middleware/auth';
+import { isAuthenticated } from './auth';
 
 const router = Router();
 

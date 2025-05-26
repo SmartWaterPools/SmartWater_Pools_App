@@ -2404,10 +2404,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Import and register CRM communications routes
-  const crmCommunicationsRoutes = await import('./crm-communications-routes');
-  app.use("/api/clients", crmCommunicationsRoutes.default);
-  app.use("/api/communications", crmCommunicationsRoutes.default);
+  // Register CRM communications routes
+  try {
+    const crmCommunicationsRoutes = await import('./crm-communications-routes');
+    app.use("/api/clients", crmCommunicationsRoutes.default);
+    app.use("/api/communications", crmCommunicationsRoutes.default);
+  } catch (error) {
+    console.error('Failed to load CRM communications routes:', error);
+  }
 
   return httpServer;
 }
