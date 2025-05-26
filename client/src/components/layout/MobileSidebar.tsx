@@ -65,7 +65,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               <p className="text-xs text-gray-500 truncate">{user?.email || user?.role || ''}</p>
               <div className="mt-1">
                 <Link href="/settings" onClick={onClose}>
-                  <a className="text-xs text-primary hover:underline">View Profile</a>
+                  <span className="text-xs text-primary hover:underline cursor-pointer">View Profile</span>
                 </Link>
               </div>
             </div>
@@ -77,92 +77,92 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
           <div className="space-y-1">
             {/* Dashboard */}
             <Link href="/" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <Home className="mr-3 h-5 w-5" />
                 Dashboard
-              </a>
+              </div>
             </Link>
             
             {/* Projects */}
             <Link href="/projects" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/projects') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <Briefcase className="mr-3 h-5 w-5" />
                 Projects
-              </a>
+              </div>
             </Link>
             
             {/* Maintenance */}
             <Link href="/maintenance" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/maintenance') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <Activity className="mr-3 h-5 w-5" />
                 Maintenance
-              </a>
+              </div>
             </Link>
             
             {/* Repairs */}
             <Link href="/repairs" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/repairs') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <Wrench className="mr-3 h-5 w-5" />
                 Repairs
-              </a>
+              </div>
             </Link>
             
             {/* Clients */}
             <Link href="/clients" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/clients') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <Users className="mr-3 h-5 w-5" />
                 Clients
-              </a>
+              </div>
             </Link>
             
             {/* Technicians */}
             <Link href="/technicians" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/technicians') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <UserCircle className="mr-3 h-5 w-5" />
                 Technicians
-              </a>
+              </div>
             </Link>
             
             {/* Communications */}
             <Link href="/communications" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/communications') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <MessageSquare className="mr-3 h-5 w-5" />
                 Communications
-              </a>
+              </div>
             </Link>
             
             {/* Business */}
             <Link href="/business" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/business') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <Phone className="mr-3 h-5 w-5" />
                 Business
-              </a>
+              </div>
             </Link>
             
             {/* Barcode Scanner Demo */}
             <Link href="/inventory/barcode-demo" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/inventory/barcode-demo') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
               }`}>
                 <Barcode className="mr-3 h-5 w-5" />
                 Barcode Scanner
-              </a>
+              </div>
             </Link>
           </div>
         </nav>
@@ -171,12 +171,12 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
         <div className="border-t border-gray-200 p-4 bg-gray-50">
           <div className="space-y-1">
             <Link href="/settings" onClick={onClose}>
-              <a className={`flex items-center px-3 py-2 text-sm font-medium rounded-md ${
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/settings') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'
               }`}>
                 <Settings className="mr-3 h-5 w-5" />
                 Settings
-              </a>
+              </div>
             </Link>
             
             <button 
