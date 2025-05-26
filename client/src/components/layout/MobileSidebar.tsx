@@ -83,7 +83,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                   <p className="font-medium text-gray-900 truncate">Not signed in</p>
                   <p className="text-xs text-gray-500 truncate">Sign in to access your account</p>
                   <div className="mt-1">
-                    <Link href="/login" onClick={onClose}>
+                    <Link href="/" onClick={onClose}>
                       <span className="text-xs text-primary hover:underline cursor-pointer">Sign In</span>
                     </Link>
                   </div>

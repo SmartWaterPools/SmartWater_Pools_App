@@ -759,14 +759,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           organizationId: user.organizationId,
           id: user.id
         });
-        const googleId = user.googleId || (user as any).googleId;
-        if (googleId) {
-          console.log(`Redirecting to organization selection with Google ID: ${googleId}`);
-          return res.redirect(`/organization-selection/${googleId}`);
-        } else {
-          console.log("No Google ID found for new user, redirecting to subscription setup");
-          return res.redirect('/subscription/setup');
-        }
+        
+        // Force redirect to root page instead of dashboard - this will show the paywall login card
+        console.log("Redirecting new OAuth user to paywall (root page)");
+        return res.redirect('/?needs-organization=true');
       } else {
         console.log("Existing user with valid organization - redirecting to main dashboard");
         return res.redirect('/dashboard');

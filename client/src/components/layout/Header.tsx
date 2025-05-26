@@ -201,11 +201,11 @@ export function Header({ toggleMobileMenu }: HeaderProps) {
                       <p className="text-sm text-gray-500">Sign in to access your account</p>
                     </div>
                   </div>
-                  <DropdownMenuItem onClick={() => setLocation('/login')} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
+                  <DropdownMenuItem onClick={() => setLocation('/')} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
                     <UserCircle className="mr-2 h-5 w-5 text-gray-500" />
                     <span>Sign In</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setLocation('/register')} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
+                  <DropdownMenuItem onClick={() => setLocation('/')} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
                     <Settings className="mr-2 h-5 w-5 text-gray-500" />
                     <span>Sign Up</span>
                   </DropdownMenuItem>
