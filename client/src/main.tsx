@@ -1,6 +1,6 @@
 // Restore original imports with better error handling
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import App from "./App.simple";
 import "./index.css";
 
 // Main application initialization with error handling
