@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -34,27 +34,49 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-// Define registration form schema
-const registerFormSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  confirmPassword: z.string(),
-  name: z.string().min(1, "Full name is required"),
-  organizationName: z.string().min(2, "Organization name is required"),
-  role: z.enum(["client", "technician", "manager", "admin"]),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-}).refine(data => data.password === data.confirmPassword, {
-  message: "Passwords do not match",
-  path: ["confirmPassword"],
-});
+// Define registration form schema - make it dynamic based on OAuth status
+const createRegisterFormSchema = (isOAuth: boolean) => {
+  const baseSchema = z.object({
+    email: z.string().email("Please enter a valid email address"),
+    name: z.string().min(1, "Full name is required"),
+    organizationName: z.string().min(2, "Organization name is required"),
+    role: z.enum(["client", "technician", "manager", "admin"]),
+    phone: z.string().optional(),
+    address: z.string().optional(),
+  });
 
-type RegisterFormValues = z.infer<typeof registerFormSchema>;
+  if (isOAuth) {
+    // For OAuth users, passwords are not required
+    return baseSchema.extend({
+      password: z.string().optional(),
+      confirmPassword: z.string().optional(),
+    });
+  } else {
+    // For regular users, passwords are required
+    return baseSchema.extend({
+      password: z.string().min(6, "Password must be at least 6 characters"),
+      confirmPassword: z.string(),
+    }).refine(data => data.password === data.confirmPassword, {
+      message: "Passwords do not match",
+      path: ["confirmPassword"],
+    });
+  }
+};
 
 export default function Register() {
   const { toast } = useToast();
-  const { register, isLoading } = useAuth();
-  const [, setLocation] = useLocation();
+  const { register, isLoading, user } = useAuth();
+  const [location, setLocation] = useLocation();
+  const [isOAuthUser, setIsOAuthUser] = useState(false);
+  
+  // Check if this is an OAuth user
+  const searchParams = new URLSearchParams(location.split('?')[1] || '');
+  const isOAuth = searchParams.get('oauth') === 'true';
+  const isNewUser = searchParams.get('new') === 'true';
+  
+  // Create the schema based on OAuth status
+  const registerFormSchema = createRegisterFormSchema(isOAuth);
+  type RegisterFormValues = z.infer<typeof registerFormSchema>;
   
   // Define form
   const form = useForm<RegisterFormValues>({
@@ -70,6 +92,20 @@ export default function Register() {
       address: "",
     },
   });
+  
+  // Pre-fill form for OAuth users
+  useEffect(() => {
+    if (isOAuth && isNewUser && user) {
+      setIsOAuthUser(true);
+      form.setValue('email', user.email || '');
+      form.setValue('name', user.name || '');
+      
+      // If user has suggested organization, pre-fill it
+      if ((user as any).suggestedOrganizationName) {
+        form.setValue('organizationName', (user as any).suggestedOrganizationName);
+      }
+    }
+  }, [isOAuth, isNewUser, user, form]);
   
   async function onSubmit(data: RegisterFormValues) {
     // Remove confirmPassword as it's not needed for the API
@@ -110,9 +146,14 @@ export default function Register() {
     <div className="container flex items-center justify-center min-h-screen py-8 overflow-auto">
       <Card className="w-full max-w-lg my-8">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">Create Account</CardTitle>
+          <CardTitle className="text-2xl text-center">
+            {isOAuthUser ? "Complete Your Registration" : "Create Account"}
+          </CardTitle>
           <CardDescription className="text-center">
-            Enter your information to register a new account
+            {isOAuthUser 
+              ? "Please provide your organization details to complete your account setup"
+              : "Enter your information to register a new account"
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -167,7 +208,7 @@ export default function Register() {
                         {...field}
                         type="email"
                         placeholder="Enter your email"
-                        disabled={isLoading}
+                        disabled={isLoading || isOAuthUser}
                       />
                     </FormControl>
                     <FormMessage />
@@ -175,45 +216,47 @@ export default function Register() {
                 )}
               />
               
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="password"
-                          placeholder="Create a password"
-                          disabled={isLoading}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirm Password</FormLabel>
-                      <FormControl>
-                        <Input
-                          {...field}
-                          type="password"
-                          placeholder="Confirm your password"
-                          disabled={isLoading}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              {!isOAuthUser && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Password</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="password"
+                            placeholder="Create a password"
+                            disabled={isLoading}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm Password</FormLabel>
+                        <FormControl>
+                          <Input
+                            {...field}
+                            type="password"
+                            placeholder="Confirm your password"
+                            disabled={isLoading}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
               
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
