@@ -42,6 +42,7 @@ import VehicleMapping from "./pages/VehicleMapping";
 import VehicleTracking from "./pages/VehicleTracking";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
+import OrganizationSettings from "./pages/OrganizationSettings";
 import BarcodeDemo from "./pages/BarcodeDemo";
 import DataTableDemo from "./pages/DataTableDemo";
 import Login from "./pages/Login";
@@ -273,6 +274,9 @@ function AppContent({
                     
                     <Route path="/settings">
                       <Settings />
+                    </Route>
+                    <Route path="/organization-settings">
+                      <OrganizationSettings />
                     </Route>
                     <Route path="/admin">
                       <Admin />
