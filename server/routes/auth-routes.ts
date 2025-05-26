@@ -3,7 +3,7 @@ import passport from 'passport';
 import bcrypt from 'bcrypt';
 import { storage } from '../storage';
 import { z } from 'zod';
-import { UpsertUser } from '@shared/schema';
+import { insertUserSchema } from '@shared/schema';
 
 // Timeout middleware specifically for OAuth requests
 // This prevents requests from hanging indefinitely
@@ -138,10 +138,7 @@ router.post('/logout', (req: Request, res: Response) => {
 router.post('/register', async (req: Request, res: Response) => {
   try {
     // Validate request body against schema
-    const userSchema = z.object({
-      firstName: z.string().optional(),
-      lastName: z.string().optional(),
-      email: z.string().email(),
+    const userSchema = insertUserSchema.extend({
       // Add additional validation if needed
       confirmPassword: z.string().optional(),
       organizationName: z.string().optional()

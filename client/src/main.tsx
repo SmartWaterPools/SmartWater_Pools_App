@@ -1,8 +1,7 @@
 // Restore original imports with better error handling
 import { createRoot } from "react-dom/client";
-import ReplitApp from "./ReplitApp";
+import App from "./App";
 import "./index.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Main application initialization with error handling
 document.addEventListener('DOMContentLoaded', () => {
@@ -35,13 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   try {
-    const queryClient = new QueryClient();
     const root = createRoot(rootElement);
-    root.render(
-      <QueryClientProvider client={queryClient}>
-        <ReplitApp />
-      </QueryClientProvider>
-    );
+    root.render(<App />);
     console.log('React app successfully rendered');
   } catch (error) {
     console.error('Error rendering React application:', error);
