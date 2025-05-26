@@ -12,7 +12,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   register: (userData: any) => Promise<boolean>;
-  googleLogin: () => void;
+  googleLogin: () => Promise<void>;
   checkSession: () => Promise<boolean>;
 }
 

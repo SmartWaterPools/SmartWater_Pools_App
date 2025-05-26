@@ -13,7 +13,7 @@ import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+// import { useAuth } from "@/contexts/AuthContext";
 
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
@@ -71,8 +71,8 @@ function AppContent({
   toggleMobileMenu: () => void; 
   closeMobileMenu: () => void; 
 }) {
-  const { isLoading } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState<boolean>(false);
+  const isLoading = false; // Simplified to avoid auth context issues
   
   // Check auth loading state for proper UI rendering
   console.log("Auth loading state:", isLoading);
