@@ -740,9 +740,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user.role === 'system_admin') {
         console.log("Redirecting system admin to admin dashboard");
         return res.redirect('/admin/dashboard');
-      } else if (!user.organizationId) {
-        console.log("User has no organization, redirecting to organization setup");
-        return res.redirect('/subscription/setup');
+      } else if (user.isNewOAuthUser || user.needsOrganization || !user.organizationId || user.id === -1) {
+        // New OAuth users need to complete organization setup or go to paywall
+        console.log("New OAuth user or user without organization, redirecting to organization selection");
+        const googleId = user.googleId || (user as any).googleId;
+        if (googleId) {
+          return res.redirect(`/organization-selection/${googleId}`);
+        } else {
+          console.log("No Google ID found for new user, redirecting to subscription setup");
+          return res.redirect('/subscription/setup');
+        }
       } else {
         console.log("Redirecting to main dashboard");
         return res.redirect('/dashboard');
