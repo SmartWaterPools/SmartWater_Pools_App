@@ -374,14 +374,31 @@ export function configurePassport(storage: IStorage) {
             const emailDomain = email.split('@')[1].toLowerCase();
             let suggestedOrganization = null;
             
-            // Special handling for smartwaterpools.com domain users
-            if (emailDomain === 'smartwaterpools.com') {
-              try {
-                suggestedOrganization = await storage.getOrganizationBySlug('smartwater-pools');
-                console.log(`Found existing organization for domain ${emailDomain}:`, suggestedOrganization?.name);
-              } catch (error) {
-                console.log(`No organization found for domain ${emailDomain}`);
+            try {
+              // Get all organizations and find one that matches the email domain
+              const organizations = await storage.getOrganizations();
+              
+              // Look for organizations that match the email domain
+              // This could be based on organization name, slug, or a specific domain field
+              suggestedOrganization = organizations.find(org => {
+                // Check if organization name contains the domain (without TLD)
+                const domainName = emailDomain.split('.')[0].toLowerCase();
+                const orgName = org.name.toLowerCase();
+                const orgSlug = org.slug.toLowerCase();
+                
+                // Match if domain name is in org name/slug, or if it's smartwaterpools.com
+                return orgSlug.includes(domainName) || 
+                       orgName.includes(domainName) ||
+                       (emailDomain === 'smartwaterpools.com' && orgSlug === 'smartwater-pools');
+              });
+              
+              if (suggestedOrganization) {
+                console.log(`Found matching organization for domain ${emailDomain}:`, suggestedOrganization.name);
+              } else {
+                console.log(`No organization found matching domain ${emailDomain}`);
               }
+            } catch (error) {
+              console.log(`Error finding organization for domain ${emailDomain}:`, error);
             }
             
             // For all other new users, store their info as pending

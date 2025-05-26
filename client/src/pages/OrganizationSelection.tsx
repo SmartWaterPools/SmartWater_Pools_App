@@ -346,12 +346,12 @@ export default function OrganizationSelection() {
           </div>
 
           {/* Show suggested organization option for same domain users */}
-          {suggestedOrgId && (
+          {suggestedOrgId && pendingUserData?.user?.suggestedOrganizationName && (
             <div className="mb-6 rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-primary mb-2">Join Your Organization</h3>
                 <p className="text-sm text-muted-foreground mb-4">
-                  We found that your email domain matches SmartWater Pools. You can join this organization directly.
+                  We found that your email domain matches {pendingUserData.user.suggestedOrganizationName}. You can join this organization directly.
                 </p>
                 <Button 
                   onClick={handleJoinSuggestedOrg}
@@ -365,7 +365,7 @@ export default function OrganizationSelection() {
                       Joining...
                     </>
                   ) : (
-                    'Join SmartWater Pools'
+                    `Join ${pendingUserData.user.suggestedOrganizationName}`
                   )}
                 </Button>
               </div>
