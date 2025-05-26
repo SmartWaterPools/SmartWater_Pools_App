@@ -144,7 +144,7 @@ export function Header({ toggleMobileMenu }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* User Profile Dropdown */}
+          {/* User Profile Dropdown - Show different content for authenticated vs unauthenticated */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
@@ -159,32 +159,58 @@ export function Header({ toggleMobileMenu }: HeaderProps) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[90vw] max-w-sm sm:w-64">
-              <div className="flex items-center justify-start p-4 border-b">
-                <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-lg mr-4 flex-shrink-0">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
+              {user ? (
+                // Authenticated user content
+                <>
+                  <div className="flex items-center justify-start p-4 border-b">
+                    <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center text-lg mr-4 flex-shrink-0">
+                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <p className="font-medium text-gray-900 truncate">{user.name || user.username || 'User'}</p>
+                      <p className="truncate text-sm text-gray-500">
+                        {user.email || 'No email provided'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="p-2">
+                    <DropdownMenuItem onClick={handleProfileClick} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
+                      <UserCircle className="mr-2 h-5 w-5 text-gray-500" />
+                      <span>Profile</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
+                      <Settings className="mr-2 h-5 w-5 text-gray-500" />
+                      <span>Settings</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
+                      <LogOut className="mr-2 h-5 w-5 text-gray-500" />
+                      <span>Logout</span>
+                    </DropdownMenuItem>
+                  </div>
+                </>
+              ) : (
+                // Unauthenticated user content
+                <div className="p-2">
+                  <div className="flex items-center justify-start p-4 border-b">
+                    <div className="w-10 h-10 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-lg mr-4 flex-shrink-0">
+                      <UserCircle className="h-6 w-6" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <p className="font-medium text-gray-900">Not signed in</p>
+                      <p className="text-sm text-gray-500">Sign in to access your account</p>
+                    </div>
+                  </div>
+                  <DropdownMenuItem onClick={() => setLocation('/login')} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
+                    <UserCircle className="mr-2 h-5 w-5 text-gray-500" />
+                    <span>Sign In</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setLocation('/register')} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
+                    <Settings className="mr-2 h-5 w-5 text-gray-500" />
+                    <span>Sign Up</span>
+                  </DropdownMenuItem>
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <p className="font-medium text-gray-900 truncate">{user?.name || user?.username || 'User'}</p>
-                  <p className="truncate text-sm text-gray-500">
-                    {user?.email || 'No email provided'}
-                  </p>
-                </div>
-              </div>
-              <div className="p-2">
-                <DropdownMenuItem onClick={handleProfileClick} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
-                  <UserCircle className="mr-2 h-5 w-5 text-gray-500" />
-                  <span>Profile</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleSettingsClick} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
-                  <Settings className="mr-2 h-5 w-5 text-gray-500" />
-                  <span>Settings</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer rounded-md p-2 focus:bg-blue-50">
-                  <LogOut className="mr-2 h-5 w-5 text-gray-500" />
-                  <span>Logout</span>
-                </DropdownMenuItem>
-              </div>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
