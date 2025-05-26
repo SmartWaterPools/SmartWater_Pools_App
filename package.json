@@ -48,6 +48,7 @@
     "@replit/vite-plugin-shadcn-theme-json": "^0.0.4",
     "@scandit/web-datacapture-barcode": "7.1.2",
     "@scandit/web-datacapture-core": "7.1.2",
+    "@sendgrid/mail": "8.1.5",
     "@stripe/react-stripe-js": "3.5.1",
     "@stripe/stripe-js": "6.1.0",
     "@tanstack/match-sorter-utils": "8.19.4",
