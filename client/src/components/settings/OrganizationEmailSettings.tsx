@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Mail, Building, Save, TestTube } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import OAuthEmailProviderSetup from "./OAuthEmailProviderSetup";
 
 const organizationEmailSchema = z.object({
   emailFromName: z.string().min(1, "Company name is required"),
@@ -133,6 +134,7 @@ export function OrganizationEmailSettings({ organizationId }: OrganizationEmailS
   }
 
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -248,5 +250,18 @@ Email: service@yourcompany.com`}
         )}
       </CardContent>
     </Card>
+
+    {/* OAuth Email Provider Setup */}
+    <OAuthEmailProviderSetup 
+      organizationId={organizationId}
+      onProviderAdded={() => {
+        toast({
+          title: "Provider connected",
+          description: "Your email provider has been connected successfully"
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/organizations', organizationId] });
+      }}
+    />
+    </div>
   );
 }
