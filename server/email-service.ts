@@ -15,6 +15,7 @@ import { User, Client, communicationProviders } from '../shared/schema.js';
 import { db } from './db.js';
 import { EmailCredentials, emailTemplates, getDefaultEmailCredentials } from './email-config.js';
 import { GmailService, createGmailService, EmailOptions } from './gmail-service.js';
+import { SendGridService, sendGridService } from './sendgrid-service.js';
 import { eq } from 'drizzle-orm';
 
 // Email configuration constants
@@ -41,11 +42,15 @@ const tokenStore: TokenRecord[] = [];
 export class EmailService {
   private credentials: EmailCredentials | null = null;
   private gmailService: GmailService | null = null;
+  private sendGridService: SendGridService;
   
   /**
    * Initialize the email service with credentials
    */
   constructor(credentials?: EmailCredentials) {
+    // Initialize SendGrid service
+    this.sendGridService = sendGridService;
+    
     if (credentials) {
       this.setCredentials(credentials);
     } else {
@@ -76,23 +81,26 @@ export class EmailService {
    * Check if credentials are configured
    */
   hasCredentials(): boolean {
-    return !!this.credentials;
+    return !!this.credentials || this.sendGridService.isConfigured();
   }
   
   /**
    * Test the email connection
    */
   async testConnection(): Promise<boolean> {
-    if (!this.credentials) {
-      console.error('Email credentials not configured');
-      return false;
+    // First try SendGrid if configured
+    if (this.sendGridService.isConfigured()) {
+      return await this.sendGridService.testConnection();
     }
     
-    if (this.credentials.provider === 'gmail' && this.gmailService) {
-      return await this.gmailService.testConnection();
+    // Fall back to Gmail if configured
+    if (this.credentials) {
+      if (this.credentials.provider === 'gmail' && this.gmailService) {
+        return await this.gmailService.testConnection();
+      }
     }
     
-    console.warn('No email service configured for provider:', this.credentials.provider);
+    console.error('No email service configured');
     return false;
   }
 
@@ -210,8 +218,17 @@ export class EmailService {
         html: emailTemplates.passwordReset.html(userName, resetLink)
       };
       
-      // If Gmail service is available and configured
-      if (this.credentials?.provider === 'gmail' && this.gmailService) {
+      // First try SendGrid if configured
+      if (this.sendGridService.isConfigured()) {
+        return await this.sendGridService.sendEmail({
+          to: emailOptions.to,
+          subject: emailOptions.subject,
+          text: emailOptions.text,
+          html: emailOptions.html
+        });
+      }
+      // Fall back to Gmail service if available and configured
+      else if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
         // Fallback to console log
@@ -270,8 +287,23 @@ export class EmailService {
         html: emailTemplates.twoFactorAuth.html(userName, code)
       };
       
-      // If Gmail service is available and configured
-      if (this.credentials?.provider === 'gmail' && this.gmailService) {
+      // First try SendGrid if configured
+      if (this.sendGridService.isConfigured()) {
+        const sent = await this.sendGridService.sendEmail({
+          to: emailOptions.to,
+          subject: emailOptions.subject,
+          text: emailOptions.text,
+          html: emailOptions.html
+        });
+        if (!sent) {
+          console.error('Failed to send 2FA code email via SendGrid');
+          if (!isDevelopment) {
+            return null;
+          }
+        }
+      }
+      // Fall back to Gmail service if available and configured
+      else if (this.credentials?.provider === 'gmail' && this.gmailService) {
         const sent = await this.gmailService.sendEmail(emailOptions);
         if (!sent) {
           console.error('Failed to send 2FA code email');
@@ -338,8 +370,17 @@ export class EmailService {
         html: emailTemplates.newUser.html(userName, user.username, temporaryPassword)
       };
       
-      // If Gmail service is available and configured
-      if (this.credentials?.provider === 'gmail' && this.gmailService) {
+      // First try SendGrid if configured
+      if (this.sendGridService.isConfigured()) {
+        return await this.sendGridService.sendEmail({
+          to: emailOptions.to,
+          subject: emailOptions.subject,
+          text: emailOptions.text,
+          html: emailOptions.html
+        });
+      }
+      // Fall back to Gmail service if available and configured
+      else if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
         // Fallback to console log
@@ -410,8 +451,17 @@ export class EmailService {
         html: emailTemplates.serviceReminder.html(userName, formattedDate, serviceType)
       };
       
-      // If Gmail service is available and configured
-      if (this.credentials?.provider === 'gmail' && this.gmailService) {
+      // First try SendGrid if configured
+      if (this.sendGridService.isConfigured()) {
+        return await this.sendGridService.sendEmail({
+          to: emailOptions.to,
+          subject: emailOptions.subject,
+          text: emailOptions.text,
+          html: emailOptions.html
+        });
+      }
+      // Fall back to Gmail service if available and configured
+      else if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
         // Fallback to console log
@@ -491,8 +541,17 @@ export class EmailService {
         html: emailTemplates.userInvitation.html(recipientName, companyName, inviteLink, role)
       };
       
-      // If Gmail service is available and configured
-      if (this.credentials?.provider === 'gmail' && this.gmailService) {
+      // First try SendGrid if configured
+      if (this.sendGridService.isConfigured()) {
+        return await this.sendGridService.sendEmail({
+          to: emailOptions.to,
+          subject: emailOptions.subject,
+          text: emailOptions.text,
+          html: emailOptions.html
+        });
+      }
+      // Fall back to Gmail service if available and configured
+      else if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
         // Fallback to console log
