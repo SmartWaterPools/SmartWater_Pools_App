@@ -38,21 +38,37 @@ const router = express.Router();
 // Session check endpoint - simplified version
 router.get('/session', (req: Request, res: Response) => {
   try {
-    // Check if the session has a user property
-    const isAuthenticated = req.isAuthenticated() && req.user;
+    // Check if the session has a user property (including temporary OAuth users)
+    const hasUser = req.user;
     
-    // Log authentication status
-    if (isAuthenticated) {
+    if (hasUser) {
       const user = req.user as any;
-      console.log(`Session check: Authenticated user: ${user.email} (id=${user.id})`);
       
-      // Don't send password to client
-      const { password, ...userWithoutPassword } = user;
-      
-      res.json({
-        isAuthenticated: true,
-        user: userWithoutPassword
-      });
+      // Check if this is a temporary OAuth user needing completion
+      if (user.isNewOAuthUser && user.needsOrganization) {
+        console.log(`Session check: OAuth user needs completion: ${user.email}`);
+        
+        // Send as authenticated but mark as needing completion
+        const { password, ...userWithoutPassword } = user;
+        res.json({
+          isAuthenticated: true,
+          user: userWithoutPassword
+        });
+      } else if (req.isAuthenticated()) {
+        // Regular authenticated user
+        console.log(`Session check: Authenticated user: ${user.email} (id=${user.id})`);
+        
+        const { password, ...userWithoutPassword } = user;
+        res.json({
+          isAuthenticated: true,
+          user: userWithoutPassword
+        });
+      } else {
+        console.log(`Session check: User exists but not authenticated`);
+        res.json({
+          isAuthenticated: false
+        });
+      }
     } else {
       console.log(`Session check: Not authenticated`);
       res.json({
@@ -307,6 +323,10 @@ router.get('/google/callback',
         console.log("- User ID:", user.id);
         console.log("- User email:", user.email);
         console.log("- User role:", user.role);
+        console.log("- Is new OAuth user:", user.isNewOAuthUser);
+        console.log("- Needs organization:", user.needsOrganization);
+      } else {
+        console.log("- No user object found in request");
       }
       
       // Check if this is a new user that needs to complete registration
