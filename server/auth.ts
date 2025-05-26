@@ -423,6 +423,7 @@ export function configurePassport(storage: IStorage) {
                 id: -1,  // Temporary ID
                 username: email,
                 email: email,
+                name: displayName,
                 role: 'client',
                 googleId: profile.id,
                 organizationId: null,  // Explicitly set to null

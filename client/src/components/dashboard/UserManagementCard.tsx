@@ -45,10 +45,21 @@ export const UserManagementCard = () => {
     const isOAuth = searchParams.get('oauth') === 'true';
     const isNewUser = searchParams.get('new') === 'true';
     
-    if (isOAuth && isNewUser && user && (user as any).isNewOAuthUser) {
+    // Check if user needs OAuth completion
+    if (user && (user as any).isNewOAuthUser && (user as any).needsOrganization) {
+      console.log("OAuth user detected, showing completion form");
+      setShowOAuthCompletion(true);
+      
+      // Pre-fill suggested organization if available
+      if ((user as any).suggestedOrganizationName) {
+        oauthForm.setValue('organizationName', (user as any).suggestedOrganizationName);
+      }
+    } else if (isOAuth && isNewUser) {
+      // Fallback detection from URL parameters
+      console.log("OAuth completion detected from URL parameters");
       setShowOAuthCompletion(true);
     }
-  }, [location, user]);
+  }, [location, user, oauthForm]);
 
   // Define login form
   const loginForm = useForm<LoginFormValues>({
