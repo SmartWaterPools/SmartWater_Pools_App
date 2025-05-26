@@ -43,6 +43,7 @@ import VehicleTracking from "./pages/VehicleTracking";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
 import OrganizationSettings from "./pages/OrganizationSettings";
+import ClientCommunications from "./pages/ClientCommunications";
 import BarcodeDemo from "./pages/BarcodeDemo";
 import DataTableDemo from "./pages/DataTableDemo";
 import Login from "./pages/Login";
@@ -225,6 +226,9 @@ function AppContent({
                     </Route>
                     <Route path="/pool-wizard/:id">
                       <PoolWizardPage />
+                    </Route>
+                    <Route path="/clients/:id/communications">
+                      <ClientCommunications />
                     </Route>
                     <Route path="/clients/:id">
                       <ClientDetails />

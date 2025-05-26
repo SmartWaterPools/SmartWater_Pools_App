@@ -23,6 +23,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { format } from 'date-fns';
+import EmailImportForm from '@/components/communications/EmailImportForm';
 
 interface Communication {
   id: number;
@@ -475,28 +476,16 @@ export default function ClientCommunications() {
         </div>
       </div>
 
-      {/* Import Email Dialog - Placeholder for now */}
+      {/* Import Email Dialog */}
       {showImportDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-96">
-            <CardHeader>
-              <CardTitle>Import Email</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                Email import functionality will allow you to move emails from your personal inbox into this shared client communication hub.
-              </p>
-              <div className="flex space-x-2">
-                <Button variant="outline" onClick={() => setShowImportDialog(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={() => setShowImportDialog(false)}>
-                  Coming Soon
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <EmailImportForm
+          clientId={clientId!}
+          onClose={() => setShowImportDialog(false)}
+          onSuccess={() => {
+            // Refresh communications list
+            queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId, 'communications'] });
+          }}
+        />
       )}
     </div>
   );
