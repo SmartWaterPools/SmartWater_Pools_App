@@ -392,6 +392,7 @@ export function configurePassport(storage: IStorage) {
                 email: email,
                 role: 'client',
                 googleId: profile.id,
+                organizationId: null,  // Explicitly set to null
                 isNewOAuthUser: true,
                 needsOrganization: true
               };
