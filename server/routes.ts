@@ -5,6 +5,7 @@ import { storage, IStorage } from "./storage";
 import { User, Organization } from "@shared/schema";
 import emailRoutes from "./email-routes";
 import organizationEmailRoutes from "./organization-email-routes";
+import emailProviderOAuthRoutes from "./routes/email-provider-oauth-routes";
 import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import inventoryRoutes from "./routes/inventory-routes";
 import invitationRoutes from "./routes/invitation-routes";
