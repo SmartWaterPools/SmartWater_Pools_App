@@ -1,8 +1,21 @@
-import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
 import { Switch, Route } from "wouter";
 import Landing from "@/pages/Landing";
 import Home from "@/pages/Home";
 import { Loader2 } from "lucide-react";
+
+function useAuth() {
+  const { data: user, isLoading } = useQuery({
+    queryKey: ["/api/auth/user"],
+    retry: false,
+  });
+
+  return {
+    user,
+    isLoading,
+    isAuthenticated: !!user,
+  };
+}
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();

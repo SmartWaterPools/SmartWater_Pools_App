@@ -730,20 +730,10 @@ export const invitationTokensRelations = relations(invitationTokens, ({ one }) =
   })
 }));
 
-export const usersRelations = relations(users, ({ many, one }) => ({
-  clients: many(clients),
-  technicians: many(technicians),
-  organization: one(organizations, {
-    fields: [users.organizationId],
-    references: [organizations.id]
-  })
-}));
+// Note: Simplified relations for Replit Auth users table
+// The users table now only contains basic profile info from Replit Auth
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
-  user: one(users, {
-    fields: [clients.userId],
-    references: [users.id],
-  }),
   projects: many(projects),
   maintenances: many(maintenances),
   repairs: many(repairs),
