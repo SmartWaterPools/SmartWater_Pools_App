@@ -790,10 +790,10 @@ export const maintenancesRelations = relations(maintenances, ({ one, many }) => 
     fields: [maintenances.clientId],
     references: [clients.id],
   }),
-  technician: one(technicians, {
-    fields: [maintenances.technicianId],
-    references: [technicians.id],
-  }),
+  // technician: one(technicians, {
+  //   fields: [maintenances.technicianId],
+  //   references: [technicians.id],
+  // }),
   chemicalUsages: many(chemicalUsage),
   waterReadings: many(waterReadings),
   maintenanceReports: many(maintenanceReports),
@@ -809,10 +809,10 @@ export const maintenanceReportsRelations = relations(maintenanceReports, ({ one 
     fields: [maintenanceReports.waterReadingId],
     references: [waterReadings.id],
   }),
-  technician: one(technicians, {
-    fields: [maintenanceReports.technicianId],
-    references: [technicians.id],
-  }),
+  // technician: one(technicians, {
+  //   fields: [maintenanceReports.technicianId],
+  //   references: [technicians.id],
+  // }),
 }));
 
 export const repairsRelations = relations(repairs, ({ one }) => ({
@@ -820,10 +820,10 @@ export const repairsRelations = relations(repairs, ({ one }) => ({
     fields: [repairs.clientId],
     references: [clients.id],
   }),
-  technician: one(technicians, {
-    fields: [repairs.technicianId],
-    references: [technicians.id],
-  }),
+  // technician: one(technicians, {
+  //   fields: [repairs.technicianId],
+  //   references: [technicians.id],
+  // }),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one }) => ({
@@ -845,10 +845,10 @@ export const poolImagesRelations = relations(poolImages, ({ one }) => ({
     fields: [poolImages.clientId],
     references: [clients.id],
   }),
-  technician: one(technicians, {
-    fields: [poolImages.technician_id],
-    references: [technicians.id],
-  }),
+  // technician: one(technicians, {
+  //   fields: [poolImages.technician_id],
+  //   references: [technicians.id],
+  // }),
 }));
 
 // Create a separate client update schema for PATCH operations
