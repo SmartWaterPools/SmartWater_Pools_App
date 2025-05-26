@@ -213,3 +213,5 @@ export default function OAuthEmailProviderSetup({ organizationId, onProviderAdde
     </div>
   );
 }
+
+export { OAuthEmailProviderSetup };

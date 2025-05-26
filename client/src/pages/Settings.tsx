@@ -11,7 +11,7 @@ import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
 import { PermissionSettings } from "@/components/settings/PermissionSettings";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
-import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
+import { OAuthEmailProviderSetup } from "@/components/settings/OAuthEmailProviderSetup";
 import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail, Settings as SettingsIcon, Server, User, UserPlus } from "lucide-react";
 
 export default function Settings() {
@@ -86,7 +86,7 @@ export default function Settings() {
         </TabsContent>
         
         <TabsContent value="communication-providers" className="space-y-4">
-          <CommunicationProviders />
+          <OAuthEmailProviderSetup organizationId="1" onProviderAdded={() => {}} />
         </TabsContent>
         
         <TabsContent value="user-management" className="space-y-4">
