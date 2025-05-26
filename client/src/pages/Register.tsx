@@ -74,6 +74,13 @@ export default function Register() {
   const isOAuth = searchParams.get('oauth') === 'true';
   const isNewUser = searchParams.get('new') === 'true';
   
+  // Set OAuth user state immediately
+  useEffect(() => {
+    if (isOAuth) {
+      setIsOAuthUser(true);
+    }
+  }, [isOAuth]);
+  
   // Create the schema based on OAuth status
   const registerFormSchema = createRegisterFormSchema(isOAuth);
   type RegisterFormValues = z.infer<typeof registerFormSchema>;
@@ -95,30 +102,42 @@ export default function Register() {
   
   // Pre-fill form for OAuth users
   useEffect(() => {
-    if (isOAuth && isNewUser && user) {
+    if (isOAuth && isNewUser) {
       setIsOAuthUser(true);
-      form.setValue('email', user.email || '');
-      form.setValue('name', user.name || '');
       
-      // If user has suggested organization, pre-fill it
-      if ((user as any).suggestedOrganizationName) {
-        form.setValue('organizationName', (user as any).suggestedOrganizationName);
+      // If we have user data from OAuth, pre-fill it
+      if (user) {
+        form.setValue('email', user.email || '');
+        form.setValue('name', user.name || '');
+        
+        // If user has suggested organization, pre-fill it
+        if ((user as any).suggestedOrganizationName) {
+          form.setValue('organizationName', (user as any).suggestedOrganizationName);
+        }
       }
+    } else if (isOAuth) {
+      // Even if we don't have user data yet, mark as OAuth user
+      setIsOAuthUser(true);
     }
   }, [isOAuth, isNewUser, user, form]);
   
   async function onSubmit(data: RegisterFormValues) {
-    // Remove confirmPassword as it's not needed for the API
+    // For OAuth users, we don't need passwords and email is the username
     const { confirmPassword, organizationName, ...userFields } = data;
-    
-    // Use email directly as username
-    const username = userFields.email;
     
     // Prepare data for registration
     const registrationData = {
-      ...userFields,
-      username,
-      organizationName, // Include organization name for organization creation
+      email: userFields.email,
+      name: userFields.name,
+      role: userFields.role,
+      phone: userFields.phone,
+      address: userFields.address,
+      organizationName,
+      // For OAuth users, password is not needed
+      ...(isOAuthUser ? {} : { 
+        username: userFields.email,
+        password: userFields.password 
+      })
     };
     
     try {
@@ -126,12 +145,10 @@ export default function Register() {
       
       if (success) {
         // Redirect to pricing page after successful registration
-        // Include organization name in query parameters for the pricing page
         const organizationParam = organizationName.replace(/\s+/g, '-').toLowerCase();
         const slugParam = organizationParam.replace(/[^a-z0-9-]/g, '');
         setLocation(`/pricing?name=${encodeURIComponent(organizationName)}&slug=${slugParam}`);
       }
-      // Toast notifications are handled in the AuthContext register function
     } catch (error) {
       console.error("Registration submission error:", error);
       toast({
