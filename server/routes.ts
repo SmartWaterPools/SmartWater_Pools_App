@@ -760,9 +760,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: user.id
         });
         
-        // Force redirect to root page instead of dashboard - this will show the paywall login card
-        console.log("Redirecting new OAuth user to paywall (root page)");
-        return res.redirect('/?needs-organization=true');
+        // Check if user has a suggested organization (same domain)
+        if (user.suggestedOrganizationId && user.suggestedOrganizationName) {
+          console.log(`Redirecting user to organization selection with suggested org: ${user.suggestedOrganizationName}`);
+          return res.redirect(`/organization-selection/${user.googleId}?suggested=${user.suggestedOrganizationId}`);
+        } else {
+          // Force redirect to root page instead of dashboard - this will show the paywall login card
+          console.log("Redirecting new OAuth user to paywall (root page)");
+          return res.redirect('/?needs-organization=true');
+        }
       } else {
         console.log("Existing user with valid organization - redirecting to main dashboard");
         return res.redirect('/dashboard');

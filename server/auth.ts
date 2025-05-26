@@ -370,19 +370,35 @@ export function configurePassport(storage: IStorage) {
               }
             }
             
+            // Check if user's email domain matches an existing organization
+            const emailDomain = email.split('@')[1].toLowerCase();
+            let suggestedOrganization = null;
+            
+            // Special handling for smartwaterpools.com domain users
+            if (emailDomain === 'smartwaterpools.com') {
+              try {
+                suggestedOrganization = await storage.getOrganizationBySlug('smartwater-pools');
+                console.log(`Found existing organization for domain ${emailDomain}:`, suggestedOrganization?.name);
+              } catch (error) {
+                console.log(`No organization found for domain ${emailDomain}`);
+              }
+            }
+            
             // For all other new users, store their info as pending
             try {
               // Import here to avoid circular dependency
               const { storePendingOAuthUser } = require('./oauth-pending-users');
               
-              // Store pending user info
+              // Store pending user info with suggested organization
               storePendingOAuthUser({
                 id: profile.id,
                 email: email,
                 displayName: displayName,
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                 profile: profile,
-                createdAt: new Date()
+                createdAt: new Date(),
+                suggestedOrganizationId: suggestedOrganization?.id || null,
+                suggestedOrganizationName: suggestedOrganization?.name || null
               }, req);
               
               // Set a flag to indicate this is a new OAuth user that needs to select/create organization
@@ -394,7 +410,9 @@ export function configurePassport(storage: IStorage) {
                 googleId: profile.id,
                 organizationId: null,  // Explicitly set to null
                 isNewOAuthUser: true,
-                needsOrganization: true
+                needsOrganization: true,
+                suggestedOrganizationId: suggestedOrganization?.id || null,
+                suggestedOrganizationName: suggestedOrganization?.name || null
               };
               
               return done(null, tempUser);
