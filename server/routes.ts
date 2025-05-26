@@ -763,13 +763,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           googleId: user.googleId
         });
         
-        // All new OAuth users should go to organization selection page
-        console.log(`Redirecting new OAuth user to organization selection page with googleId: ${user.googleId}`);
+        // All new OAuth users should go to dashboard with organization selection modal
+        console.log(`Redirecting new OAuth user to dashboard with organization selection modal. GoogleId: ${user.googleId}`);
         
-        // Build redirect URL with suggested organization if available
-        let redirectUrl = `/organization-selection/${user.googleId}`;
+        // Build redirect URL to dashboard with organization selection query params
+        let redirectUrl = `/dashboard?needs-organization=true&googleId=${user.googleId}`;
         if (user.suggestedOrganizationId) {
-          redirectUrl += `?suggested=${user.suggestedOrganizationId}`;
+          redirectUrl += `&suggested=${user.suggestedOrganizationId}`;
           console.log(`Including suggested organization: ${user.suggestedOrganizationName} (ID: ${user.suggestedOrganizationId})`);
         }
         
