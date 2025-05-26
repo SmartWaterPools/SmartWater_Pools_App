@@ -54,21 +54,42 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
           </button>
         </div>
         
-        {/* User profile section with improved styling */}
+        {/* User profile section with improved styling - matches header authentication display */}
         <div className="p-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-lg shadow-sm">
-              {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
-            </div>
-            <div className="overflow-hidden">
-              <p className="font-medium text-gray-900 truncate">{user?.name || user?.username || 'User'}</p>
-              <p className="text-xs text-gray-500 truncate">{user?.email || user?.role || ''}</p>
-              <div className="mt-1">
-                <Link href="/settings" onClick={onClose}>
-                  <span className="text-xs text-primary hover:underline cursor-pointer">View Profile</span>
-                </Link>
-              </div>
-            </div>
+            {user ? (
+              // Authenticated user display
+              <>
+                <div className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center text-lg shadow-sm">
+                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="font-medium text-gray-900 truncate">{user.name || user.username || 'User'}</p>
+                  <p className="text-xs text-gray-500 truncate">{user.email || 'No email provided'}</p>
+                  <div className="mt-1">
+                    <Link href="/settings" onClick={onClose}>
+                      <span className="text-xs text-primary hover:underline cursor-pointer">View Profile</span>
+                    </Link>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // Unauthenticated user display - matches header
+              <>
+                <div className="w-12 h-12 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-lg shadow-sm">
+                  <UserCircle className="h-6 w-6" />
+                </div>
+                <div className="overflow-hidden">
+                  <p className="font-medium text-gray-900 truncate">Not signed in</p>
+                  <p className="text-xs text-gray-500 truncate">Sign in to access your account</p>
+                  <div className="mt-1">
+                    <Link href="/login" onClick={onClose}>
+                      <span className="text-xs text-primary hover:underline cursor-pointer">Sign In</span>
+                    </Link>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
         
