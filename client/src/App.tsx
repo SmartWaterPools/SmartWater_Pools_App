@@ -107,12 +107,18 @@ function AppContent({
     <TabProvider>
       <div className="flex h-screen overflow-hidden bg-background">
         <Switch>
-          {/* Public routes, no login page required as it will be a card on dashboard */}
+          {/* Redirect login and register to dashboard */}
           <Route path="/login">
-            <Login />
+            {() => {
+              window.location.href = '/dashboard';
+              return null;
+            }}
           </Route>
           <Route path="/register">
-            <Register />
+            {() => {
+              window.location.href = '/dashboard';
+              return null;
+            }}
           </Route>
           <Route path="/unauthorized">
             <Unauthorized />

@@ -324,8 +324,8 @@ router.get('/google/callback',
               return res.redirect('/login?error=session-error');
             }
             
-            // Redirect to registration page with new user flag
-            res.redirect('/register?oauth=true&new=true');
+            // Redirect to dashboard where login card will handle OAuth completion
+            res.redirect('/dashboard?oauth=true&new=true');
           });
           return;
         }

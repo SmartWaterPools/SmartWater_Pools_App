@@ -1,14 +1,17 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'wouter';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { User, LayoutDashboard, UserCircle, LogIn, LogOut, Loader2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { FcGoogle } from 'react-icons/fc';
+import { useToast } from '@/hooks/use-toast';
 
 // Define login form schema
 const loginFormSchema = z.object({
@@ -18,10 +21,34 @@ const loginFormSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginFormSchema>;
 
+// OAuth completion form schema
+const oauthCompletionSchema = z.object({
+  organizationName: z.string().min(2, "Organization name is required"),
+  role: z.enum(["client", "technician", "manager", "admin"]),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+});
+
+type OAuthCompletionValues = z.infer<typeof oauthCompletionSchema>;
+
 export const UserManagementCard = () => {
-  const { user, isAuthenticated, isLoading, login, logout, googleLogin } = useAuth();
+  const { user, isAuthenticated, isLoading, login, logout, googleLogin, register } = useAuth();
+  const [location, setLocation] = useLocation();
   const [loginLoading, setLoginLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [showOAuthCompletion, setShowOAuthCompletion] = React.useState(false);
+  const { toast } = useToast();
+
+  // Check for OAuth completion needed
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.split('?')[1] || '');
+    const isOAuth = searchParams.get('oauth') === 'true';
+    const isNewUser = searchParams.get('new') === 'true';
+    
+    if (isOAuth && isNewUser && user && (user as any).isNewOAuthUser) {
+      setShowOAuthCompletion(true);
+    }
+  }, [location, user]);
 
   // Define login form
   const loginForm = useForm<LoginFormValues>({
@@ -29,6 +56,17 @@ export const UserManagementCard = () => {
     defaultValues: {
       username: "",
       password: "",
+    },
+  });
+
+  // Define OAuth completion form
+  const oauthForm = useForm<OAuthCompletionValues>({
+    resolver: zodResolver(oauthCompletionSchema),
+    defaultValues: {
+      organizationName: "",
+      role: "client",
+      phone: "",
+      address: "",
     },
   });
 
@@ -81,6 +119,39 @@ export const UserManagementCard = () => {
     await logout();
   };
 
+  async function onOAuthCompletionSubmit(data: OAuthCompletionValues) {
+    try {
+      setLoginLoading(true);
+      setError(null);
+      
+      console.log("Completing OAuth registration with organization details");
+      
+      const success = await register({
+        email: user?.email,
+        name: user?.name,
+        organizationName: data.organizationName,
+        role: data.role,
+        phone: data.phone,
+        address: data.address,
+      });
+      
+      if (success) {
+        setShowOAuthCompletion(false);
+        // Clear URL parameters
+        setLocation('/dashboard');
+        toast({
+          title: "Registration completed",
+          description: "Your account has been set up successfully!",
+        });
+      }
+    } catch (error) {
+      console.error("OAuth completion error:", error);
+      setError("An error occurred completing your registration. Please try again.");
+    } finally {
+      setLoginLoading(false);
+    }
+  }
+
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-2">
@@ -131,6 +202,88 @@ export const UserManagementCard = () => {
                 Logout
               </Button>
             </div>
+          </div>
+        ) : showOAuthCompletion ? (
+          <div className="space-y-4">
+            <div className="text-center mb-4">
+              <h3 className="font-medium text-green-600">Welcome to SmartWater Pools!</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                Please provide your organization details to complete your account setup
+              </p>
+            </div>
+            
+            {error && (
+              <div className="p-3 text-sm bg-red-50 border border-red-200 text-red-700 rounded">
+                {error}
+              </div>
+            )}
+            
+            <Form {...oauthForm}>
+              <form onSubmit={oauthForm.handleSubmit(onOAuthCompletionSubmit)} className="space-y-3">
+                <FormField
+                  control={oauthForm.control}
+                  name="organizationName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Organization Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your organization name" {...field} disabled={loginLoading} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={oauthForm.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Role</FormLabel>
+                      <Select disabled={loginLoading} onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select your role" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="client">Client</SelectItem>
+                          <SelectItem value="technician">Technician</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="admin">Administrator</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={oauthForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone (Optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter your phone number" {...field} disabled={loginLoading} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <Button type="submit" className="w-full" disabled={loginLoading}>
+                  {loginLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Completing Setup...
+                    </>
+                  ) : (
+                    "Complete Registration"
+                  )}
+                </Button>
+              </form>
+            </Form>
           </div>
         ) : (
           <div className="space-y-4">
