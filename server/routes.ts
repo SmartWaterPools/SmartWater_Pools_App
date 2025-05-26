@@ -761,7 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clients API endpoints - for fetching clients with proper organization filtering
   
   // Get all clients endpoint
-  app.get("/api/clients", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/clients", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
     try {
       const reqUser = req.user as any;
       
@@ -1123,7 +1123,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/organizations", registerUserOrgRoutes(organizationRouter, typeSafeStorage, false));
 
   // Client equipment endpoint
-  app.get("/api/clients/:id/equipment", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/clients/:id/equipment", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id, 10);
       console.log(`[API] Request for equipment for client ID: ${clientId}`);
@@ -1137,7 +1137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Client pool images endpoint
-  app.get("/api/clients/:id/images", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/clients/:id/images", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id, 10);
       console.log(`[API] Request for images for client ID: ${clientId}`);
@@ -1151,7 +1151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Upcoming maintenances endpoint
-  app.get("/api/maintenances/upcoming", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/maintenances/upcoming", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
     try {
       console.log("\n[UPCOMING MAINTENANCES API] Processing request for upcoming maintenances");
       const reqUser = req.user as any;
