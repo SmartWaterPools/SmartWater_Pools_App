@@ -14,6 +14,7 @@ import authRoutes from "./routes/auth-routes";
 import bazzaRoutes from "./routes/bazza-routes";
 import passport from "passport";
 import { isAuthenticated, isAdmin, isSystemAdmin } from "./auth";
+import { requireActiveSubscription } from "./subscription-middleware";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -35,7 +36,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/bazza", bazzaRoutes);
   
   // Get technicians endpoint
-  app.get("/api/technicians", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/technicians", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
     try {
       console.log("[TECHNICIANS API] Processing request for technicians list");
       const reqUser = req.user as any;
@@ -75,7 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Technicians with users endpoint (requiring authentication)
-  app.get("/api/technicians-with-users", isAuthenticated, async (req: Request, res: Response) => {
+  app.get("/api/technicians-with-users", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
     try {
       console.log("[TECHNICIANS API] Processing request for technicians list");
       const reqUser = req.user as any;
