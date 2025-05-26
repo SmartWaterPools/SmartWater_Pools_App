@@ -84,7 +84,7 @@ export const clientCommunications = pgTable("client_communications", {
   priority: text("priority").default("normal"), // 'low', 'normal', 'high', 'urgent'
   
   // Collaboration features
-  assignedToUserId: integer("assigned_to_user_id").references(() => users.id),
+  assignedToUserId: integer("assigned_to_user_id"),
   isSharedWithClient: boolean("is_shared_with_client").default(false),
   isInternal: boolean("is_internal").default(false),
   
@@ -95,14 +95,14 @@ export const clientCommunications = pgTable("client_communications", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   
   // User who imported/created this communication
-  createdByUserId: integer("created_by_user_id").notNull().references(() => users.id),
+  createdByUserId: integer("created_by_user_id").notNull(),
 });
 
 // Communication comments for internal collaboration
 export const communicationComments = pgTable("communication_comments", {
   id: serial("id").primaryKey(),
   communicationId: integer("communication_id").notNull().references(() => clientCommunications.id),
-  userId: integer("user_id").notNull().references(() => users.id),
+  userId: integer("user_id").notNull(),
   organizationId: integer("organization_id").notNull().references(() => organizations.id),
   
   content: text("content").notNull(),
