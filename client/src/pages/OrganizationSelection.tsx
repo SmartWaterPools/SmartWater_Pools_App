@@ -286,7 +286,7 @@ export default function OrganizationSelection() {
     <div className="flex h-screen flex-col items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle className="text-center text-2xl">Welcome to Smart Water Pools</CardTitle>
+          <CardTitle className="text-center text-2xl">Welcome to SmartWater Pools</CardTitle>
           <CardDescription className="text-center">
             Complete your account setup by creating or joining an organization
           </CardDescription>

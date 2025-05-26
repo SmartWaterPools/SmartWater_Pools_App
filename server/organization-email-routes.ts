@@ -193,7 +193,7 @@ If you received this email, your email configuration is working properly!
 ${emailSignature || ''}
 
 Best regards,
-Smart Water Pools System`,
+SmartWater Pools System`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #0284c7;">Test Email from ${emailFromName}</h2>
@@ -217,7 +217,7 @@ Smart Water Pools System`,
           
           <p style="margin-top: 30px;">
             Best regards,<br>
-            Smart Water Pools System
+            SmartWater Pools System
           </p>
         </div>
       `,

@@ -19,7 +19,7 @@ import { SendGridService, sendGridService } from './sendgrid-service.js';
 import { eq } from 'drizzle-orm';
 
 // Email configuration constants
-const EMAIL_FROM = 'Smart Water Pools <noreply@smartwaterpools.com>';
+const EMAIL_FROM = 'SmartWater Pools <noreply@smartwaterpools.com>';
 const PASSWORD_RESET_EXPIRY_HOURS = 24;
 
 // In-memory token storage for password reset and 2FA
@@ -192,7 +192,7 @@ export class EmailService {
 
     // Fallback to default
     return {
-      fromName: 'Smart Water Pools',
+      fromName: 'SmartWater Pools',
       fromAddress: 'noreply@smartwaterpools.com'
     };
   }

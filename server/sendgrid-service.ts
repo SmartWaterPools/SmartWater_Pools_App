@@ -19,7 +19,7 @@ export class SendGridService {
   private isInitialized = false;
   private fromEmail: string;
 
-  constructor(apiKey?: string, fromEmail = 'Smart Water Pools <noreply@smartwaterpools.com>') {
+  constructor(apiKey?: string, fromEmail = 'SmartWater Pools <noreply@smartwaterpools.com>') {
     this.fromEmail = fromEmail;
     
     if (apiKey) {

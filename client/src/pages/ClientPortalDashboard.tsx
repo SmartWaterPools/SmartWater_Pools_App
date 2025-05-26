@@ -73,7 +73,7 @@ export default function ClientPortalDashboard() {
       <ClientPortalLayout>
         <div className="flex flex-col items-center justify-center space-y-4 p-8">
           <DropletIcon className="h-12 w-12 text-blue-500" />
-          <h2 className="text-xl font-bold">Welcome to Smart Water Pools</h2>
+          <h2 className="text-xl font-bold">Welcome to SmartWater Pools</h2>
           <p className="text-gray-500 text-center max-w-md">
             We're still setting up your pool profile. Please check back soon or contact our team if you need immediate assistance.
           </p>

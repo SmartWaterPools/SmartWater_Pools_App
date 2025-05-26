@@ -67,11 +67,11 @@ export function getDefaultEmailCredentials(): EmailCredentials | null {
 // Email templates
 export const emailTemplates = {
   userInvitation: {
-    subject: 'Invitation to Join Smart Water Pools',
+    subject: 'Invitation to Join SmartWater Pools',
     text: (name: string, company: string, inviteLink: string, role: string) => `
 Hello ${name},
 
-You have been invited to join ${company} on the Smart Water Pools platform.
+You have been invited to join ${company} on the SmartWater Pools platform.
 You have been invited as a ${role}.
 
 Please click the link below to create your account:
@@ -81,14 +81,14 @@ ${inviteLink}
 This invitation link will expire in 7 days.
 
 Thank you,
-Smart Water Pools Team
+SmartWater Pools Team
     `.trim(),
     html: (name: string, company: string, inviteLink: string, role: string) => `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Invitation to Join Smart Water Pools</title>
+  <title>Invitation to Join SmartWater Pools</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -105,7 +105,7 @@ Smart Water Pools Team
     </div>
     <div class="content">
       <p>Hello ${name},</p>
-      <p>You have been invited to join <strong>${company}</strong> on the Smart Water Pools platform as a <strong>${role}</strong>.</p>
+      <p>You have been invited to join <strong>${company}</strong> on the SmartWater Pools platform as a <strong>${role}</strong>.</p>
       <p>Please click the button below to create your account:</p>
       <p style="text-align: center;">
         <a href="${inviteLink}" class="button">Accept Invitation</a>
@@ -115,7 +115,7 @@ Smart Water Pools Team
       <p>This invitation link will expire in 7 days.</p>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Smart Water Pools. All rights reserved.</p>
+      <p>&copy; ${new Date().getFullYear()} SmartWater Pools. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -124,11 +124,11 @@ Smart Water Pools Team
   },
   
   passwordReset: {
-    subject: 'Reset Your Password - Smart Water Pools',
+    subject: 'Reset Your Password - SmartWater Pools',
     text: (name: string, resetLink: string) => `
 Hello ${name},
 
-You recently requested to reset your password for your Smart Water Pools account.
+You recently requested to reset your password for your SmartWater Pools account.
 Please click the link below to reset your password:
 
 ${resetLink}
@@ -138,7 +138,7 @@ If you did not request a password reset, please ignore this email or contact sup
 This password reset link will expire in 24 hours.
 
 Thank you,
-Smart Water Pools Team
+SmartWater Pools Team
     `.trim(),
     html: (name: string, resetLink: string) => `
 <!DOCTYPE html>
@@ -162,7 +162,7 @@ Smart Water Pools Team
     </div>
     <div class="content">
       <p>Hello ${name},</p>
-      <p>You recently requested to reset your password for your Smart Water Pools account.</p>
+      <p>You recently requested to reset your password for your SmartWater Pools account.</p>
       <p>Please click the button below to reset your password:</p>
       <p style="text-align: center;">
         <a href="${resetLink}" class="button">Reset Password</a>
@@ -173,7 +173,7 @@ Smart Water Pools Team
       <p>This password reset link will expire in 24 hours.</p>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Smart Water Pools. All rights reserved.</p>
+      <p>&copy; ${new Date().getFullYear()} SmartWater Pools. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -182,11 +182,11 @@ Smart Water Pools Team
   },
   
   twoFactorAuth: {
-    subject: 'Your Verification Code - Smart Water Pools',
+    subject: 'Your Verification Code - SmartWater Pools',
     text: (name: string, code: string) => `
 Hello ${name},
 
-Your verification code for Smart Water Pools is:
+Your verification code for SmartWater Pools is:
 
 ${code}
 
@@ -195,7 +195,7 @@ This code will expire in 10 minutes.
 If you did not request this code, please ignore this email or contact support if you have concerns.
 
 Thank you,
-Smart Water Pools Team
+SmartWater Pools Team
     `.trim(),
     html: (name: string, code: string) => `
 <!DOCTYPE html>
@@ -219,13 +219,13 @@ Smart Water Pools Team
     </div>
     <div class="content">
       <p>Hello ${name},</p>
-      <p>Your verification code for Smart Water Pools is:</p>
+      <p>Your verification code for SmartWater Pools is:</p>
       <div class="code">${code}</div>
       <p>This code will expire in 10 minutes.</p>
       <p>If you did not request this code, please ignore this email or contact support if you have concerns.</p>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Smart Water Pools. All rights reserved.</p>
+      <p>&copy; ${new Date().getFullYear()} SmartWater Pools. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -234,11 +234,11 @@ Smart Water Pools Team
   },
   
   newUser: {
-    subject: 'Welcome to Smart Water Pools - Your Account Details',
+    subject: 'Welcome to SmartWater Pools - Your Account Details',
     text: (name: string, username: string, password: string) => `
 Hello ${name},
 
-Your Smart Water Pools account has been created. Here are your account details:
+Your SmartWater Pools account has been created. Here are your account details:
 
 Username: ${username}
 Temporary Password: ${password}
@@ -246,14 +246,14 @@ Temporary Password: ${password}
 Please log in at ${process.env.APP_URL || ''} and change your password as soon as possible.
 
 Thank you,
-Smart Water Pools Team
+SmartWater Pools Team
     `.trim(),
     html: (name: string, username: string, password: string) => `
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Welcome to Smart Water Pools</title>
+  <title>Welcome to SmartWater Pools</title>
   <style>
     body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
     .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -267,11 +267,11 @@ Smart Water Pools Team
 <body>
   <div class="container">
     <div class="header">
-      <h1>Welcome to Smart Water Pools</h1>
+      <h1>Welcome to SmartWater Pools</h1>
     </div>
     <div class="content">
       <p>Hello ${name},</p>
-      <p>Your Smart Water Pools account has been created. Here are your account details:</p>
+      <p>Your SmartWater Pools account has been created. Here are your account details:</p>
       <div class="credentials">
         <p><strong>Username:</strong> ${username}</p>
         <p><strong>Temporary Password:</strong> ${password}</p>
@@ -282,7 +282,7 @@ Smart Water Pools Team
       <p>Please log in and change your password as soon as possible.</p>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Smart Water Pools. All rights reserved.</p>
+      <p>&copy; ${new Date().getFullYear()} SmartWater Pools. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -303,7 +303,7 @@ Service: ${serviceType}
 If you need to reschedule, please contact us as soon as possible.
 
 Thank you,
-Smart Water Pools Team
+SmartWater Pools Team
     `.trim(),
     html: (name: string, serviceDate: string, serviceType: string) => `
 <!DOCTYPE html>
@@ -335,7 +335,7 @@ Smart Water Pools Team
       <p>If you need to reschedule, please contact us as soon as possible.</p>
     </div>
     <div class="footer">
-      <p>&copy; ${new Date().getFullYear()} Smart Water Pools. All rights reserved.</p>
+      <p>&copy; ${new Date().getFullYear()} SmartWater Pools. All rights reserved.</p>
     </div>
   </div>
 </body>
