@@ -1,32 +1,12 @@
-import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
-import { Scheduler } from "./scheduler";
-import { storage, DatabaseStorage } from "./storage";
-import { HealthMonitor } from "./health-monitor";
-import session from "express-session";
-import { configurePassport } from "./auth";
-import path from "path";
-import pg from "pg";
-const { Pool } = pg;
-import connectPgSimple from "connect-pg-simple";
-import { loadEmailConfigFromDatabase } from "./email-service";
-
-// Set up environment variables for Replit
-const isReplitEnv = !!process.env.REPL_ID;
-if (isReplitEnv) {
-  // Set APP_URL for email links and other absolute URLs
-  if (!process.env.APP_URL) {
-    // Always use production URL for consistency and security
-    process.env.APP_URL = 'https://smartwaterpools.replit.app';
-    console.log(`Setting APP_URL for Replit environment: ${process.env.APP_URL}`);
-  }
-}
+import express from "express";
+import { registerRoutes } from "./replitRoutes";
+import { setupVite, serveStatic } from "./vite";
 
 const app = express();
-// Increase the payload size limit for JSON and URL-encoded data to handle larger images
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+const PORT = parseInt(process.env.PORT ?? "5000", 10);
 
 // Configure session store with PostgreSQL
 const PgSession = connectPgSimple(session);
