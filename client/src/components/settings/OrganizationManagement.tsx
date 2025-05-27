@@ -40,7 +40,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Building, Edit, Plus, UserPlus } from "lucide-react";
-import { OrganizationEmailSettings } from "./OrganizationEmailSettings";
 
 // Define the organization schema
 const organizationSchema = z.object({

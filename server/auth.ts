@@ -370,52 +370,19 @@ export function configurePassport(storage: IStorage) {
               }
             }
             
-            // Check if user's email domain matches an existing organization
-            const emailDomain = email.split('@')[1].toLowerCase();
-            let suggestedOrganization = null;
-            
-            try {
-              // Get all organizations and find one that matches the email domain
-              const organizations = await storage.getOrganizations();
-              
-              // Look for organizations that match the email domain
-              // This could be based on organization name, slug, or a specific domain field
-              suggestedOrganization = organizations.find(org => {
-                // Check if organization name contains the domain (without TLD)
-                const domainName = emailDomain.split('.')[0].toLowerCase();
-                const orgName = org.name.toLowerCase();
-                const orgSlug = org.slug.toLowerCase();
-                
-                // Match if domain name is in org name/slug, or if it's smartwaterpools.com
-                return orgSlug.includes(domainName) || 
-                       orgName.includes(domainName) ||
-                       (emailDomain === 'smartwaterpools.com' && orgSlug === 'smartwater-pools');
-              });
-              
-              if (suggestedOrganization) {
-                console.log(`Found matching organization for domain ${emailDomain}:`, suggestedOrganization.name);
-              } else {
-                console.log(`No organization found matching domain ${emailDomain}`);
-              }
-            } catch (error) {
-              console.log(`Error finding organization for domain ${emailDomain}:`, error);
-            }
-            
             // For all other new users, store their info as pending
             try {
               // Import here to avoid circular dependency
               const { storePendingOAuthUser } = require('./oauth-pending-users');
               
-              // Store pending user info with suggested organization
+              // Store pending user info
               storePendingOAuthUser({
                 id: profile.id,
                 email: email,
                 displayName: displayName,
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                 profile: profile,
-                createdAt: new Date(),
-                suggestedOrganizationId: suggestedOrganization?.id || null,
-                suggestedOrganizationName: suggestedOrganization?.name || null
+                createdAt: new Date()
               }, req);
               
               // Set a flag to indicate this is a new OAuth user that needs to select/create organization
@@ -423,14 +390,10 @@ export function configurePassport(storage: IStorage) {
                 id: -1,  // Temporary ID
                 username: email,
                 email: email,
-                name: displayName,
                 role: 'client',
                 googleId: profile.id,
-                organizationId: null,  // Explicitly set to null
                 isNewOAuthUser: true,
-                needsOrganization: true,
-                suggestedOrganizationId: suggestedOrganization?.id || null,
-                suggestedOrganizationName: suggestedOrganization?.name || null
+                needsOrganization: true
               };
               
               return done(null, tempUser);

@@ -32,17 +32,6 @@ export const organizations = pgTable("organizations", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   isSystemAdmin: boolean("is_system_admin").default(false), // If true, this is the SmartWater organization
   
-  // Email configuration for organization-specific emails
-  emailFromName: text("email_from_name"), // Company name for "From" field
-  emailFromAddress: text("email_from_address"), // Reply-to email address
-  emailSignature: text("email_signature"), // Company email signature
-  
-  // Custom email templates (JSON storage)
-  customEmailTemplates: jsonb("custom_email_templates"), // Store custom templates as JSON
-  
-  // Email provider configuration (OAuth-based)
-  emailConfig: jsonb("email_config"), // Store secure email provider config
-  
   // Subscription related fields
   subscriptionId: integer("subscription_id"), // No foreign key reference to avoid circular dependency
   stripeCustomerId: text("stripe_customer_id"), // Stripe Customer ID
@@ -53,102 +42,6 @@ export const insertOrganizationSchema = createInsertSchema(organizations).omit({
   id: true,
   createdAt: true,
 });
-
-// Client communications schema for CRM inbox
-export const clientCommunications = pgTable("client_communications", {
-  id: serial("id").primaryKey(),
-  clientId: integer("client_id").notNull().references(() => clients.id),
-  organizationId: integer("organization_id").notNull().references(() => organizations.id),
-  
-  // Email details
-  subject: text("subject").notNull(),
-  fromEmail: text("from_email").notNull(),
-  fromName: text("from_name"),
-  toEmails: text("to_emails").array().notNull(), // Array of recipient emails
-  ccEmails: text("cc_emails").array(), // CC recipients
-  bccEmails: text("bcc_emails").array(), // BCC recipients
-  
-  // Message content
-  htmlContent: text("html_content"),
-  textContent: text("text_content"),
-  
-  // Email metadata
-  emailId: text("email_id"), // Original email ID from provider
-  threadId: text("thread_id"), // Email thread ID
-  messageId: text("message_id"), // Unique message ID
-  inReplyTo: text("in_reply_to"), // Parent message ID
-  
-  // Communication status
-  direction: text("direction").notNull(), // 'inbound', 'outbound', 'internal'
-  status: text("status").notNull().default("unread"), // 'unread', 'read', 'replied', 'archived'
-  priority: text("priority").default("normal"), // 'low', 'normal', 'high', 'urgent'
-  
-  // Collaboration features
-  assignedToUserId: integer("assigned_to_user_id"),
-  isSharedWithClient: boolean("is_shared_with_client").default(false),
-  isInternal: boolean("is_internal").default(false),
-  
-  // Timestamps
-  sentAt: timestamp("sent_at"),
-  receivedAt: timestamp("received_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  
-  // User who imported/created this communication
-  createdByUserId: integer("created_by_user_id").notNull(),
-});
-
-// Communication comments for internal collaboration
-export const communicationComments = pgTable("communication_comments", {
-  id: serial("id").primaryKey(),
-  communicationId: integer("communication_id").notNull().references(() => clientCommunications.id),
-  userId: integer("user_id").notNull(),
-  organizationId: integer("organization_id").notNull().references(() => organizations.id),
-  
-  content: text("content").notNull(),
-  isInternal: boolean("is_internal").default(true), // Internal team comment vs client-visible
-  
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
-
-// Communication attachments
-export const communicationAttachments = pgTable("communication_attachments", {
-  id: serial("id").primaryKey(),
-  communicationId: integer("communication_id").notNull().references(() => clientCommunications.id),
-  
-  fileName: text("file_name").notNull(),
-  fileSize: integer("file_size"),
-  mimeType: text("mime_type"),
-  filePath: text("file_path"), // Path to stored file
-  attachmentId: text("attachment_id"), // Original email attachment ID
-  
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
-
-export const insertClientCommunicationSchema = createInsertSchema(clientCommunications).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertCommunicationCommentSchema = createInsertSchema(communicationComments).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertCommunicationAttachmentSchema = createInsertSchema(communicationAttachments).omit({
-  id: true,
-  createdAt: true,
-});
-
-export type ClientCommunication = typeof clientCommunications.$inferSelect;
-export type InsertClientCommunication = z.infer<typeof insertClientCommunicationSchema>;
-export type CommunicationComment = typeof communicationComments.$inferSelect;
-export type InsertCommunicationComment = z.infer<typeof insertCommunicationCommentSchema>;
-export type CommunicationAttachment = typeof communicationAttachments.$inferSelect;
-export type InsertCommunicationAttachment = z.infer<typeof insertCommunicationAttachmentSchema>;
 
 // Subscription plans schema
 export const subscriptionPlans = pgTable("subscription_plans", {
@@ -790,10 +683,10 @@ export const maintenancesRelations = relations(maintenances, ({ one, many }) => 
     fields: [maintenances.clientId],
     references: [clients.id],
   }),
-  // technician: one(technicians, {
-  //   fields: [maintenances.technicianId],
-  //   references: [technicians.id],
-  // }),
+  technician: one(technicians, {
+    fields: [maintenances.technicianId],
+    references: [technicians.id],
+  }),
   chemicalUsages: many(chemicalUsage),
   waterReadings: many(waterReadings),
   maintenanceReports: many(maintenanceReports),
@@ -809,10 +702,10 @@ export const maintenanceReportsRelations = relations(maintenanceReports, ({ one 
     fields: [maintenanceReports.waterReadingId],
     references: [waterReadings.id],
   }),
-  // technician: one(technicians, {
-  //   fields: [maintenanceReports.technicianId],
-  //   references: [technicians.id],
-  // }),
+  technician: one(technicians, {
+    fields: [maintenanceReports.technicianId],
+    references: [technicians.id],
+  }),
 }));
 
 export const repairsRelations = relations(repairs, ({ one }) => ({
@@ -820,10 +713,10 @@ export const repairsRelations = relations(repairs, ({ one }) => ({
     fields: [repairs.clientId],
     references: [clients.id],
   }),
-  // technician: one(technicians, {
-  //   fields: [repairs.technicianId],
-  //   references: [technicians.id],
-  // }),
+  technician: one(technicians, {
+    fields: [repairs.technicianId],
+    references: [technicians.id],
+  }),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one }) => ({
@@ -845,10 +738,10 @@ export const poolImagesRelations = relations(poolImages, ({ one }) => ({
     fields: [poolImages.clientId],
     references: [clients.id],
   }),
-  // technician: one(technicians, {
-  //   fields: [poolImages.technician_id],
-  //   references: [technicians.id],
-  // }),
+  technician: one(technicians, {
+    fields: [poolImages.technician_id],
+    references: [technicians.id],
+  }),
 }));
 
 // Create a separate client update schema for PATCH operations

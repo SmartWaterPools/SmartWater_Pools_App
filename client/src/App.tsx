@@ -13,9 +13,9 @@ import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
 import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
-// import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/AuthContext";
 
-import Dashboard from "./pages/Dashboard.enhanced";
+import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import Maintenance from "./pages/Maintenance";
@@ -42,8 +42,6 @@ import VehicleMapping from "./pages/VehicleMapping";
 import VehicleTracking from "./pages/VehicleTracking";
 import Settings from "./pages/Settings";
 import Admin from "./pages/Admin";
-import OrganizationSettings from "./pages/OrganizationSettings";
-import ClientCommunications from "./pages/ClientCommunications";
 import BarcodeDemo from "./pages/BarcodeDemo";
 import DataTableDemo from "./pages/DataTableDemo";
 import Login from "./pages/Login";
@@ -71,8 +69,8 @@ function AppContent({
   toggleMobileMenu: () => void; 
   closeMobileMenu: () => void; 
 }) {
+  const { isLoading } = useAuth();
   const [loadingTimeout, setLoadingTimeout] = useState<boolean>(false);
-  const isLoading = false; // Simplified to avoid auth context issues
   
   // Check auth loading state for proper UI rendering
   console.log("Auth loading state:", isLoading);
@@ -107,18 +105,9 @@ function AppContent({
     <TabProvider>
       <div className="flex h-screen overflow-hidden bg-background">
         <Switch>
-          {/* Redirect login and register to dashboard */}
-          <Route path="/login">
-            {() => {
-              window.location.href = '/dashboard';
-              return null;
-            }}
-          </Route>
+          {/* Public routes, no login page required as it will be a card on dashboard */}
           <Route path="/register">
-            {() => {
-              window.location.href = '/dashboard';
-              return null;
-            }}
+            <Register />
           </Route>
           <Route path="/unauthorized">
             <Unauthorized />
@@ -236,9 +225,6 @@ function AppContent({
                     <Route path="/pool-wizard/:id">
                       <PoolWizardPage />
                     </Route>
-                    <Route path="/clients/:id/communications">
-                      <ClientCommunications />
-                    </Route>
                     <Route path="/clients/:id">
                       <ClientDetails />
                     </Route>
@@ -287,9 +273,6 @@ function AppContent({
                     
                     <Route path="/settings">
                       <Settings />
-                    </Route>
-                    <Route path="/organization-settings">
-                      <OrganizationSettings />
                     </Route>
                     <Route path="/admin">
                       <Admin />

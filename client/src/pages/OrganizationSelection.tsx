@@ -33,10 +33,6 @@ export default function OrganizationSelection() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [verifiedOrg, setVerifiedOrg] = useState<{ id: number, name: string } | null>(null);
   const { toast } = useToast();
-  
-  // Check for suggested organization from URL parameters
-  const urlParams = new URLSearchParams(window.location.search);
-  const suggestedOrgId = urlParams.get('suggested');
 
   // Create organization form
   const createOrgForm = useForm<z.infer<typeof createOrgSchema>>({
@@ -63,41 +59,6 @@ export default function OrganizationSelection() {
     },
     retry: false,
   });
-
-  // Handle joining suggested organization
-  const handleJoinSuggestedOrg = async () => {
-    if (!suggestedOrgId || !pendingUserData?.user) return;
-    
-    setIsLoading(true);
-    try {
-      const response = await apiRequest('/api/oauth/complete-registration', 'POST', {
-        googleId: googleId,
-        organizationId: parseInt(suggestedOrgId),
-        role: 'client'
-      });
-
-      if (response.success) {
-        toast({
-          title: "Successfully joined organization!",
-          description: "Welcome to SmartWater Pools. Redirecting to dashboard...",
-        });
-        
-        // Redirect to dashboard after successful registration
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Error joining suggested organization:', error);
-      toast({
-        title: "Error joining organization",
-        description: "There was a problem joining the organization. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Handle verification of invitation code
   const handleVerifyInvitation = async (code: string) => {
@@ -325,7 +286,7 @@ export default function OrganizationSelection() {
     <div className="flex h-screen flex-col items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-lg">
         <CardHeader>
-          <CardTitle className="text-center text-2xl">Welcome to SmartWater Pools</CardTitle>
+          <CardTitle className="text-center text-2xl">Welcome to Smart Water Pools</CardTitle>
           <CardDescription className="text-center">
             Complete your account setup by creating or joining an organization
           </CardDescription>
@@ -344,39 +305,6 @@ export default function OrganizationSelection() {
               <p className="text-sm text-muted-foreground">{pendingUserData.user.email}</p>
             </div>
           </div>
-
-          {/* Show suggested organization option for same domain users */}
-          {suggestedOrgId && pendingUserData?.user?.suggestedOrganizationName && (
-            <div className="mb-6 rounded-lg border-2 border-primary/20 bg-primary/5 p-4">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-primary mb-2">Join Your Organization</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  We found that your email domain matches {pendingUserData.user.suggestedOrganizationName}. You can join this organization directly.
-                </p>
-                <Button 
-                  onClick={handleJoinSuggestedOrg}
-                  disabled={isLoading}
-                  className="w-full"
-                  size="lg"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Joining...
-                    </>
-                  ) : (
-                    `Join ${pendingUserData.user.suggestedOrganizationName}`
-                  )}
-                </Button>
-              </div>
-              
-              <div className="mt-4 flex items-center">
-                <div className="flex-1 border-t border-muted-foreground/20"></div>
-                <span className="px-3 text-xs text-muted-foreground">OR</span>
-                <div className="flex-1 border-t border-muted-foreground/20"></div>
-              </div>
-            </div>
-          )}
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
             <TabsList className="grid w-full grid-cols-2">

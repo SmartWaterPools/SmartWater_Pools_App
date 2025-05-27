@@ -106,39 +106,17 @@ export function requireActiveSubscription(storage: IStorage) {
         return next();
       }
       
-      // Special handling for new OAuth users who need to select an organization
-      if (user.isNewOAuthUser || user.needsOrganization || !user.organizationId) {
-        console.log(`New OAuth user ${user.email} needs organization selection - allowing dashboard access`);
-        return next();
-      }
-      
       // Get the user's organization
       const organization = await storage.getOrganization(user.organizationId);
       
       if (!organization) {
         console.error(`Organization not found for user ${user.id} (org ID: ${user.organizationId})`);
-        // Check if this is an API request
-        if (req.path.startsWith('/api/')) {
-          return res.status(402).json({ 
-            error: 'Subscription required', 
-            message: 'No organization found',
-            redirectTo: '/pricing?error=no-organization'
-          });
-        }
         return res.redirect('/pricing?error=no-organization');
       }
       
       // Check if organization has a subscription
       if (!organization.subscriptionId) {
         console.log(`No subscription found for organization ${organization.id} - redirecting to pricing`);
-        // Check if this is an API request
-        if (req.path.startsWith('/api/')) {
-          return res.status(402).json({ 
-            error: 'Subscription required', 
-            message: 'No active subscription found',
-            redirectTo: '/pricing?error=no-subscription'
-          });
-        }
         return res.redirect('/pricing?error=no-subscription');
       }
       
@@ -147,28 +125,12 @@ export function requireActiveSubscription(storage: IStorage) {
       
       if (!subscription) {
         console.error(`Subscription ${organization.subscriptionId} not found for organization ${organization.id}`);
-        // Check if this is an API request
-        if (req.path.startsWith('/api/')) {
-          return res.status(402).json({ 
-            error: 'Subscription required', 
-            message: 'Invalid subscription',
-            redirectTo: '/pricing?error=invalid-subscription'
-          });
-        }
         return res.redirect('/pricing?error=invalid-subscription');
       }
       
       // Check subscription status
       if (subscription.status !== 'active' && subscription.status !== 'trialing') {
         console.log(`Subscription ${subscription.id} for organization ${organization.id} has status ${subscription.status} - redirecting to pricing`);
-        // Check if this is an API request
-        if (req.path.startsWith('/api/')) {
-          return res.status(402).json({ 
-            error: 'Subscription required', 
-            message: `Subscription status is ${subscription.status}`,
-            redirectTo: '/pricing?error=inactive-subscription'
-          });
-        }
         return res.redirect('/pricing?error=inactive-subscription');
       }
       
@@ -177,14 +139,6 @@ export function requireActiveSubscription(storage: IStorage) {
         const trialEndDate = new Date(subscription.trialEndsAt);
         if (trialEndDate < new Date()) {
           console.log(`Trial period has ended for subscription ${subscription.id} - redirecting to pricing`);
-          // Check if this is an API request
-          if (req.path.startsWith('/api/')) {
-            return res.status(402).json({ 
-              error: 'Subscription required', 
-              message: 'Trial period has ended',
-              redirectTo: '/pricing?error=trial-ended'
-            });
-          }
           return res.redirect('/pricing?error=trial-ended');
         }
       }

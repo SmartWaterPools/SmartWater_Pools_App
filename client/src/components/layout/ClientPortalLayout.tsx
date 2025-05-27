@@ -84,7 +84,7 @@ export const ClientPortalLayout: React.FC<ClientPortalLayoutProps> = ({ children
       {/* Sidebar for client navigation */}
       <aside className="w-64 bg-white shadow-md p-6 flex flex-col">
         <div className="mb-8">
-          <h1 className="text-xl font-bold text-primary mb-2">SmartWater Pools</h1>
+          <h1 className="text-xl font-bold text-primary mb-2">Smart Water Pools</h1>
           <p className="text-sm text-muted-foreground">Client Portal</p>
         </div>
         

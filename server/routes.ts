@@ -4,8 +4,6 @@ import { ParsedQs } from "qs"; // Import the ParsedQs type for query parameters
 import { storage, IStorage } from "./storage";
 import { User, Organization } from "@shared/schema";
 import emailRoutes from "./email-routes";
-import organizationEmailRoutes from "./organization-email-routes";
-import emailProviderOAuthRoutes from "./routes/email-provider-oauth-routes";
 import fleetmaticsRoutes from "./routes/fleetmatics-routes";
 import inventoryRoutes from "./routes/inventory-routes";
 import invitationRoutes from "./routes/invitation-routes";
@@ -16,7 +14,6 @@ import authRoutes from "./routes/auth-routes";
 import bazzaRoutes from "./routes/bazza-routes";
 import passport from "passport";
 import { isAuthenticated, isAdmin, isSystemAdmin } from "./auth";
-import { requireActiveSubscription } from "./subscription-middleware";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -38,7 +35,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/bazza", bazzaRoutes);
   
   // Get technicians endpoint
-  app.get("/api/technicians", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
+  app.get("/api/technicians", isAuthenticated, async (req: Request, res: Response) => {
     try {
       console.log("[TECHNICIANS API] Processing request for technicians list");
       const reqUser = req.user as any;
@@ -78,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Technicians with users endpoint (requiring authentication)
-  app.get("/api/technicians-with-users", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
+  app.get("/api/technicians-with-users", isAuthenticated, async (req: Request, res: Response) => {
     try {
       console.log("[TECHNICIANS API] Processing request for technicians list");
       const reqUser = req.user as any;
@@ -737,45 +734,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (req.session as any).passport.user = user.id;
       
       // Redirect to appropriate page based on user role or organization status
-      console.log("OAuth callback - analyzing user for redirect:", {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        organizationId: user.organizationId,
-        isNewOAuthUser: user.isNewOAuthUser,
-        needsOrganization: user.needsOrganization,
-        googleId: user.googleId
-      });
-      
       if (user.role === 'system_admin') {
         console.log("Redirecting system admin to admin dashboard");
         return res.redirect('/admin/dashboard');
-      } else if (user.isNewOAuthUser || user.needsOrganization || !user.organizationId || user.id === -1) {
-        // New OAuth users need to complete organization setup or go to paywall
-        console.log("New OAuth user detected - redirecting to organization selection");
-        console.log("User properties:", {
-          isNewOAuthUser: user.isNewOAuthUser,
-          needsOrganization: user.needsOrganization,
-          organizationId: user.organizationId,
-          id: user.id,
-          suggestedOrganizationId: user.suggestedOrganizationId,
-          suggestedOrganizationName: user.suggestedOrganizationName,
-          googleId: user.googleId
-        });
-        
-        // All new OAuth users should go to dashboard with organization selection modal
-        console.log(`Redirecting new OAuth user to dashboard with organization selection modal. GoogleId: ${user.googleId}`);
-        
-        // Build redirect URL to dashboard with organization selection query params
-        let redirectUrl = `/dashboard?needs-organization=true&googleId=${user.googleId}`;
-        if (user.suggestedOrganizationId) {
-          redirectUrl += `&suggested=${user.suggestedOrganizationId}`;
-          console.log(`Including suggested organization: ${user.suggestedOrganizationName} (ID: ${user.suggestedOrganizationId})`);
-        }
-        
-        return res.redirect(redirectUrl);
+      } else if (!user.organizationId) {
+        console.log("User has no organization, redirecting to organization setup");
+        return res.redirect('/subscription/setup');
       } else {
-        console.log("Existing user with valid organization - redirecting to main dashboard");
+        console.log("Redirecting to main dashboard");
         return res.redirect('/dashboard');
       }
     });
@@ -794,7 +760,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Clients API endpoints - for fetching clients with proper organization filtering
   
   // Get all clients endpoint
-  app.get("/api/clients", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
+  app.get("/api/clients", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const reqUser = req.user as any;
       
@@ -1156,7 +1122,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/organizations", registerUserOrgRoutes(organizationRouter, typeSafeStorage, false));
 
   // Client equipment endpoint
-  app.get("/api/clients/:id/equipment", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
+  app.get("/api/clients/:id/equipment", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id, 10);
       console.log(`[API] Request for equipment for client ID: ${clientId}`);
@@ -1170,7 +1136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Client pool images endpoint
-  app.get("/api/clients/:id/images", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
+  app.get("/api/clients/:id/images", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const clientId = parseInt(req.params.id, 10);
       console.log(`[API] Request for images for client ID: ${clientId}`);
@@ -1184,7 +1150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Upcoming maintenances endpoint
-  app.get("/api/maintenances/upcoming", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
+  app.get("/api/maintenances/upcoming", isAuthenticated, async (req: Request, res: Response) => {
     try {
       console.log("\n[UPCOMING MAINTENANCES API] Processing request for upcoming maintenances");
       const reqUser = req.user as any;
@@ -2435,31 +2401,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ error: 'Failed to retrieve Google Maps API key' });
     }
   });
-
-  // Register CRM communications routes
-  try {
-    const crmCommunicationsRoutes = await import('./crm-communications-routes');
-    app.use("/api/clients", crmCommunicationsRoutes.default);
-    app.use("/api/communications", crmCommunicationsRoutes.default);
-  } catch (error) {
-    console.error('Failed to load CRM communications routes:', error);
-  }
-
-  // Register OAuth email provider routes
-  try {
-    const emailProviderOAuthRoutes = await import('./routes/email-provider-oauth-routes');
-    app.use("/api/email-providers", emailProviderOAuthRoutes.default);
-  } catch (error) {
-    console.error('Failed to load OAuth email provider routes:', error);
-  }
-
-  // Register OAuth email provider routes
-  try {
-    const emailProviderOAuthRoutes = await import('./routes/email-provider-oauth');
-    app.use("/api/email-providers", emailProviderOAuthRoutes.default);
-  } catch (error) {
-    console.error('Failed to load email provider OAuth routes:', error);
-  }
 
   return httpServer;
 }

@@ -38,37 +38,21 @@ const router = express.Router();
 // Session check endpoint - simplified version
 router.get('/session', (req: Request, res: Response) => {
   try {
-    // Check if the session has a user property (including temporary OAuth users)
-    const hasUser = req.user;
+    // Check if the session has a user property
+    const isAuthenticated = req.isAuthenticated() && req.user;
     
-    if (hasUser) {
+    // Log authentication status
+    if (isAuthenticated) {
       const user = req.user as any;
+      console.log(`Session check: Authenticated user: ${user.email} (id=${user.id})`);
       
-      // Check if this is a temporary OAuth user needing completion
-      if (user.isNewOAuthUser && user.needsOrganization) {
-        console.log(`Session check: OAuth user needs completion: ${user.email}`);
-        
-        // Send as authenticated but mark as needing completion
-        const { password, ...userWithoutPassword } = user;
-        res.json({
-          isAuthenticated: true,
-          user: userWithoutPassword
-        });
-      } else if (req.isAuthenticated()) {
-        // Regular authenticated user
-        console.log(`Session check: Authenticated user: ${user.email} (id=${user.id})`);
-        
-        const { password, ...userWithoutPassword } = user;
-        res.json({
-          isAuthenticated: true,
-          user: userWithoutPassword
-        });
-      } else {
-        console.log(`Session check: User exists but not authenticated`);
-        res.json({
-          isAuthenticated: false
-        });
-      }
+      // Don't send password to client
+      const { password, ...userWithoutPassword } = user;
+      
+      res.json({
+        isAuthenticated: true,
+        user: userWithoutPassword
+      });
     } else {
       console.log(`Session check: Not authenticated`);
       res.json({
@@ -153,62 +137,9 @@ router.post('/logout', (req: Request, res: Response) => {
 // Registration route
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    // Check if this is an OAuth user completion
-    const isOAuthCompletion = req.isAuthenticated() && req.user && (req.user as any).isNewOAuthUser;
-    
-    if (isOAuthCompletion) {
-      // Handle OAuth user registration completion
-      console.log("Processing OAuth user registration completion");
-      
-      const { organizationName, role, phone, address } = req.body;
-      const oauthUser = req.user as any;
-      
-      if (!organizationName) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Organization name is required' 
-        });
-      }
-      
-      // Create the actual user account
-      const newUser = await storage.createUser({
-        username: oauthUser.email,
-        email: oauthUser.email,
-        password: null, // OAuth users don't need passwords
-        name: oauthUser.name || oauthUser.email.split('@')[0],
-        role: role || 'client',
-        googleId: oauthUser.googleId,
-        authProvider: 'google',
-        active: true,
-        phone: phone || null,
-        address: address || null,
-        // organizationId will be set after creating/finding organization
-      });
-      
-      // Remove password from user object before sending to client
-      const userWithoutPassword = { ...newUser };
-      delete userWithoutPassword.password;
-      
-      // Log the user in with the real account
-      req.login(userWithoutPassword, (loginErr) => {
-        if (loginErr) {
-          console.error("OAuth registration completion login error:", loginErr);
-          return res.status(500).json({ success: false, message: 'Session error' });
-        }
-        
-        return res.status(201).json({ 
-          success: true, 
-          message: 'Registration completed successfully', 
-          user: userWithoutPassword,
-          organizationName: organizationName
-        });
-      });
-      
-      return;
-    }
-    
-    // Regular registration flow
+    // Validate request body against schema
     const userSchema = insertUserSchema.extend({
+      // Add additional validation if needed
       confirmPassword: z.string().optional(),
       organizationName: z.string().optional()
     });
@@ -244,8 +175,9 @@ router.post('/register', async (req: Request, res: Response) => {
       email,
       password: hashedPassword,
       name,
-      role: 'client',
+      role: 'client', // Default role for new registrations
       active: true,
+      // Other fields would be added here
     });
     
     // Remove password from user object before sending to client
@@ -323,47 +255,6 @@ router.get('/google/callback',
         console.log("- User ID:", user.id);
         console.log("- User email:", user.email);
         console.log("- User role:", user.role);
-        console.log("- Is new OAuth user:", user.isNewOAuthUser);
-        console.log("- Needs organization:", user.needsOrganization);
-      } else {
-        console.log("- No user object found in request");
-      }
-      
-      // Check if this is a new user that needs to complete registration
-      if (req.user) {
-        const user = req.user as any;
-        
-        // If this is a new OAuth user without an organization, redirect to registration
-        if (user.isNewOAuthUser && user.needsOrganization) {
-          console.log("New OAuth user detected, redirecting to registration flow");
-          
-          // Save session explicitly before redirecting
-          req.session.save((err) => {
-            if (err) {
-              console.error("Error saving session after Google auth:", err);
-              return res.redirect('/login?error=session-error');
-            }
-            
-            // Redirect to dashboard where login card will handle OAuth completion
-            res.redirect('/dashboard?oauth=true&new=true');
-          });
-          return;
-        }
-        
-        // If user doesn't have an organization but isn't flagged as new, redirect to pricing
-        if (!user.organizationId) {
-          console.log("User without organization detected, redirecting to pricing");
-          
-          req.session.save((err) => {
-            if (err) {
-              console.error("Error saving session after Google auth:", err);
-              return res.redirect('/login?error=session-error');
-            }
-            
-            res.redirect('/pricing?oauth=true');
-          });
-          return;
-        }
       }
       
       // Save session explicitly to ensure user is stored

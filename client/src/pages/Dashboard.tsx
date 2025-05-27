@@ -23,7 +23,6 @@ import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { MaintenanceItem } from "@/components/dashboard/MaintenanceItem";
 import { UserManagementCard } from "@/components/dashboard/UserManagementCard";
 import LoginCard from "@/components/dashboard/LoginCard";
-import OrganizationSelectionModal from "@/components/dashboard/OrganizationSelectionModal";
 import { useAuth } from "../contexts/AuthContext";
 import { 
   DashboardSummary, 
@@ -49,25 +48,6 @@ export default function Dashboard() {
   const { isAuthenticated, isLoading: authLoading, checkSession } = useAuth();
   // Set to true right away - we'll always render content regardless of auth state
   const [shouldRenderContent, setShouldRenderContent] = useState(true);
-  
-  // Organization selection modal state
-  const [showOrgModal, setShowOrgModal] = useState(false);
-  const [orgModalGoogleId, setOrgModalGoogleId] = useState<string>("");
-  const [suggestedOrganizationId, setSuggestedOrganizationId] = useState<string>("");
-
-  // Check URL parameters for organization selection
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const needsOrganization = urlParams.get('needs-organization');
-    const googleId = urlParams.get('googleId');
-    const suggested = urlParams.get('suggested');
-    
-    if (needsOrganization === 'true' && googleId) {
-      setOrgModalGoogleId(googleId);
-      setSuggestedOrganizationId(suggested || "");
-      setShowOrgModal(true);
-    }
-  }, []);
   
   // Re-check the session when the dashboard loads, but no longer wait on it
   useEffect(() => {
@@ -465,24 +445,6 @@ export default function Dashboard() {
       </div>
         </>
       )}
-      
-      {/* Organization Selection Modal - appears within dashboard when needed */}
-      <OrganizationSelectionModal
-        isOpen={showOrgModal}
-        onClose={() => {
-          setShowOrgModal(false);
-          // Clear URL parameters when modal is closed
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }}
-        googleId={orgModalGoogleId}
-        suggestedOrganizationId={suggestedOrganizationId}
-        onSuccess={() => {
-          setShowOrgModal(false);
-          // Clear URL parameters and refresh auth state
-          window.history.replaceState({}, document.title, window.location.pathname);
-          checkSession();
-        }}
-      />
     </div>
   );
 }
