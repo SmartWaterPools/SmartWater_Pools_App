@@ -15,7 +15,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 // import { useAuth } from "@/contexts/AuthContext";
 
-import Dashboard from "./pages/Dashboard";
+import Dashboard from "./pages/Dashboard.enhanced";
 import Projects from "./pages/Projects";
 import ProjectDetails from "./pages/ProjectDetails";
 import Maintenance from "./pages/Maintenance";
