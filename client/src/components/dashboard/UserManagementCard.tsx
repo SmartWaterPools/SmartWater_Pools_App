@@ -41,7 +41,7 @@ export const UserManagementCard = () => {
 
   // Check for OAuth completion needed
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.split('?')[1] || '');
+    const searchParams = new URLSearchParams(window.location.search);
     const isOAuth = searchParams.get('oauth') === 'true';
     const isNewUser = searchParams.get('new') === 'true';
     
