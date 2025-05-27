@@ -33,9 +33,22 @@ import {
 export default function Dashboard() {
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
 
-  // If not authenticated, show login interface
+  // If not authenticated, show simple login interface
   if (!isAuthenticated) {
-    return <UserManagementCard />;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+          <h2 className="text-2xl font-bold mb-4">Welcome to SmartWater Pools</h2>
+          <p className="text-gray-600 mb-6">Please log in to access your pool management dashboard.</p>
+          <a 
+            href="/api/auth/google" 
+            className="inline-flex items-center justify-center bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            Login with Google
+          </a>
+        </div>
+      </div>
+    );
   }
 
   // If authenticated, show full dashboard with all features
