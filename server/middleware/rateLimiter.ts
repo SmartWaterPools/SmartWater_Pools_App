@@ -6,11 +6,15 @@ import { Request, Response } from 'express';
 // Strict rate limiter for authentication endpoints
 export const authRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 requests per windowMs
+  max: 20, // Increased to 20 requests per windowMs for development
   message: 'Too many authentication attempts, please try again later',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  skipSuccessfulRequests: false, // Count successful requests
+  skipSuccessfulRequests: true, // Don't count successful requests
+  skip: (req: Request) => {
+    // Skip rate limiting for session checks to prevent UI lockups
+    return req.path === '/session';
+  },
   handler: (req: Request, res: Response) => {
     console.error(`Rate limit exceeded for IP: ${req.ip} on path: ${req.path}`);
     res.status(429).json({

@@ -6,6 +6,7 @@ import bcrypt from 'bcrypt';
 import { User } from '@shared/schema';
 import { IStorage } from './storage';
 import { UserRole, ResourceType, ActionType, hasPermission, checkPermission } from './permissions';
+import { createOAuthState, storePendingUserInState } from './oauth-state-manager';
 
 export function configurePassport(storage: IStorage) {
   // Serialize user to the session with enhanced logging

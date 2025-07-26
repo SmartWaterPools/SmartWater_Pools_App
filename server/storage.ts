@@ -38,13 +38,14 @@ import {
   SubscriptionPlan, InsertSubscriptionPlan,
   Subscription, InsertSubscription,
   PaymentRecord, InsertPaymentRecord,
+  OAuthState, InsertOAuthState,
   organizations, users, clients, technicians, projects, projectPhases, projectAssignments, maintenances, 
   repairs, invoices, poolEquipment, poolImages, serviceTemplates, projectDocumentation, 
   communicationProviders, chemicalUsage, waterReadings, maintenanceReports, routes, routeAssignments,
   bazzaRoutes, bazzaRouteStops, bazzaMaintenanceAssignments,
   warehouses, technicianVehicles, warehouseInventory, vehicleInventory, inventoryTransfers,
   inventoryTransferItems, barcodes, barcodeScanHistory, inventoryAdjustments, inventoryItems,
-  fleetmaticsConfig, fleetmaticsLocationHistory, subscriptionPlans, subscriptions, paymentRecords
+  fleetmaticsConfig, fleetmaticsLocationHistory, subscriptionPlans, subscriptions, paymentRecords, oauthStates
 } from "@shared/schema";
 import { and, eq, desc, gte, lte, sql, asc, isNotNull, lt, or, inArray } from "drizzle-orm";
 import { db } from "./db";
@@ -439,6 +440,13 @@ export interface IStorage {
   getPaymentRecordsByOrganizationId(organizationId: number): Promise<PaymentRecord[]>;
   getPaymentRecordsBySubscriptionId(subscriptionId: number): Promise<PaymentRecord[]>;
   getPaymentRecordsByDateRange(startDate: Date, endDate: Date): Promise<PaymentRecord[]>;
+  
+  // OAuth State operations
+  createOAuthState(state: InsertOAuthState): Promise<OAuthState>;
+  getOAuthState(state: string): Promise<OAuthState | undefined>;
+  updateOAuthState(id: number, data: Partial<OAuthState>): Promise<OAuthState | undefined>;
+  deleteOAuthState(state: string): Promise<boolean>;
+  cleanupExpiredOAuthStates(): Promise<number>;
 }
 
 // In-memory storage implementation
@@ -9166,6 +9174,64 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error getting all payment records:', error);
       return [];
+    }
+  }
+
+  // OAuth State operations
+  async createOAuthState(state: InsertOAuthState): Promise<OAuthState> {
+    try {
+      const [result] = await db.insert(oauthStates).values(state).returning();
+      return result;
+    } catch (error) {
+      console.error('Error creating OAuth state:', error);
+      throw error;
+    }
+  }
+
+  async getOAuthState(state: string): Promise<OAuthState | undefined> {
+    try {
+      const result = await db.query.oauthStates.findFirst({
+        where: eq(oauthStates.state, state)
+      });
+      return result;
+    } catch (error) {
+      console.error('Error getting OAuth state:', error);
+      return undefined;
+    }
+  }
+
+  async updateOAuthState(id: number, data: Partial<OAuthState>): Promise<OAuthState | undefined> {
+    try {
+      const [result] = await db
+        .update(oauthStates)
+        .set(data)
+        .where(eq(oauthStates.id, id))
+        .returning();
+      return result;
+    } catch (error) {
+      console.error('Error updating OAuth state:', error);
+      return undefined;
+    }
+  }
+
+  async deleteOAuthState(state: string): Promise<boolean> {
+    try {
+      await db.delete(oauthStates).where(eq(oauthStates.state, state));
+      return true;
+    } catch (error) {
+      console.error('Error deleting OAuth state:', error);
+      return false;
+    }
+  }
+
+  async cleanupExpiredOAuthStates(): Promise<number> {
+    try {
+      const result = await db.delete(oauthStates)
+        .where(lt(oauthStates.expiresAt, new Date()));
+      return result.rowCount || 0;
+    } catch (error) {
+      console.error('Error cleaning up expired OAuth states:', error);
+      return 0;
     }
   }
 }

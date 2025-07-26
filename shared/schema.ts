@@ -897,6 +897,24 @@ export type InsertCommunicationProvider = z.infer<typeof insertCommunicationProv
 export type InvitationToken = typeof invitationTokens.$inferSelect;
 export type InsertInvitationToken = z.infer<typeof insertInvitationTokenSchema>;
 
+// OAuth State Management
+export const oauthStates = pgTable("oauth_states", {
+  id: serial("id").primaryKey(),
+  state: text("state").notNull().unique(),
+  sessionId: text("session_id").notNull(),
+  userData: jsonb("user_data"), // Pending user data from OAuth provider
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  expiresAt: timestamp("expires_at").notNull(),
+});
+
+export const insertOauthStateSchema = createInsertSchema(oauthStates).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type OAuthState = typeof oauthStates.$inferSelect;
+export type InsertOAuthState = z.infer<typeof insertOauthStateSchema>;
+
 // Business Module Schemas
 
 // Expense Categories

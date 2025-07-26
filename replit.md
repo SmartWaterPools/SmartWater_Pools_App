@@ -28,6 +28,24 @@ A sophisticated pool service and project management platform that leverages inte
 
 ## Recent Changes
 
+### January 27, 2025 - Comprehensive Security Audit and Improvements
+- **OAuth State Management**: Moved from in-memory to database-backed storage for OAuth states
+  - Created `oauth_states` table with automatic expiration cleanup
+  - Prevents state loss during server restarts
+  - Enhanced CSRF protection for OAuth flows
+- **Request Validation Middleware**: 
+  - Added size validation (50MB limit) with proper error messages
+  - JSON payload validation to prevent malformed requests
+  - Applied validation middleware globally
+- **CSRF Protection**:
+  - Implemented CSRF token generation and validation
+  - Added automatic token inclusion in client-side API requests
+  - Excluded OAuth callbacks and webhooks from CSRF validation
+- **Rate Limiting Adjustments**:
+  - Increased auth attempts to 20 per 15 minutes for better usability
+  - Added skip for session checks to prevent UI lockups
+  - Enabled `skipSuccessfulRequests` for auth endpoints
+
 ### January 26, 2025 - Security and Stability Improvements
 - **Removed Plain Text Password Support**: Enhanced security by blocking authentication for accounts with non-bcrypt passwords
 - **Added Rate Limiting**: Implemented express-rate-limit for authentication endpoints (5 attempts/15 min)

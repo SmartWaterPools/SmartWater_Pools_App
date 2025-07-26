@@ -11,6 +11,8 @@ import pg from "pg";
 const { Pool } = pg;
 import connectPgSimple from "connect-pg-simple";
 import { loadEmailConfigFromDatabase } from "./email-service";
+import { validateRequestSize, validateJsonPayload } from "./middleware/requestValidation";
+import { csrfTokenMiddleware } from "./middleware/csrf";
 
 // Set up environment variables for Replit
 const isReplitEnv = !!process.env.REPL_ID;
@@ -29,9 +31,16 @@ const app = express();
 // This is required for rate limiting to work correctly behind reverse proxies
 app.set('trust proxy', true);
 
+// Apply request validation middleware before body parsing
+app.use(validateRequestSize);
+
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Apply JSON validation and CSRF middleware after body parsing
+app.use(validateJsonPayload);
+app.use(csrfTokenMiddleware);
 
 // Configure session store with PostgreSQL
 const PgSession = connectPgSimple(session);

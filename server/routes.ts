@@ -15,6 +15,8 @@ import bazzaRoutes from "./routes/bazza-routes";
 import passport from "passport";
 import { isAuthenticated, isAdmin, isSystemAdmin } from "./auth";
 import { authRateLimiter, apiRateLimiter, oauthRateLimiter } from "./middleware/rateLimiter";
+import { validateRequestSize, validateJsonPayload } from "./middleware/requestValidation";
+import { csrfTokenMiddleware, validateCSRFToken, getCSRFToken } from "./middleware/csrf";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
@@ -34,6 +36,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register bazza routes with /api/bazza prefix
   app.use("/api/bazza", bazzaRoutes);
+  
+  // CSRF token endpoint
+  app.get("/api/csrf-token", getCSRFToken);
   
   // Get technicians endpoint
   app.get("/api/technicians", isAuthenticated, async (req: Request, res: Response) => {
