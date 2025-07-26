@@ -32,7 +32,7 @@ const app = express();
 app.set('trust proxy', true);
 
 // Apply request validation middleware before body parsing
-app.use(validateRequestSize);
+app.use(validateRequestSize(50)); // 50MB limit to match the express.json limit
 
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images
 app.use(express.json({ limit: '50mb' }));
@@ -74,9 +74,11 @@ console.log('Session middleware initialized');
 const sessionPool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   // Smaller pool for session management to avoid exhausting main app connections
-  max: 5, // Reduced maximum number of clients for sessions
-  idleTimeoutMillis: 10000, // Close idle clients after 10 seconds
-  connectionTimeoutMillis: 5000, // Increased timeout to 5 seconds for Replit environment
+  max: 3, // Further reduced for stability
+  idleTimeoutMillis: 30000, // Increased idle timeout to 30 seconds
+  connectionTimeoutMillis: 10000, // Increased connection timeout to 10 seconds
+  // Add retry logic for better reliability
+  retryDelayMs: 1000,
 });
 
 // Setup session middleware with enhanced configuration for OAuth flows
