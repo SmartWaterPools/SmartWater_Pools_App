@@ -14,6 +14,7 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
@@ -336,17 +337,19 @@ function App() {
   };
   
   return (
-    <QueryClientProvider client={queryClient}>
-      <GoogleMapsProvider>
-        <AuthProvider>
-          <AppContent 
-            mobileMenuOpen={mobileMenuOpen}
-            toggleMobileMenu={toggleMobileMenu}
-            closeMobileMenu={closeMobileMenu}
-          />
-        </AuthProvider>
-      </GoogleMapsProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <GoogleMapsProvider>
+          <AuthProvider>
+            <AppContent 
+              mobileMenuOpen={mobileMenuOpen}
+              toggleMobileMenu={toggleMobileMenu}
+              closeMobileMenu={closeMobileMenu}
+            />
+          </AuthProvider>
+        </GoogleMapsProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -72,18 +72,12 @@ export function configurePassport(storage: IStorage) {
             isValidPassword = await bcrypt.compare(password, user.password);
             console.log(`LocalStrategy: Password comparison result for '${username}': ${isValidPassword}`);
           } else {
-            // For plain text passwords (temporary during migration)
-            console.log(`LocalStrategy: User '${username}' has plain text password, comparing...`);
-            isValidPassword = password === user.password;
-            console.log(`LocalStrategy: Plain text password comparison result for '${username}': ${isValidPassword}`);
+            // Plain text passwords are no longer supported for security reasons
+            console.log(`LocalStrategy: User '${username}' has invalid password format (not bcrypt). Access denied.`);
+            isValidPassword = false;
             
-            // If password is correct, update it to a hashed version
-            if (isValidPassword) {
-              console.log(`LocalStrategy: Upgrading plain text password to bcrypt hash for '${username}'`);
-              const hashedPassword = await hashPassword(password);
-              await storage.updateUser(user.id, { password: hashedPassword });
-              console.log(`LocalStrategy: Password hash upgrade completed for '${username}'`);
-            }
+            // Log security warning
+            console.error(`SECURITY WARNING: User '${username}' (ID: ${user.id}) has non-bcrypt password. Password authentication blocked until password is reset.`);
           }
           
           if (!isValidPassword) {
