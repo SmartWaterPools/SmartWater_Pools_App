@@ -29,7 +29,7 @@ import { User } from '@shared/schema';
 
 interface ManagerLayoutProps {
   children: React.ReactNode;
-  user: User;
+  user: Omit<User, 'password'>;
 }
 
 interface NavItem {

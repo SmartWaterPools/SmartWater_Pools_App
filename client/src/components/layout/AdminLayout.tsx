@@ -29,7 +29,7 @@ import { EnhancedBreadcrumbs } from './EnhancedBreadcrumbs';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  user: User;
+  user: Omit<User, 'password'>;
 }
 
 interface NavItem {

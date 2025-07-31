@@ -30,7 +30,7 @@ import { EnhancedBreadcrumbs } from './EnhancedBreadcrumbs';
 
 interface ClientLayoutProps {
   children: React.ReactNode;
-  user: User;
+  user: Omit<User, 'password'>;
 }
 
 interface NavItem {
@@ -379,9 +379,32 @@ export const ClientLayout: React.FC<ClientLayoutProps> = ({ children, user }) =>
                   <p className="text-sm text-gray-500">Pool Service Client</p>
                 </div>
               </div>
+              
+              {/* Mobile Service Status Quick View */}
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="bg-green-50 p-2 rounded-lg border border-green-200">
+                  <div className="flex items-center">
+                    <CheckCircle className="h-4 w-4 text-green-600 mr-2" />
+                    <div>
+                      <p className="text-xs font-medium text-green-800">Last Service</p>
+                      <p className="text-xs text-green-600">{lastService}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 p-2 rounded-lg border border-blue-200">
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 text-blue-600 mr-2" />
+                    <div>
+                      <p className="text-xs font-medium text-blue-800">Next Service</p>
+                      <p className="text-xs text-blue-600">{nextService}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
+            <nav className="flex-1 px-4 py-4 space-y-2 overflow-y-auto mobile-scroll">
               {navigationItems.map(item => renderNavItem(item))}
             </nav>
             
@@ -390,7 +413,7 @@ export const ClientLayout: React.FC<ClientLayoutProps> = ({ children, user }) =>
                 <p className="text-sm text-gray-600">Need help? Call us:</p>
                 <p className="text-sm font-medium text-primary">(555) 123-4567</p>
               </div>
-              <Button onClick={() => logout()} variant="outline" className="w-full">
+              <Button onClick={() => logout()} variant="outline" className="w-full tap-target">
                 Sign Out
               </Button>
             </div>
@@ -433,7 +456,7 @@ export const ClientLayout: React.FC<ClientLayoutProps> = ({ children, user }) =>
         </div>
         
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 mobile-scroll">
           {children}
         </main>
       </div>

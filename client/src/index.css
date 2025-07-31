@@ -62,4 +62,48 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Mobile-first touch improvements */
+  @media (max-width: 768px) {
+    /* Increase tap targets for mobile */
+    button, a[role="button"], .tap-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    /* Improve touch scrolling */
+    .mobile-scroll {
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+    
+    /* Prevent zoom on input focus */
+    input, select, textarea {
+      font-size: 16px;
+    }
+    
+    /* Reduce motion for mobile users who prefer it */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  }
+
+  /* Touch-friendly hover states */
+  @media (hover: hover) and (pointer: fine) {
+    /* Only apply hover states on devices that support hover */
+    .hover-target:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  /* Improve focus visibility for accessibility */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
 }
