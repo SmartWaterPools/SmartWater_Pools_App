@@ -57,6 +57,7 @@ import Pricing from "./pages/Pricing";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/not-found";
+import MobileTest from "./pages/MobileTest";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -150,6 +151,9 @@ function AppContent({
           </Route>
           <Route path="/test">
             <TestPage />
+          </Route>
+          <Route path="/mobile-test">
+            <MobileTest />
           </Route>
           
           {/* All routes including dashboard with login card */}
