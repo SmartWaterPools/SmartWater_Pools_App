@@ -18,8 +18,8 @@ export default function Dashboard() {
   // If not authenticated, show login interface
   if (!isAuthenticated || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
           <LoginCard />
         </div>
       </div>

@@ -64,7 +64,7 @@
   }
 
   /* Mobile-first touch improvements */
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     /* Increase tap targets for mobile */
     button, a[role="button"], .tap-target {
       min-height: 44px;
@@ -82,6 +82,15 @@
       font-size: 16px;
     }
     
+    /* Better spacing for mobile */
+    .space-y-6 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 1rem;
+    }
+    
+    .space-y-4 > :not([hidden]) ~ :not([hidden]) {
+      margin-top: 0.75rem;
+    }
+    
     /* Reduce motion for mobile users who prefer it */
     @media (prefers-reduced-motion: reduce) {
       * {
@@ -89,6 +98,30 @@
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
       }
+    }
+  }
+
+  /* Enhanced mobile responsiveness */
+  @media (max-width: 640px) {
+    .container {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
+    
+    /* Ensure full width on small screens */
+    .w-full {
+      width: 100% !important;
+    }
+    
+    /* Better text sizing */
+    .text-3xl {
+      font-size: 1.5rem;
+      line-height: 2rem;
+    }
+    
+    .text-2xl {
+      font-size: 1.25rem;
+      line-height: 1.75rem;
     }
   }
 
@@ -105,5 +138,35 @@
   *:focus-visible {
     outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
+  }
+
+  /* Force content to be visible and prevent white screens */
+  body, #root {
+    min-height: 100vh;
+    background-color: hsl(var(--background));
+  }
+
+  /* Ensure main content areas have minimum height */
+  .flex.h-screen {
+    min-height: 100vh;
+  }
+
+  /* Fix potential z-index issues */
+  .relative {
+    position: relative;
+  }
+
+  /* Ensure cards and content are visible */
+  .bg-card, .bg-background {
+    background-color: hsl(var(--card)) !important;
+  }
+
+  /* Mobile viewport fixes */
+  @supports (-webkit-touch-callout: none) {
+    /* iOS Safari fixes */
+    .h-screen {
+      height: -webkit-fill-available;
+      min-height: 100vh;
+    }
   }
 }
