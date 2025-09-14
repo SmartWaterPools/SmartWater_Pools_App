@@ -36,8 +36,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Basic clients endpoint
   app.get('/api/clients', isAuthenticated, async (req, res) => {
     try {
-      // Return empty array for now - prevents connection errors
-      res.json([]);
+      // Get all users with role 'client' from the current organization
+      const clients = await storage.getUsersByRole('client');
+      
+      // Format clients in the expected structure
+      const formattedClients = clients
+        .filter(c => c.organizationId === req.user?.organizationId) // Filter by current org
+        .map(client => ({
+          client: {
+            id: client.id,
+            companyName: null, // Will need to add this field later
+            contractType: 'residential' // Default value for now
+          },
+          user: client,
+          id: client.id, // Add top-level ID for convenience
+          companyName: null,
+          contractType: 'residential'
+        }));
+      
+      res.json(formattedClients);
     } catch (error) {
       console.error('Clients error:', error);
       res.status(500).json({ error: 'Failed to load clients' });
@@ -47,16 +64,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new client endpoint
   app.post('/api/clients', isAuthenticated, async (req, res) => {
     try {
-      // For now, just return success - in production this would save to database
-      console.log('Creating new client:', req.body);
+      const { name, email, phone, address, companyName, contractType } = req.body;
+      
+      // Create a new user with role 'client'
+      const newClient = await storage.createUser({
+        username: email.split('@')[0], // Generate username from email
+        name,
+        email,
+        phone: phone || null,
+        address: address || null,
+        role: 'client',
+        organizationId: req.user?.organizationId || 1, // Use current user's org or default
+        active: true,
+        authProvider: 'local'
+      });
+      
+      console.log('Created new client:', newClient);
       res.json({ 
         success: true, 
         message: 'Client created successfully',
-        client: { ...req.body, id: Date.now() } // Return mock client with generated ID
+        client: newClient
       });
     } catch (error) {
       console.error('Create client error:', error);
       res.status(500).json({ error: 'Failed to create client' });
+    }
+  });
+  
+  // Get single client endpoint  
+  app.get('/api/clients/:id', isAuthenticated, async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      const client = await storage.getUser(clientId);
+      
+      if (!client || client.role !== 'client') {
+        return res.status(404).json({ error: 'Client not found' });
+      }
+      
+      // Return client data in the expected format
+      res.json({
+        client: {
+          id: client.id,
+          companyName: null, // Will need to add this field to users table later
+          contractType: 'residential' // Default value for now
+        },
+        user: client
+      });
+    } catch (error) {
+      console.error('Get client error:', error);
+      res.status(500).json({ error: 'Failed to get client' });
     }
   });
 

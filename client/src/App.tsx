@@ -14,6 +14,10 @@ import Projects from "@/pages/Projects";
 import Clients from "@/pages/Clients";
 import AddClient from "@/pages/AddClient";
 import ClientsEnhanced from "@/pages/ClientsEnhanced";
+import ClientDetails from "@/pages/ClientDetails";
+import ClientEdit from "@/pages/ClientEdit";
+import ClientPortal from "@/pages/ClientPortal";
+import PoolWizardPage from "@/pages/PoolWizardPage";
 import Maintenance from "@/pages/Maintenance";
 import Repairs from "@/pages/Repairs";
 import Settings from "@/pages/Settings";
@@ -63,6 +67,10 @@ function Router() {
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
       <Route path="/clients/add" component={() => <ProtectedRoute component={AddClient} />} />
       <Route path="/clients/enhanced" component={() => <ProtectedRoute component={ClientsEnhanced} />} />
+      <Route path="/clients/:id/pool-wizard" component={() => <ProtectedRoute component={PoolWizardPage} />} />
+      <Route path="/clients/:id/edit" component={() => <ProtectedRoute component={ClientEdit} />} />
+      <Route path="/clients/:id/portal" component={() => <ProtectedRoute component={ClientPortal} />} />
+      <Route path="/clients/:id" component={() => <ProtectedRoute component={ClientDetails} />} />
       <Route path="/clients" component={() => <ProtectedRoute component={Clients} />} />
       <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} />} />
       <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} />} />

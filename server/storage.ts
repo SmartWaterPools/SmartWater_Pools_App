@@ -10,6 +10,8 @@ export interface IStorage {
   getUserByGoogleId(googleId: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
+  getUsersByRole(role: string): Promise<User[]>;
+  getUsersByOrganization(organizationId: number): Promise<User[]>;
   
   // Organization operations
   getOrganization(id: number): Promise<Organization | undefined>;
@@ -48,6 +50,14 @@ export class DatabaseStorage implements IStorage {
   async updateUser(id: number, data: Partial<User>): Promise<User | undefined> {
     const result = await db.update(users).set(data).where(eq(users.id, id)).returning();
     return result[0] || undefined;
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.role, role));
+  }
+
+  async getUsersByOrganization(organizationId: number): Promise<User[]> {
+    return await db.select().from(users).where(eq(users.organizationId, organizationId));
   }
 
   // Organization operations
