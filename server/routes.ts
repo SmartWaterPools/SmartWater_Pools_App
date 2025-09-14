@@ -125,6 +125,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: newClient.role,
         phone: newClient.phone,
         address: newClient.address,
+        addressLat: newClient.addressLat,
+        addressLng: newClient.addressLng,
         active: newClient.active,
         organizationId: newClient.organizationId,
         authProvider: newClient.authProvider
@@ -261,12 +263,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Google Maps API key endpoint
+  // Google Maps API key endpoint - PUBLIC (no auth required)
+  // This needs to be accessible from the login page
   app.get('/api/google-maps-key', (req, res) => {
     try {
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
-        return res.status(404).json({ error: 'Google Maps API key not configured' });
+        // Return empty response instead of 404 to avoid console errors
+        return res.json({ apiKey: null });
       }
       res.json({ apiKey });
     } catch (error) {

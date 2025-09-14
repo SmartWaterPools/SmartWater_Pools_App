@@ -22,6 +22,7 @@ export function GoogleAddressAutocomplete({
   const [inputValue, setInputValue] = useState(value || '');
   const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState<string | null>(null);
+  const [apiKeyError, setApiKeyError] = useState(false);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -30,13 +31,18 @@ export function GoogleAddressAutocomplete({
     const fetchApiKey = async () => {
       try {
         const response = await fetch('/api/google-maps-key');
-        if (!response.ok) throw new Error('Failed to fetch API key');
         const data = await response.json();
         if (data.apiKey) {
           setApiKey(data.apiKey);
+          setApiKeyError(false);
+        } else {
+          // API key is null - Google Maps not configured
+          setApiKeyError(true);
+          console.info('Google Maps API key not configured - using manual address input');
         }
       } catch (error) {
         console.error('Error fetching Google Maps API key:', error);
+        setApiKeyError(true);
       }
     };
     fetchApiKey();
@@ -44,7 +50,8 @@ export function GoogleAddressAutocomplete({
 
   // Load Google Maps Places API and initialize autocomplete
   useEffect(() => {
-    if (!apiKey || !inputRef.current) return;
+    // Skip if no API key or if there was an error
+    if (!apiKey || apiKeyError || !inputRef.current) return;
 
     setIsLoading(true);
 
@@ -129,6 +136,27 @@ export function GoogleAddressAutocomplete({
   useEffect(() => {
     setInputValue(value || '');
   }, [value]);
+
+  // If API key is missing or there's an error, render a simple input
+  // that allows manual address entry
+  if (apiKeyError || (!apiKey && !isLoading)) {
+    return (
+      <Input
+        type="text"
+        value={inputValue}
+        onChange={(e) => {
+          const newValue = e.target.value;
+          setInputValue(newValue);
+          // Update parent without coordinates since we don't have Google Maps
+          onChange(newValue, undefined, undefined);
+        }}
+        placeholder={placeholder || "Enter address manually..."}
+        disabled={disabled}
+        className={className}
+        data-testid={dataTestId}
+      />
+    );
+  }
 
   return (
     <div className="relative">
