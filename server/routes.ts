@@ -39,20 +39,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all users with role 'client' from the current organization
       const clients = await storage.getUsersByRole('client');
       
-      // Format clients in the expected structure
+      // Format clients in the expected structure with sanitized data
       const formattedClients = clients
         .filter(c => c.organizationId === req.user?.organizationId) // Filter by current org
-        .map(client => ({
-          client: {
+        .map(client => {
+          // Sanitize client data - remove sensitive fields
+          const sanitizedClient = {
             id: client.id,
-            companyName: null, // Will need to add this field later
-            contractType: 'residential' // Default value for now
-          },
-          user: client,
-          id: client.id, // Add top-level ID for convenience
-          companyName: null,
-          contractType: 'residential'
-        }));
+            username: client.username,
+            name: client.name,
+            email: client.email,
+            role: client.role,
+            phone: client.phone,
+            address: client.address,
+            active: client.active,
+            organizationId: client.organizationId,
+            authProvider: client.authProvider
+            // Explicitly exclude: password, googleId, photoUrl
+          };
+          
+          return {
+            client: {
+              id: client.id,
+              companyName: null, // Will need to add this field later
+              contractType: 'residential' // Default value for now
+            },
+            user: sanitizedClient,
+            id: client.id, // Add top-level ID for convenience
+            companyName: null,
+            contractType: 'residential'
+          };
+        });
       
       res.json(formattedClients);
     } catch (error) {
@@ -66,24 +83,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { name, email, phone, address, companyName, contractType } = req.body;
       
+      // Require organization ID from authenticated user
+      if (!req.user?.organizationId) {
+        return res.status(400).json({ error: 'Organization not found' });
+      }
+      
+      // Generate unique username - handle potential duplicates
+      let username = email.split('@')[0];
+      let suffix = 0;
+      let uniqueUsername = username;
+      
+      // Check for existing username and add suffix if needed
+      while (await storage.getUserByUsername(uniqueUsername)) {
+        suffix++;
+        uniqueUsername = `${username}${suffix}`;
+      }
+      
       // Create a new user with role 'client'
       const newClient = await storage.createUser({
-        username: email.split('@')[0], // Generate username from email
+        username: uniqueUsername,
         name,
         email,
         phone: phone || null,
         address: address || null,
         role: 'client',
-        organizationId: req.user?.organizationId || 1, // Use current user's org or default
+        organizationId: req.user.organizationId,
         active: true,
         authProvider: 'local'
       });
       
-      console.log('Created new client:', newClient);
+      // Sanitize the response - remove sensitive fields
+      const sanitizedClient = {
+        id: newClient.id,
+        username: newClient.username,
+        name: newClient.name,
+        email: newClient.email,
+        role: newClient.role,
+        phone: newClient.phone,
+        address: newClient.address,
+        active: newClient.active,
+        organizationId: newClient.organizationId,
+        authProvider: newClient.authProvider
+      };
+      
+      console.log('Created new client:', sanitizedClient.id);
       res.json({ 
         success: true, 
         message: 'Client created successfully',
-        client: newClient
+        client: sanitizedClient
       });
     } catch (error) {
       console.error('Create client error:', error);
@@ -97,9 +144,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clientId = parseInt(req.params.id);
       const client = await storage.getUser(clientId);
       
+      // Check if client exists and belongs to the same organization
       if (!client || client.role !== 'client') {
         return res.status(404).json({ error: 'Client not found' });
       }
+      
+      // Verify organization access - critical security check
+      if (client.organizationId !== req.user?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Sanitize client data - remove sensitive fields
+      const sanitizedClient = {
+        id: client.id,
+        username: client.username,
+        name: client.name,
+        email: client.email,
+        role: client.role,
+        phone: client.phone,
+        address: client.address,
+        active: client.active,
+        organizationId: client.organizationId,
+        authProvider: client.authProvider
+        // Explicitly exclude: password, googleId, photoUrl
+      };
       
       // Return client data in the expected format
       res.json({
@@ -108,7 +176,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           companyName: null, // Will need to add this field to users table later
           contractType: 'residential' // Default value for now
         },
-        user: client
+        user: sanitizedClient,
+        // Add convenience fields
+        address: client.address,
+        phone: client.phone
       });
     } catch (error) {
       console.error('Get client error:', error);
