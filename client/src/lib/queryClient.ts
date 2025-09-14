@@ -7,19 +7,20 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-export async function apiRequest<T = any>(
+export async function apiRequest(
+  method: string,
   url: string,
-  options?: RequestInit,
-): Promise<T> {
+  data?: unknown | undefined,
+): Promise<Response> {
   const res = await fetch(url, {
-    method: options?.method || 'GET',
-    headers: options?.body ? { "Content-Type": "application/json", ...options?.headers } : options?.headers || {},
-    body: options?.body,
+    method,
+    headers: data ? { "Content-Type": "application/json" } : {},
+    body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
   await throwIfResNotOk(res);
-  return await res.json() as T;
+  return res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -28,17 +29,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    // Construct proper URL from queryKey
-    let url = queryKey[0] as string;
-    
-    // If we have a numeric ID as the second parameter, append it to the URL
-    if (queryKey.length > 1 && queryKey[1] !== null && queryKey[1] !== undefined) {
-      url = `${url}/${queryKey[1]}`;
-    }
-    
-    console.log(`Fetching data from: ${url}`);
-    
-    const res = await fetch(url, {
+    const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
     });
 

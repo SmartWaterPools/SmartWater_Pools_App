@@ -19,7 +19,7 @@ const BreadcrumbList = React.forwardRef<
   <ol
     ref={ref}
     className={cn(
-      "flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground",
+      "flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5",
       className
     )}
     {...props}
@@ -44,8 +44,9 @@ const BreadcrumbLink = React.forwardRef<
   React.ComponentPropsWithoutRef<"a"> & {
     asChild?: boolean
   }
->(({ className, asChild = false, ...props }, ref) => {
+>(({ asChild, className, ...props }, ref) => {
   const Comp = asChild ? Slot : "a"
+
   return (
     <Comp
       ref={ref}
@@ -63,9 +64,9 @@ const BreadcrumbPage = React.forwardRef<
   <span
     ref={ref}
     role="link"
-    aria-current="page"
     aria-disabled="true"
-    className={cn("font-medium text-foreground", className)}
+    aria-current="page"
+    className={cn("font-normal text-foreground", className)}
     {...props}
   />
 ))
@@ -79,10 +80,10 @@ const BreadcrumbSeparator = ({
   <li
     role="presentation"
     aria-hidden="true"
-    className={cn("text-muted-foreground", className)}
+    className={cn("[&>svg]:w-3.5 [&>svg]:h-3.5", className)}
     {...props}
   >
-    {children || <ChevronRight className="h-4 w-4" />}
+    {children ?? <ChevronRight />}
   </li>
 )
 BreadcrumbSeparator.displayName = "BreadcrumbSeparator"

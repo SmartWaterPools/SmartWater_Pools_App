@@ -281,94 +281,9 @@ export function configurePassport(storage: IStorage) {
                               (profile.name ? `${profile.name.givenName} ${profile.name.familyName}` : 
                                 email.split('@')[0]);
             
-            // Special case for Travis@SmartWaterPools.com - assign directly to SmartWater Pools
-            if (email.toLowerCase() === 'travis@smartwaterpools.com') {
-              try {
-                // Use email as username directly
-                const username = email;
-                
-                // Get SmartWater Pools organization
-                const organization = await storage.getOrganizationBySlug('smartwater-pools');
-                if (!organization) {
-                  // Attempt to find any available organization as a fallback
-                  const organizations = await storage.getAllOrganizations();
-                  if (organizations && organizations.length > 0) {
-                    // Use the first available organization
-                    console.log(`Using first available organization for Travis: ${organizations[0].name} (ID: ${organizations[0].id})`);
-                    
-                    const newAdmin = await storage.createUser({
-                      username,
-                      password: null,
-                      name: displayName,
-                      email: email,
-                      role: 'system_admin',
-                      googleId: profile.id,
-                      photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                      authProvider: 'google',
-                      organizationId: organizations[0].id,
-                      active: true
-                    });
-                    
-                    return done(null, newAdmin);
-                  }
-                  
-                  return done(new Error('Default organization not found and no fallback organization available'), false);
-                }
-                
-                const newAdmin = await storage.createUser({
-                  username,
-                  password: null,
-                  name: displayName,
-                  email: email,
-                  role: 'system_admin',
-                  googleId: profile.id,
-                  photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                  authProvider: 'google',
-                  organizationId: organization.id,
-                  active: true
-                });
-                
-                console.log(`Created Travis account with system_admin role. User ID: ${newAdmin.id}, Organization: ${organization.name} (${organization.id})`);
-                
-                return done(null, newAdmin);
-              } catch (error) {
-                console.error('Error creating Travis admin account:', error);
-                return done(error, false);
-              }
-            }
+            // Removed hardcoded admin backdoor for security - admin accounts should be created through proper admin interface
             
-            // Special case for Thomas Anderson test account - also assign directly with admin role
-            if (email.toLowerCase() === '010101thomasanderson@gmail.com') {
-              try {
-                const username = email;
-                
-                // Get SmartWater Pools organization or create it if it doesn't exist
-                let organization = await storage.getOrganizationBySlug('smartwater-pools');
-                if (!organization) {
-                  organization = await storage.createOrganization({
-                    name: 'SmartWater Pools',
-                    slug: 'smartwater-pools'
-                  });
-                }
-                
-                const newUser = await storage.createUser({
-                  username,
-                  password: null,
-                  name: 'Thomas Anderson',
-                  email: email,
-                  role: 'org_admin',  // Admin role for this test account
-                  googleId: profile.id,
-                  photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                  authProvider: 'google',
-                  organizationId: organization.id,
-                  active: true
-                });
-                
-                return done(null, newUser);
-              } catch (error) {
-                return done(error, false);
-              }
-            }
+            // Removed hardcoded admin backdoor for security - admin accounts should be created through proper admin interface
             
             // For all other new users, store their info as pending
             try {

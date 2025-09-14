@@ -1,6 +1,5 @@
 node_modules
-# dist is excluded for deployment to Cloud Run
-# dist
+dist
 .DS_Store
 server/public
 vite.config.ts.*
