@@ -24,7 +24,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function ClientsEnhanced() {
   const [, setLocation] = useLocation();
-  const { isAuthenticated, isLoading: authLoading, checkSession } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [sessionRefreshing, setSessionRefreshing] = useState(false);
@@ -57,25 +57,21 @@ export default function ClientsEnhanced() {
   console.log("Clients data received:", data);
   console.log("Clients data error:", error);
   
-  // Handle session refresh
-  const handleSessionRefresh = async () => {
+  // Handle data refresh
+  const handleDataRefresh = async () => {
     setSessionRefreshing(true);
     try {
-      const authenticated = await checkSession();
-      console.log("Session refresh result:", authenticated);
-      
-      if (authenticated) {
-        toast({
-          title: "Session Refreshed",
-          description: "Your session has been successfully refreshed.",
-        });
-        
+      if (isAuthenticated) {
         // Refetch client data
         await refetch();
+        toast({
+          title: "Data Refreshed",
+          description: "Client data has been successfully refreshed.",
+        });
       } else {
         toast({
-          title: "Session Expired",
-          description: "Your session has expired. Please login again.",
+          title: "Not Authenticated",
+          description: "Please login to refresh data.",
           variant: "destructive",
         });
         
@@ -83,10 +79,10 @@ export default function ClientsEnhanced() {
         setLocation("/");
       }
     } catch (err) {
-      console.error("Error refreshing session:", err);
+      console.error("Error refreshing data:", err);
       toast({
         title: "Refresh Failed",
-        description: "There was a problem refreshing your session.",
+        description: "There was a problem refreshing the data.",
         variant: "destructive",
       });
     } finally {
@@ -205,7 +201,7 @@ export default function ClientsEnhanced() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={handleSessionRefresh}
+                onClick={handleDataRefresh}
                 disabled={sessionRefreshing}
               >
                 {sessionRefreshing ? (

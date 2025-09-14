@@ -53,7 +53,7 @@ type SignupFormValues = z.infer<typeof signupFormSchema>;
 
 export default function Login() {
   const { toast } = useToast();
-  const { login, register, googleLogin, checkSession, isAuthenticated } = useAuth();
+  const { login, register, googleLogin, isAuthenticated } = useAuth();
   const [location, setLocation] = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("login");
@@ -104,28 +104,12 @@ export default function Login() {
     }
   }, [isAuthenticated, setLocation]);
   
-  // Check session on page load to ensure we're not showing login when already authenticated
+  // Log authentication status without triggering additional checks
   useEffect(() => {
-    // Skip extra check if already authenticated
     if (isAuthenticated) {
-      return;
+      console.log("Login page: User is already authenticated");
     }
-    
-    // Otherwise perform a manual check
-    console.log("Login page: Performing initial session check");
-    
-    // No need for a separate function since we have access to checkSession from context
-    if (checkSession) {
-      checkSession().then(isAuthed => {
-        if (isAuthed) {
-          console.log("Login page: Initial check found user is authenticated, redirecting");
-          setLocation('/dashboard');
-        }
-      }).catch(error => {
-        console.error("Error checking auth status on login page:", error);
-      });
-    }
-  }, [isAuthenticated, checkSession, setLocation]);
+  }, [isAuthenticated]);
   
   // Define login form
   const loginForm = useForm<LoginFormValues>({

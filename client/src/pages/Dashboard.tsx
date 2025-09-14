@@ -45,27 +45,14 @@ const getApiUrl = (endpoint: string) => {
 };
 
 export default function Dashboard() {
-  const { isAuthenticated, isLoading: authLoading, checkSession } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   // Set to true right away - we'll always render content regardless of auth state
   const [shouldRenderContent, setShouldRenderContent] = useState(true);
   
-  // Re-check the session when the dashboard loads, but no longer wait on it
+  // Log authentication status without triggering new checks
   useEffect(() => {
-    console.log("Dashboard: Checking authentication status");
-    
-    try {
-      // Catch potential errors in checkSession
-      checkSession().then(success => {
-        console.log("Dashboard: Authentication check result:", success ? "Authenticated" : "Not authenticated");
-      }).catch(error => {
-        console.error("Dashboard: Error checking session:", error);
-      });
-    } catch (error) {
-      console.error("Dashboard: Critical error in session check:", error);
-    }
-    
-    // No longer need a timeout since we're always showing content
-  }, []);
+    console.log("Dashboard: Authentication status:", isAuthenticated ? "Authenticated" : "Not authenticated");
+  }, [isAuthenticated]);
 
   // Only fetch dashboard data if authenticated
   const { data: apiData, isLoading: dashboardLoading, error } = useQuery<any>({
