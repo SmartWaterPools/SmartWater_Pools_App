@@ -1,9 +1,10 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AppLayout } from "@/components/layout/AppLayout";
 import NotFound from "@/pages/not-found";
 
 // Import pages
@@ -14,19 +15,60 @@ import Clients from "@/pages/Clients";
 import Maintenance from "@/pages/Maintenance";
 import Repairs from "@/pages/Repairs";
 import Settings from "@/pages/Settings";
+import Technicians from "@/pages/Technicians";
+import Communications from "@/pages/Communications";
+import Business from "@/pages/Business";
+import InventoryManagement from "@/pages/InventoryManagement";
+import Admin from "@/pages/Admin";
+
+// Protected route wrapper that includes the AppLayout
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+  
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  // Redirect to login if not authenticated
+  if (!isAuthenticated) {
+    setLocation('/login');
+    return null;
+  }
+  
+  // Render the component wrapped in AppLayout
+  return (
+    <AppLayout>
+      <Component />
+    </AppLayout>
+  );
+}
 
 function Router() {
   return (
     <Switch>
-      {/* Main routes */}
-      <Route path="/" component={Dashboard} />
-      <Route path="/dashboard" component={Dashboard} />
+      {/* Login route - no layout needed */}
       <Route path="/login" component={Login} />
-      <Route path="/projects" component={Projects} />
-      <Route path="/clients" component={Clients} />
-      <Route path="/maintenance" component={Maintenance} />
-      <Route path="/repairs" component={Repairs} />
-      <Route path="/settings" component={Settings} />
+      
+      {/* Protected routes with AppLayout */}
+      <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
+      <Route path="/clients" component={() => <ProtectedRoute component={Clients} />} />
+      <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} />} />
+      <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} />} />
+      <Route path="/technicians" component={() => <ProtectedRoute component={Technicians} />} />
+      <Route path="/communications" component={() => <ProtectedRoute component={Communications} />} />
+      <Route path="/business" component={() => <ProtectedRoute component={Business} />} />
+      <Route path="/inventory" component={() => <ProtectedRoute component={InventoryManagement} />} />
+      <Route path="/admin" component={() => <ProtectedRoute component={Admin} />} />
+      <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+      
       {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
