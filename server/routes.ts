@@ -52,6 +52,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             role: client.role,
             phone: client.phone,
             address: client.address,
+            addressLat: client.addressLat,
+            addressLng: client.addressLng,
             active: client.active,
             organizationId: client.organizationId,
             authProvider: client.authProvider
@@ -81,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new client endpoint
   app.post('/api/clients', isAuthenticated, async (req, res) => {
     try {
-      const { name, email, phone, address, companyName, contractType } = req.body;
+      const { name, email, phone, address, addressLat, addressLng, companyName, contractType } = req.body;
       
       // Require organization ID from authenticated user
       if (!req.user?.organizationId) {
@@ -106,6 +108,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         email,
         phone: phone || null,
         address: address || null,
+        addressLat: addressLat || null,
+        addressLng: addressLng || null,
         role: 'client',
         organizationId: req.user.organizationId,
         active: true,
@@ -163,6 +167,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: client.role,
         phone: client.phone,
         address: client.address,
+        addressLat: client.addressLat,
+        addressLng: client.addressLng,
         active: client.active,
         organizationId: client.organizationId,
         authProvider: client.authProvider
@@ -174,7 +180,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         client: {
           id: client.id,
           companyName: null, // Will need to add this field to users table later
-          contractType: 'residential' // Default value for now
+          contractType: 'residential', // Default value for now
+          latitude: client.addressLat ? parseFloat(client.addressLat) : null,
+          longitude: client.addressLng ? parseFloat(client.addressLng) : null
         },
         user: sanitizedClient,
         // Add convenience fields
@@ -250,6 +258,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Technicians error:', error);
       res.status(500).json({ error: 'Failed to load technicians' });
+    }
+  });
+
+  // Google Maps API key endpoint
+  app.get('/api/google-maps-key', (req, res) => {
+    try {
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.status(404).json({ error: 'Google Maps API key not configured' });
+      }
+      res.json({ apiKey });
+    } catch (error) {
+      console.error('Error fetching Google Maps API key:', error);
+      res.status(500).json({ error: 'Failed to fetch API key' });
     }
   });
 

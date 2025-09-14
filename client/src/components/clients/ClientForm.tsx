@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { GoogleAddressAutocomplete } from "@/components/maps/GoogleAddressAutocomplete";
 
 // Form schema for client creation
 const clientFormSchema = z.object({
@@ -33,6 +34,8 @@ const clientFormSchema = z.object({
   email: z.string().email("Invalid email address"),
   phone: z.string().optional(),
   address: z.string().optional(),
+  addressLat: z.string().optional(),
+  addressLng: z.string().optional(),
   companyName: z.string().optional(),
   contractType: z.enum(["residential", "commercial"]).default("residential"),
 });
@@ -50,6 +53,8 @@ export function ClientForm() {
       email: "",
       phone: "",
       address: "",
+      addressLat: "",
+      addressLng: "",
       companyName: "",
       contractType: "residential",
     },
@@ -215,9 +220,16 @@ export function ClientForm() {
                     <FormItem>
                       <FormLabel>Address</FormLabel>
                       <FormControl>
-                        <Input
-                          placeholder="123 Main St, City, State 12345"
-                          {...field}
+                        <GoogleAddressAutocomplete
+                          value={field.value || ""}
+                          onChange={(address, lat, lng) => {
+                            form.setValue("address", address);
+                            if (lat !== undefined && lng !== undefined) {
+                              form.setValue("addressLat", lat.toString());
+                              form.setValue("addressLng", lng.toString());
+                            }
+                          }}
+                          placeholder="Start typing an address..."
                           disabled={mutation.isPending}
                           data-testid="input-address"
                         />

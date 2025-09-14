@@ -36,6 +36,8 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("client"),
   phone: text("phone"),
   address: text("address"),
+  addressLat: text("address_lat"),
+  addressLng: text("address_lng"),
   active: boolean("active").notNull().default(true),
   organizationId: integer("organization_id").notNull(),
   googleId: text("google_id"),
