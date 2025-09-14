@@ -55,6 +55,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Basic maintenances endpoint
+  app.get('/api/maintenances', isAuthenticated, async (req, res) => {
+    try {
+      // Return empty array for now - prevents connection errors
+      res.json([]);
+    } catch (error) {
+      console.error('Maintenances error:', error);
+      res.status(500).json({ error: 'Failed to load maintenances' });
+    }
+  });
+
+  // Basic repairs endpoint
+  app.get('/api/repairs', isAuthenticated, async (req, res) => {
+    try {
+      // Return empty array for now - prevents connection errors
+      res.json([]);
+    } catch (error) {
+      console.error('Repairs error:', error);
+      res.status(500).json({ error: 'Failed to load repairs' });
+    }
+  });
+
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ 
