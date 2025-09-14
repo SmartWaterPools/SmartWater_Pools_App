@@ -1,26 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-// Store CSRF token in memory
-let csrfToken: string | null = null;
-
-// Fetch CSRF token if not available
-async function ensureCsrfToken() {
-  if (!csrfToken) {
-    try {
-      const response = await fetch('/api/csrf-token', {
-        credentials: 'include'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        csrfToken = data.csrfToken;
-      }
-    } catch (error) {
-      console.error('Failed to fetch CSRF token:', error);
-    }
-  }
-  return csrfToken;
-}
-
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -32,46 +11,12 @@ export async function apiRequest<T = any>(
   url: string,
   options?: RequestInit,
 ): Promise<T> {
-  // Get CSRF token for state-changing requests
-  const method = options?.method || 'GET';
-  const headers: HeadersInit = options?.body 
-    ? { "Content-Type": "application/json", ...options?.headers } 
-    : options?.headers || {};
-  
-  // Add CSRF token for non-safe methods
-  if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) {
-    const token = await ensureCsrfToken();
-    if (token) {
-      headers['X-CSRF-Token'] = token;
-    }
-  }
-
   const res = await fetch(url, {
-    method,
-    headers,
+    method: options?.method || 'GET',
+    headers: options?.body ? { "Content-Type": "application/json", ...options?.headers } : options?.headers || {},
     body: options?.body,
     credentials: "include",
   });
-
-  // If we get a 403 with CSRF error, try to refresh token and retry once
-  if (res.status === 403) {
-    const text = await res.text();
-    if (text.includes('CSRF')) {
-      csrfToken = null; // Clear cached token
-      const newToken = await ensureCsrfToken();
-      if (newToken) {
-        headers['X-CSRF-Token'] = newToken;
-        const retryRes = await fetch(url, {
-          method,
-          headers,
-          body: options?.body,
-          credentials: "include",
-        });
-        await throwIfResNotOk(retryRes);
-        return await retryRes.json() as T;
-      }
-    }
-  }
 
   await throwIfResNotOk(res);
   return await res.json() as T;

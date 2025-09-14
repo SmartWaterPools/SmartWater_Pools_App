@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, ShieldAlert, LogIn, Droplet } from "lucide-react";
+import { Loader2, ShieldAlert, LogIn } from "lucide-react";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { FcGoogle } from "react-icons/fc";
 
@@ -124,21 +124,17 @@ export default function LoginCard() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto shadow-xl border-0 bg-white/95 backdrop-blur-sm">
-      <CardHeader className="space-y-1 text-center pb-4 px-4 sm:px-6">
-        <div className="flex items-center justify-center mb-4">
-          <Droplet className="h-8 w-8 sm:h-10 sm:w-10 text-primary mr-3" fill="currentColor" />
-          <div>
-            <CardTitle className="text-xl sm:text-2xl font-bold text-primary">SmartWater</CardTitle>
-            <CardDescription className="text-xs sm:text-sm text-gray-600">Pool Management System</CardDescription>
-          </div>
-        </div>
-        <CardDescription className="text-sm sm:text-base text-gray-600">
-          Sign in to access your pool management dashboard
+    <Card className="w-full mb-6">
+      <CardHeader className="space-y-1">
+        <CardTitle className="text-xl font-bold">
+          Sign in to SmartWater Pools
+        </CardTitle>
+        <CardDescription>
+          Please sign in to access your pool service management dashboard
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="space-y-4 px-4 sm:px-6">
+      <CardContent className="space-y-4">
         {error && (
           <Alert variant="destructive" className="mb-4">
             <ShieldAlert className="h-4 w-4" />
@@ -149,7 +145,7 @@ export default function LoginCard() {
 
         <Button 
           variant="outline" 
-          className="w-full flex items-center justify-center h-12 text-base tap-target" 
+          className="w-full flex items-center justify-center" 
           type="button"
           onClick={handleGoogleLogin}
         >
@@ -175,11 +171,7 @@ export default function LoginCard() {
                 <FormItem>
                   <FormLabel>Username or Email</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Enter your username" 
-                      className="h-12 text-base"
-                      {...field} 
-                    />
+                    <Input placeholder="Enter your username" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -193,19 +185,14 @@ export default function LoginCard() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="Enter your password" 
-                      className="h-12 text-base"
-                      {...field} 
-                    />
+                    <Input type="password" placeholder="Enter your password" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             
-            <Button type="submit" className="w-full h-12 text-base tap-target" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

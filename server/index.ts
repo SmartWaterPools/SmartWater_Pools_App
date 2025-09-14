@@ -11,8 +11,6 @@ import pg from "pg";
 const { Pool } = pg;
 import connectPgSimple from "connect-pg-simple";
 import { loadEmailConfigFromDatabase } from "./email-service";
-import { validateRequestSize, validateJsonPayload } from "./middleware/requestValidation";
-import { csrfTokenMiddleware } from "./middleware/csrf";
 
 // Set up environment variables for Replit
 const isReplitEnv = !!process.env.REPL_ID;
@@ -26,21 +24,9 @@ if (isReplitEnv) {
 }
 
 const app = express();
-
-// Trust proxy for Replit and Cloud Run environments
-// This is required for rate limiting to work correctly behind reverse proxies
-app.set('trust proxy', true);
-
-// Apply request validation middleware before body parsing
-app.use(validateRequestSize(50)); // 50MB limit to match the express.json limit
-
 // Increase the payload size limit for JSON and URL-encoded data to handle larger images
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Apply JSON validation and CSRF middleware after body parsing
-app.use(validateJsonPayload);
-app.use(csrfTokenMiddleware);
 
 // Configure session store with PostgreSQL
 const PgSession = connectPgSimple(session);
@@ -70,26 +56,15 @@ const getSessionSecret = () => {
 const sessionSecret = getSessionSecret();
 console.log('Session middleware initialized');
 
-// Create a dedicated pool for session management with proper configuration
-const sessionPool = new Pool({ 
-  connectionString: process.env.DATABASE_URL,
-  // Smaller pool for session management to avoid exhausting main app connections
-  max: 3, // Further reduced for stability
-  idleTimeoutMillis: 30000, // Increased idle timeout to 30 seconds
-  connectionTimeoutMillis: 10000, // Increased connection timeout to 10 seconds
-  // Add retry logic for better reliability
-  retryDelayMs: 1000,
-});
-
 // Setup session middleware with enhanced configuration for OAuth flows
 app.use(
   session({
     store: new PgSession({
-      pool: sessionPool,
+      pool: new Pool({ connectionString: process.env.DATABASE_URL }),
       tableName: 'session', // Name of the session table
       createTableIfMissing: true,
-      // Cleanup expired sessions more frequently (every 6 hours instead of 24)
-      pruneSessionInterval: 6 * 60 * 60,
+      // Cleanup expired sessions periodically (every 24 hours)
+      pruneSessionInterval: 24 * 60 * 60,
       // Optimize connection pool to prevent database connection exhaustion
       errorLog: console.error
     }),

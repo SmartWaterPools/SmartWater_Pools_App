@@ -5,7 +5,6 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Sidebar } from "./components/layout/Sidebar";
 import { Header } from "./components/layout/Header";
 import { MobileSidebar } from "./components/layout/MobileSidebar";
-import { RoleBasedLayout } from "./components/layout/RoleBasedLayout";
 import { TabProvider } from "./components/layout/EnhancedTabManager";
 import { EnhancedTabManager } from "./components/layout/EnhancedTabManager";
 import { EnhancedBreadcrumbs } from "./components/layout/EnhancedBreadcrumbs";
@@ -15,12 +14,6 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-
-// Import role-specific dashboards
-import { AdminDashboard } from "./components/dashboards/AdminDashboard";
-import { TechnicianDashboard } from "./components/dashboards/TechnicianDashboard";
-import { ClientDashboard } from "./components/dashboards/ClientDashboard";
 
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
@@ -57,7 +50,6 @@ import Pricing from "./pages/Pricing";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
 import Unauthorized from "./pages/Unauthorized";
 import NotFound from "./pages/not-found";
-import MobileTest from "./pages/MobileTest";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import OAuthConsent from "./pages/OAuthConsent";
@@ -152,33 +144,40 @@ function AppContent({
           <Route path="/test">
             <TestPage />
           </Route>
-          <Route path="/mobile-test">
-            <MobileTest />
-          </Route>
           
           {/* All routes including dashboard with login card */}
           <Route>
             <ProtectedRoute>
-              <RoleBasedLayout>
-                <Switch>
-                  {/* Role-specific dashboard routes */}
-                  <Route path="/admin/dashboard">
-                    <AdminDashboard />
-                  </Route>
-                  <Route path="/technician/dashboard">
-                    <TechnicianDashboard />
-                  </Route>
-                  <Route path="/client-portal">
-                    <ClientDashboard />
-                  </Route>
+              {/* Desktop Sidebar - hidden on mobile */}
+              <div className="hidden md:block">
+                <Sidebar />
+              </div>
+            
+              {/* Mobile menu (off-canvas) */}
+              <MobileSidebar isOpen={mobileMenuOpen} onClose={closeMobileMenu} />
+              
+              {/* Main content area */}
+              <div className="flex flex-col flex-1 w-full">
+                {/* App Header */}
+                <Header toggleMobileMenu={toggleMobileMenu} />
+                
+                {/* Tab Manager - Now positioned above content */}
+                <EnhancedTabManager />
+                
+                {/* Main content */}
+                <main className="flex-1 overflow-y-auto bg-background p-4 pb-20 md:p-6 md:pb-6">
+                  {/* Breadcrumbs */}
+                  <EnhancedBreadcrumbs />
                   
-                  {/* Default dashboard routes */}
-                  <Route path="/dashboard">
-                    <Dashboard />
-                  </Route>
-                  <Route path="/">
-                    <Dashboard />
-                  </Route>
+                  <Switch>
+                    {/* Dashboard routes - exact path first */}
+                    <Route path="/dashboard">
+                      <Dashboard />
+                    </Route>
+                    
+                    <Route path="/">
+                      <Dashboard />
+                    </Route>
                     
                     {/* Projects routes */}
                     <Route path="/projects">
@@ -294,8 +293,9 @@ function AppContent({
                       <NotFound />
                     </Route>
                   </Switch>
-                </RoleBasedLayout>
-              </ProtectedRoute>
+                </main>
+              </div>
+            </ProtectedRoute>
           </Route>
         </Switch>
       </div>
@@ -336,19 +336,17 @@ function App() {
   };
   
   return (
-    <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <GoogleMapsProvider>
-          <AuthProvider>
-            <AppContent 
-              mobileMenuOpen={mobileMenuOpen}
-              toggleMobileMenu={toggleMobileMenu}
-              closeMobileMenu={closeMobileMenu}
-            />
-          </AuthProvider>
-        </GoogleMapsProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <GoogleMapsProvider>
+        <AuthProvider>
+          <AppContent 
+            mobileMenuOpen={mobileMenuOpen}
+            toggleMobileMenu={toggleMobileMenu}
+            closeMobileMenu={closeMobileMenu}
+          />
+        </AuthProvider>
+      </GoogleMapsProvider>
+    </QueryClientProvider>
   );
 }
 

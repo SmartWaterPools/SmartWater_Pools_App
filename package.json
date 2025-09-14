@@ -69,7 +69,6 @@
     "drizzle-zod": "^0.7.0",
     "embla-carousel-react": "^8.3.0",
     "express": "^4.21.2",
-    "express-rate-limit": "8.0.1",
     "express-session": "^1.18.1",
     "framer-motion": "^11.13.1",
     "gantt-task-react": "^0.3.9",
@@ -125,7 +124,7 @@
     "esbuild": "^0.25.0",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
-    "tsx": "4.20.3",
+    "tsx": "^4.19.1",
     "typescript": "5.6.3",
     "vite": "^5.4.14"
   },

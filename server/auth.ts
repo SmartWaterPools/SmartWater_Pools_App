@@ -6,7 +6,6 @@ import bcrypt from 'bcrypt';
 import { User } from '@shared/schema';
 import { IStorage } from './storage';
 import { UserRole, ResourceType, ActionType, hasPermission, checkPermission } from './permissions';
-import { createOAuthState, storePendingUserInState } from './oauth-state-manager';
 
 export function configurePassport(storage: IStorage) {
   // Serialize user to the session with enhanced logging
@@ -73,12 +72,18 @@ export function configurePassport(storage: IStorage) {
             isValidPassword = await bcrypt.compare(password, user.password);
             console.log(`LocalStrategy: Password comparison result for '${username}': ${isValidPassword}`);
           } else {
-            // Plain text passwords are no longer supported for security reasons
-            console.log(`LocalStrategy: User '${username}' has invalid password format (not bcrypt). Access denied.`);
-            isValidPassword = false;
+            // For plain text passwords (temporary during migration)
+            console.log(`LocalStrategy: User '${username}' has plain text password, comparing...`);
+            isValidPassword = password === user.password;
+            console.log(`LocalStrategy: Plain text password comparison result for '${username}': ${isValidPassword}`);
             
-            // Log security warning
-            console.error(`SECURITY WARNING: User '${username}' (ID: ${user.id}) has non-bcrypt password. Password authentication blocked until password is reset.`);
+            // If password is correct, update it to a hashed version
+            if (isValidPassword) {
+              console.log(`LocalStrategy: Upgrading plain text password to bcrypt hash for '${username}'`);
+              const hashedPassword = await hashPassword(password);
+              await storage.updateUser(user.id, { password: hashedPassword });
+              console.log(`LocalStrategy: Password hash upgrade completed for '${username}'`);
+            }
           }
           
           if (!isValidPassword) {
