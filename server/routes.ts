@@ -44,6 +44,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create new client endpoint
+  app.post('/api/clients', isAuthenticated, async (req, res) => {
+    try {
+      // For now, just return success - in production this would save to database
+      console.log('Creating new client:', req.body);
+      res.json({ 
+        success: true, 
+        message: 'Client created successfully',
+        client: { ...req.body, id: Date.now() } // Return mock client with generated ID
+      });
+    } catch (error) {
+      console.error('Create client error:', error);
+      res.status(500).json({ error: 'Failed to create client' });
+    }
+  });
+
   // Basic projects endpoint  
   app.get('/api/projects', isAuthenticated, async (req, res) => {
     try {

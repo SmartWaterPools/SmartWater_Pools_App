@@ -12,6 +12,8 @@ import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
 import Projects from "@/pages/Projects";
 import Clients from "@/pages/Clients";
+import AddClient from "@/pages/AddClient";
+import ClientsEnhanced from "@/pages/ClientsEnhanced";
 import Maintenance from "@/pages/Maintenance";
 import Repairs from "@/pages/Repairs";
 import Settings from "@/pages/Settings";
@@ -59,6 +61,8 @@ function Router() {
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
+      <Route path="/clients/add" component={() => <ProtectedRoute component={AddClient} />} />
+      <Route path="/clients/enhanced" component={() => <ProtectedRoute component={ClientsEnhanced} />} />
       <Route path="/clients" component={() => <ProtectedRoute component={Clients} />} />
       <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} />} />
       <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} />} />
