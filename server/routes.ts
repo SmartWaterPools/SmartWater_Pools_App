@@ -37,7 +37,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/clients', isAuthenticated, async (req, res) => {
     try {
       // Return empty array for now - prevents connection errors
-      res.json({ clients: [] });
+      res.json([]);
     } catch (error) {
       console.error('Clients error:', error);
       res.status(500).json({ error: 'Failed to load clients' });
