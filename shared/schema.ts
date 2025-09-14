@@ -105,3 +105,37 @@ export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertRepair = z.infer<typeof insertRepairSchema>;
 export type Repair = typeof repairs.$inferSelect;
+
+// Report type constants for business components
+export const REPORT_TYPES = [
+  'revenue',
+  'expense',
+  'profit-loss',
+  'tax',
+  'customer-analytics',
+  'service-performance',
+  'inventory-status',
+  'maintenance-summary',
+  'pool-health',
+  'water-quality',
+  'equipment-status',
+  'service-history'
+] as const;
+
+// Expense categories for business management
+export const EXPENSE_CATEGORIES = [
+  'Equipment & Tools',
+  'Chemicals & Supplies',
+  'Vehicle & Fuel',
+  'Marketing & Advertising',
+  'Office & Admin',
+  'Insurance',
+  'Licenses & Permits',
+  'Labor & Payroll',
+  'Utilities',
+  'Rent & Facilities',
+  'Professional Services',
+  'Training & Education',
+  'Maintenance & Repairs',
+  'Other'
+] as const;
