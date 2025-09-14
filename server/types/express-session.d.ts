@@ -11,6 +11,7 @@ declare module 'express-session' {
     oauthInitiatedAt?: string;
     originPath?: string;
     isSignup?: boolean;
+    redirectTo?: string;
     
     // Authentication state
     OAuthAuthenticated?: boolean;

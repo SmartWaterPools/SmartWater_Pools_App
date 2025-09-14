@@ -137,15 +137,21 @@ router.post('/logout', (req: Request, res: Response) => {
 // Registration route
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    // Validate request body against schema
-    const userSchema = insertUserSchema.extend({
-      // Add additional validation if needed
-      confirmPassword: z.string().optional(),
-      organizationName: z.string().optional()
-    });
+    // Validation schema for registration - omit organizationId since we'll create it
+    const registrationSchema = insertUserSchema
+      .omit({ organizationId: true })
+      .extend({
+        password: z.string().min(8, 'Password must be at least 8 characters'),
+        confirmPassword: z.string(),
+        organizationName: z.string().min(1, 'Organization name is required'),
+      })
+      .refine((data) => data.password === data.confirmPassword, {
+        message: "Passwords don't match",
+        path: ["confirmPassword"],
+      });
     
     try {
-      userSchema.parse(req.body);
+      registrationSchema.parse(req.body);
     } catch (validationError: any) {
       return res.status(400).json({ 
         success: false, 
@@ -169,6 +175,40 @@ router.post('/register', async (req: Request, res: Response) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     
+    // For registration, always create a new organization to prevent users from joining existing orgs
+    // This maintains proper tenant isolation and security
+    const orgName = organizationName || `${name}'s Organization`;
+    const baseSlug = organizationName 
+      ? organizationName.toLowerCase().replace(/\s+/g, '-')
+      : `${username}-org`;
+    
+    // Ensure unique slug by adding timestamp if needed
+    let slug = baseSlug;
+    let attempts = 0;
+    const maxAttempts = 5;
+    
+    while (attempts < maxAttempts) {
+      try {
+        const newOrg = await storage.createOrganization({
+          name: orgName,
+          slug: slug
+        });
+        var organizationId = newOrg.id;
+        break;
+      } catch (error: any) {
+        // If slug already exists, add timestamp and retry
+        if (error.message?.includes('duplicate') || error.code === '23505') {
+          attempts++;
+          slug = `${baseSlug}-${Date.now()}`;
+          if (attempts >= maxAttempts) {
+            throw new Error('Unable to create unique organization identifier');
+          }
+        } else {
+          throw error;
+        }
+      }
+    }
+
     // Create user
     const newUser = await storage.createUser({
       username,
@@ -177,12 +217,11 @@ router.post('/register', async (req: Request, res: Response) => {
       name,
       role: 'client', // Default role for new registrations
       active: true,
-      // Other fields would be added here
+      organizationId
     });
     
     // Remove password from user object before sending to client
-    const userWithoutPassword = { ...newUser };
-    delete userWithoutPassword.password;
+    const { password: _, ...userWithoutPassword } = newUser;
     
     // Log the user in
     req.login(userWithoutPassword, (loginErr) => {
