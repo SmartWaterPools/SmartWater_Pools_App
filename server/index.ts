@@ -10,9 +10,14 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Require SESSION_SECRET for security
+if (!process.env.SESSION_SECRET) {
+  throw new Error('SESSION_SECRET environment variable is required for secure sessions');
+}
+
 // Configure session middleware
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'fallback-secret-key',
+  secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
@@ -20,6 +25,8 @@ app.use(session({
     httpOnly: true,
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
+  // TODO: In production, use a persistent session store like Redis or PostgreSQL
+  // instead of the default MemoryStore for better scalability and reliability
 }));
 
 // Initialize Passport
@@ -44,7 +51,8 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
+      // Avoid logging full response bodies for auth endpoints to prevent PII leakage
+      if (capturedJsonResponse && !path.includes('/auth/')) {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
