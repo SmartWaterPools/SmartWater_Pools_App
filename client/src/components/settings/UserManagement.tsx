@@ -99,7 +99,7 @@ export function UserManagement() {
     queryKey: ["/api/organizations"],
     queryFn: async () => {
       try {
-        const response = await apiRequest('/api/organizations', 'GET');
+        const response = await apiRequest('GET', '/api/organizations');
         console.log("Organizations API response:", response);
         
         // Return actual organization data if available
@@ -125,15 +125,15 @@ export function UserManagement() {
       if (editingUser) {
         // Update existing user
         return await apiRequest(
+          "PATCH",
           `/api/users/${editingUser.id}`, 
-          "PATCH", 
           values
         );
       } else {
         // Create new user
         return await apiRequest(
+          "POST",
           "/api/users", 
-          "POST", 
           values
         );
       }
@@ -155,7 +155,7 @@ export function UserManagement() {
   const deleteMutation = useMutation({
     mutationFn: async ({ userId, permanent }: { userId: number, permanent: boolean }) => {
       console.log(`Calling DELETE API for user ID: ${userId}, permanent: ${permanent}`);
-      return await apiRequest(`/api/users/${userId}${permanent ? '?permanent=true' : ''}`, "DELETE");
+      return await apiRequest("DELETE", `/api/users/${userId}${permanent ? '?permanent=true' : ''}`);
     },
     onSuccess: (data) => {
       console.log('Delete user response:', data);

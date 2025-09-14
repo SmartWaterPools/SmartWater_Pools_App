@@ -77,6 +77,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Basic organizations endpoint
+  app.get('/api/organizations', isAuthenticated, async (req, res) => {
+    try {
+      // Return empty array for now - prevents connection errors
+      res.json([]);
+    } catch (error) {
+      console.error('Organizations error:', error);
+      res.status(500).json({ error: 'Failed to load organizations' });
+    }
+  });
+
+  // Basic users endpoint
+  app.get('/api/users', isAuthenticated, async (req, res) => {
+    try {
+      // Return empty array for now - prevents connection errors
+      res.json([]);
+    } catch (error) {
+      console.error('Users error:', error);
+      res.status(500).json({ error: 'Failed to load users' });
+    }
+  });
+
+  // Basic technicians endpoint
+  app.get('/api/technicians', isAuthenticated, async (req, res) => {
+    try {
+      // Return empty array for now - prevents connection errors
+      res.json([]);
+    } catch (error) {
+      console.error('Technicians error:', error);
+      res.status(500).json({ error: 'Failed to load technicians' });
+    }
+  });
+
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ 
