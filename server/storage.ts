@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, users, organizations } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, users, organizations, projects } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -18,6 +18,15 @@ export interface IStorage {
   getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
   getAllOrganizations(): Promise<Organization[]>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
+  
+  // Project operations
+  getProject(id: number): Promise<Project | undefined>;
+  getProjects(): Promise<Project[]>;
+  getProjectsByClient(clientId: number): Promise<Project[]>;
+  getProjectsByOrganization(organizationId: number, clients: number[]): Promise<Project[]>;
+  createProject(project: InsertProject): Promise<Project>;
+  updateProject(id: number, data: Partial<Project>): Promise<Project | undefined>;
+  deleteProject(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -78,6 +87,47 @@ export class DatabaseStorage implements IStorage {
   async createOrganization(org: InsertOrganization): Promise<Organization> {
     const result = await db.insert(organizations).values(org).returning();
     return result[0];
+  }
+
+  // Project operations
+  async getProject(id: number): Promise<Project | undefined> {
+    const result = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getProjects(): Promise<Project[]> {
+    return await db.select().from(projects);
+  }
+
+  async getProjectsByClient(clientId: number): Promise<Project[]> {
+    return await db.select().from(projects).where(eq(projects.clientId, clientId));
+  }
+
+  async getProjectsByOrganization(organizationId: number, clientIds: number[]): Promise<Project[]> {
+    if (clientIds.length === 0) return [];
+    const result = await db.select()
+      .from(projects)
+      .where(
+        // Projects belong to clients in the organization
+        // @ts-ignore - Drizzle ORM type issues with .in() operator
+        projects.clientId.in(clientIds)
+      );
+    return result;
+  }
+
+  async createProject(project: InsertProject): Promise<Project> {
+    const result = await db.insert(projects).values([project]).returning();
+    return result[0];
+  }
+
+  async updateProject(id: number, data: Partial<Project>): Promise<Project | undefined> {
+    const result = await db.update(projects).set(data).where(eq(projects.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteProject(id: number): Promise<boolean> {
+    const result = await db.delete(projects).where(eq(projects.id, id)).returning();
+    return result.length > 0;
   }
 }
 

@@ -200,11 +200,190 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Basic projects endpoint  
   app.get('/api/projects', isAuthenticated, async (req, res) => {
     try {
-      // Return empty array for now - prevents connection errors
-      res.json([]);
+      // Get all clients from the current organization
+      const organizationClients = await storage.getUsersByRole('client');
+      const orgClientIds = organizationClients
+        // @ts-ignore - TypeScript issue with organizationId
+        .filter(c => c.organizationId === req.user?.organizationId)
+        .map(c => c.id);
+      
+      // Get all projects for these clients
+      const projectsList = await storage.getProjectsByOrganization(
+        // @ts-ignore - TypeScript issue with organizationId
+        req.user?.organizationId || 0, 
+        orgClientIds
+      );
+      
+      // Format projects with client details
+      const formattedProjects = await Promise.all(projectsList.map(async (project) => {
+        const client = await storage.getUser(project.clientId);
+        
+        // Create a properly formatted project with client details
+        return {
+          ...project,
+          client: client ? {
+            id: client.id,
+            user: {
+              id: client.id,
+              username: client.username,
+              name: client.name,
+              email: client.email,
+              role: client.role,
+              phone: client.phone,
+              address: client.address,
+              addressLat: client.addressLat,
+              addressLng: client.addressLng,
+              active: client.active,
+              // @ts-ignore - TypeScript issue with organizationId
+              organizationId: client.organizationId,
+              authProvider: client.authProvider
+            },
+            companyName: null,
+            contractType: 'residential'
+          } : null,
+          // Add calculated fields the frontend expects
+          completion: project.percentComplete || 0,
+          deadline: project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate) : new Date(),
+          assignments: [],
+          isArchived: false
+        };
+      }));
+      
+      res.json(formattedProjects);
     } catch (error) {
       console.error('Projects error:', error);
       res.status(500).json({ error: 'Failed to load projects' });
+    }
+  });
+
+  // Create project endpoint
+  app.post('/api/projects', isAuthenticated, async (req, res) => {
+    try {
+      const { 
+        clientId, 
+        name, 
+        description, 
+        startDate, 
+        estimatedCompletionDate,
+        status,
+        budget,
+        notes,
+        projectType,
+        currentPhase,
+        percentComplete,
+        permitDetails
+      } = req.body;
+
+      // Verify the client belongs to the user's organization
+      const client = await storage.getUser(clientId);
+      if (!client || client.role !== 'client') {
+        return res.status(404).json({ error: 'Client not found' });
+      }
+      
+      // @ts-ignore - TypeScript issue with organizationId
+      if (client.organizationId !== req.user?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Create the project
+      const newProject = await storage.createProject({
+        clientId,
+        name,
+        description: description || null,
+        startDate: startDate || new Date().toISOString().split('T')[0],
+        estimatedCompletionDate: estimatedCompletionDate || null,
+        actualCompletionDate: null,
+        status: status || 'pending',
+        budget: budget || null,
+        notes: notes || null,
+        projectType: projectType || 'construction',
+        currentPhase: currentPhase || null,
+        percentComplete: percentComplete || 0,
+        permitDetails: permitDetails || null,
+        isTemplate: false,
+        templateName: null,
+        templateCategory: null
+      });
+
+      res.json({
+        success: true,
+        message: 'Project created successfully',
+        project: newProject
+      });
+    } catch (error) {
+      console.error('Create project error:', error);
+      res.status(500).json({ error: 'Failed to create project' });
+    }
+  });
+
+  // Update project endpoint
+  app.patch('/api/projects/:id', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      
+      // Get the project and verify access
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      // Verify the project belongs to a client in the user's organization
+      const client = await storage.getUser(project.clientId);
+      // @ts-ignore - TypeScript issue with organizationId
+      if (!client || client.organizationId !== req.user?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Update the project
+      const updatedProject = await storage.updateProject(projectId, req.body);
+      
+      if (!updatedProject) {
+        return res.status(500).json({ error: 'Failed to update project' });
+      }
+
+      res.json({
+        success: true,
+        message: 'Project updated successfully',
+        project: updatedProject
+      });
+    } catch (error) {
+      console.error('Update project error:', error);
+      res.status(500).json({ error: 'Failed to update project' });
+    }
+  });
+
+  // Delete project endpoint
+  app.delete('/api/projects/:id', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      
+      // Get the project and verify access
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      // Verify the project belongs to a client in the user's organization
+      const client = await storage.getUser(project.clientId);
+      // @ts-ignore - TypeScript issue with organizationId
+      if (!client || client.organizationId !== req.user?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Delete the project
+      const deleted = await storage.deleteProject(projectId);
+      
+      if (!deleted) {
+        return res.status(500).json({ error: 'Failed to delete project' });
+      }
+
+      res.json({
+        success: true,
+        message: 'Project deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete project error:', error);
+      res.status(500).json({ error: 'Failed to delete project' });
     }
   });
 
