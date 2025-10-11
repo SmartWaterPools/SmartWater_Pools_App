@@ -10,6 +10,7 @@ import NotFound from "@/pages/not-found";
 // Import pages
 import Dashboard from "@/pages/Dashboard";
 import Login from "@/pages/Login";
+import Register from "@/pages/Register";
 import Projects from "@/pages/Projects";
 import Clients from "@/pages/Clients";
 import AddClient from "@/pages/AddClient";
@@ -58,8 +59,9 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 function Router() {
   return (
     <Switch>
-      {/* Login route - no layout needed */}
+      {/* Public auth routes - no layout needed */}
       <Route path="/login" component={Login} />
+      <Route path="/register" component={Register} />
       
       {/* Protected routes with AppLayout */}
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
