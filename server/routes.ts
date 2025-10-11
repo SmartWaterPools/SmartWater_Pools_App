@@ -4,6 +4,7 @@ import { Router } from "express";
 import { storage } from "./storage";
 import authRoutes from "./routes/auth-routes";
 import { isAuthenticated } from "./auth";
+import { type User } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount authentication routes
@@ -40,8 +41,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const clients = await storage.getUsersByRole('client');
       
       // Format clients in the expected structure with sanitized data
+      const user = req.user as User;
       const formattedClients = clients
-        .filter(c => c.organizationId === req.user?.organizationId) // Filter by current org
+        .filter(c => c.organizationId === user?.organizationId) // Filter by current org
         .map(client => {
           // Sanitize client data - remove sensitive fields
           const sanitizedClient = {
@@ -86,7 +88,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { name, email, phone, address, addressLat, addressLng, companyName, contractType } = req.body;
       
       // Require organization ID from authenticated user
-      if (!req.user?.organizationId) {
+      const user = req.user as User;
+      if (!user?.organizationId) {
         return res.status(400).json({ error: 'Organization not found' });
       }
       
@@ -111,7 +114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         addressLat: addressLat || null,
         addressLng: addressLng || null,
         role: 'client',
-        organizationId: req.user.organizationId,
+        organizationId: user.organizationId,
         active: true,
         authProvider: 'local'
       });
@@ -156,7 +159,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify organization access - critical security check
-      if (client.organizationId !== req.user?.organizationId) {
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
