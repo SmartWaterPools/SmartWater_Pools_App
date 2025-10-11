@@ -1,3 +1,4 @@
+import "./types/express"; // Load Express type extensions
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import passport from "passport";

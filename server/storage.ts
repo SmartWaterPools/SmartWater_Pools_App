@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, users, organizations, projects } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, users, organizations, projects, repairs } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -12,12 +12,14 @@ export interface IStorage {
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
   getUsersByRole(role: string): Promise<User[]>;
   getUsersByOrganization(organizationId: number): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
   
   // Organization operations
   getOrganization(id: number): Promise<Organization | undefined>;
   getOrganizationBySlug(slug: string): Promise<Organization | undefined>;
   getAllOrganizations(): Promise<Organization[]>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: number, data: Partial<Organization>): Promise<Organization | undefined>;
   
   // Project operations
   getProject(id: number): Promise<Project | undefined>;
@@ -27,6 +29,29 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: number, data: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: number): Promise<boolean>;
+  
+  // Repair operations
+  getRepair(id: number): Promise<Repair | undefined>;
+  getRepairs(): Promise<Repair[]>;
+  getRepairsByClient(clientId: number): Promise<Repair[]>;
+  getRepairsByTechnician(technicianId: number): Promise<Repair[]>;
+  createRepair(repair: InsertRepair): Promise<Repair>;
+  updateRepair(id: number, data: Partial<Repair>): Promise<Repair | undefined>;
+  deleteRepair(id: number): Promise<boolean>;
+
+  // Additional methods needed by various routes
+  getSubscriptionPlan?(planId: number): Promise<any>;
+  getInventoryItemsByOrganizationId?(organizationId: number): Promise<any[]>;
+  getAllInventoryItems?(): Promise<any[]>;
+  getAllWarehouses?(): Promise<any[]>;
+  getAllTechnicianVehicles?(): Promise<any[]>;
+  getLowStockItems?(): Promise<any[]>;
+  getInventoryTransfersByStatus?(status: string): Promise<any[]>;
+  getInventoryItem?(id: number): Promise<any>;
+  getBazzaRoutesByTechnicianId?(technicianId: number): Promise<any[]>;
+  getAllBazzaRoutes?(): Promise<any[]>;
+  getPaymentRecordsByOrganizationId?(organizationId: number): Promise<any[]>;
+  getFleetmaticsConfigByOrganizationId?(organizationId: number): Promise<any>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -69,6 +94,10 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(users).where(eq(users.organizationId, organizationId));
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
   // Organization operations
   async getOrganization(id: number): Promise<Organization | undefined> {
     const result = await db.select().from(organizations).where(eq(organizations.id, id)).limit(1);
@@ -89,6 +118,11 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
+  async updateOrganization(id: number, data: Partial<Organization>): Promise<Organization | undefined> {
+    const result = await db.update(organizations).set(data).where(eq(organizations.id, id)).returning();
+    return result[0] || undefined;
+  }
+
   // Project operations
   async getProject(id: number): Promise<Project | undefined> {
     const result = await db.select().from(projects).where(eq(projects.id, id)).limit(1);
@@ -107,16 +141,17 @@ export class DatabaseStorage implements IStorage {
     if (clientIds.length === 0) return [];
     const result = await db.select()
       .from(projects)
-      .where(
-        // Projects belong to clients in the organization
-        // @ts-ignore - Drizzle ORM type issues with .in() operator
-        projects.clientId.in(clientIds)
-      );
+      .where(inArray(projects.clientId, clientIds));
     return result;
   }
 
   async createProject(project: InsertProject): Promise<Project> {
-    const result = await db.insert(projects).values([project]).returning();
+    // Generate a unique ID for the project
+    const maxIdResult = await db.select({ maxId: projects.id }).from(projects).orderBy(projects.id).limit(1);
+    const newId = (maxIdResult[0]?.maxId || 0) + 1;
+    
+    const projectWithId = { ...project, id: newId };
+    const result = await db.insert(projects).values([projectWithId]).returning();
     return result[0];
   }
 
@@ -127,6 +162,45 @@ export class DatabaseStorage implements IStorage {
 
   async deleteProject(id: number): Promise<boolean> {
     const result = await db.delete(projects).where(eq(projects.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Repair operations
+  async getRepair(id: number): Promise<Repair | undefined> {
+    const result = await db.select().from(repairs).where(eq(repairs.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getRepairs(): Promise<Repair[]> {
+    return await db.select().from(repairs);
+  }
+
+  async getRepairsByClient(clientId: number): Promise<Repair[]> {
+    return await db.select().from(repairs).where(eq(repairs.clientId, clientId));
+  }
+
+  async getRepairsByTechnician(technicianId: number): Promise<Repair[]> {
+    if (!technicianId) return [];
+    return await db.select().from(repairs).where(eq(repairs.technicianId, technicianId));
+  }
+
+  async createRepair(repair: InsertRepair): Promise<Repair> {
+    // Generate a unique ID for the repair
+    const maxIdResult = await db.select({ maxId: repairs.id }).from(repairs).orderBy(repairs.id).limit(1);
+    const newId = (maxIdResult[0]?.maxId || 0) + 1;
+    
+    const repairWithId = { ...repair, id: newId };
+    const result = await db.insert(repairs).values([repairWithId]).returning();
+    return result[0];
+  }
+
+  async updateRepair(id: number, data: Partial<Repair>): Promise<Repair | undefined> {
+    const result = await db.update(repairs).set(data).where(eq(repairs.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteRepair(id: number): Promise<boolean> {
+    const result = await db.delete(repairs).where(eq(repairs.id, id)).returning();
     return result.length > 0;
   }
 }
