@@ -18,7 +18,7 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog";
 import { ProjectPhases } from "@/components/projects/ProjectPhases";
-import { DocumentGallery } from "@/components/documents";
+import { ProjectDocuments } from "@/components/projects/ProjectDocuments";
 import { getStatusClasses, ProjectWithDetails } from "@/lib/types";
 import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus, Trash2, Archive } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/types";
@@ -393,7 +393,7 @@ export default function ProjectDetails() {
               </Button>
             </div>
           ) : (
-            <DocumentGallery 
+            <ProjectDocuments 
               projectId={projectId} 
               projectPhases={Array.isArray(phases) ? phases.map(phase => ({
                 id: phase.id,

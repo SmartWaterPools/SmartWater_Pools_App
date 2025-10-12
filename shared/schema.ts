@@ -124,6 +124,30 @@ export const insertProjectPhaseSchema = createInsertSchema(projectPhases).omit({
   id: true,
 });
 
+// Document schema for project documents
+export const projectDocuments = pgTable("project_documents", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  filename: text("filename").notNull(), // Unique generated filename
+  originalName: text("original_name").notNull(), // Original filename from upload
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(), // File size in bytes
+  uploadDate: timestamp("upload_date").notNull().default(sql`now()`),
+  uploadedBy: integer("uploaded_by").notNull(), // User ID who uploaded
+  url: text("url").notNull(), // Path to file or URL
+  title: text("title"), // Display title
+  description: text("description"), // Optional description
+  documentType: text("document_type"), // Type of document (blueprint, permit, photo, contract, etc.)
+  phaseId: integer("phase_id"), // Optional: associate with a project phase
+  isPublic: boolean("is_public").default(false), // Whether document is publicly accessible
+  tags: text("tags").array(), // Optional tags for categorization
+});
+
+export const insertProjectDocumentSchema = createInsertSchema(projectDocuments).omit({
+  id: true,
+  uploadDate: true,
+});
+
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type Organization = typeof organizations.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -134,6 +158,8 @@ export type InsertRepair = z.infer<typeof insertRepairSchema>;
 export type Repair = typeof repairs.$inferSelect;
 export type InsertProjectPhase = z.infer<typeof insertProjectPhaseSchema>;
 export type ProjectPhase = typeof projectPhases.$inferSelect;
+export type InsertProjectDocument = z.infer<typeof insertProjectDocumentSchema>;
+export type ProjectDocument = typeof projectDocuments.$inferSelect;
 
 // Report type constants for business components
 export const REPORT_TYPES = [

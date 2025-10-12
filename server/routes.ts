@@ -4,12 +4,16 @@ import { Router } from "express";
 import { storage } from "./storage";
 import authRoutes from "./routes/auth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
+import documentRoutes from "./routes/document-routes";
 import { isAuthenticated } from "./auth";
 import { type User } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount authentication routes
   app.use('/api/auth', authRoutes);
+  
+  // Mount document routes
+  app.use('/api', documentRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();

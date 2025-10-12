@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, users, organizations, projects, repairs, projectPhases } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, users, organizations, projects, repairs, projectPhases, projectDocuments } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -47,6 +47,15 @@ export interface IStorage {
   createProjectPhase(phase: InsertProjectPhase): Promise<ProjectPhase>;
   updateProjectPhase(id: number, data: Partial<ProjectPhase>): Promise<ProjectPhase | undefined>;
   deleteProjectPhase(id: number): Promise<boolean>;
+  
+  // Document operations
+  getProjectDocuments(projectId: number): Promise<ProjectDocument[]>;
+  getDocument(id: number): Promise<ProjectDocument | undefined>;
+  createDocument(document: InsertProjectDocument): Promise<ProjectDocument>;
+  updateDocument(id: number, data: Partial<ProjectDocument>): Promise<ProjectDocument | undefined>;
+  deleteDocument(id: number): Promise<boolean>;
+  getDocumentsByPhase(phaseId: number): Promise<ProjectDocument[]>;
+  getDocumentsByType(projectId: number, documentType: string): Promise<ProjectDocument[]>;
 
   // Additional methods needed by various routes
   getSubscriptionPlan?(planId: number): Promise<any>;
@@ -248,6 +257,48 @@ export class DatabaseStorage implements IStorage {
   async deleteProjectPhase(id: number): Promise<boolean> {
     const result = await db.delete(projectPhases).where(eq(projectPhases.id, id)).returning();
     return result.length > 0;
+  }
+  
+  // Document operations
+  async getProjectDocuments(projectId: number): Promise<ProjectDocument[]> {
+    return await db.select()
+      .from(projectDocuments)
+      .where(eq(projectDocuments.projectId, projectId));
+  }
+  
+  async getDocument(id: number): Promise<ProjectDocument | undefined> {
+    const result = await db.select().from(projectDocuments).where(eq(projectDocuments.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+  
+  async createDocument(document: InsertProjectDocument): Promise<ProjectDocument> {
+    const result = await db.insert(projectDocuments).values(document).returning();
+    return result[0];
+  }
+  
+  async updateDocument(id: number, data: Partial<ProjectDocument>): Promise<ProjectDocument | undefined> {
+    const result = await db.update(projectDocuments).set(data).where(eq(projectDocuments.id, id)).returning();
+    return result[0] || undefined;
+  }
+  
+  async deleteDocument(id: number): Promise<boolean> {
+    const result = await db.delete(projectDocuments).where(eq(projectDocuments.id, id)).returning();
+    return result.length > 0;
+  }
+  
+  async getDocumentsByPhase(phaseId: number): Promise<ProjectDocument[]> {
+    return await db.select()
+      .from(projectDocuments)
+      .where(eq(projectDocuments.phaseId, phaseId));
+  }
+  
+  async getDocumentsByType(projectId: number, documentType: string): Promise<ProjectDocument[]> {
+    return await db.select()
+      .from(projectDocuments)
+      .where(and(
+        eq(projectDocuments.projectId, projectId),
+        eq(projectDocuments.documentType, documentType)
+      ));
   }
 }
 
