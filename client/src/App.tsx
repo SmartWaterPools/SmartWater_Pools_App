@@ -28,6 +28,7 @@ import Business from "@/pages/Business";
 import InventoryManagement from "@/pages/InventoryManagement";
 import Admin from "@/pages/Admin";
 import LoginErrorTest from "@/pages/LoginErrorTest";
+import ProjectDetails from "@/pages/ProjectDetails";
 
 // Protected route wrapper that includes the AppLayout
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -68,6 +69,7 @@ function Router() {
       {/* Protected routes with AppLayout */}
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
+      <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetails} />} />
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
       <Route path="/clients/add" component={() => <ProtectedRoute component={AddClient} />} />
       <Route path="/clients/enhanced" component={() => <ProtectedRoute component={ClientsEnhanced} />} />
