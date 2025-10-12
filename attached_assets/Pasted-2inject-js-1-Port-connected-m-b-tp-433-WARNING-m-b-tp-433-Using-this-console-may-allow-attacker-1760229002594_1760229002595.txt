@@ -1,0 +1,123 @@
+2inject.js:1 Port connected
+m=_b,_tp:433 WARNING!
+m=_b,_tp:433 Using this console may allow attackers to impersonate you and steal your information using an attack called Self-XSS.Do not enter or paste code that you do not understand.
+2inject.js:1 Port connected
+inpage.js:21 This document requires 'TrustedScript' assignment.
+(anonymous) @ inpage.js:21
+get value @ inpage.js:21
+(anonymous) @ inpage.js:46
+F @ inpage.js:21
+(anonymous) @ inpage.js:46
+F @ inpage.js:21
+ZodObject @ inpage.js:21
+wn @ inpage.js:46
+38236 @ inpage.js:46
+Be @ inpage.js:46
+(anonymous) @ inpage.js:61
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:1
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104Understand this error
+inpage.js:21 The JavaScript Function constructor does not accept TrustedString arguments. See https://github.com/w3c/webappsec-trusted-types/wiki/Trusted-Types-for-function-constructor for more information.
+inpage.js:66 This document requires 'TrustedScript' assignment.
+(anonymous) @ inpage.js:66
+get value @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+ZodObject @ inpage.js:66
+d0 @ inpage.js:92
+(anonymous) @ inpage.js:92
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:1
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104Understand this error
+inpage.js:66 The JavaScript Function constructor does not accept TrustedString arguments. See https://github.com/w3c/webappsec-trusted-types/wiki/Trusted-Types-for-function-constructor for more information.
+2inject.js:1 Port connected
+inpage.js:21 This document requires 'TrustedScript' assignment.
+(anonymous) @ inpage.js:21
+get value @ inpage.js:21
+(anonymous) @ inpage.js:46
+F @ inpage.js:21
+(anonymous) @ inpage.js:46
+F @ inpage.js:21
+ZodObject @ inpage.js:21
+wn @ inpage.js:46
+38236 @ inpage.js:46
+Be @ inpage.js:46
+(anonymous) @ inpage.js:61
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:1
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104Understand this error
+inpage.js:21 The JavaScript Function constructor does not accept TrustedString arguments. See https://github.com/w3c/webappsec-trusted-types/wiki/Trusted-Types-for-function-constructor for more information.
+inpage.js:66 This document requires 'TrustedScript' assignment.
+(anonymous) @ inpage.js:66
+get value @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+ZodObject @ inpage.js:66
+d0 @ inpage.js:92
+(anonymous) @ inpage.js:92
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:1
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104Understand this error
+inpage.js:66 The JavaScript Function constructor does not accept TrustedString arguments. See https://github.com/w3c/webappsec-trusted-types/wiki/Trusted-Types-for-function-constructor for more information.
+inpage.js:21 This document requires 'TrustedScript' assignment.
+(anonymous) @ inpage.js:21
+get value @ inpage.js:21
+(anonymous) @ inpage.js:46
+F @ inpage.js:21
+(anonymous) @ inpage.js:46
+F @ inpage.js:21
+ZodObject @ inpage.js:21
+wn @ inpage.js:46
+38236 @ inpage.js:46
+Be @ inpage.js:46
+(anonymous) @ inpage.js:61
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:1
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104Understand this error
+inpage.js:21 The JavaScript Function constructor does not accept TrustedString arguments. See https://github.com/w3c/webappsec-trusted-types/wiki/Trusted-Types-for-function-constructor for more information.
+inpage.js:66 This document requires 'TrustedScript' assignment.
+(anonymous) @ inpage.js:66
+get value @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+ZodObject @ inpage.js:66
+d0 @ inpage.js:92
+(anonymous) @ inpage.js:92
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:1
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104Understand this error
+inpage.js:66 The JavaScript Function constructor does not accept TrustedString arguments. See https://github.com/w3c/webappsec-trusted-types/wiki/Trusted-Types-for-function-constructor for more information.
+inpage.js:66  POST https://accounts.youtube.com/_/AccountsDomainCookiesCheckConnectionHttp/cspreport 404 (Not Found)
+(anonymous) @ inpage.js:66
+get value @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+(anonymous) @ inpage.js:92
+r @ inpage.js:66
+ZodObject @ inpage.js:66
+d0 @ inpage.js:92
+(anonymous) @ inpage.js:92
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:1
+(anonymous) @ inpage.js:104
+(anonymous) @ inpage.js:104Understand this error
+inpage.js:21  POST https://accounts.youtube.com/_/AccountsDomainCookiesCheckConnectionHttp/cspreport 404 (Not Found)
