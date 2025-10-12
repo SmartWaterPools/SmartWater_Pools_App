@@ -6,7 +6,7 @@ import authRoutes from "./routes/auth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
 import documentRoutes from "./routes/document-routes";
 import { isAuthenticated } from "./auth";
-import { type User } from "@shared/schema";
+import { type User, insertProjectPhaseSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount authentication routes
@@ -518,6 +518,207 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Delete project error:', error);
       res.status(500).json({ error: 'Failed to delete project' });
+    }
+  });
+
+  // PROJECT PHASES ENDPOINTS
+  
+  // Create project phase endpoint
+  app.post('/api/project-phases', isAuthenticated, async (req, res) => {
+    try {
+      // Validate request body
+      const validation = insertProjectPhaseSchema.safeParse(req.body);
+      
+      if (!validation.success) {
+        return res.status(400).json({ 
+          error: 'Invalid request data', 
+          details: validation.error.issues 
+        });
+      }
+      
+      const phaseData = validation.data;
+      
+      // Verify the project exists and user has access
+      const project = await storage.getProject(phaseData.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Get the client to verify organization access
+      const client = await storage.getUser(project.clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found for project' });
+      }
+      
+      // Verify the user has access to this organization
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Create the project phase
+      const newPhase = await storage.createProjectPhase({
+        projectId: phaseData.projectId,
+        name: phaseData.name,
+        description: phaseData.description || null,
+        status: phaseData.status || 'pending',
+        order: phaseData.order || 0,
+        percentComplete: phaseData.percentComplete || 0,
+        startDate: phaseData.startDate || null,
+        endDate: phaseData.endDate || null,
+        notes: phaseData.notes || null,
+        estimatedDuration: phaseData.estimatedDuration || null,
+        actualDuration: phaseData.actualDuration || null,
+        cost: phaseData.cost || null,
+        permitRequired: phaseData.permitRequired || false,
+        inspectionRequired: phaseData.inspectionRequired || false,
+        inspectionDate: phaseData.inspectionDate || null,
+        inspectionPassed: phaseData.inspectionPassed || null,
+        inspectionNotes: phaseData.inspectionNotes || null
+      });
+      
+      // Return the created phase as JSON
+      res.status(201).json(newPhase);
+    } catch (error) {
+      console.error('Create project phase error:', error);
+      res.status(500).json({ error: 'Failed to create project phase' });
+    }
+  });
+  
+  // Update project phase endpoint
+  app.put('/api/project-phases/:id', isAuthenticated, async (req, res) => {
+    try {
+      const phaseId = parseInt(req.params.id);
+      
+      // Get the existing phase
+      const existingPhase = await storage.getProjectPhase(phaseId);
+      if (!existingPhase) {
+        return res.status(404).json({ error: 'Phase not found' });
+      }
+      
+      // Verify the project exists and user has access
+      const project = await storage.getProject(existingPhase.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Get the client to verify organization access
+      const client = await storage.getUser(project.clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found for project' });
+      }
+      
+      // Verify the user has access to this organization
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Update the phase with provided data
+      const updateData = req.body;
+      const updatedPhase = await storage.updateProjectPhase(phaseId, updateData);
+      
+      if (!updatedPhase) {
+        return res.status(500).json({ error: 'Failed to update phase' });
+      }
+      
+      // Return the updated phase as JSON
+      res.json(updatedPhase);
+    } catch (error) {
+      console.error('Update project phase error:', error);
+      res.status(500).json({ error: 'Failed to update project phase' });
+    }
+  });
+  
+  // Also support PATCH for partial updates
+  app.patch('/api/project-phases/:id', isAuthenticated, async (req, res) => {
+    try {
+      const phaseId = parseInt(req.params.id);
+      
+      // Get the existing phase
+      const existingPhase = await storage.getProjectPhase(phaseId);
+      if (!existingPhase) {
+        return res.status(404).json({ error: 'Phase not found' });
+      }
+      
+      // Verify the project exists and user has access
+      const project = await storage.getProject(existingPhase.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Get the client to verify organization access
+      const client = await storage.getUser(project.clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found for project' });
+      }
+      
+      // Verify the user has access to this organization
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Update the phase with provided data (partial update)
+      const updateData = req.body;
+      const updatedPhase = await storage.updateProjectPhase(phaseId, updateData);
+      
+      if (!updatedPhase) {
+        return res.status(500).json({ error: 'Failed to update phase' });
+      }
+      
+      // Return the updated phase as JSON
+      res.json(updatedPhase);
+    } catch (error) {
+      console.error('Update project phase error:', error);
+      res.status(500).json({ error: 'Failed to update project phase' });
+    }
+  });
+  
+  // Delete project phase endpoint
+  app.delete('/api/project-phases/:id', isAuthenticated, async (req, res) => {
+    try {
+      const phaseId = parseInt(req.params.id);
+      
+      // Get the phase to verify it exists
+      const phase = await storage.getProjectPhase(phaseId);
+      if (!phase) {
+        return res.status(404).json({ error: 'Phase not found' });
+      }
+      
+      // Verify the project exists and user has access
+      const project = await storage.getProject(phase.projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Get the client to verify organization access
+      const client = await storage.getUser(project.clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found for project' });
+      }
+      
+      // Verify the user has access to this organization
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Delete the phase
+      const deleted = await storage.deleteProjectPhase(phaseId);
+      
+      if (!deleted) {
+        return res.status(500).json({ error: 'Failed to delete phase' });
+      }
+      
+      // Return success response
+      res.json({
+        success: true,
+        message: 'Phase deleted successfully'
+      });
+    } catch (error) {
+      console.error('Delete project phase error:', error);
+      res.status(500).json({ error: 'Failed to delete project phase' });
     }
   });
 

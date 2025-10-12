@@ -110,7 +110,7 @@ export function ProjectDocuments({ projectId, projectPhases = [] }: ProjectDocum
       formData.append("title", title || file.name);
       formData.append("description", description);
       formData.append("documentType", documentType);
-      if (phaseId) formData.append("phaseId", phaseId);
+      if (phaseId && phaseId !== "none") formData.append("phaseId", phaseId);
       if (tags) formData.append("tags", tags);
 
       const response = await fetch(`/api/projects/${projectId}/documents`, {
@@ -513,7 +513,7 @@ export function ProjectDocuments({ projectId, projectPhases = [] }: ProjectDocum
                           <SelectValue placeholder="Select phase" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {projectPhases.map(phase => (
                             <SelectItem key={phase.id} value={phase.id.toString()}>
                               {phase.name}
