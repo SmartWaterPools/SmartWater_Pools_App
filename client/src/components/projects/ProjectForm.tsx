@@ -168,14 +168,14 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       
       return result;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       toast({
         title: "Success",
         description: "Project created successfully",
       });
       
       // Create initial "Design & Planning" phase for all new projects
-      createInitialProjectPhases(data.id);
+      await createInitialProjectPhases(data.id);
       
       form.reset();
       onClose();
