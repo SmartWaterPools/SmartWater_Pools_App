@@ -289,6 +289,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get single project endpoint
+  app.get('/api/projects/:id', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      const project = await storage.getProject(projectId);
+      
+      // Check if project exists
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Get the client and verify organization access
+      const client = await storage.getUser(project.clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found for project' });
+      }
+      
+      // Verify the client belongs to the user's organization (security check)
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Sanitize client data - remove sensitive fields
+      const sanitizedClient = {
+        id: client.id,
+        username: client.username,
+        name: client.name,
+        email: client.email,
+        role: client.role,
+        phone: client.phone,
+        address: client.address,
+        addressLat: client.addressLat,
+        addressLng: client.addressLng,
+        active: client.active,
+        organizationId: client.organizationId,
+        authProvider: client.authProvider
+        // Explicitly exclude: password, googleId, photoUrl
+      };
+      
+      // Format project with client details
+      const formattedProject = {
+        ...project,
+        client: {
+          id: client.id,
+          user: sanitizedClient,
+          companyName: null, // Will need to add this field later
+          contractType: 'residential' // Default value for now
+        },
+        // Add calculated fields the frontend expects
+        completion: project.percentComplete || 0,
+        deadline: project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate) : new Date(),
+        assignments: [],
+        isArchived: false
+      };
+      
+      res.json(formattedProject);
+    } catch (error) {
+      console.error('Get project error:', error);
+      res.status(500).json({ error: 'Failed to get project' });
+    }
+  });
+
   // Create project endpoint
   app.post('/api/projects', isAuthenticated, async (req, res) => {
     try {
