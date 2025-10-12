@@ -569,10 +569,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/google-maps-key', (req, res) => {
     try {
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      console.log('Google Maps API Key endpoint called');
+      console.log('Environment variable GOOGLE_MAPS_API_KEY exists:', !!process.env.GOOGLE_MAPS_API_KEY);
+      console.log('API key value (first 10 chars):', apiKey ? apiKey.substring(0, 10) + '...' : 'NOT SET');
+      
       if (!apiKey) {
+        console.log('No Google Maps API key found in environment variables');
         // Return empty response instead of 404 to avoid console errors
         return res.json({ apiKey: null });
       }
+      
+      console.log('Returning Google Maps API key');
       res.json({ apiKey });
     } catch (error) {
       console.error('Error fetching Google Maps API key:', error);
