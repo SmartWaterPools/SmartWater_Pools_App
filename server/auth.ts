@@ -154,74 +154,166 @@ export function configurePassport(storage: IStorage) {
         },
         async (req: any, accessToken: string, refreshToken: string, profile: any, done: (error: any, user?: any, info?: any) => void) => {
           try {
-            console.log('Google OAuth callback received - Processing authentication');
+            console.log('\n========== GOOGLE STRATEGY CALLBACK START ==========');
+            console.log(`[${new Date().toISOString()}] Google Strategy callback received`);
             
-            // Log session information for debugging
-            if (req.session) {
-              console.log(`Google OAuth: Session exists (ID: ${req.sessionID})`);
-              console.log(`Google OAuth: Session state: ${req.session.oauthState || 'none'}`);
-              console.log(`Google OAuth: Session pending flag: ${req.session.oauthPending || false}`);
+            // 1. Token Information (don't log actual tokens for security)
+            console.log('\n1. TOKEN INFORMATION:');
+            console.log('- Access Token: Present:', !!accessToken);
+            console.log('- Access Token Length:', accessToken ? accessToken.length : 0);
+            console.log('- Refresh Token: Present:', !!refreshToken);
+            console.log('- Refresh Token Length:', refreshToken ? refreshToken.length : 0);
+            
+            // 2. Session Information
+            console.log('\n2. SESSION INFORMATION:');
+            if (req && req.session) {
+              console.log('- Session exists: YES');
+              console.log('- Session ID:', req.sessionID || 'none');
+              console.log('- Session Keys:', Object.keys(req.session));
+              console.log('- OAuth State:', req.session.oauthState || 'none');
+              console.log('- OAuth Pending:', req.session.oauthPending || false);
+              console.log('- OAuth Initiated At:', req.session.oauthInitiatedAt || 'not set');
+              
+              if ((req.session as any).passport) {
+                console.log('- Passport data in session:', JSON.stringify((req.session as any).passport, null, 2));
+              }
             } else {
-              console.error('Google OAuth: No session found in request!');
+              console.error('- Session exists: NO - This is a problem!');
+              if (!req) {
+                console.error('  -> Request object is missing!');
+              } else if (!req.session) {
+                console.error('  -> Session object is missing from request!');
+              }
             }
             
-            // Enhanced profile validation
+            // 3. Profile Information
+            console.log('\n3. GOOGLE PROFILE INFORMATION:');
             if (!profile) {
-              console.error('Google OAuth: No profile data received from Google');
+              console.error('- Profile: NOT RECEIVED (null/undefined)');
+              console.error('  -> This means Google did not provide user information');
               return done(new Error('No profile data received from Google'), false);
             }
             
+            console.log('- Profile received: YES');
+            console.log('- Profile ID:', profile.id || 'MISSING');
+            console.log('- Profile Provider:', profile.provider || 'unknown');
+            console.log('- Profile Display Name:', profile.displayName || 'none');
+            
+            // Log name details
+            if (profile.name) {
+              console.log('- Profile Name Object:');
+              console.log('  -> Family Name:', profile.name.familyName || 'none');
+              console.log('  -> Given Name:', profile.name.givenName || 'none');
+              console.log('  -> Middle Name:', profile.name.middleName || 'none');
+            } else {
+              console.log('- Profile Name Object: NOT PROVIDED');
+            }
+            
+            // Log email details
+            const emails = profile.emails || [];
+            console.log('- Profile Emails Count:', emails.length);
+            if (emails.length > 0) {
+              emails.forEach((emailObj: any, index: number) => {
+                console.log(`  -> Email ${index + 1}:`, emailObj.value || 'none');
+                console.log(`     - Verified:`, emailObj.verified || false);
+                console.log(`     - Type:`, emailObj.type || 'unknown');
+              });
+            } else {
+              console.log('  -> No emails provided');
+            }
+            
+            // Log photo details
+            if (profile.photos && profile.photos.length > 0) {
+              console.log('- Profile Photos Count:', profile.photos.length);
+              console.log('  -> Primary Photo URL:', profile.photos[0].value || 'none');
+            } else {
+              console.log('- Profile Photos: NONE');
+            }
+            
+            // Additional profile fields
+            console.log('- Profile JSON (first 500 chars):', JSON.stringify(profile).substring(0, 500));
+            
             if (!profile.id) {
-              console.error('Google OAuth: Profile missing ID field', profile);
+              console.error('\n!!! CRITICAL ERROR: Profile missing ID field !!!');
+              console.error('Full profile object:', JSON.stringify(profile, null, 2));
               return done(new Error('Invalid Google profile - missing ID'), false);
             }
             
-            console.log(`Google OAuth: Received profile for Google ID: ${profile.id}`);
-            
-            // Extract and validate email from profile
-            const emails = profile.emails || [];
+            // 4. Email Extraction
+            console.log('\n4. EMAIL EXTRACTION:');
             const hasEmails = emails.length > 0;
-            console.log(`Google OAuth: Profile has ${emails.length} email(s)`);
-            
             const email = hasEmails ? emails[0].value.toLowerCase() : '';
             
             if (!email) {
-              console.error('Google OAuth: No email address in profile', emails);
+              console.error('- Email extraction FAILED');
+              console.error('  -> Emails array:', JSON.stringify(emails, null, 2));
               return done(new Error('No email address provided by Google'), false);
             }
             
-            console.log(`Google OAuth: Using email ${email} for authentication`);
+            console.log('- Primary email extracted:', email);
+            console.log('- Email verified:', hasEmails && emails[0].verified ? 'YES' : 'NO');
             
-            // Step 1: Check if user already exists with this Google ID
+            // 5. Database Lookup - Check if user already exists with this Google ID
+            console.log('\n5. DATABASE LOOKUP - BY GOOGLE ID:');
+            console.log('- Looking up user with Google ID:', profile.id);
             let existingUser = await storage.getUserByGoogleId(profile.id);
             
             if (existingUser) {
+              console.log('- User found by Google ID: YES');
+              console.log('  -> User ID:', existingUser.id);
+              console.log('  -> User Email:', existingUser.email);
+              console.log('  -> User Role:', existingUser.role);
+              console.log('  -> User Active:', existingUser.active);
+              console.log('  -> User Organization ID:', existingUser.organizationId);
+              console.log('  -> User Photo URL:', existingUser.photoUrl ? 'Present' : 'None');
+              
               // Check if user is active
               if (!existingUser.active) {
+                console.log('- User is INACTIVE - rejecting authentication');
+                console.log('========== GOOGLE STRATEGY CALLBACK END (INACTIVE USER) ==========\n');
                 return done(null, false, { message: 'This account has been deactivated' });
               }
               
               // Update photo URL if it changed
               if (profile.photos && profile.photos[0] && profile.photos[0].value !== existingUser.photoUrl) {
+                console.log('- Updating user photo URL');
+                console.log('  -> Old URL:', existingUser.photoUrl || 'none');
+                console.log('  -> New URL:', profile.photos[0].value);
                 existingUser = await storage.updateUser(existingUser.id, {
                   photoUrl: profile.photos[0].value
                 }) || existingUser;
+                console.log('  -> Update successful:', !!existingUser);
               }
               
               // If user exists and is active, return the user
+              console.log('- Returning existing active user');
+              console.log('========== GOOGLE STRATEGY CALLBACK END (EXISTING USER) ==========\n');
               return done(null, existingUser);
             }
             
-            // Step 2: If no user found by Google ID, check if user exists with the same email
-            // This is the case where a user registered with email/password or was created by admin
-            // and now they're trying to sign in with Google using the same email
+            console.log('- User found by Google ID: NO');
+            
+            // 6. Database Lookup - Check by email if no Google ID match
+            console.log('\n6. DATABASE LOOKUP - BY EMAIL:');
+            console.log('- Looking up user with email:', email);
+            
             try {
               const userWithEmail = await storage.getUserByEmail(email);
               
               if (userWithEmail) {
+                console.log('- User found by email: YES');
+                console.log('  -> User ID:', userWithEmail.id);
+                console.log('  -> User Email:', userWithEmail.email);
+                console.log('  -> User Role:', userWithEmail.role);
+                console.log('  -> User Active:', userWithEmail.active);
+                console.log('  -> User Organization ID:', userWithEmail.organizationId);
+                console.log('  -> User has Google ID:', !!userWithEmail.googleId);
+                console.log('  -> User Google ID matches:', userWithEmail.googleId === profile.id);
+                
                 // Check if the user was previously deleted or inactive
                 if (!userWithEmail.active) {
-                  // For previously deleted users, reactivate the account and treat as a new sign up
+                  console.log('- User is INACTIVE - attempting reactivation');
+                  console.log('  -> Reactivating user and linking Google account');
                   
                   // Reactivate the user account and update with Google credentials
                   const updatedUser = await storage.updateUser(userWithEmail.id, {
@@ -229,76 +321,84 @@ export function configurePassport(storage: IStorage) {
                     photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                     authProvider: 'google',
                     active: true
-                    // Note: createdAt cannot be updated through updateUser,
-                    // would need a direct database query to modify this field
                   });
                   
                   if (updatedUser) {
-                    // Set a flag to indicate this is a reactivated user that should go through subscription flow
+                    console.log('  -> Reactivation successful');
+                    console.log('  -> Setting isReactivated flag for subscription flow');
                     (updatedUser as any).isReactivated = true;
+                    console.log('========== GOOGLE STRATEGY CALLBACK END (REACTIVATED USER) ==========\n');
                     return done(null, updatedUser);
                   } else {
+                    console.error('  -> Reactivation FAILED');
+                    console.log('========== GOOGLE STRATEGY CALLBACK END (REACTIVATION ERROR) ==========\n');
                     return done(new Error('Failed to reactivate user in database'), false);
                   }
                 }
                 
-                // Case-insensitive comparison to handle email casing differences
-                if (userWithEmail.email.toLowerCase() === email.toLowerCase()) {
-                  // Link Google account to existing user
-                  const updatedUser = await storage.updateUser(userWithEmail.id, {
-                    googleId: profile.id,
-                    photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                    authProvider: 'google'
-                  });
-                  
-                  if (updatedUser) {
-                    return done(null, updatedUser);
-                  } else {
-                    return done(new Error('Failed to update user in database'), false);
-                  }
+                // User exists and is active - link Google account if not already linked
+                console.log('- User is ACTIVE - linking Google account');
+                console.log('  -> Email match (case-insensitive):', userWithEmail.email.toLowerCase() === email.toLowerCase());
+                
+                // Link Google account to existing user
+                console.log('  -> Updating user with Google credentials');
+                const updatedUser = await storage.updateUser(userWithEmail.id, {
+                  googleId: profile.id,
+                  photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                  authProvider: 'google'
+                });
+                
+                if (updatedUser) {
+                  console.log('  -> Google account linked successfully');
+                  console.log('========== GOOGLE STRATEGY CALLBACK END (LINKED EXISTING USER) ==========\n');
+                  return done(null, updatedUser);
                 } else {
-                  // Continue with linking as above, same logic applies for case-insensitive matches
-                  const updatedUser = await storage.updateUser(userWithEmail.id, {
-                    googleId: profile.id,
-                    photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                    authProvider: 'google'
-                  });
-                  
-                  if (updatedUser) {
-                    return done(null, updatedUser);
-                  } else {
-                    return done(new Error('Failed to update user in database'), false);
-                  }
+                  console.error('  -> Failed to link Google account');
+                  console.log('========== GOOGLE STRATEGY CALLBACK END (LINKING ERROR) ==========\n');
+                  return done(new Error('Failed to update user in database'), false);
                 }
+              } else {
+                console.log('- User found by email: NO');
               }
             } catch (error) {
-              // Continue to create new user if there's an error looking up by email
+              console.error('- Error looking up user by email:', error);
+              console.log('  -> Will proceed to create new user');
             }
             
-            // Handle new user from OAuth differently - create a temporary pending user
-            // instead of automatically assigning to a default organization
+            // 7. New User Creation - Handle new user from OAuth
+            console.log('\n7. NEW USER CREATION:');
+            console.log('- No existing user found, creating new OAuth user');
+            
             const displayName = profile.displayName || 
                               (profile.name ? `${profile.name.givenName} ${profile.name.familyName}` : 
                                 email.split('@')[0]);
             
-            // Removed hardcoded admin backdoor for security - admin accounts should be created through proper admin interface
-            
-            // Removed hardcoded admin backdoor for security - admin accounts should be created through proper admin interface
+            console.log('- Display name generated:', displayName);
+            console.log('- Email to use:', email);
+            console.log('- Google ID:', profile.id);
+            console.log('- Photo URL:', profile.photos && profile.photos[0] ? 'Present' : 'None');
             
             // For all other new users, store their info as pending
             try {
+              console.log('- Storing pending OAuth user information');
+              
               // Import here to avoid circular dependency
               const { storePendingOAuthUser } = require('./oauth-pending-users');
               
-              // Store pending user info
-              storePendingOAuthUser({
+              const pendingUserData = {
                 id: profile.id,
                 email: email,
                 displayName: displayName,
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                 profile: profile,
                 createdAt: new Date()
-              }, req);
+              };
+              
+              console.log('- Pending user data:', JSON.stringify(pendingUserData, null, 2));
+              
+              // Store pending user info
+              storePendingOAuthUser(pendingUserData, req);
+              console.log('- Pending user info stored in session');
               
               // Set a flag to indicate this is a new OAuth user that needs to select/create organization
               const tempUser: any = { 
@@ -311,11 +411,24 @@ export function configurePassport(storage: IStorage) {
                 needsOrganization: true
               };
               
+              console.log('- Created temporary user object:', JSON.stringify(tempUser, null, 2));
+              console.log('- User needs organization setup: YES');
+              console.log('========== GOOGLE STRATEGY CALLBACK END (NEW USER) ==========\n');
+              
               return done(null, tempUser);
             } catch (error) {
+              console.error('- Error creating pending user:', error);
+              console.error('  -> Error message:', error instanceof Error ? error.message : String(error));
+              console.error('  -> Error stack:', error instanceof Error ? error.stack : 'N/A');
+              console.log('========== GOOGLE STRATEGY CALLBACK END (NEW USER ERROR) ==========\n');
               return done(error, false);
             }
           } catch (error) {
+            console.error('\n!!! UNEXPECTED ERROR IN GOOGLE STRATEGY !!!');
+            console.error('- Error:', error);
+            console.error('- Error message:', error instanceof Error ? error.message : String(error));
+            console.error('- Error stack:', error instanceof Error ? error.stack : 'N/A');
+            console.log('========== GOOGLE STRATEGY CALLBACK END (UNEXPECTED ERROR) ==========\n');
             return done(error, false);
           }
         }

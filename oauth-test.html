@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+            display: block;
+        }
+        button:hover {
+            background: #357ae8;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .error {
+            background: #ffe0e0;
+            color: #d00;
+        }
+        .success {
+            background: #e0ffe0;
+            color: #080;
+        }
+        .info {
+            background: #e0f0ff;
+            color: #008;
+        }
+        .log-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 5px;
+            margin: 2px 0;
+            font-size: 12px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Google OAuth Debug Test</h1>
+        <p>This page helps test and debug the Google OAuth authentication flow with comprehensive logging.</p>
+        
+        <h2>Test Actions:</h2>
+        
+        <button onclick="checkSession()">1. Check Current Session</button>
+        <button onclick="prepareOAuth()">2. Prepare OAuth Session</button>
+        <button onclick="startOAuthFlow()">3. Start Google OAuth Flow</button>
+        <button onclick="testDirectCallback()">4. Test Direct Callback (Debug)</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+        
+        <div id="status" class="status info">Ready to test OAuth flow. Click buttons in order.</div>
+        
+        <div class="log-section">
+            <h3>Debug Log:</h3>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        let logCounter = 0;
+        
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<strong>[${timestamp}]</strong> ${message}`;
+            entry.style.color = type === 'error' ? '#d00' : type === 'success' ? '#080' : '#333';
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            addLog('Logs cleared', 'info');
+        }
+        
+        function setStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status ' + type;
+        }
+        
+        async function checkSession() {
+            addLog('Checking session status...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/session`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.isAuthenticated) {
+                    setStatus(`✅ Authenticated as: ${data.user.email}`, 'success');
+                    addLog(`User authenticated: ${JSON.stringify(data.user)}`, 'success');
+                } else {
+                    setStatus('❌ Not authenticated', 'error');
+                    addLog('No active session found', 'error');
+                }
+            } catch (error) {
+                setStatus(`Error: ${error.message}`, 'error');
+                addLog(`Session check failed: ${error.message}`, 'error');
+            }
+        }
+        
+        async function prepareOAuth() {
+            addLog('Preparing OAuth session...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/prepare-oauth`, {
+                    credentials: 'include'
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    setStatus('✅ OAuth session prepared', 'success');
+                    addLog('OAuth session ready', 'success');
+                } else {
+                    setStatus('❌ Failed to prepare OAuth', 'error');
+                    addLog(`Preparation failed: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                setStatus(`Error: ${error.message}`, 'error');
+                addLog(`Preparation error: ${error.message}`, 'error');
+            }
+        }
+        
+        function startOAuthFlow() {
+            addLog('Starting Google OAuth flow...');
+            addLog('Opening Google authentication window...');
+            
+            // Add timestamp to URL to help track in logs
+            const timestamp = Date.now();
+            const oauthUrl = `${API_BASE}/auth/google?timestamp=${timestamp}&redirectTo=/dashboard`;
+            
+            addLog(`OAuth URL: ${oauthUrl}`);
+            setStatus('🔄 Redirecting to Google... Check server logs for debug output!', 'info');
+            
+            // Open in same window to maintain session
+            window.location.href = oauthUrl;
+        }
+        
+        function testDirectCallback() {
+            addLog('Testing direct callback (this will fail but trigger debug logs)...');
+            
+            // This will fail authentication but will trigger all our debug logging
+            const testUrl = `${API_BASE}/auth/google/callback?error=test_debug&error_description=Manual+debug+test`;
+            
+            addLog(`Test URL: ${testUrl}`);
+            setStatus('🔄 Testing callback endpoint... Check server logs!', 'info');
+            
+            window.location.href = testUrl;
+        }
+        
+        // Check for OAuth error parameters in URL
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            if (urlParams.has('error')) {
+                const error = urlParams.get('error');
+                const details = urlParams.get('details') || urlParams.get('error_description') || 'No details provided';
+                
+                setStatus(`OAuth Error: ${error}`, 'error');
+                addLog(`OAuth failed: ${error}`, 'error');
+                addLog(`Error details: ${details}`, 'error');
+                
+                // Log all URL parameters for debugging
+                addLog('All URL parameters:', 'info');
+                for (const [key, value] of urlParams) {
+                    addLog(`  ${key}: ${value}`, 'info');
+                }
+            }
+            
+            // Auto-check session on load
+            checkSession();
+        });
+    </script>
+</body>
+</html>

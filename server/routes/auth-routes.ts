@@ -259,57 +259,192 @@ router.get('/google', oauthTimeoutMiddleware, (req: Request, res: Response, next
   })(req, res, next);
 });
 
-// Google OAuth callback route - enhanced with debugging and timeout protection
+// Google OAuth callback route - enhanced with comprehensive debugging
 router.get('/google/callback', 
   oauthTimeoutMiddleware, // Add timeout middleware
   (req: Request, res: Response, next: NextFunction) => {
-    // Debug logs before authentication
-    console.log("Google OAuth callback received, session details:");
+    console.log("\n========== GOOGLE OAUTH CALLBACK DEBUG START ==========");
+    console.log(`[${new Date().toISOString()}] Google OAuth callback received`);
+    
+    // 1. Request Details
+    console.log("\n1. REQUEST DETAILS:");
+    console.log("- Request URL:", req.url);
+    console.log("- Request Path:", req.path);
+    console.log("- Request Method:", req.method);
+    console.log("- Request Protocol:", req.protocol);
+    console.log("- Request Host:", req.get('host'));
+    console.log("- Request Origin:", req.get('origin') || "none");
+    console.log("- Request Referer:", req.get('referer') || "none");
+    console.log("- User-Agent:", req.get('user-agent') || "none");
+    
+    // 2. Query Parameters from Google
+    console.log("\n2. QUERY PARAMETERS FROM GOOGLE:");
+    const queryParams = req.query;
+    console.log("- All query params:", JSON.stringify(queryParams, null, 2));
+    
+    // Check for specific OAuth parameters
+    if (queryParams.code) {
+      console.log("- Authorization Code: Present (length: " + (queryParams.code as string).length + ")");
+    }
+    if (queryParams.state) {
+      console.log("- State parameter: Present (value: " + queryParams.state + ")");
+    }
+    if (queryParams.error) {
+      console.log("- ERROR from Google:", queryParams.error);
+      console.log("- Error Description:", queryParams.error_description || "none");
+      console.log("- Error URI:", queryParams.error_uri || "none");
+    }
+    if (queryParams.scope) {
+      console.log("- Scopes granted:", queryParams.scope);
+    }
+    
+    // 3. Session Information
+    console.log("\n3. SESSION INFORMATION:");
     console.log("- Session ID:", req.sessionID || "none");
+    console.log("- Session exists:", !!req.session);
+    if (req.session) {
+      console.log("- Session keys:", Object.keys(req.session));
+      console.log("- Session cookie:", JSON.stringify(req.session.cookie, null, 2));
+      console.log("- OAuth Initiated At:", req.session.oauthInitiatedAt || "not set");
+      console.log("- Redirect To:", req.session.redirectTo || "not set");
+      
+      // Calculate elapsed time since OAuth flow started
+      if (req.session.oauthInitiatedAt) {
+        const startTime = new Date(req.session.oauthInitiatedAt).getTime();
+        const elapsedMs = Date.now() - startTime;
+        console.log(`- OAuth flow elapsed time: ${elapsedMs}ms (${(elapsedMs/1000).toFixed(2)} seconds)`);
+        
+        // Warn if flow took too long
+        if (elapsedMs > 30000) {
+          console.warn("- WARNING: OAuth flow took longer than 30 seconds!");
+        }
+      }
+      
+      // Log any passport data in session
+      if ((req.session as any).passport) {
+        console.log("- Passport in session:", JSON.stringify((req.session as any).passport, null, 2));
+      }
+    }
+    
+    // 4. Cookie Information
+    console.log("\n4. COOKIE INFORMATION:");
+    console.log("- Raw Cookie Header:", req.headers.cookie || "none");
+    if (req.cookies) {
+      console.log("- Parsed Cookies:", JSON.stringify(req.cookies, null, 2));
+    }
+    
+    // 5. Authentication State Before Processing
+    console.log("\n5. AUTHENTICATION STATE BEFORE PROCESSING:");
     console.log("- Is Authenticated:", req.isAuthenticated ? req.isAuthenticated() : "function not available");
     console.log("- Has user object:", !!req.user);
-    console.log("- Cookies:", req.headers.cookie || "none");
-    
-    // Calculate elapsed time since OAuth flow started (if available)
-    if (req.session?.oauthInitiatedAt) {
-      const startTime = new Date(req.session.oauthInitiatedAt).getTime();
-      const elapsedMs = Date.now() - startTime;
-      console.log(`- OAuth flow elapsed time: ${elapsedMs}ms`);
+    if (req.user) {
+      const user = req.user as any;
+      console.log("- Existing User ID:", user.id);
+      console.log("- Existing User email:", user.email);
     }
+    
+    // 6. Headers (selective important ones)
+    console.log("\n6. RELEVANT HEADERS:");
+    console.log("- X-Forwarded-For:", req.get('x-forwarded-for') || "none");
+    console.log("- X-Forwarded-Proto:", req.get('x-forwarded-proto') || "none");
+    console.log("- X-Real-IP:", req.get('x-real-ip') || "none");
+    
+    // Check for OAuth errors from Google
+    if (queryParams.error) {
+      console.log("\n!!! GOOGLE OAUTH ERROR DETECTED !!!");
+      console.log("Google returned an error. Common causes:");
+      console.log("- User denied permission");
+      console.log("- Invalid client configuration");
+      console.log("- Redirect URI mismatch");
+      console.log("========== GOOGLE OAUTH CALLBACK DEBUG END (ERROR) ==========\n");
+      
+      // Redirect with error details
+      const errorMessage = encodeURIComponent(queryParams.error_description as string || queryParams.error as string);
+      return res.redirect(`/login?error=google-oauth&details=${errorMessage}`);
+    }
+    
+    console.log("\nProceeding to passport.authenticate('google')...");
+    console.log("========== GOOGLE OAUTH CALLBACK DEBUG END (PRE-AUTH) ==========\n");
     
     next();
   },
-  passport.authenticate('google', { 
-    failureRedirect: '/login?error=google-auth-failed',
-    session: true
-  }),
-  (req: Request, res: Response) => {
-    try {
-      // Log authentication result
-      console.log("Google OAuth login completed, authentication result:");
-      console.log("- Is authenticated after Google auth:", req.isAuthenticated ? req.isAuthenticated() : "function not available");
-      console.log("- User object present:", !!req.user);
-      if (req.user) {
-        const user = req.user as any;
-        console.log("- User ID:", user.id);
-        console.log("- User email:", user.email);
-        console.log("- User role:", user.role);
+  // Passport authentication middleware with custom callback for debugging
+  (req: Request, res: Response, next: NextFunction) => {
+    passport.authenticate('google', (err: any, user: any, info: any) => {
+      console.log("\n========== PASSPORT AUTHENTICATE CALLBACK ==========");
+      console.log(`[${new Date().toISOString()}] Passport authenticate callback triggered`);
+      
+      if (err) {
+        console.error("PASSPORT ERROR:", err);
+        console.error("Error Stack:", err.stack);
+        return res.redirect('/login?error=passport-error');
       }
       
-      // Save session explicitly to ensure user is stored
-      req.session.save((err) => {
-        if (err) {
-          console.error("Error saving session after Google auth:", err);
+      if (!user) {
+        console.log("AUTHENTICATION FAILED:");
+        console.log("- Info from Passport:", JSON.stringify(info, null, 2));
+        console.log("- User is null/false");
+        return res.redirect('/login?error=google-auth-failed');
+      }
+      
+      console.log("AUTHENTICATION SUCCESS:");
+      console.log("- User authenticated successfully");
+      console.log("- User ID:", user.id);
+      console.log("- User email:", user.email);
+      console.log("- User role:", user.role);
+      console.log("- User organizationId:", user.organizationId);
+      console.log("- User googleId:", user.googleId);
+      console.log("- Is new OAuth user:", user.isNewOAuthUser || false);
+      console.log("- Needs organization:", user.needsOrganization || false);
+      
+      // Log user in to session
+      console.log("\nAttempting req.login()...");
+      req.login(user, (loginErr) => {
+        if (loginErr) {
+          console.error("REQ.LOGIN ERROR:", loginErr);
+          console.error("Error Stack:", loginErr.stack);
           return res.redirect('/login?error=session-error');
         }
         
-        console.log("Session saved successfully, redirecting to dashboard");
-        res.redirect('/dashboard');
+        console.log("req.login() successful");
+        console.log("- Session ID after login:", req.sessionID);
+        console.log("- Is authenticated after login:", req.isAuthenticated());
+        
+        // Save session explicitly
+        console.log("\nSaving session explicitly...");
+        req.session.save((saveErr) => {
+          if (saveErr) {
+            console.error("SESSION SAVE ERROR:", saveErr);
+            console.error("Error Stack:", saveErr.stack);
+            return res.redirect('/login?error=session-save-error');
+          }
+          
+          console.log("Session saved successfully");
+          console.log("- Final session keys:", Object.keys(req.session));
+          if ((req.session as any).passport) {
+            console.log("- Final passport data:", JSON.stringify((req.session as any).passport, null, 2));
+          }
+          
+          // Determine redirect URL
+          let redirectUrl = '/dashboard';
+          
+          // Check if user needs to complete organization setup
+          if (user.needsOrganization || user.isNewOAuthUser) {
+            console.log("User needs organization setup, redirecting to complete-signup");
+            redirectUrl = '/complete-signup';
+          } else if (req.session.redirectTo) {
+            console.log("Using stored redirect URL:", req.session.redirectTo);
+            redirectUrl = req.session.redirectTo;
+            delete req.session.redirectTo;
+          }
+          
+          console.log(`\nREDIRECTING TO: ${redirectUrl}`);
+          console.log("========== PASSPORT AUTHENTICATE CALLBACK END (SUCCESS) ==========\n");
+          
+          res.redirect(redirectUrl);
+        });
       });
-    } catch (error) {
-      console.error("Google OAuth callback error:", error);
-      res.redirect('/login?error=callback-error');
-    }
+    })(req, res, next);
   }
 );
 
