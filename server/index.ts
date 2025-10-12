@@ -1,14 +1,25 @@
 import express, { type Request, Response, NextFunction } from "express";
 import session from "express-session";
 import passport from "passport";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { configurePassport } from "./auth";
 import { storage } from "./storage";
 
 const app = express();
+
+// Trust proxy for Replit environment (important for OAuth callbacks)
+if (process.env.REPL_ID) {
+  app.set('trust proxy', true);
+  console.log('Trust proxy enabled for Replit environment');
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Add cookie-parser middleware BEFORE session middleware
+app.use(cookieParser());
 
 // Require SESSION_SECRET for security
 if (!process.env.SESSION_SECRET) {
@@ -16,15 +27,22 @@ if (!process.env.SESSION_SECRET) {
 }
 
 // Configure session middleware
+// Special handling for Replit environment which uses HTTPS even in development
+const isReplit = !!process.env.REPL_ID;
+const isHttps = isReplit || process.env.NODE_ENV === 'production';
+
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: isHttps, // Enable secure cookies on Replit (HTTPS) even in dev mode
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax' // Important for OAuth callbacks
+  },
+  // Trust proxy for proper HTTPS detection in Replit
+  proxy: isReplit
   // TODO: In production, use a persistent session store like Redis or PostgreSQL
   // instead of the default MemoryStore for better scalability and reliability
 }));
