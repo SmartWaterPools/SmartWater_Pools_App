@@ -428,15 +428,16 @@ router.get('/google/callback',
           // Determine redirect URL
           let redirectUrl = '/dashboard';
           
-          // Check if user needs to complete organization setup
-          if (user.needsOrganization || user.isNewOAuthUser) {
-            console.log("User needs organization setup, redirecting to complete-signup");
-            redirectUrl = '/complete-signup';
-          } else if (req.session.redirectTo) {
+          // Check if user has a stored redirect URL
+          if (req.session.redirectTo) {
             console.log("Using stored redirect URL:", req.session.redirectTo);
             redirectUrl = req.session.redirectTo;
             delete req.session.redirectTo;
           }
+          
+          // For all authenticated users with valid organization, go to dashboard
+          // Note: Since we now create organizations for new OAuth users, they should go directly to dashboard
+          console.log(`User authenticated successfully - redirecting to: ${redirectUrl}`);
           
           console.log(`\nREDIRECTING TO: ${redirectUrl}`);
           console.log("========== PASSPORT AUTHENTICATE CALLBACK END (SUCCESS) ==========\n");

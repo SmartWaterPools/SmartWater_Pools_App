@@ -378,46 +378,73 @@ export function configurePassport(storage: IStorage) {
             console.log('- Google ID:', profile.id);
             console.log('- Photo URL:', profile.photos && profile.photos[0] ? 'Present' : 'None');
             
-            // For all other new users, store their info as pending
+            // Create a real user in the database with an organization
             try {
-              console.log('- Storing pending OAuth user information');
+              console.log('- Creating new user with organization');
               
-              // Import here to avoid circular dependency
-              const { storePendingOAuthUser } = require('./oauth-pending-users');
+              // Generate a username from email if needed
+              const username = email.split('@')[0];
               
-              const pendingUserData = {
-                id: profile.id,
+              // Create organization name based on user's name
+              const orgName = `${displayName}'s Organization`;
+              const baseSlug = displayName.toLowerCase().replace(/\s+/g, '-');
+              
+              // Ensure unique slug by adding timestamp if needed
+              let slug = baseSlug;
+              let attempts = 0;
+              const maxAttempts = 5;
+              let organizationId: number | undefined;
+              
+              while (attempts < maxAttempts) {
+                try {
+                  const newOrg = await storage.createOrganization({
+                    name: orgName,
+                    slug: slug
+                  });
+                  organizationId = newOrg.id;
+                  console.log('- Organization created with ID:', organizationId);
+                  break;
+                } catch (error: any) {
+                  // If slug already exists, add timestamp and retry
+                  if (error.message?.includes('duplicate') || error.code === '23505') {
+                    attempts++;
+                    slug = `${baseSlug}-${Date.now()}`;
+                    if (attempts >= maxAttempts) {
+                      throw new Error('Unable to create unique organization identifier');
+                    }
+                  } else {
+                    throw error;
+                  }
+                }
+              }
+              
+              if (!organizationId) {
+                throw new Error('Failed to create organization');
+              }
+              
+              // Create the new user with Google OAuth info
+              const newUser = await storage.createUser({
+                username: username,
                 email: email,
-                displayName: displayName,
-                photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
-                profile: profile,
-                createdAt: new Date()
-              };
-              
-              console.log('- Pending user data:', JSON.stringify(pendingUserData, null, 2));
-              
-              // Store pending user info
-              storePendingOAuthUser(pendingUserData, req);
-              console.log('- Pending user info stored in session');
-              
-              // Set a flag to indicate this is a new OAuth user that needs to select/create organization
-              const tempUser: any = { 
-                id: -1,  // Temporary ID
-                username: email,
-                email: email,
-                role: 'client',
+                name: displayName,
+                role: 'client', // Default role for new OAuth users
+                organizationId: organizationId,
                 googleId: profile.id,
-                isNewOAuthUser: true,
-                needsOrganization: true
-              };
+                photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                authProvider: 'google',
+                active: true,
+                password: '' // OAuth users don't need a password
+              });
               
-              console.log('- Created temporary user object:', JSON.stringify(tempUser, null, 2));
-              console.log('- User needs organization setup: YES');
-              console.log('========== GOOGLE STRATEGY CALLBACK END (NEW USER) ==========\n');
+              console.log('- Created new user with ID:', newUser.id);
+              console.log('- User email:', newUser.email);
+              console.log('- User role:', newUser.role);
+              console.log('- User organization ID:', newUser.organizationId);
+              console.log('========== GOOGLE STRATEGY CALLBACK END (NEW USER CREATED) ==========\n');
               
-              return done(null, tempUser);
+              return done(null, newUser);
             } catch (error) {
-              console.error('- Error creating pending user:', error);
+              console.error('- Error creating new user:', error);
               console.error('  -> Error message:', error instanceof Error ? error.message : String(error));
               console.error('  -> Error stack:', error instanceof Error ? error.stack : 'N/A');
               console.log('========== GOOGLE STRATEGY CALLBACK END (NEW USER ERROR) ==========\n');
