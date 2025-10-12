@@ -352,6 +352,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get project phases endpoint
+  app.get('/api/projects/:id/phases', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      
+      // Get the project first to verify it exists
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      // Get the client and verify organization access
+      const client = await storage.getUser(project.clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found for project' });
+      }
+      
+      // Verify the client belongs to the user's organization (security check)
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Get phases for this project
+      const phases = await storage.getProjectPhases(projectId);
+      
+      // Return phases as JSON array
+      res.json(phases);
+    } catch (error) {
+      console.error('Get project phases error:', error);
+      res.status(500).json({ error: 'Failed to get project phases' });
+    }
+  });
+
   // Create project endpoint
   app.post('/api/projects', isAuthenticated, async (req, res) => {
     try {

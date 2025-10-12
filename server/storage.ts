@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, users, organizations, projects, repairs } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, users, organizations, projects, repairs, projectPhases } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -40,6 +40,13 @@ export interface IStorage {
   createRepair(repair: InsertRepair): Promise<Repair>;
   updateRepair(id: number, data: Partial<Repair>): Promise<Repair | undefined>;
   deleteRepair(id: number): Promise<boolean>;
+
+  // Project Phase operations
+  getProjectPhase(id: number): Promise<ProjectPhase | undefined>;
+  getProjectPhases(projectId: number): Promise<ProjectPhase[]>;
+  createProjectPhase(phase: InsertProjectPhase): Promise<ProjectPhase>;
+  updateProjectPhase(id: number, data: Partial<ProjectPhase>): Promise<ProjectPhase | undefined>;
+  deleteProjectPhase(id: number): Promise<boolean>;
 
   // Additional methods needed by various routes
   getSubscriptionPlan?(planId: number): Promise<any>;
@@ -213,6 +220,33 @@ export class DatabaseStorage implements IStorage {
 
   async deleteRepair(id: number): Promise<boolean> {
     const result = await db.delete(repairs).where(eq(repairs.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Project Phase operations
+  async getProjectPhase(id: number): Promise<ProjectPhase | undefined> {
+    const result = await db.select().from(projectPhases).where(eq(projectPhases.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getProjectPhases(projectId: number): Promise<ProjectPhase[]> {
+    return await db.select()
+      .from(projectPhases)
+      .where(eq(projectPhases.projectId, projectId));
+  }
+
+  async createProjectPhase(phase: InsertProjectPhase): Promise<ProjectPhase> {
+    const result = await db.insert(projectPhases).values(phase).returning();
+    return result[0];
+  }
+
+  async updateProjectPhase(id: number, data: Partial<ProjectPhase>): Promise<ProjectPhase | undefined> {
+    const result = await db.update(projectPhases).set(data).where(eq(projectPhases.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteProjectPhase(id: number): Promise<boolean> {
+    const result = await db.delete(projectPhases).where(eq(projectPhases.id, id)).returning();
     return result.length > 0;
   }
 }

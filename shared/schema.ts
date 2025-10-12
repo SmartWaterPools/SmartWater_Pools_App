@@ -80,6 +80,27 @@ export const repairs = pgTable("repairs", {
   scheduledTime: time("scheduled_time"),
 });
 
+export const projectPhases = pgTable("project_phases", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("pending"),
+  order: integer("order").notNull().default(0),
+  percentComplete: integer("percent_complete").notNull().default(0),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  notes: text("notes"),
+  estimatedDuration: integer("estimated_duration"),
+  actualDuration: integer("actual_duration"),
+  cost: integer("cost"),
+  permitRequired: boolean("permit_required").default(false),
+  inspectionRequired: boolean("inspection_required").default(false),
+  inspectionDate: date("inspection_date"),
+  inspectionPassed: boolean("inspection_passed"),
+  inspectionNotes: text("inspection_notes"),
+});
+
 export const insertOrganizationSchema = createInsertSchema(organizations).omit({
   id: true,
   createdAt: true,
@@ -99,6 +120,10 @@ export const insertRepairSchema = createInsertSchema(repairs).omit({
   reportedDate: true,
 });
 
+export const insertProjectPhaseSchema = createInsertSchema(projectPhases).omit({
+  id: true,
+});
+
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type Organization = typeof organizations.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -107,6 +132,8 @@ export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertRepair = z.infer<typeof insertRepairSchema>;
 export type Repair = typeof repairs.$inferSelect;
+export type InsertProjectPhase = z.infer<typeof insertProjectPhaseSchema>;
+export type ProjectPhase = typeof projectPhases.$inferSelect;
 
 // Report type constants for business components
 export const REPORT_TYPES = [
