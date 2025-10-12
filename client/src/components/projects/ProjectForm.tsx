@@ -85,8 +85,9 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
   // This is needed because the apiRequest function signature doesn't match how it's called in the project
   const makeRequest = async <T,>(params: {url: string, method: string, data?: any}): Promise<T> => {
     const { url, method, data } = params;
-    // We're actually calling the existing apiRequest function passing positional arguments
-    return await apiRequest<T>(url, method, data);
+    // apiRequest expects (method, url, data) not (url, method, data)
+    const response = await apiRequest(method, url, data);
+    return await response.json();
   };
   
   // Function to create initial project phase for new projects
