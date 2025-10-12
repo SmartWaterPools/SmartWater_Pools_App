@@ -174,12 +174,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProject(project: InsertProject): Promise<Project> {
-    // Generate a unique ID for the project
-    const maxIdResult = await db.select({ maxId: projects.id }).from(projects).orderBy(projects.id).limit(1);
-    const newId = (maxIdResult[0]?.maxId || 0) + 1;
-    
-    const projectWithId = { ...project, id: newId };
-    const result = await db.insert(projects).values([projectWithId]).returning();
+    // Let PostgreSQL handle ID generation via the serial sequence
+    const result = await db.insert(projects).values(project).returning();
     return result[0];
   }
 
@@ -213,12 +209,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createRepair(repair: InsertRepair): Promise<Repair> {
-    // Generate a unique ID for the repair
-    const maxIdResult = await db.select({ maxId: repairs.id }).from(repairs).orderBy(repairs.id).limit(1);
-    const newId = (maxIdResult[0]?.maxId || 0) + 1;
-    
-    const repairWithId = { ...repair, id: newId };
-    const result = await db.insert(repairs).values([repairWithId]).returning();
+    // Let PostgreSQL handle ID generation via the serial sequence
+    const result = await db.insert(repairs).values(repair).returning();
     return result[0];
   }
 
