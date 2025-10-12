@@ -12,7 +12,9 @@ export interface IStorage {
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
   getUsersByRole(role: string): Promise<User[]>;
   getUsersByOrganization(organizationId: number): Promise<User[]>;
+  getUsersByOrganizationId(organizationId: number): Promise<User[]>; // Alias for getUsersByOrganization
   getAllUsers(): Promise<User[]>;
+  deleteUser(id: number): Promise<boolean>;
   
   // Organization operations
   getOrganization(id: number): Promise<Organization | undefined>;
@@ -93,9 +95,19 @@ export class DatabaseStorage implements IStorage {
   async getUsersByOrganization(organizationId: number): Promise<User[]> {
     return await db.select().from(users).where(eq(users.organizationId, organizationId));
   }
+  
+  // Alias for getUsersByOrganization (needed by user-org-routes)
+  async getUsersByOrganizationId(organizationId: number): Promise<User[]> {
+    return this.getUsersByOrganization(organizationId);
+  }
 
   async getAllUsers(): Promise<User[]> {
     return await db.select().from(users);
+  }
+  
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(users).where(eq(users.id, id)).returning();
+    return result.length > 0;
   }
 
   // Organization operations

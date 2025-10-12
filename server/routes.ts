@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { Router } from "express";
 import { storage } from "./storage";
 import authRoutes from "./routes/auth-routes";
+import registerUserOrgRoutes from "./routes/user-org-routes";
 import { isAuthenticated } from "./auth";
 import { type User } from "@shared/schema";
 
@@ -16,15 +17,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard summary endpoint
   dashboardRouter.get('/summary', isAuthenticated, async (req, res) => {
     try {
-      // Return basic summary data for now
+      const user = req.user as User;
+      
+      // Get all clients from the current organization
+      const allClients = await storage.getUsersByRole('client');
+      const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
+      const clientIds = organizationClients.map(c => c.id);
+      
+      // Get all projects for these clients
+      const allProjects = await storage.getProjectsByOrganization(
+        user?.organizationId || 0,
+        clientIds
+      );
+      
+      // Count projects by status
+      const activeProjects = allProjects.filter(p => p.status === 'in_progress').length;
+      const completedProjects = allProjects.filter(p => p.status === 'completed').length;
+      
+      // Get all repairs and count by status
+      const allRepairs = await storage.getRepairs();
+      // Filter repairs by clients in the organization
+      const orgRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+      const pendingMaintenance = orgRepairs.filter(r => 
+        r.status === 'scheduled' || r.status === 'pending'
+      ).length;
+      const upcomingMaintenance = orgRepairs.filter(r => 
+        r.status === 'in_progress'
+      ).length;
+      
       const summary = {
-        totalProjects: 0,
-        activeProjects: 0, 
-        completedProjects: 0,
-        totalClients: 0,
-        pendingMaintenance: 0,
-        upcomingMaintenance: 0
+        totalProjects: allProjects.length,
+        activeProjects, 
+        completedProjects,
+        totalClients: organizationClients.length,
+        pendingMaintenance,
+        upcomingMaintenance
       };
+      
       res.json(summary);
     } catch (error) {
       console.error('Dashboard summary error:', error);
@@ -391,11 +420,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Basic maintenances endpoint
+  // Basic maintenances endpoint (alias for repairs)
   app.get('/api/maintenances', isAuthenticated, async (req, res) => {
     try {
-      // Return empty array for now - prevents connection errors
-      res.json([]);
+      const user = req.user as User;
+      
+      // Get all clients from the current organization
+      const allClients = await storage.getUsersByRole('client');
+      const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
+      const clientIds = organizationClients.map(c => c.id);
+      
+      // Get all repairs and filter by organization's clients
+      const allRepairs = await storage.getRepairs();
+      const organizationRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+      
+      // Format repairs as maintenances with proper client details
+      const formattedMaintenances = await Promise.all(organizationRepairs.map(async (repair) => {
+        const client = await storage.getUser(repair.clientId);
+        const technician = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
+        
+        return {
+          ...repair,
+          // Add client details
+          client: client ? {
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            address: client.address
+          } : null,
+          // Add technician details
+          technician: technician ? {
+            id: technician.id,
+            name: technician.name,
+            email: technician.email
+          } : null
+        };
+      }));
+      
+      res.json(formattedMaintenances);
     } catch (error) {
       console.error('Maintenances error:', error);
       res.status(500).json({ error: 'Failed to load maintenances' });
@@ -405,8 +468,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Basic repairs endpoint
   app.get('/api/repairs', isAuthenticated, async (req, res) => {
     try {
-      // Return empty array for now - prevents connection errors
-      res.json([]);
+      const user = req.user as User;
+      
+      // Get all clients from the current organization
+      const allClients = await storage.getUsersByRole('client');
+      const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
+      const clientIds = organizationClients.map(c => c.id);
+      
+      // Get all repairs and filter by organization's clients
+      const allRepairs = await storage.getRepairs();
+      const organizationRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+      
+      // Format repairs with proper client and technician details
+      const formattedRepairs = await Promise.all(organizationRepairs.map(async (repair) => {
+        const client = await storage.getUser(repair.clientId);
+        const technician = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
+        
+        return {
+          ...repair,
+          // Add client details
+          client: client ? {
+            id: client.id,
+            name: client.name,
+            email: client.email,
+            phone: client.phone,
+            address: client.address
+          } : null,
+          // Add technician details
+          technician: technician ? {
+            id: technician.id,
+            name: technician.name,
+            email: technician.email
+          } : null
+        };
+      }));
+      
+      res.json(formattedRepairs);
     } catch (error) {
       console.error('Repairs error:', error);
       res.status(500).json({ error: 'Failed to load repairs' });
@@ -424,22 +521,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Basic users endpoint
-  app.get('/api/users', isAuthenticated, async (req, res) => {
-    try {
-      // Return empty array for now - prevents connection errors
-      res.json([]);
-    } catch (error) {
-      console.error('Users error:', error);
-      res.status(500).json({ error: 'Failed to load users' });
-    }
-  });
+  // Mount Admin User Management routes
+  const adminUsersRouter = Router();
+  registerUserOrgRoutes(adminUsersRouter, storage, true);
+  app.use('/api/admin/users', adminUsersRouter);
+  
+  // Also mount at /api/users for backward compatibility
+  const usersRouter = Router();
+  registerUserOrgRoutes(usersRouter, storage, true);
+  app.use('/api/users', usersRouter);
 
   // Basic technicians endpoint
   app.get('/api/technicians', isAuthenticated, async (req, res) => {
     try {
-      // Return empty array for now - prevents connection errors
-      res.json([]);
+      const user = req.user as User;
+      
+      // Get all users with role 'technician' from the current organization
+      const allTechnicians = await storage.getUsersByRole('technician');
+      const organizationTechnicians = allTechnicians.filter(t => t.organizationId === user?.organizationId);
+      
+      // Sanitize technician data - remove sensitive fields
+      const sanitizedTechnicians = organizationTechnicians.map(technician => ({
+        id: technician.id,
+        username: technician.username,
+        name: technician.name,
+        email: technician.email,
+        role: technician.role,
+        phone: technician.phone,
+        address: technician.address,
+        addressLat: technician.addressLat,
+        addressLng: technician.addressLng,
+        active: technician.active,
+        organizationId: technician.organizationId,
+        authProvider: technician.authProvider
+        // Explicitly exclude: password, googleId, photoUrl
+      }));
+      
+      res.json(sanitizedTechnicians);
     } catch (error) {
       console.error('Technicians error:', error);
       res.status(500).json({ error: 'Failed to load technicians' });
