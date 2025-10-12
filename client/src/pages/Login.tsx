@@ -304,28 +304,16 @@ export default function Login() {
         localStorage.removeItem('oauth_timestamp');
       }
       
-      // Check for error parameters in URL that might indicate previous OAuth failures
+      // Clear any existing error parameters from the URL to allow retry
       const urlParams = new URLSearchParams(window.location.search);
       const existingError = urlParams.get('error');
       
       if (existingError) {
-        console.log(`Detected existing error parameter: ${existingError}`);
+        console.log(`Clearing existing error parameter: ${existingError} to allow retry`);
         
-        const errorInfo = ERROR_MESSAGES[existingError] || ERROR_MESSAGES['google-auth-failed'];
-        
-        setError({
-          message: `${errorInfo.title}: ${errorInfo.description}`,
-          type: errorInfo.type
-        });
-        
-        toast({
-          title: errorInfo.title,
-          description: errorInfo.description,
-          variant: errorInfo.type === 'error' ? 'destructive' : 'default',
-        });
-        
-        setIsGoogleLoading(false);
-        return;
+        // Remove error parameter from URL without reload
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
       }
       
       // Show toast to inform user about redirect
