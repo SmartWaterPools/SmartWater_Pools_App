@@ -5,6 +5,7 @@ import { storage } from "./storage";
 import authRoutes from "./routes/auth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
 import documentRoutes from "./routes/document-routes";
+import bazzaRoutes from "./routes/bazza-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema } from "@shared/schema";
 
@@ -14,6 +15,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Mount document routes
   app.use('/api', documentRoutes);
+
+  // Mount bazza routes (service routes)
+  app.use('/api/bazza', bazzaRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();
@@ -873,25 +877,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as User;
       
-      // Get all users with role 'technician' from the current organization
-      const allTechnicians = await storage.getUsersByRole('technician');
-      const organizationTechnicians = allTechnicians.filter(t => t.organizationId === user?.organizationId);
+      // Get all technicians from the technicians table with their user details
+      const allTechnicians = await storage.getTechnicians();
       
-      // Sanitize technician data - remove sensitive fields
-      const sanitizedTechnicians = organizationTechnicians.map(technician => ({
-        id: technician.id,
-        username: technician.username,
-        name: technician.name,
-        email: technician.email,
-        role: technician.role,
-        phone: technician.phone,
-        address: technician.address,
-        addressLat: technician.addressLat,
-        addressLng: technician.addressLng,
-        active: technician.active,
-        organizationId: technician.organizationId,
-        authProvider: technician.authProvider
-        // Explicitly exclude: password, googleId, photoUrl
+      // Filter by organization through the user relationship
+      const organizationTechnicians = await Promise.all(
+        allTechnicians.map(async (tech) => {
+          const techUser = await storage.getUser(tech.userId);
+          return { ...tech, user: techUser };
+        })
+      );
+      
+      const filteredTechnicians = organizationTechnicians.filter(
+        t => t.user && t.user.organizationId === user?.organizationId
+      );
+      
+      // Return technician records with user data
+      const sanitizedTechnicians = filteredTechnicians.map(tech => ({
+        id: tech.id, // This is the technician table ID
+        username: tech.user?.username,
+        name: tech.user?.name,
+        email: tech.user?.email,
+        role: tech.user?.role,
+        phone: tech.user?.phone,
+        address: tech.user?.address,
+        addressLat: tech.user?.addressLat,
+        addressLng: tech.user?.addressLng,
+        active: tech.user?.active,
+        organizationId: tech.user?.organizationId,
+        authProvider: tech.user?.authProvider
       }));
       
       res.json(sanitizedTechnicians);
@@ -906,32 +920,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as User;
       
-      // Get all users with role 'technician' from the current organization
-      const allTechnicians = await storage.getUsersByRole('technician');
-      const organizationTechnicians = allTechnicians.filter(t => t.organizationId === user?.organizationId);
+      // Get all technicians from the technicians table
+      const allTechnicians = await storage.getTechnicians();
       
-      // Format technicians with nested user structure as expected by frontend
-      const techniciansWithUsers = organizationTechnicians.map(technician => ({
-        id: technician.id,
-        userId: technician.id,
-        organizationId: technician.organizationId || 0,
-        specialization: '', // Default empty - can be extended later
-        certifications: [], // Default empty array - can be extended later
-        status: technician.active ? 'active' : 'inactive',
-        notes: null,
-        user: {
-          id: technician.id,
-          name: technician.name,
-          email: technician.email,
-          role: technician.role,
-          organizationId: technician.organizationId,
-          phone: technician.phone || undefined,
-          address: technician.address || undefined,
-          photoUrl: technician.photoUrl || undefined
-        }
-      }));
+      // Get user details for each technician and filter by organization
+      const techniciansWithUsers = await Promise.all(
+        allTechnicians.map(async (tech) => {
+          const techUser = await storage.getUser(tech.userId);
+          if (!techUser || techUser.organizationId !== user?.organizationId) {
+            return null;
+          }
+          
+          return {
+            id: tech.id, // This is the technician table ID
+            userId: tech.userId, // This is the user table ID
+            organizationId: techUser.organizationId || 0,
+            specialization: tech.specialization || '',
+            certifications: tech.certifications ? JSON.parse(tech.certifications) : [],
+            status: techUser.active ? 'active' : 'inactive',
+            notes: null,
+            user: {
+              id: techUser.id,
+              name: techUser.name,
+              email: techUser.email,
+              role: techUser.role,
+              organizationId: techUser.organizationId,
+              phone: techUser.phone || undefined,
+              address: techUser.address || undefined,
+              photoUrl: techUser.photoUrl || undefined
+            }
+          };
+        })
+      );
       
-      res.json(techniciansWithUsers);
+      // Filter out nulls (technicians not in the user's organization)
+      const filteredTechnicians = techniciansWithUsers.filter(t => t !== null);
+      
+      res.json(filteredTechnicians);
     } catch (error) {
       console.error('Technicians with users error:', error);
       res.status(500).json({ error: 'Failed to load technicians' });

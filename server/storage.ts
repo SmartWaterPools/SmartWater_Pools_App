@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, users, organizations, projects, repairs, projectPhases, projectDocuments } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray } from "drizzle-orm";
 
@@ -15,6 +15,10 @@ export interface IStorage {
   getUsersByOrganizationId(organizationId: number): Promise<User[]>; // Alias for getUsersByOrganization
   getAllUsers(): Promise<User[]>;
   deleteUser(id: number): Promise<boolean>;
+  
+  // Technician operations
+  getTechnicians(): Promise<Technician[]>;
+  getTechnicianByUserId(userId: number): Promise<Technician | undefined>;
   
   // Organization operations
   getOrganization(id: number): Promise<Organization | undefined>;
@@ -124,6 +128,16 @@ export class DatabaseStorage implements IStorage {
   async deleteUser(id: number): Promise<boolean> {
     const result = await db.delete(users).where(eq(users.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Technician operations
+  async getTechnicians(): Promise<Technician[]> {
+    return await db.select().from(technicians);
+  }
+
+  async getTechnicianByUserId(userId: number): Promise<Technician | undefined> {
+    const result = await db.select().from(technicians).where(eq(technicians.userId, userId)).limit(1);
+    return result[0] || undefined;
   }
 
   // Organization operations

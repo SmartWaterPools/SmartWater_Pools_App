@@ -45,6 +45,18 @@ export const users = pgTable("users", {
   authProvider: text("auth_provider").default("local"),
 });
 
+export const technicians = pgTable("technicians", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  specialization: text("specialization"),
+  certifications: text("certifications"),
+});
+
+export const clients = pgTable("clients", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+});
+
 export const projects = pgTable("projects", {
   id: integer("id").primaryKey(),
   clientId: integer("client_id").notNull(),
@@ -111,6 +123,14 @@ export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
 });
 
+export const insertTechnicianSchema = createInsertSchema(technicians).omit({
+  id: true,
+});
+
+export const insertClientSchema = createInsertSchema(clients).omit({
+  id: true,
+});
+
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
 });
@@ -148,10 +168,80 @@ export const insertProjectDocumentSchema = createInsertSchema(projectDocuments).
   uploadDate: true,
 });
 
+// Bazza Routes - Service routes for technicians
+export const bazzaRoutes = pgTable("bazza_routes", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  type: text("type").notNull(),
+  technicianId: integer("technician_id").notNull(),
+  dayOfWeek: text("day_of_week").notNull(),
+  weekNumber: integer("week_number"),
+  isRecurring: boolean("is_recurring").notNull().default(true),
+  frequency: text("frequency").notNull().default("weekly"),
+  color: text("color"),
+  startTime: time("start_time"),
+  endTime: time("end_time"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Bazza Route Stops - Individual stops on a route
+export const bazzaRouteStops = pgTable("bazza_route_stops", {
+  id: serial("id").primaryKey(),
+  routeId: integer("route_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  orderIndex: integer("order_index").notNull(),
+  estimatedDuration: integer("estimated_duration"),
+  customInstructions: text("custom_instructions"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+// Bazza Maintenance Assignments - Links maintenances to routes
+export const bazzaMaintenanceAssignments = pgTable("bazza_maintenance_assignments", {
+  id: serial("id").primaryKey(),
+  routeId: integer("route_id").notNull(),
+  routeStopId: integer("route_stop_id").notNull(),
+  maintenanceId: integer("maintenance_id").notNull(),
+  date: date("date").notNull(),
+  estimatedStartTime: timestamp("estimated_start_time"),
+  estimatedEndTime: timestamp("estimated_end_time"),
+  actualStartTime: timestamp("actual_start_time"),
+  actualEndTime: timestamp("actual_end_time"),
+  status: text("status").notNull().default("scheduled"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertBazzaRouteSchema = createInsertSchema(bazzaRoutes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBazzaRouteStopSchema = createInsertSchema(bazzaRouteStops).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBazzaMaintenanceAssignmentSchema = createInsertSchema(bazzaMaintenanceAssignments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type Organization = typeof organizations.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
+export type InsertTechnician = z.infer<typeof insertTechnicianSchema>;
+export type Technician = typeof technicians.$inferSelect;
+export type InsertClient = z.infer<typeof insertClientSchema>;
+export type Client = typeof clients.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Project = typeof projects.$inferSelect;
 export type InsertRepair = z.infer<typeof insertRepairSchema>;
@@ -160,6 +250,12 @@ export type InsertProjectPhase = z.infer<typeof insertProjectPhaseSchema>;
 export type ProjectPhase = typeof projectPhases.$inferSelect;
 export type InsertProjectDocument = z.infer<typeof insertProjectDocumentSchema>;
 export type ProjectDocument = typeof projectDocuments.$inferSelect;
+export type InsertBazzaRoute = z.infer<typeof insertBazzaRouteSchema>;
+export type BazzaRoute = typeof bazzaRoutes.$inferSelect;
+export type InsertBazzaRouteStop = z.infer<typeof insertBazzaRouteStopSchema>;
+export type BazzaRouteStop = typeof bazzaRouteStops.$inferSelect;
+export type InsertBazzaMaintenanceAssignment = z.infer<typeof insertBazzaMaintenanceAssignmentSchema>;
+export type BazzaMaintenanceAssignment = typeof bazzaMaintenanceAssignments.$inferSelect;
 
 // Report type constants for business components
 export const REPORT_TYPES = [
