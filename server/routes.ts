@@ -936,7 +936,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userId: tech.userId, // This is the user table ID
             organizationId: techUser.organizationId || 0,
             specialization: tech.specialization || '',
-            certifications: tech.certifications ? JSON.parse(tech.certifications) : [],
+            certifications: tech.certifications ? [tech.certifications] : [],
             status: techUser.active ? 'active' : 'inactive',
             notes: null,
             user: {
