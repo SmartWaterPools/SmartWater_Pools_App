@@ -32,9 +32,14 @@ export default function Technicians() {
   const [selectedTechnician, setSelectedTechnician] = useState<TechnicianWithUser | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
-  const { data: technicians, isLoading } = useQuery<TechnicianWithUser[]>({
+  const { data: technicians, isLoading, error } = useQuery<TechnicianWithUser[]>({
     queryKey: ["/api/technicians-with-users"],
   });
+
+  // Log any errors for debugging
+  if (error) {
+    console.error("Error loading technicians:", error);
+  }
 
   const filteredTechnicians = technicians?.filter(technician => {
     if (
@@ -47,6 +52,21 @@ export default function Technicians() {
     }
     return true;
   });
+
+  // Show error state if query failed
+  if (error) {
+    return (
+      <div className="w-full max-w-full overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+          <h1 className="text-2xl font-bold text-foreground font-heading mb-3 md:mb-0">Technicians</h1>
+        </div>
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative" role="alert">
+          <strong className="font-bold">Error loading technicians: </strong>
+          <span className="block sm:inline">{error instanceof Error ? error.message : 'Unknown error occurred'}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-full overflow-hidden">
