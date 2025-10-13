@@ -161,12 +161,11 @@ router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
     console.log("[BAZZA ROUTES API] Request body:", JSON.stringify(req.body));
     
     // First, ensure required fields exist in the request body
-    if (!req.body.name || !req.body.dayOfWeek || !req.body.type || req.body.technicianId === undefined) {
+    if (!req.body.name || !req.body.dayOfWeek || !req.body.type) {
       const missingFields = [];
       if (!req.body.name) missingFields.push('name');
       if (!req.body.dayOfWeek) missingFields.push('dayOfWeek');
       if (!req.body.type) missingFields.push('type');
-      if (req.body.technicianId === undefined) missingFields.push('technicianId');
       
       console.error(`[BAZZA ROUTES API] Missing required fields: ${missingFields.join(', ')}`);
       return res.status(400).json({ 
@@ -175,18 +174,27 @@ router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
       });
     }
     
-    // Ensure technicianId is an integer
-    try {
-      req.body.technicianId = parseInt(req.body.technicianId);
-      if (isNaN(req.body.technicianId)) {
-        throw new Error('Invalid technicianId: Not a number');
+    // Ensure technicianId is an integer or null (for unassigned routes)
+    // Handle null, undefined, empty string, and "0" as unassigned
+    if (req.body.technicianId !== null && 
+        req.body.technicianId !== undefined && 
+        req.body.technicianId !== "" &&
+        req.body.technicianId !== "0") {
+      try {
+        req.body.technicianId = parseInt(req.body.technicianId);
+        if (isNaN(req.body.technicianId)) {
+          throw new Error('Invalid technicianId: Not a number');
+        }
+      } catch (e) {
+        console.error(`[BAZZA ROUTES API] Invalid technicianId: ${req.body.technicianId}`);
+        return res.status(400).json({ 
+          error: "Invalid technicianId", 
+          details: "technicianId must be a valid integer or null" 
+        });
       }
-    } catch (e) {
-      console.error(`[BAZZA ROUTES API] Invalid technicianId: ${req.body.technicianId}`);
-      return res.status(400).json({ 
-        error: "Invalid technicianId", 
-        details: "technicianId must be a valid integer" 
-      });
+    } else {
+      // Allow null for unassigned routes (empty string, "0", null, undefined all become null)
+      req.body.technicianId = null;
     }
     
     // Validate request body with schema

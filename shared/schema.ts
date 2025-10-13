@@ -174,7 +174,7 @@ export const bazzaRoutes = pgTable("bazza_routes", {
   name: text("name").notNull(),
   description: text("description"),
   type: text("type").notNull(),
-  technicianId: integer("technician_id").notNull(),
+  technicianId: integer("technician_id"),
   dayOfWeek: text("day_of_week").notNull(),
   weekNumber: integer("week_number"),
   isRecurring: boolean("is_recurring").notNull().default(true),

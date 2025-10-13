@@ -41,7 +41,7 @@ import { Checkbox } from "../ui/checkbox";
 // Schema for the route form
 const routeFormSchema = z.object({
   name: z.string().min(1, "Route name is required"),
-  technicianId: z.string().min(1, "Technician is required"),
+  technicianId: z.string().optional(),
   dayOfWeek: z.string().min(1, "Day of week is required"),
   startTime: z.string().min(1, "Start time is required"),
   endTime: z.string().min(1, "End time is required"),
@@ -194,10 +194,16 @@ export function RouteFormDialog({
   
   // Handle form submission
   const handleSubmit = (values: RouteFormValues) => {
+    // Normalize technicianId: convert empty string, "0", null, or undefined to null
+    let normalizedTechnicianId: number | null = null;
+    if (values.technicianId && values.technicianId !== "" && values.technicianId !== "0") {
+      normalizedTechnicianId = parseInt(values.technicianId);
+    }
+    
     // Match exactly what's expected by insertBazzaRouteSchema
     const routeData = {
       name: values.name,
-      technicianId: values.technicianId && values.technicianId !== "0" ? parseInt(values.technicianId) : null,
+      technicianId: normalizedTechnicianId,
       dayOfWeek: values.dayOfWeek,
       startTime: values.startTime,
       endTime: values.endTime,
