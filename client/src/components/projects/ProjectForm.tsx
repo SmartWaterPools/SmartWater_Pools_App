@@ -103,13 +103,16 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       };
       
       // Create the single initial phase
+      const phaseData = {
+        ...initialPhase,
+        projectId
+      };
+      console.log("Creating phase with data:", phaseData);
+      
       const phaseResponse = await makeRequest<any>({
         url: "/api/project-phases",
         method: "POST",
-        data: {
-          ...initialPhase,
-          projectId
-        },
+        data: phaseData,
       });
       
       // Set the current phase to the newly created phase ID
@@ -127,11 +130,12 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
         title: "Project Created",
         description: "Project initialized with Design & Planning phase",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to create initial project phase:", error);
+      console.error("Error message:", error.message);
       toast({
         title: "Error",
-        description: "Failed to create initial project phase",
+        description: error.message || "Failed to create initial project phase",
         variant: "destructive",
       });
     }
