@@ -767,6 +767,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update technician assignment for maintenance
+  app.patch('/api/maintenances/:id/technician', isAuthenticated, async (req, res) => {
+    try {
+      const maintenanceId = parseInt(req.params.id);
+      const { technicianId } = req.body;
+      
+      // Get the maintenance/repair record
+      const repair = await storage.getRepair(maintenanceId);
+      if (!repair) {
+        return res.status(404).json({ error: 'Maintenance not found' });
+      }
+      
+      // Verify the user has access (check client belongs to user's organization)
+      const user = req.user as User;
+      const client = await storage.getUser(repair.clientId);
+      if (!client || client.organizationId !== user?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Update the technician assignment
+      const updatedRepair = await storage.updateRepair(maintenanceId, {
+        technicianId: technicianId || null
+      });
+      
+      if (!updatedRepair) {
+        return res.status(500).json({ error: 'Failed to update technician' });
+      }
+      
+      res.json(updatedRepair);
+    } catch (error) {
+      console.error('Update maintenance technician error:', error);
+      res.status(500).json({ error: 'Failed to update technician' });
+    }
+  });
+
   // Basic repairs endpoint
   app.get('/api/repairs', isAuthenticated, async (req, res) => {
     try {
