@@ -157,7 +157,8 @@ export function MaintenanceListView({
   }, [maintenances, groupBy, unroutedMaintenances]);
 
   // Format a maintenance type for display
-  const formatMaintenanceType = (type: string) => {
+  const formatMaintenanceType = (type: string | undefined | null) => {
+    if (!type) return 'General Maintenance';
     return type
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
