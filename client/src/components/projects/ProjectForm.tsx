@@ -179,7 +179,8 @@ export function ProjectForm({ onClose }: ProjectFormProps) {
       });
       
       // Create initial "Design & Planning" phase for all new projects
-      await createInitialProjectPhases(data.id);
+      // The API returns { success, message, project }, so we need data.project.id
+      await createInitialProjectPhases(data.project.id);
       
       form.reset();
       onClose();
