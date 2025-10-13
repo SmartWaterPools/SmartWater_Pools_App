@@ -866,6 +866,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Technicians with user details endpoint - required by frontend
+  app.get('/api/technicians-with-users', isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as User;
+      
+      // Get all users with role 'technician' from the current organization
+      const allTechnicians = await storage.getUsersByRole('technician');
+      const organizationTechnicians = allTechnicians.filter(t => t.organizationId === user?.organizationId);
+      
+      // Format technicians with nested user structure as expected by frontend
+      const techniciansWithUsers = organizationTechnicians.map(technician => ({
+        id: technician.id,
+        userId: technician.id,
+        organizationId: technician.organizationId || 0,
+        specialization: '', // Default empty - can be extended later
+        certifications: [], // Default empty array - can be extended later
+        status: technician.active ? 'active' : 'inactive',
+        notes: null,
+        user: {
+          id: technician.id,
+          name: technician.name,
+          email: technician.email,
+          role: technician.role,
+          organizationId: technician.organizationId,
+          phone: technician.phone || undefined,
+          address: technician.address || undefined,
+          photoUrl: technician.photoUrl || undefined
+        }
+      }));
+      
+      res.json(techniciansWithUsers);
+    } catch (error) {
+      console.error('Technicians with users error:', error);
+      res.status(500).json({ error: 'Failed to load technicians' });
+    }
+  });
+
   // Google Maps API key endpoint - PUBLIC (no auth required)
   // This needs to be accessible from the login page
   app.get('/api/google-maps-key', (req, res) => {
