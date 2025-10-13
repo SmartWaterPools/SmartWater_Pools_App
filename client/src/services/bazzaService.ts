@@ -19,7 +19,13 @@ export class ApiError extends Error {
 // Enhanced API request function that wraps the standard apiRequest
 async function safeApiRequest<T>(url: string, options?: RequestInit): Promise<T> {
   try {
-    return await apiRequest<T>(url, options);
+    const method = options?.method || 'GET';
+    const body = options?.body;
+    const data = body ? JSON.parse(body as string) : undefined;
+    
+    const response = await apiRequest(method, url, data);
+    const json = await response.json();
+    return json as T;
   } catch (error) {
     // Extract status code from error message (e.g., "401: Unauthorized")
     const errorMsg = (error as Error).message || '';
