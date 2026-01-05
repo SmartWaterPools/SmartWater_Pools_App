@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { eq, and, inArray, desc, lte } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -98,6 +98,11 @@ export interface IStorage {
   getEmailLinksByClient(clientId: number): Promise<EmailLink[]>;
   createEmailLink(link: InsertEmailLink): Promise<EmailLink>;
   deleteEmailLink(id: number): Promise<boolean>;
+
+  // Scheduled Email operations
+  createScheduledEmail(email: InsertScheduledEmail): Promise<ScheduledEmail>;
+  getPendingScheduledEmails(before: Date, organizationId?: number): Promise<ScheduledEmail[]>;
+  updateScheduledEmailStatus(id: number, status: string, error?: string): Promise<ScheduledEmail | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -463,6 +468,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(emailLinks.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  // Scheduled Email operations
+  async createScheduledEmail(email: InsertScheduledEmail): Promise<ScheduledEmail> {
+    const result = await db.insert(scheduledEmails).values(email).returning();
+    return result[0];
+  }
+
+  async getPendingScheduledEmails(before: Date, organizationId?: number): Promise<ScheduledEmail[]> {
+    const conditions = [
+      eq(scheduledEmails.status, 'pending'),
+      lte(scheduledEmails.scheduledFor, before)
+    ];
+    
+    if (organizationId !== undefined) {
+      conditions.push(eq(scheduledEmails.organizationId, organizationId));
+    }
+    
+    return await db.select()
+      .from(scheduledEmails)
+      .where(and(...conditions))
+      .orderBy(scheduledEmails.scheduledFor);
+  }
+
+  async updateScheduledEmailStatus(id: number, status: string, error?: string): Promise<ScheduledEmail | undefined> {
+    const updateData: Partial<ScheduledEmail> = { 
+      status,
+      sentAt: status === 'sent' ? new Date() : null
+    };
+    if (error) {
+      updateData.errorMessage = error;
+    }
+    const result = await db.update(scheduledEmails)
+      .set(updateData)
+      .where(eq(scheduledEmails.id, id))
+      .returning();
+    return result[0] || undefined;
   }
 }
 

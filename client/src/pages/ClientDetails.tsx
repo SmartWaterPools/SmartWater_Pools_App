@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History } from 'lucide-react';
+import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History, MessageSquare } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } from '@/lib/types';
 import { useIsMobile } from '@/hooks/use-mobile';
 import ClientAddressMap from '@/components/maps/ClientAddressMap';
+import { EntityEmailList } from '@/components/communications/EntityEmailList';
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
@@ -258,6 +259,10 @@ export default function ClientDetails() {
           <TabsTrigger value="pool">Pool Details</TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="communications" className="flex items-center">
+            <MessageSquare className="h-4 w-4 mr-1" />
+            Communications
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -1197,6 +1202,14 @@ export default function ClientDetails() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="communications">
+          <EntityEmailList
+            entityType="client"
+            entityId={client.client.id}
+            entityName={client.user.name}
+          />
         </TabsContent>
       </Tabs>
     </div>

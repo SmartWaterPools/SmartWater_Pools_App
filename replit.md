@@ -57,8 +57,23 @@ Preferred communication style: Simple, everyday language.
 - **Scandit**: Barcode scanning capabilities for inventory management
 
 ## Communication Services
-- **Email Services**: Infrastructure in place for email notifications and communication
+- **Gmail Integration**: OAuth-based Gmail integration using Replit's Gmail connector for sending/receiving emails. Supports:
+  - Email sync with smart auto-linking to clients, projects, and repairs based on sender email matching
+  - Compose and send emails directly from the app
+  - 6 types of automated notification emails (appointment reminders, project updates, repair status, client portal, internal alerts, marketing)
+- **Microsoft Outlook Integration**: NOT YET CONFIGURED - User dismissed the Outlook connector setup. When needed, manually configure Microsoft OAuth 2.0 credentials for Outlook support.
 - **SMS Services**: Schema configured for SMS communication providers
+
+## Email Integration Architecture
+- **Core Services**: 
+  - `server/services/gmail-client.ts` - Gmail API wrapper using Replit's OAuth
+  - `server/services/email-sync-service.ts` - Email syncing and auto-linking logic
+  - `server/services/notification-email-service.ts` - Templates and sending for 6 notification types
+- **API Routes**: `server/routes/email-routes.ts` - All email-related endpoints including sync, send, and notifications
+- **Frontend Components**:
+  - `client/src/pages/Communications.tsx` - Central communications hub with email list, sync, and compose
+  - `client/src/components/communications/EntityEmailList.tsx` - Reusable component for showing entity-linked emails
+- **Database Tables**: emails, email_links, email_templates, scheduled_emails, communication_providers
 
 ## Deployment Platform
 - **Google Cloud Run**: Target deployment platform with container-based architecture

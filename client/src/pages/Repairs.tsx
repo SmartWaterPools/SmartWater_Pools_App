@@ -10,7 +10,8 @@ import {
   Edit,
   MoreHorizontal,
   Calendar,
-  User
+  User,
+  Mail
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,12 +33,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RepairRequestForm } from "@/components/repairs/RepairRequestForm";
+import { EntityEmailList } from "@/components/communications/EntityEmailList";
 import { 
   getStatusClasses, 
   getPriorityClasses, 
   formatDate 
 } from "@/lib/types";
 import { apiRequest } from "@/lib/queryClient";
+import { Separator } from "@/components/ui/separator";
 
 export default function Repairs() {
   const [open, setOpen] = useState(false);
@@ -570,7 +573,7 @@ export default function Repairs() {
       {/* Detail dialog */}
       {selectedRepair && (
         <Dialog open={!!selectedRepair} onOpenChange={() => setSelectedRepair(null)}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Repair Request Details</DialogTitle>
               <DialogDescription>
@@ -578,14 +581,16 @@ export default function Repairs() {
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 mt-2">
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Client</h3>
-                <p className="mt-1">{selectedRepair.client.user.name}</p>
-                <p className="text-sm text-gray-500">{selectedRepair.client.user.address}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Issue Type</h3>
-                <p className="mt-1">{selectedRepair.type}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Client</h3>
+                  <p className="mt-1">{selectedRepair.client.user.name}</p>
+                  <p className="text-sm text-gray-500">{selectedRepair.client.user.address}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Issue Type</h3>
+                  <p className="mt-1">{selectedRepair.type}</p>
+                </div>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-gray-500">Description</h3>
@@ -609,28 +614,42 @@ export default function Repairs() {
                   </p>
                 </div>
               </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Assigned Technician</h3>
-                <p className="mt-1">{selectedRepair.technician ? selectedRepair.technician.user.name : 'Unassigned'}</p>
-              </div>
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Assigned Technician</h3>
+                  <p className="mt-1">{selectedRepair.technician ? selectedRepair.technician.user.name : 'Unassigned'}</p>
+                </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Reported Date</h3>
                   <p className="mt-1 text-sm">{formatDate(selectedRepair.reportedDate)}</p>
                 </div>
-                {selectedRepair.scheduledDate && (
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-500">Scheduled Date</h3>
-                    <p className="mt-1 text-sm">{formatDate(selectedRepair.scheduledDate)}</p>
-                  </div>
-                )}
               </div>
+              {selectedRepair.scheduledDate && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500">Scheduled Date</h3>
+                  <p className="mt-1 text-sm">{formatDate(selectedRepair.scheduledDate)}</p>
+                </div>
+              )}
               {selectedRepair.notes && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Notes</h3>
                   <p className="mt-1 text-sm">{selectedRepair.notes}</p>
                 </div>
               )}
+              
+              <Separator className="my-4" />
+              
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Related Communications
+                </h3>
+                <EntityEmailList
+                  entityType="repair"
+                  entityId={selectedRepair.id}
+                  entityName={`${selectedRepair.type} - ${selectedRepair.client.user.name}`}
+                />
+              </div>
             </div>
           </DialogContent>
         </Dialog>

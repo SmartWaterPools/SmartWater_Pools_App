@@ -24,6 +24,7 @@ import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft
 import { formatCurrency, formatDate } from "@/lib/types";
 import { Link } from "wouter";
 import { ProjectEditForm } from "@/components/projects/ProjectEditForm";
+import { EntityEmailList } from "@/components/communications/EntityEmailList";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -454,47 +455,11 @@ export default function ProjectDetails() {
               
               {/* Email Tab Content */}
               <TabsContent value="email" className="space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between gap-3 mb-4">
-                  <div className="flex flex-col xs:flex-row gap-2">
-                    <Select defaultValue="all">
-                      <SelectTrigger className="w-full xs:w-[180px]">
-                        <SelectValue placeholder="Filter by" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Emails</SelectItem>
-                        <SelectItem value="sent">Sent</SelectItem>
-                        <SelectItem value="received">Received</SelectItem>
-                        <SelectItem value="drafts">Drafts</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input placeholder="Search emails..." className="w-full xs:w-auto" />
-                  </div>
-                  <Button className="w-full sm:w-auto">
-                    <Mail className="h-4 w-4 mr-2" />
-                    Compose Email
-                  </Button>
-                </div>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Project Emails</CardTitle>
-                    <CardDescription>
-                      Email communication related to {projectData.name}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <p className="text-muted-foreground">No project emails to display yet. This feature will be implemented soon.</p>
-                      <div className="bg-muted rounded-md p-6 text-center">
-                        <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                        <h3 className="text-lg font-medium">Project Email Integration Coming Soon</h3>
-                        <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
-                          Send and track emails to clients, team members, and suppliers directly from the project. All correspondence will be saved and organized here.
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <EntityEmailList
+                  entityType="project"
+                  entityId={projectId}
+                  entityName={projectData.name}
+                />
               </TabsContent>
               
               {/* SMS Tab Content */}
