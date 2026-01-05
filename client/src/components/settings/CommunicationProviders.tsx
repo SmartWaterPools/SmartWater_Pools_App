@@ -58,7 +58,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Mail, MessageSquare, Phone, Plus, Trash, RotateCcw, Check, ExternalLink } from "lucide-react";
+import { Mail, MessageSquare, Phone, Plus, Trash, RotateCcw, Check, ExternalLink, RefreshCw } from "lucide-react";
+import { Link } from "wouter";
 import {
   Select,
   SelectContent,
@@ -101,6 +102,14 @@ interface CommunicationProvider extends ProviderFormValues {
   tokenExpiresAt: string | null;
 }
 
+// Gmail connector status type
+interface GmailStatus {
+  connected: boolean;
+  email?: string;
+  messagesTotal?: number;
+  error?: string;
+}
+
 export function CommunicationProviders() {
   const [activeTab, setActiveTab] = useState<ProviderType>("gmail");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -108,6 +117,11 @@ export function CommunicationProviders() {
   const [selectedProvider, setSelectedProvider] = useState<CommunicationProvider | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Fetch Gmail connector status (Replit integration)
+  const { data: gmailStatus } = useQuery<GmailStatus>({
+    queryKey: ['/api/emails/connection-status/gmail'],
+  });
 
   // Fetch providers
   const { data: providers = [], isLoading } = useQuery<CommunicationProvider[]>({
@@ -293,29 +307,32 @@ export function CommunicationProviders() {
             Manage external communication services for email, SMS, and calls
           </p>
         </div>
-        <Button 
-          onClick={() => {
-            createForm.reset({
-              type: activeTab,
-              name: "",
-              isDefault: filteredProviders.length === 0, // Set as default if it's the first of its type
-              isActive: true,
-              clientId: null,
-              clientSecret: null,
-              apiKey: null,
-              accountSid: null,
-              authToken: null,
-              email: null,
-              phoneNumber: null,
-              settings: null,
-            });
-            setIsCreateModalOpen(true);
-          }}
-          className="flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Provider</span>
-        </Button>
+        {/* Hide Add Provider button when Gmail is connected and on Gmail tab */}
+        {!(activeTab === "gmail" && gmailStatus?.connected) && (
+          <Button 
+            onClick={() => {
+              createForm.reset({
+                type: activeTab,
+                name: "",
+                isDefault: filteredProviders.length === 0, // Set as default if it's the first of its type
+                isActive: true,
+                clientId: null,
+                clientSecret: null,
+                apiKey: null,
+                accountSid: null,
+                authToken: null,
+                email: null,
+                phoneNumber: null,
+                settings: null,
+              });
+              setIsCreateModalOpen(true);
+            }}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Provider</span>
+          </Button>
+        )}
       </div>
 
       <Tabs
@@ -362,7 +379,40 @@ export function CommunicationProviders() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {isLoading ? (
+                {/* Show Gmail connector status if connected */}
+                {type === "gmail" && gmailStatus?.connected ? (
+                  <div className="py-6 border rounded-md bg-green-50/50">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 flex items-center gap-1 text-sm px-3 py-1">
+                          <Check className="h-4 w-4" />
+                          Gmail Connected
+                        </Badge>
+                      </div>
+                      {gmailStatus.email && (
+                        <p className="text-sm text-muted-foreground">
+                          Connected as <strong>{gmailStatus.email}</strong>
+                        </p>
+                      )}
+                      {gmailStatus.messagesTotal !== undefined && (
+                        <p className="text-xs text-muted-foreground">
+                          {gmailStatus.messagesTotal.toLocaleString()} messages in account
+                        </p>
+                      )}
+                      <div className="flex gap-2 mt-2">
+                        <Button variant="outline" size="sm" asChild>
+                          <Link to="/communications">
+                            <Mail className="h-4 w-4 mr-2" />
+                            Go to Communications
+                          </Link>
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Gmail is connected via Replit integration. Use the Communications page to sync and view emails.
+                      </p>
+                    </div>
+                  </div>
+                ) : isLoading ? (
                   <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
                 ) : filteredProviders.length === 0 ? (
                   <div className="py-8 text-center border rounded-md">
@@ -499,7 +549,9 @@ export function CommunicationProviders() {
               </CardContent>
               <CardFooter className="border-t p-4 flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                  {filteredProviders.length > 0
+                  {type === "gmail" && gmailStatus?.connected
+                    ? "Gmail connected via Replit integration"
+                    : filteredProviders.length > 0
                     ? `${filteredProviders.length} ${
                         filteredProviders.length === 1 ? "provider" : "providers"
                       } configured`
@@ -546,8 +598,13 @@ export function CommunicationProviders() {
                       </FormControl>
                       <SelectContent>
                         {PROVIDER_TYPES.map((type) => (
-                          <SelectItem key={type} value={type}>
+                          <SelectItem 
+                            key={type} 
+                            value={type}
+                            disabled={type === "gmail" && gmailStatus?.connected}
+                          >
                             {type.charAt(0).toUpperCase() + type.slice(1)}
+                            {type === "gmail" && gmailStatus?.connected && " (Connected via Replit)"}
                           </SelectItem>
                         ))}
                       </SelectContent>
