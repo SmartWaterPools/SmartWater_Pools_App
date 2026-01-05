@@ -124,14 +124,20 @@ export default function Communications() {
     }
   });
   
-  const hasEmailProvider = emailProviders.length > 0;
+  // Email is ready if Gmail connector is connected OR we have database providers
+  const hasEmailProvider = gmailStatus?.connected || emailProviders.length > 0;
   const hasSmsProvider = smsProviders.length > 0;
   const hasVoiceProvider = voiceProviders.length > 0;
 
   const handleSyncEmails = () => {
-    const providerId = emailProviders[0]?.id;
-    if (providerId) {
-      syncEmailsMutation.mutate(providerId);
+    // If Gmail connector is connected, use it directly (no providerId needed)
+    if (gmailStatus?.connected) {
+      syncEmailsMutation.mutate(0); // 0 indicates use Gmail connector
+    } else {
+      const providerId = emailProviders[0]?.id;
+      if (providerId) {
+        syncEmailsMutation.mutate(providerId);
+      }
     }
   };
 
@@ -236,34 +242,29 @@ export default function Communications() {
           ) : (
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  {emailProviders.filter(p => p.isDefault)[0]?.name || emailProviders[0]?.name}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Using {emailProviders.filter(p => p.isDefault)[0]?.type || emailProviders[0]?.type} as the default email provider
-                </span>
-              </div>
-              {gmailStatus && (
-                <div className="flex items-center gap-2" data-testid="gmail-status">
-                  {gmailStatus.connected ? (
-                    <>
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        <Check className="h-3 w-3 mr-1" />
-                        Connected
-                      </Badge>
-                      {gmailStatus.email && (
-                        <span className="text-sm text-muted-foreground">{gmailStatus.email}</span>
-                      )}
-                      {gmailStatus.messagesTotal !== undefined && (
-                        <span className="text-sm text-muted-foreground">({gmailStatus.messagesTotal} messages)</span>
-                      )}
-                    </>
-                  ) : (
-                    <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-                      <AlertCircle className="h-3 w-3 mr-1" />
-                      Not Connected
+                {gmailStatus?.connected ? (
+                  <>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      Gmail Connected
                     </Badge>
-                  )}
+                    <span className="text-sm text-muted-foreground">
+                      Connected as {gmailStatus.email || 'Gmail account'}
+                    </span>
+                  </>
+                ) : emailProviders.length > 0 ? (
+                  <>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      {emailProviders.filter(p => p.isDefault)[0]?.name || emailProviders[0]?.name}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      Using {emailProviders.filter(p => p.isDefault)[0]?.type || emailProviders[0]?.type} as the default email provider
+                    </span>
+                  </>
+                ) : null}
+              </div>
+              {gmailStatus?.connected && gmailStatus.messagesTotal !== undefined && (
+                <div className="flex items-center gap-2" data-testid="gmail-status">
+                  <span className="text-sm text-muted-foreground">({gmailStatus.messagesTotal} messages in account)</span>
                 </div>
               )}
             </div>
