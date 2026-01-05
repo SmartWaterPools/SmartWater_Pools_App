@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { storage } from '../storage';
-import { isAuthenticated } from '../middleware/auth';
+import { isAuthenticated } from '../auth';
 import { syncGmailEmails, getGmailConnectionStatus } from '../services/email-sync-service';
 import { sendGmailMessage } from '../services/gmail-client';
 import { z } from 'zod';
