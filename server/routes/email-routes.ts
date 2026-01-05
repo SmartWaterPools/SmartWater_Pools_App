@@ -166,7 +166,7 @@ router.post('/api/emails/:id/link', isAuthenticated, async (req: Request, res: R
       repairId: repairId || null,
       clientId: clientId || null,
       maintenanceId: maintenanceId || null,
-      autoLinked: false
+      isAutoLinked: false
     });
     
     res.json(link);

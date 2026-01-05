@@ -67,12 +67,11 @@ export async function syncGmailEmails(
           organizationId,
           externalId: parsed.externalId,
           threadId: parsed.threadId,
-          direction,
           subject: parsed.subject,
           fromEmail: parsed.fromEmail,
-          toEmail: parsed.toEmail,
-          ccEmail: parsed.ccEmail,
-          bccEmail: parsed.bccEmail,
+          toEmails: parsed.toEmail ? [parsed.toEmail] : null,
+          ccEmails: parsed.ccEmail ? [parsed.ccEmail] : null,
+          bccEmails: parsed.bccEmail ? [parsed.bccEmail] : null,
           bodyText: parsed.bodyText,
           bodyHtml: parsed.bodyHtml,
           receivedAt: parsed.receivedAt,
@@ -80,7 +79,7 @@ export async function syncGmailEmails(
           isStarred: parsed.isStarred,
           hasAttachments: parsed.hasAttachments,
           labels: parsed.labels,
-          status: 'received'
+          isSent: direction === 'outbound'
         };
 
         const savedEmail = await storage.createEmail(emailData);
@@ -109,7 +108,9 @@ async function autoLinkEmail(email: Email, organizationId: number): Promise<numb
   
   try {
     const fromEmail = extractEmailAddress(email.fromEmail);
-    const toEmail = extractEmailAddress(email.toEmail);
+    const toEmail = email.toEmails && email.toEmails.length > 0 
+      ? extractEmailAddress(email.toEmails[0]) 
+      : '';
     
     const allClients = await storage.getUsersByRole('client');
     const clients = allClients.filter(c => c.organizationId === organizationId);
@@ -121,7 +122,7 @@ async function autoLinkEmail(email: Email, organizationId: number): Promise<numb
           emailId: email.id,
           linkType: 'client',
           clientId: client.id,
-          autoLinked: true
+          isAutoLinked: true
         };
         await storage.createEmailLink(linkData);
         linksCreated++;
@@ -132,7 +133,7 @@ async function autoLinkEmail(email: Email, organizationId: number): Promise<numb
             emailId: email.id,
             linkType: 'project',
             projectId: project.id,
-            autoLinked: true
+            isAutoLinked: true
           };
           await storage.createEmailLink(projectLinkData);
           linksCreated++;
@@ -141,7 +142,7 @@ async function autoLinkEmail(email: Email, organizationId: number): Promise<numb
       }
     }
 
-    const subjectLower = email.subject.toLowerCase();
+    const subjectLower = (email.subject || '').toLowerCase();
     if (subjectLower.includes('repair') || subjectLower.includes('fix') || subjectLower.includes('broken')) {
       const allRepairs = await storage.getRepairs();
       const repairs = allRepairs.filter(r => clientIds.includes(r.clientId));
@@ -153,7 +154,7 @@ async function autoLinkEmail(email: Email, organizationId: number): Promise<numb
             emailId: email.id,
             linkType: 'repair',
             repairId: repair.id,
-            autoLinked: true
+            isAutoLinked: true
           };
           await storage.createEmailLink(repairLinkData);
           linksCreated++;
