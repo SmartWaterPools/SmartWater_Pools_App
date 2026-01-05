@@ -290,3 +290,154 @@ export const EXPENSE_CATEGORIES = [
   'Maintenance & Repairs',
   'Other'
 ] as const;
+
+// Communication provider types
+export const COMMUNICATION_PROVIDER_TYPES = ['gmail', 'outlook', 'ringcentral', 'twilio'] as const;
+export type CommunicationProviderType = (typeof COMMUNICATION_PROVIDER_TYPES)[number];
+
+// Communication providers table - stores Gmail, Outlook, Twilio, RingCentral connections
+export const communicationProviders = pgTable("communication_providers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // gmail, outlook, ringcentral, twilio
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  clientId: text("client_id"),
+  clientSecret: text("client_secret"),
+  apiKey: text("api_key"),
+  accountSid: text("account_sid"),
+  authToken: text("auth_token"),
+  refreshToken: text("refresh_token"),
+  accessToken: text("access_token"),
+  tokenExpiresAt: timestamp("token_expires_at"),
+  email: text("email"),
+  phoneNumber: text("phone_number"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  lastUsed: timestamp("last_used"),
+  settings: text("settings"),
+  organizationId: integer("organization_id"),
+});
+
+export const insertCommunicationProviderSchema = createInsertSchema(communicationProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCommunicationProvider = z.infer<typeof insertCommunicationProviderSchema>;
+export type CommunicationProvider = typeof communicationProviders.$inferSelect;
+
+// Emails table - stores synced emails from Gmail/Outlook
+export const emails = pgTable("emails", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").notNull(), // FK to communication_providers
+  externalId: text("external_id").notNull(), // Gmail/Outlook message ID
+  threadId: text("thread_id"), // Email thread ID for grouping
+  subject: text("subject"),
+  fromEmail: text("from_email").notNull(),
+  fromName: text("from_name"),
+  toEmails: text("to_emails").array(), // Array of recipient emails
+  ccEmails: text("cc_emails").array(),
+  bccEmails: text("bcc_emails").array(),
+  bodyText: text("body_text"),
+  bodyHtml: text("body_html"),
+  snippet: text("snippet"), // Short preview of email
+  isRead: boolean("is_read").default(false),
+  isStarred: boolean("is_starred").default(false),
+  isDraft: boolean("is_draft").default(false),
+  isSent: boolean("is_sent").default(false),
+  hasAttachments: boolean("has_attachments").default(false),
+  labels: text("labels").array(), // Gmail labels or Outlook categories
+  receivedAt: timestamp("received_at"),
+  sentAt: timestamp("sent_at"),
+  syncedAt: timestamp("synced_at").notNull().default(sql`now()`),
+  organizationId: integer("organization_id"),
+});
+
+export const insertEmailSchema = createInsertSchema(emails).omit({
+  id: true,
+  syncedAt: true,
+});
+
+export type InsertEmail = z.infer<typeof insertEmailSchema>;
+export type Email = typeof emails.$inferSelect;
+
+// Email links - links emails to projects, repairs, clients, maintenance
+export const emailLinks = pgTable("email_links", {
+  id: serial("id").primaryKey(),
+  emailId: integer("email_id").notNull(), // FK to emails
+  linkType: text("link_type").notNull(), // 'project', 'repair', 'client', 'maintenance'
+  projectId: integer("project_id"), // FK to projects (if linkType is project)
+  repairId: integer("repair_id"), // FK to repairs (if linkType is repair)
+  clientId: integer("client_id"), // FK to users (if linkType is client)
+  maintenanceId: integer("maintenance_id"), // FK to bazza_maintenance_assignments
+  linkedBy: integer("linked_by"), // User who linked this email (null if auto-linked)
+  linkedAt: timestamp("linked_at").notNull().default(sql`now()`),
+  isAutoLinked: boolean("is_auto_linked").default(false), // True if system auto-linked
+  confidence: integer("confidence"), // Auto-link confidence score (0-100)
+});
+
+export const insertEmailLinkSchema = createInsertSchema(emailLinks).omit({
+  id: true,
+  linkedAt: true,
+});
+
+export type InsertEmailLink = z.infer<typeof insertEmailLinkSchema>;
+export type EmailLink = typeof emailLinks.$inferSelect;
+
+// Email templates - reusable email templates for notifications
+export const emailTemplatesTable = pgTable("email_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // 'appointment', 'project', 'repair', 'client', 'internal', 'marketing'
+  subject: text("subject").notNull(),
+  bodyHtml: text("body_html").notNull(),
+  bodyText: text("body_text"),
+  variables: text("variables").array(), // List of template variables like {{client_name}}, {{project_name}}
+  isActive: boolean("is_active").default(true),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  organizationId: integer("organization_id"),
+});
+
+export const insertEmailTemplateSchema = createInsertSchema(emailTemplatesTable).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+export type EmailTemplate = typeof emailTemplatesTable.$inferSelect;
+
+// Scheduled emails - for appointment reminders, project updates, marketing emails
+export const scheduledEmails = pgTable("scheduled_emails", {
+  id: serial("id").primaryKey(),
+  templateId: integer("template_id"), // FK to email_templates (optional)
+  recipientEmail: text("recipient_email").notNull(),
+  recipientName: text("recipient_name"),
+  subject: text("subject").notNull(),
+  bodyHtml: text("body_html").notNull(),
+  bodyText: text("body_text"),
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  sentAt: timestamp("sent_at"),
+  status: text("status").notNull().default("pending"), // pending, sent, failed, cancelled
+  errorMessage: text("error_message"),
+  emailType: text("email_type").notNull(), // 'appointment_reminder', 'project_update', 'repair_status', etc.
+  relatedProjectId: integer("related_project_id"),
+  relatedRepairId: integer("related_repair_id"),
+  relatedClientId: integer("related_client_id"),
+  relatedMaintenanceId: integer("related_maintenance_id"),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  organizationId: integer("organization_id"),
+});
+
+export const insertScheduledEmailSchema = createInsertSchema(scheduledEmails).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertScheduledEmail = z.infer<typeof insertScheduledEmailSchema>;
+export type ScheduledEmail = typeof scheduledEmails.$inferSelect;

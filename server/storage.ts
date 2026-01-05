@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, desc } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -74,6 +74,30 @@ export interface IStorage {
   getAllBazzaRoutes?(): Promise<any[]>;
   getPaymentRecordsByOrganizationId?(organizationId: number): Promise<any[]>;
   getFleetmaticsConfigByOrganizationId?(organizationId: number): Promise<any>;
+
+  // Communication Provider operations
+  getCommunicationProviders(organizationId: number): Promise<CommunicationProvider[]>;
+  getCommunicationProvider(id: number): Promise<CommunicationProvider | undefined>;
+  getCommunicationProvidersByType(type: string, organizationId: number): Promise<CommunicationProvider[]>;
+  getDefaultCommunicationProvider(type: string, organizationId: number): Promise<CommunicationProvider | undefined>;
+  createCommunicationProvider(provider: InsertCommunicationProvider): Promise<CommunicationProvider>;
+  updateCommunicationProvider(id: number, data: Partial<CommunicationProvider>): Promise<CommunicationProvider | undefined>;
+  deleteCommunicationProvider(id: number): Promise<boolean>;
+
+  // Email operations
+  getEmails(organizationId: number, limit?: number, offset?: number): Promise<Email[]>;
+  getEmailsByProvider(providerId: number): Promise<Email[]>;
+  getEmail(id: number): Promise<Email | undefined>;
+  createEmail(email: InsertEmail): Promise<Email>;
+  getEmailByExternalId(providerId: number, externalId: string): Promise<Email | undefined>;
+
+  // Email Link operations
+  getEmailLinksByEmail(emailId: number): Promise<EmailLink[]>;
+  getEmailLinksByProject(projectId: number): Promise<EmailLink[]>;
+  getEmailLinksByRepair(repairId: number): Promise<EmailLink[]>;
+  getEmailLinksByClient(clientId: number): Promise<EmailLink[]>;
+  createEmailLink(link: InsertEmailLink): Promise<EmailLink>;
+  deleteEmailLink(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -305,6 +329,140 @@ export class DatabaseStorage implements IStorage {
         eq(projectDocuments.projectId, projectId),
         eq(projectDocuments.documentType, documentType)
       ));
+  }
+
+  // Communication Provider operations
+  async getCommunicationProviders(organizationId: number): Promise<CommunicationProvider[]> {
+    return await db.select()
+      .from(communicationProviders)
+      .where(eq(communicationProviders.organizationId, organizationId));
+  }
+
+  async getCommunicationProvider(id: number): Promise<CommunicationProvider | undefined> {
+    const result = await db.select()
+      .from(communicationProviders)
+      .where(eq(communicationProviders.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getCommunicationProvidersByType(type: string, organizationId: number): Promise<CommunicationProvider[]> {
+    return await db.select()
+      .from(communicationProviders)
+      .where(and(
+        eq(communicationProviders.type, type),
+        eq(communicationProviders.organizationId, organizationId)
+      ));
+  }
+
+  async getDefaultCommunicationProvider(type: string, organizationId: number): Promise<CommunicationProvider | undefined> {
+    const result = await db.select()
+      .from(communicationProviders)
+      .where(and(
+        eq(communicationProviders.type, type),
+        eq(communicationProviders.organizationId, organizationId),
+        eq(communicationProviders.isDefault, true)
+      ))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async createCommunicationProvider(provider: InsertCommunicationProvider): Promise<CommunicationProvider> {
+    const result = await db.insert(communicationProviders).values(provider).returning();
+    return result[0];
+  }
+
+  async updateCommunicationProvider(id: number, data: Partial<CommunicationProvider>): Promise<CommunicationProvider | undefined> {
+    const result = await db.update(communicationProviders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(communicationProviders.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteCommunicationProvider(id: number): Promise<boolean> {
+    const result = await db.delete(communicationProviders)
+      .where(eq(communicationProviders.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Email operations
+  async getEmails(organizationId: number, limit: number = 50, offset: number = 0): Promise<Email[]> {
+    return await db.select()
+      .from(emails)
+      .where(eq(emails.organizationId, organizationId))
+      .orderBy(desc(emails.receivedAt))
+      .limit(limit)
+      .offset(offset);
+  }
+
+  async getEmailsByProvider(providerId: number): Promise<Email[]> {
+    return await db.select()
+      .from(emails)
+      .where(eq(emails.providerId, providerId))
+      .orderBy(desc(emails.receivedAt));
+  }
+
+  async getEmail(id: number): Promise<Email | undefined> {
+    const result = await db.select()
+      .from(emails)
+      .where(eq(emails.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async createEmail(email: InsertEmail): Promise<Email> {
+    const result = await db.insert(emails).values(email).returning();
+    return result[0];
+  }
+
+  async getEmailByExternalId(providerId: number, externalId: string): Promise<Email | undefined> {
+    const result = await db.select()
+      .from(emails)
+      .where(and(
+        eq(emails.providerId, providerId),
+        eq(emails.externalId, externalId)
+      ))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  // Email Link operations
+  async getEmailLinksByEmail(emailId: number): Promise<EmailLink[]> {
+    return await db.select()
+      .from(emailLinks)
+      .where(eq(emailLinks.emailId, emailId));
+  }
+
+  async getEmailLinksByProject(projectId: number): Promise<EmailLink[]> {
+    return await db.select()
+      .from(emailLinks)
+      .where(eq(emailLinks.projectId, projectId));
+  }
+
+  async getEmailLinksByRepair(repairId: number): Promise<EmailLink[]> {
+    return await db.select()
+      .from(emailLinks)
+      .where(eq(emailLinks.repairId, repairId));
+  }
+
+  async getEmailLinksByClient(clientId: number): Promise<EmailLink[]> {
+    return await db.select()
+      .from(emailLinks)
+      .where(eq(emailLinks.clientId, clientId));
+  }
+
+  async createEmailLink(link: InsertEmailLink): Promise<EmailLink> {
+    const result = await db.insert(emailLinks).values(link).returning();
+    return result[0];
+  }
+
+  async deleteEmailLink(id: number): Promise<boolean> {
+    const result = await db.delete(emailLinks)
+      .where(eq(emailLinks.id, id))
+      .returning();
+    return result.length > 0;
   }
 }
 

@@ -123,7 +123,8 @@ export function CommunicationProviders() {
   // Create a new provider
   const createProviderMutation = useMutation({
     mutationFn: async (values: ProviderFormValues) => {
-      return apiRequest<CommunicationProvider>('/api/communication-providers', 'POST', values);
+      const response = await apiRequest('POST', '/api/communication-providers', values);
+      return response.json() as Promise<CommunicationProvider>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/communication-providers'] });
@@ -145,7 +146,8 @@ export function CommunicationProviders() {
   // Update an existing provider
   const updateProviderMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<ProviderFormValues> }) => {
-      return apiRequest<CommunicationProvider>(`/api/communication-providers/${id}`, 'PATCH', data);
+      const response = await apiRequest('PATCH', `/api/communication-providers/${id}`, data);
+      return response.json() as Promise<CommunicationProvider>;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/communication-providers'] });
@@ -168,7 +170,7 @@ export function CommunicationProviders() {
   // Delete a provider
   const deleteProviderMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest<void>(`/api/communication-providers/${id}`, 'DELETE');
+      await apiRequest('DELETE', `/api/communication-providers/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/communication-providers'] });

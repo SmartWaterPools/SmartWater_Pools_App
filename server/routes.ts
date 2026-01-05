@@ -6,6 +6,7 @@ import authRoutes from "./routes/auth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
 import documentRoutes from "./routes/document-routes";
 import bazzaRoutes from "./routes/bazza-routes";
+import communicationRoutes from "./routes/communication-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema } from "@shared/schema";
 
@@ -18,6 +19,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount bazza routes (service routes)
   app.use('/api/bazza', bazzaRoutes);
+
+  // Mount communication routes
+  app.use('/api', communicationRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();
