@@ -28,8 +28,11 @@ export async function syncGmailEmails(
   };
 
   try {
+    console.log('Starting Gmail sync with providerId:', providerId, 'maxResults:', maxResults, 'pageToken:', pageToken);
+    
     const isConnected = await isGmailConnected(userTokens);
     if (!isConnected) {
+      console.log('Gmail is not connected');
       result.success = false;
       result.errors.push('Gmail is not connected');
       return result;
@@ -39,6 +42,7 @@ export async function syncGmailEmails(
     
     const profile = await getGmailProfile(userTokens);
     const profileEmail = profile?.emailAddress?.toLowerCase() || '';
+    console.log('Gmail profile email:', profileEmail);
     
     const listParams: any = {
       userId: 'me',
@@ -51,22 +55,30 @@ export async function syncGmailEmails(
       listParams.pageToken = pageToken;
     }
     
+    console.log('Fetching Gmail messages with params:', listParams);
     const response = await gmail.users.messages.list(listParams);
     
     // Store next page token for pagination
     result.nextPageToken = response.data.nextPageToken || null;
     result.hasMore = !!response.data.nextPageToken;
+    
+    console.log('Gmail API response - messages count:', response.data.messages?.length || 0, 'hasMore:', result.hasMore);
 
     if (!response.data.messages) {
+      console.log('No messages returned from Gmail API');
       return result;
     }
 
+    let skippedDuplicates = 0;
     for (const msgRef of response.data.messages) {
       if (!msgRef.id) continue;
 
       try {
         const existing = await storage.getEmailByExternalId(providerId, msgRef.id);
-        if (existing) continue;
+        if (existing) {
+          skippedDuplicates++;
+          continue;
+        }
 
         const fullMessage = await gmail.users.messages.get({
           userId: 'me',
@@ -110,6 +122,8 @@ export async function syncGmailEmails(
         result.errors.push(`Failed to process message ${msgRef.id}`);
       }
     }
+    
+    console.log('Gmail sync completed - synced:', result.emailsSynced, 'skipped duplicates:', skippedDuplicates);
 
   } catch (error) {
     console.error('Gmail sync error:', error);
