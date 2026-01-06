@@ -105,13 +105,26 @@ export default function Communications() {
       });
       return response.json();
     },
-    onSuccess: (data: { emailsSynced: number; nextPageToken?: string | null; hasMore: boolean }) => {
+    onSuccess: (data: { emailsSynced: number; emailsSkipped?: number; emailsChecked?: number; nextPageToken?: string | null; hasMore: boolean }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/emails'] });
       setNextPageToken(data.nextPageToken || null);
       setHasMoreEmails(data.hasMore);
+      
+      let description = '';
+      if (data.emailsSynced > 0) {
+        description = `${data.emailsSynced} new email${data.emailsSynced === 1 ? '' : 's'} synced.`;
+      } else if (data.emailsSkipped && data.emailsSkipped > 0) {
+        description = `All ${data.emailsSkipped} email${data.emailsSkipped === 1 ? '' : 's'} already synced.`;
+      } else {
+        description = 'No new emails found.';
+      }
+      if (data.hasMore) {
+        description += ' More emails available.';
+      }
+      
       toast({ 
-        title: "Emails Synced", 
-        description: `${data.emailsSynced} new emails synced.${data.hasMore ? ' More emails available.' : ''}`
+        title: "Sync Complete", 
+        description
       });
     },
     onError: (error: Error) => {
@@ -518,9 +531,11 @@ export default function Communications() {
                 <div className="text-sm text-muted-foreground" data-testid="text-email-count">
                   {emails.length > 0 
                     ? `${emails.length} email${emails.length === 1 ? '' : 's'} synced${hasMoreEmails ? ' (more available)' : ''}` 
-                    : hasEmailProvider 
-                      ? `${emailProviders.length} email ${emailProviders.length === 1 ? 'provider' : 'providers'} configured` 
-                      : "No email providers configured"}
+                    : gmailStatus?.connected 
+                      ? `Gmail connected as ${gmailStatus.email || 'your account'}`
+                      : emailProviders.length > 0
+                        ? `${emailProviders.length} email ${emailProviders.length === 1 ? 'provider' : 'providers'} configured` 
+                        : "No email providers configured"}
                 </div>
                 <div className="flex gap-2">
                   {hasMoreEmails && emails.length > 0 && (

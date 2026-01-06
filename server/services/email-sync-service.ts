@@ -6,6 +6,8 @@ interface SyncResult {
   success: boolean;
   emailsSynced: number;
   emailsLinked: number;
+  emailsSkipped: number;
+  emailsChecked: number;
   errors: string[];
   nextPageToken?: string | null;
   hasMore: boolean;
@@ -22,6 +24,8 @@ export async function syncGmailEmails(
     success: true,
     emailsSynced: 0,
     emailsLinked: 0,
+    emailsSkipped: 0,
+    emailsChecked: 0,
     errors: [],
     nextPageToken: null,
     hasMore: false
@@ -76,8 +80,8 @@ export async function syncGmailEmails(
       return result;
     }
 
-    let skippedDuplicates = 0;
     let processedCount = 0;
+    result.emailsChecked = response.data.messages.length;
     console.log('Starting to process', response.data.messages.length, 'messages');
     
     for (const msgRef of response.data.messages) {
@@ -94,7 +98,7 @@ export async function syncGmailEmails(
         const existing = await storage.getEmailByExternalId(providerId, msgRef.id);
         if (existing) {
           console.log('  -> Skipping: already exists in database');
-          skippedDuplicates++;
+          result.emailsSkipped++;
           continue;
         }
 
@@ -147,7 +151,7 @@ export async function syncGmailEmails(
       }
     }
     
-    console.log('Gmail sync completed - synced:', result.emailsSynced, 'skipped duplicates:', skippedDuplicates);
+    console.log('Gmail sync completed - synced:', result.emailsSynced, 'skipped duplicates:', result.emailsSkipped);
 
   } catch (error) {
     console.error('Gmail sync error:', error);
