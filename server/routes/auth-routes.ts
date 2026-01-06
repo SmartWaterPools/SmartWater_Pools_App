@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { storage } from '../storage';
 import { z } from 'zod';
 import { insertUserSchema } from '@shared/schema';
+import { google } from 'googleapis';
 
 // Timeout middleware specifically for OAuth requests
 // This prevents requests from hanging indefinitely
@@ -383,7 +384,6 @@ router.get('/google/callback',
       }
       
       // Exchange code for tokens using googleapis
-      const { google } = require('googleapis');
       const oauth2Client = new google.auth.OAuth2(
         GOOGLE_CLIENT_ID,
         GOOGLE_CLIENT_SECRET,
@@ -591,7 +591,6 @@ router.get('/connect-gmail/callback',
     console.log('Gmail connection callback received');
     
     // Handle the OAuth callback manually to just get tokens
-    const GoogleStrategy = require('passport-google-oauth20').Strategy;
     const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
     const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
     
@@ -600,7 +599,6 @@ router.get('/connect-gmail/callback',
     }
     
     // Exchange code for tokens
-    const { google } = require('googleapis');
     const oauth2Client = new google.auth.OAuth2(
       GOOGLE_CLIENT_ID,
       GOOGLE_CLIENT_SECRET,
