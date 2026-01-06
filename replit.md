@@ -57,23 +57,29 @@ Preferred communication style: Simple, everyday language.
 - **Scandit**: Barcode scanning capabilities for inventory management
 
 ## Communication Services
-- **Gmail Integration**: OAuth-based Gmail integration using Replit's Gmail connector for sending/receiving emails. Supports:
+- **Gmail Integration**: Per-user OAuth-based Gmail integration using Google OAuth 2.0 with Gmail API scopes. Supports:
   - Email sync with smart auto-linking to clients, projects, and repairs based on sender email matching
   - Compose and send emails directly from the app
   - 6 types of automated notification emails (appointment reminders, project updates, repair status, client portal, internal alerts, marketing)
-- **Microsoft Outlook Integration**: NOT YET CONFIGURED - User dismissed the Outlook connector setup. When needed, manually configure Microsoft OAuth 2.0 credentials for Outlook support.
+  - Users connect their Gmail in Settings page using OAuth flow
+  - Tokens stored per-user for tenant isolation (gmail_access_token, gmail_refresh_token, etc.)
+- **Microsoft Outlook Integration**: NOT YET CONFIGURED - Requires Microsoft OAuth 2.0 credentials (MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET). Schema ready for outlook_access_token, outlook_refresh_token, etc.
 - **SMS Services**: Schema configured for SMS communication providers
 
 ## Email Integration Architecture
 - **Core Services**: 
-  - `server/services/gmail-client.ts` - Gmail API wrapper using Replit's OAuth
+  - `server/services/gmail-client.ts` - Gmail API wrapper using per-user OAuth tokens (stored in users table)
   - `server/services/email-sync-service.ts` - Email syncing and auto-linking logic
   - `server/services/notification-email-service.ts` - Templates and sending for 6 notification types
-- **API Routes**: `server/routes/email-routes.ts` - All email-related endpoints including sync, send, and notifications
+- **API Routes**: 
+  - `server/routes/email-routes.ts` - Email CRUD, sync, and notification endpoints
+  - `server/routes/auth-routes.ts` - Gmail/Outlook connect/disconnect OAuth routes (/api/auth/connect-gmail, /api/auth/disconnect-gmail)
 - **Frontend Components**:
   - `client/src/pages/Communications.tsx` - Central communications hub with email list, sync, and compose
+  - `client/src/components/settings/CommunicationProviders.tsx` - Email connection management UI (Connect/Disconnect buttons)
   - `client/src/components/communications/EntityEmailList.tsx` - Reusable component for showing entity-linked emails
 - **Database Tables**: emails, email_links, email_templates, scheduled_emails, communication_providers
+- **User Token Fields**: gmail_access_token, gmail_refresh_token, gmail_token_expires_at, gmail_connected_email (and outlook equivalents)
 
 ## Deployment Platform
 - **Google Cloud Run**: Target deployment platform with container-based architecture

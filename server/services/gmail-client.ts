@@ -12,42 +12,6 @@ export interface UserTokens {
   gmailConnectedEmail?: string | null;
 }
 
-let replitConnectionSettings: any;
-
-async function getReplitAccessToken(): Promise<string> {
-  if (replitConnectionSettings && replitConnectionSettings.settings.expires_at && new Date(replitConnectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return replitConnectionSettings.settings.access_token;
-  }
-  
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
-
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
-  }
-
-  replitConnectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-mail',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
-
-  const accessToken = replitConnectionSettings?.settings?.access_token || replitConnectionSettings.settings?.oauth?.credentials?.access_token;
-
-  if (!replitConnectionSettings || !accessToken) {
-    throw new Error('Gmail not connected via Replit');
-  }
-  return accessToken;
-}
-
 async function refreshUserAccessToken(userId: number, refreshToken: string): Promise<string> {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     throw new Error('Google OAuth not configured');
@@ -89,13 +53,11 @@ async function getUserAccessToken(userTokens: UserTokens): Promise<string> {
 }
 
 export async function getGmailClient(userTokens?: UserTokens): Promise<gmail_v1.Gmail> {
-  let accessToken: string;
-  
-  if (userTokens && userTokens.gmailAccessToken) {
-    accessToken = await getUserAccessToken(userTokens);
-  } else {
-    accessToken = await getReplitAccessToken();
+  if (!userTokens || !userTokens.gmailAccessToken) {
+    throw new Error('Gmail not connected. Please connect your Gmail account in Settings to use email features.');
   }
+  
+  const accessToken = await getUserAccessToken(userTokens);
 
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({
