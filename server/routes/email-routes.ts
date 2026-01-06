@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { storage } from '../storage';
 import { isAuthenticated } from '../auth';
-import { syncGmailEmails, getGmailConnectionStatus } from '../services/email-sync-service';
+import { syncGmailEmails, getGmailConnectionStatus, fetchGmailEmailsTransient, TransientEmail } from '../services/email-sync-service';
 import type { UserTokens } from '../services/gmail-client';
 import { sendGmailMessage } from '../services/gmail-client';
 import { 
@@ -13,6 +13,7 @@ import {
   sendMarketingEmail
 } from '../services/notification-email-service';
 import { z } from 'zod';
+import type { InsertEmail, InsertEmailLink } from '@shared/schema';
 
 const router = Router();
 
@@ -194,6 +195,141 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
   } catch (error) {
     console.error('Error syncing emails:', error);
     res.status(500).json({ error: 'Failed to sync emails' });
+  }
+});
+
+// Fetch emails transiently (for display only, not saved to database)
+router.post('/api/emails/fetch', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false } = req.body;
+
+    if (!user.gmailAccessToken) {
+      return res.status(400).json({ error: 'Gmail not connected. Please connect Gmail in Settings.' });
+    }
+
+    const userTokens: UserTokens = {
+      userId: user.id,
+      gmailAccessToken: user.gmailAccessToken,
+      gmailRefreshToken: user.gmailRefreshToken,
+      gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+      gmailConnectedEmail: user.gmailConnectedEmail
+    };
+
+    const result = await fetchGmailEmailsTransient(userTokens, {
+      maxResults,
+      pageToken,
+      starredOnly,
+      includeSent
+    });
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching emails:', error);
+    res.status(500).json({ error: 'Failed to fetch emails' });
+  }
+});
+
+// Link schema for saving email to a client
+const linkEmailSchema = z.object({
+  email: z.object({
+    externalId: z.string(),
+    threadId: z.string().nullable(),
+    subject: z.string().nullable(),
+    fromEmail: z.string(),
+    fromName: z.string().nullable(),
+    toEmails: z.array(z.string()).nullable(),
+    ccEmails: z.array(z.string()).nullable().optional(),
+    bccEmails: z.array(z.string()).nullable().optional(),
+    bodyText: z.string().nullable(),
+    bodyHtml: z.string().nullable(),
+    snippet: z.string().nullable().optional(),
+    isRead: z.boolean(),
+    isStarred: z.boolean(),
+    isDraft: z.boolean().optional(),
+    isSent: z.boolean(),
+    hasAttachments: z.boolean(),
+    labels: z.array(z.string()).nullable(),
+    receivedAt: z.string().nullable()
+  }),
+  clientId: z.number()
+});
+
+// Save email and link to client (only saves when explicitly linked)
+router.post('/api/emails/link', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const validation = linkEmailSchema.safeParse(req.body);
+    
+    if (!validation.success) {
+      return res.status(400).json({ error: 'Invalid request data', details: validation.error.errors });
+    }
+
+    const { email, clientId } = validation.data;
+
+    // Verify client belongs to user's organization
+    const client = await storage.getUser(clientId);
+    if (!client || client.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: 'Access denied to this client' });
+    }
+
+    // Check if email already exists by externalId
+    let existingEmail = await storage.getEmailByExternalId(user.id, email.externalId);
+    
+    let savedEmailId: number;
+    
+    if (existingEmail) {
+      savedEmailId = existingEmail.id;
+    } else {
+      // Create the email record
+      const emailData: InsertEmail = {
+        providerId: user.id,
+        organizationId: user.organizationId,
+        externalId: email.externalId,
+        threadId: email.threadId,
+        subject: email.subject,
+        fromEmail: email.fromEmail,
+        toEmails: email.toEmails,
+        ccEmails: email.ccEmails || null,
+        bccEmails: email.bccEmails || null,
+        bodyText: email.bodyText,
+        bodyHtml: email.bodyHtml,
+        receivedAt: email.receivedAt ? new Date(email.receivedAt) : null,
+        isRead: email.isRead,
+        isStarred: email.isStarred,
+        hasAttachments: email.hasAttachments,
+        labels: email.labels,
+        isSent: email.isSent
+      };
+
+      const savedEmail = await storage.createEmail(emailData);
+      savedEmailId = savedEmail.id;
+    }
+
+    // Check if link already exists
+    const existingLinks = await storage.getEmailLinksByClient(clientId);
+    const alreadyLinked = existingLinks.some(link => link.emailId === savedEmailId);
+
+    if (!alreadyLinked) {
+      // Create the link to client
+      const linkData: InsertEmailLink = {
+        emailId: savedEmailId,
+        linkType: 'client',
+        clientId: clientId,
+        isAutoLinked: false
+      };
+
+      await storage.createEmailLink(linkData);
+    }
+
+    res.json({ 
+      success: true, 
+      emailId: savedEmailId,
+      message: alreadyLinked ? 'Email already linked to this client' : 'Email saved and linked to client'
+    });
+  } catch (error) {
+    console.error('Error linking email:', error);
+    res.status(500).json({ error: 'Failed to link email to client' });
   }
 });
 

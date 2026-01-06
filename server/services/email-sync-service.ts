@@ -13,6 +13,165 @@ interface SyncResult {
   hasMore: boolean;
 }
 
+// Transient email structure (not saved to database)
+export interface TransientEmail {
+  externalId: string;
+  threadId: string | null;
+  subject: string | null;
+  fromEmail: string;
+  fromName: string | null;
+  toEmails: string[] | null;
+  ccEmails: string[] | null;
+  bccEmails: string[] | null;
+  bodyText: string | null;
+  bodyHtml: string | null;
+  snippet: string | null;
+  isRead: boolean;
+  isStarred: boolean;
+  isDraft: boolean;
+  isSent: boolean;
+  hasAttachments: boolean;
+  labels: string[] | null;
+  receivedAt: string | null;
+}
+
+export interface FetchEmailsOptions {
+  maxResults?: number;
+  pageToken?: string | null;
+  starredOnly?: boolean;
+  includeSent?: boolean;
+}
+
+export interface FetchEmailsResult {
+  success: boolean;
+  emails: TransientEmail[];
+  nextPageToken?: string | null;
+  hasMore: boolean;
+  errors: string[];
+}
+
+// Fetch emails from Gmail without saving to database (transient display)
+export async function fetchGmailEmailsTransient(
+  userTokens: UserTokens,
+  options: FetchEmailsOptions = {}
+): Promise<FetchEmailsResult> {
+  const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false } = options;
+  
+  const result: FetchEmailsResult = {
+    success: true,
+    emails: [],
+    nextPageToken: null,
+    hasMore: false,
+    errors: []
+  };
+
+  try {
+    const gmail = await getGmailClient(userTokens);
+    const profile = await getGmailProfile(userTokens);
+    const profileEmail = profile?.emailAddress?.toLowerCase() || '';
+
+    // Build labelIds filter
+    const labelIds: string[] = [];
+    if (starredOnly) {
+      labelIds.push('STARRED');
+    }
+    if (includeSent) {
+      labelIds.push('SENT');
+    } else if (!starredOnly) {
+      // Default to INBOX if no filters
+      labelIds.push('INBOX');
+    }
+
+    const listParams: any = {
+      userId: 'me',
+      maxResults
+    };
+
+    // Add label filter if specified
+    if (labelIds.length > 0 && !starredOnly) {
+      // For sent emails, we need to use labelIds
+      listParams.labelIds = labelIds;
+    } else if (starredOnly) {
+      // For starred, we can use labelIds
+      listParams.labelIds = ['STARRED'];
+      if (includeSent) {
+        // Query for starred emails in both inbox and sent
+        listParams.labelIds = undefined;
+        listParams.q = 'is:starred';
+      }
+    }
+
+    if (pageToken) {
+      listParams.pageToken = pageToken;
+    }
+
+    console.log('Fetching Gmail messages (transient) with params:', listParams);
+    const response = await gmail.users.messages.list(listParams);
+
+    result.nextPageToken = response.data.nextPageToken || null;
+    result.hasMore = !!response.data.nextPageToken;
+
+    if (!response.data.messages) {
+      return result;
+    }
+
+    for (const msgRef of response.data.messages) {
+      if (!msgRef.id) continue;
+
+      try {
+        const fullMessage = await gmail.users.messages.get({
+          userId: 'me',
+          id: msgRef.id,
+          format: 'full'
+        });
+
+        const parsed = parseGmailMessage(fullMessage.data);
+        const fromEmailAddress = extractEmailAddress(parsed.fromEmail);
+        const isSent = fromEmailAddress === profileEmail;
+
+        const transientEmail: TransientEmail = {
+          externalId: parsed.externalId,
+          threadId: parsed.threadId,
+          subject: parsed.subject,
+          fromEmail: parsed.fromEmail,
+          fromName: extractName(parsed.fromEmail),
+          toEmails: parsed.toEmail ? [parsed.toEmail] : null,
+          ccEmails: parsed.ccEmail ? [parsed.ccEmail] : null,
+          bccEmails: parsed.bccEmail ? [parsed.bccEmail] : null,
+          bodyText: parsed.bodyText,
+          bodyHtml: parsed.bodyHtml,
+          snippet: parsed.bodyText?.substring(0, 200) || null,
+          isRead: parsed.isRead,
+          isStarred: parsed.isStarred,
+          isDraft: parsed.labels?.includes('DRAFT') || false,
+          isSent,
+          hasAttachments: parsed.hasAttachments,
+          labels: parsed.labels,
+          receivedAt: parsed.receivedAt?.toISOString() || null
+        };
+
+        result.emails.push(transientEmail);
+      } catch (msgError) {
+        console.error(`Error fetching message ${msgRef.id}:`, msgError);
+        result.errors.push(`Failed to fetch message ${msgRef.id}`);
+      }
+    }
+
+  } catch (error) {
+    console.error('Gmail fetch error:', error);
+    result.success = false;
+    result.errors.push(error instanceof Error ? error.message : 'Unknown fetch error');
+  }
+
+  return result;
+}
+
+function extractName(emailString: string): string | null {
+  const match = emailString.match(/^([^<]+)</);
+  if (match) return match[1].trim();
+  return null;
+}
+
 export async function syncGmailEmails(
   providerId: number,
   organizationId: number,
