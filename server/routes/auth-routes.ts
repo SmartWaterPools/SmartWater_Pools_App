@@ -358,9 +358,86 @@ router.get('/google/callback',
       console.log("- Redirect URI mismatch");
       console.log("========== GOOGLE OAUTH CALLBACK DEBUG END (ERROR) ==========\n");
       
-      // Redirect with error details
+      // Redirect with error details - check if this was a Gmail connect flow
       const errorMessage = encodeURIComponent(queryParams.error_description as string || queryParams.error as string);
+      if (queryParams.state === 'connect-gmail' || (req.session as any).emailConnectionFlow === 'gmail') {
+        return res.redirect(`/settings?error=gmail-connection-failed&details=${errorMessage}`);
+      }
       return res.redirect(`/login?error=google-oauth&details=${errorMessage}`);
+    }
+    
+    // Check if this is a Gmail connection flow (not a login flow)
+    const isGmailConnectionFlow = queryParams.state === 'connect-gmail' || (req.session as any).emailConnectionFlow === 'gmail';
+    
+    if (isGmailConnectionFlow) {
+      console.log("\n!!! GMAIL CONNECTION FLOW DETECTED !!!");
+      console.log("This is a Gmail connection for an already logged-in user");
+      console.log("========== GOOGLE OAUTH CALLBACK DEBUG END (GMAIL CONNECT) ==========\n");
+      
+      // Handle Gmail connection - extract tokens and save to user
+      const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+      const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+      
+      if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+        return res.redirect('/settings?error=oauth-not-configured');
+      }
+      
+      // Exchange code for tokens using googleapis
+      const { google } = require('googleapis');
+      const oauth2Client = new google.auth.OAuth2(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        'https://smartwaterpools.replit.app/api/auth/google/callback'
+      );
+      
+      const code = queryParams.code as string;
+      if (!code) {
+        console.error('No code in Gmail connect callback');
+        return res.redirect('/settings?error=no-code');
+      }
+      
+      // Check if user is authenticated
+      if (!req.isAuthenticated() || !req.user) {
+        console.error('User not authenticated during Gmail connection');
+        return res.redirect('/login?error=not-authenticated&redirect=/settings');
+      }
+      
+      oauth2Client.getToken(code)
+        .then(async ({ tokens }: any) => {
+          console.log('Gmail tokens received:', {
+            hasAccessToken: !!tokens.access_token,
+            hasRefreshToken: !!tokens.refresh_token,
+            expiresAt: tokens.expiry_date
+          });
+          
+          // Get user email from the token
+          oauth2Client.setCredentials(tokens);
+          const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+          const userInfo = await oauth2.userinfo.get();
+          const gmailEmail = userInfo.data.email;
+          
+          // Update the current user with Gmail tokens
+          const user = req.user as any;
+          await storage.updateUser(user.id, {
+            gmailAccessToken: tokens.access_token,
+            gmailRefreshToken: tokens.refresh_token,
+            gmailTokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+            gmailConnectedEmail: gmailEmail
+          });
+          
+          console.log('Gmail connected successfully for user:', user.email, 'Gmail:', gmailEmail);
+          
+          // Clear the connection flow marker
+          delete (req.session as any).emailConnectionFlow;
+          
+          res.redirect('/settings?success=gmail-connected');
+        })
+        .catch((error: any) => {
+          console.error('Error exchanging Gmail code for tokens:', error);
+          res.redirect('/settings?error=gmail-connection-failed');
+        });
+      
+      return; // Don't proceed to login flow
     }
     
     console.log("\nProceeding to passport.authenticate('google')...");
