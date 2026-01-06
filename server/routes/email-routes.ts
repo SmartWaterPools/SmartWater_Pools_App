@@ -151,12 +151,48 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
   }
 });
 
-router.get('/api/emails/connection-status/gmail', isAuthenticated, async (_req: Request, res: Response) => {
+router.get('/api/emails/connection-status/gmail', isAuthenticated, async (req: Request, res: Response) => {
   try {
-    const status = await getGmailConnectionStatus();
-    res.json(status);
+    const user = req.user as any;
+    
+    // Check if user has Gmail tokens stored from Google OAuth login
+    if (user.gmailAccessToken && user.gmailRefreshToken) {
+      res.json({
+        connected: true,
+        email: user.gmailConnectedEmail || user.email,
+        source: 'google_oauth',
+        hasRefreshToken: !!user.gmailRefreshToken,
+        tokenExpiresAt: user.gmailTokenExpiresAt
+      });
+    } else {
+      // Fall back to checking Replit connector (for backwards compatibility)
+      const status = await getGmailConnectionStatus();
+      res.json(status);
+    }
   } catch (error) {
     console.error('Error checking Gmail connection:', error);
+    res.status(500).json({ connected: false, error: 'Failed to check connection' });
+  }
+});
+
+router.get('/api/emails/connection-status/outlook', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    
+    // Check if user has Outlook tokens stored
+    if (user.outlookAccessToken && user.outlookRefreshToken) {
+      res.json({
+        connected: true,
+        email: user.outlookConnectedEmail || user.email,
+        source: 'microsoft_oauth',
+        hasRefreshToken: !!user.outlookRefreshToken,
+        tokenExpiresAt: user.outlookTokenExpiresAt
+      });
+    } else {
+      res.json({ connected: false });
+    }
+  } catch (error) {
+    console.error('Error checking Outlook connection:', error);
     res.status(500).json({ connected: false, error: 'Failed to check connection' });
   }
 });

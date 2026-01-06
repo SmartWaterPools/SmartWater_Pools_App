@@ -108,6 +108,19 @@ interface GmailStatus {
   email?: string;
   messagesTotal?: number;
   error?: string;
+  source?: 'google_oauth' | 'replit_connector';
+  hasRefreshToken?: boolean;
+  tokenExpiresAt?: string;
+}
+
+// Outlook connection status type
+interface OutlookStatus {
+  connected: boolean;
+  email?: string;
+  error?: string;
+  source?: 'microsoft_oauth';
+  hasRefreshToken?: boolean;
+  tokenExpiresAt?: string;
 }
 
 export function CommunicationProviders() {
@@ -118,10 +131,75 @@ export function CommunicationProviders() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch Gmail connector status (Replit integration)
-  const { data: gmailStatus } = useQuery<GmailStatus>({
+  // Fetch Gmail connection status (OAuth-based)
+  const { data: gmailStatus, isLoading: isGmailLoading, refetch: refetchGmailStatus } = useQuery<GmailStatus>({
     queryKey: ['/api/emails/connection-status/gmail'],
   });
+
+  // Fetch Outlook connection status (OAuth-based)
+  const { data: outlookStatus, isLoading: isOutlookLoading, refetch: refetchOutlookStatus } = useQuery<OutlookStatus>({
+    queryKey: ['/api/emails/connection-status/outlook'],
+  });
+
+  // Mutation to disconnect Gmail
+  const disconnectGmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/auth/disconnect-gmail');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/emails/connection-status/gmail'] });
+      toast({
+        title: "Gmail Disconnected",
+        description: "Your Gmail account has been disconnected.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect Gmail. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutation to disconnect Outlook
+  const disconnectOutlookMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/auth/disconnect-outlook');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/emails/connection-status/outlook'] });
+      toast({
+        title: "Outlook Disconnected",
+        description: "Your Outlook account has been disconnected.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect Outlook. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handle connect Gmail button click
+  const handleConnectGmail = () => {
+    // Redirect to the Gmail OAuth connection route
+    window.location.href = '/api/auth/connect-gmail';
+  };
+
+  // Handle connect Outlook button click
+  const handleConnectOutlook = () => {
+    // Show info that Outlook is not yet configured
+    toast({
+      title: "Outlook Not Available",
+      description: "Outlook integration requires Microsoft OAuth configuration. Please contact your administrator.",
+      variant: "destructive",
+    });
+  };
 
   // Fetch providers
   const { data: providers = [], isLoading } = useQuery<CommunicationProvider[]>({
@@ -379,40 +457,190 @@ export function CommunicationProviders() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Show Gmail connector status if connected */}
-                {type === "gmail" && gmailStatus?.connected ? (
-                  <div className="py-6 border rounded-md bg-green-50/50">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 flex items-center gap-1 text-sm px-3 py-1">
-                          <Check className="h-4 w-4" />
-                          Gmail Connected
-                        </Badge>
+                {/* Show Gmail connection status */}
+                {type === "gmail" && (
+                  <>
+                    {isGmailLoading ? (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+                        Checking Gmail connection...
                       </div>
-                      {gmailStatus.email && (
-                        <p className="text-sm text-muted-foreground">
-                          Connected as <strong>{gmailStatus.email}</strong>
+                    ) : gmailStatus?.connected ? (
+                      <div className="py-6 border rounded-md bg-green-50/50 dark:bg-green-900/20">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 flex items-center gap-1 text-sm px-3 py-1">
+                              <Check className="h-4 w-4" />
+                              Gmail Connected
+                            </Badge>
+                          </div>
+                          {gmailStatus.email && (
+                            <p className="text-sm text-muted-foreground">
+                              Connected as <strong>{gmailStatus.email}</strong>
+                            </p>
+                          )}
+                          <div className="flex gap-2 mt-2">
+                            <Button variant="outline" size="sm" asChild data-testid="btn-go-to-communications">
+                              <Link to="/communications">
+                                <Mail className="h-4 w-4 mr-2" />
+                                Go to Communications
+                              </Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  disabled={disconnectGmailMutation.isPending}
+                                  data-testid="btn-disconnect-gmail"
+                                >
+                                  {disconnectGmailMutation.isPending ? (
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Trash className="h-4 w-4 mr-2" />
+                                  )}
+                                  Disconnect
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Disconnect Gmail?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will remove the Gmail connection from your account. You won't be able to sync or send emails until you reconnect.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => disconnectGmailMutation.mutate()}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Disconnect
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Gmail is connected via Google OAuth. Use the Communications page to sync and view emails.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center border rounded-md">
+                        <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground mb-4">Gmail not connected</p>
+                        <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                          Connect your Gmail account to sync emails, send notifications, and link communications to your projects, repairs, and clients.
                         </p>
-                      )}
-                      {gmailStatus.messagesTotal !== undefined && (
-                        <p className="text-xs text-muted-foreground">
-                          {gmailStatus.messagesTotal.toLocaleString()} messages in account
-                        </p>
-                      )}
-                      <div className="flex gap-2 mt-2">
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to="/communications">
-                            <Mail className="h-4 w-4 mr-2" />
-                            Go to Communications
-                          </Link>
+                        <Button
+                          onClick={handleConnectGmail}
+                          className="flex items-center gap-2"
+                          data-testid="btn-connect-gmail"
+                        >
+                          <Mail className="h-4 w-4" />
+                          Connect Gmail Account
                         </Button>
                       </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Gmail is connected via Replit integration. Use the Communications page to sync and view emails.
-                      </p>
-                    </div>
-                  </div>
-                ) : isLoading ? (
+                    )}
+                  </>
+                )}
+
+                {/* Show Outlook connection status */}
+                {type === "outlook" && (
+                  <>
+                    {isOutlookLoading ? (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+                        Checking Outlook connection...
+                      </div>
+                    ) : outlookStatus?.connected ? (
+                      <div className="py-6 border rounded-md bg-blue-50/50 dark:bg-blue-900/20">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/40 dark:text-blue-400 flex items-center gap-1 text-sm px-3 py-1">
+                              <Check className="h-4 w-4" />
+                              Outlook Connected
+                            </Badge>
+                          </div>
+                          {outlookStatus.email && (
+                            <p className="text-sm text-muted-foreground">
+                              Connected as <strong>{outlookStatus.email}</strong>
+                            </p>
+                          )}
+                          <div className="flex gap-2 mt-2">
+                            <Button variant="outline" size="sm" asChild data-testid="btn-outlook-go-to-communications">
+                              <Link to="/communications">
+                                <Mail className="h-4 w-4 mr-2" />
+                                Go to Communications
+                              </Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  disabled={disconnectOutlookMutation.isPending}
+                                  data-testid="btn-disconnect-outlook"
+                                >
+                                  {disconnectOutlookMutation.isPending ? (
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Trash className="h-4 w-4 mr-2" />
+                                  )}
+                                  Disconnect
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Disconnect Outlook?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will remove the Outlook connection from your account. You won't be able to sync or send emails until you reconnect.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => disconnectOutlookMutation.mutate()}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Disconnect
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Outlook is connected via Microsoft OAuth. Use the Communications page to sync and view emails.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center border rounded-md">
+                        <Mail className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground mb-4">Outlook not connected</p>
+                        <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                          Connect your Outlook or Microsoft 365 account to sync emails and send notifications.
+                        </p>
+                        <Button
+                          onClick={handleConnectOutlook}
+                          className="flex items-center gap-2"
+                          variant="outline"
+                          data-testid="btn-connect-outlook"
+                        >
+                          <Mail className="h-4 w-4" />
+                          Connect Outlook Account
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-4">
+                          Note: Microsoft OAuth integration is not yet configured.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Show RingCentral/Twilio provider configuration */}
+                {(type === "ringcentral" || type === "twilio") && (isLoading ? (
                   <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
                 ) : filteredProviders.length === 0 ? (
                   <div className="py-8 text-center border rounded-md">
@@ -545,7 +773,7 @@ export function CommunicationProviders() {
                       ))}
                     </TableBody>
                   </Table>
-                )}
+                ))}
               </CardContent>
               <CardFooter className="border-t p-4 flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">

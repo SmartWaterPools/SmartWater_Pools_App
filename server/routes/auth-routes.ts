@@ -465,4 +465,158 @@ router.get('/prepare-oauth', oauthTimeoutMiddleware, (req: Request, res: Respons
   }
 });
 
+// ============================================================
+// EMAIL CONNECTION ROUTES (for connecting Gmail/Outlook from Settings)
+// These routes are for users who are already logged in but need to
+// connect their email for communications features
+// ============================================================
+
+// Initiate Gmail connection from Settings (for already logged-in users)
+router.get('/connect-gmail', (req: Request, res: Response, next: NextFunction) => {
+  // User must be logged in to connect email
+  if (!req.isAuthenticated()) {
+    return res.redirect('/login?error=not-authenticated&redirect=/settings');
+  }
+  
+  console.log('Gmail connection initiated for user:', (req.user as any).email);
+  
+  // Mark this as an email connection flow (not login)
+  (req.session as any).emailConnectionFlow = 'gmail';
+  
+  // Use passport to redirect to Google with Gmail scopes
+  passport.authenticate('google', {
+    scope: [
+      'profile',
+      'email',
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify'
+    ],
+    accessType: 'offline',
+    prompt: 'consent',
+    state: 'connect-gmail'
+  } as any)(req, res, next);
+});
+
+// Callback for Gmail connection (distinct from login callback)
+router.get('/connect-gmail/callback',
+  oauthTimeoutMiddleware,
+  (req: Request, res: Response, next: NextFunction) => {
+    // Check if this is actually an email connection flow
+    const isEmailConnection = (req.session as any).emailConnectionFlow === 'gmail' || 
+                              req.query.state === 'connect-gmail';
+    
+    if (!isEmailConnection) {
+      // Fall through to regular OAuth callback
+      return next();
+    }
+    
+    console.log('Gmail connection callback received');
+    
+    // Handle the OAuth callback manually to just get tokens
+    const GoogleStrategy = require('passport-google-oauth20').Strategy;
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+    const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+    
+    if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      return res.redirect('/settings?error=oauth-not-configured');
+    }
+    
+    // Exchange code for tokens
+    const { google } = require('googleapis');
+    const oauth2Client = new google.auth.OAuth2(
+      GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET,
+      'https://smartwaterpools.replit.app/api/auth/connect-gmail/callback'
+    );
+    
+    const code = req.query.code as string;
+    if (!code) {
+      console.error('No code in Gmail connect callback');
+      return res.redirect('/settings?error=no-code');
+    }
+    
+    oauth2Client.getToken(code)
+      .then(async ({ tokens }: any) => {
+        console.log('Gmail tokens received:', {
+          hasAccessToken: !!tokens.access_token,
+          hasRefreshToken: !!tokens.refresh_token,
+          expiresAt: tokens.expiry_date
+        });
+        
+        // Get user email from the token
+        oauth2Client.setCredentials(tokens);
+        const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
+        const userInfo = await oauth2.userinfo.get();
+        const gmailEmail = userInfo.data.email;
+        
+        // Update the current user with Gmail tokens
+        const user = req.user as any;
+        await storage.updateUser(user.id, {
+          gmailAccessToken: tokens.access_token,
+          gmailRefreshToken: tokens.refresh_token,
+          gmailTokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          gmailConnectedEmail: gmailEmail
+        });
+        
+        console.log('Gmail connected successfully for user:', user.email);
+        
+        // Clear the connection flow marker
+        delete (req.session as any).emailConnectionFlow;
+        
+        res.redirect('/settings?success=gmail-connected');
+      })
+      .catch((error: any) => {
+        console.error('Error exchanging Gmail code for tokens:', error);
+        res.redirect('/settings?error=gmail-connection-failed');
+      });
+  }
+);
+
+// Disconnect Gmail
+router.post('/disconnect-gmail', async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  try {
+    const user = req.user as any;
+    await storage.updateUser(user.id, {
+      gmailAccessToken: null,
+      gmailRefreshToken: null,
+      gmailTokenExpiresAt: null,
+      gmailConnectedEmail: null
+    });
+    
+    console.log('Gmail disconnected for user:', user.email);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error disconnecting Gmail:', error);
+    res.status(500).json({ error: 'Failed to disconnect Gmail' });
+  }
+});
+
+// Disconnect Outlook
+router.post('/disconnect-outlook', async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  try {
+    const user = req.user as any;
+    await storage.updateUser(user.id, {
+      outlookAccessToken: null,
+      outlookRefreshToken: null,
+      outlookTokenExpiresAt: null,
+      outlookConnectedEmail: null
+    });
+    
+    console.log('Outlook disconnected for user:', user.email);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error disconnecting Outlook:', error);
+    res.status(500).json({ error: 'Failed to disconnect Outlook' });
+  }
+});
+
 export default router;

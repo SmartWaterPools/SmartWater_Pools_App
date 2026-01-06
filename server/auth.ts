@@ -139,7 +139,15 @@ export function configurePassport(storage: IStorage) {
           clientID: GOOGLE_CLIENT_ID,
           clientSecret: GOOGLE_CLIENT_SECRET,
           callbackURL: callbackURL,
-          scope: ['profile', 'email'],
+          scope: [
+            'profile', 
+            'email',
+            'https://www.googleapis.com/auth/gmail.readonly',
+            'https://www.googleapis.com/auth/gmail.send',
+            'https://www.googleapis.com/auth/gmail.modify'
+          ],
+          accessType: 'offline',
+          prompt: 'consent',
           // Enable both proxy trust and pass request object for better session handling
           proxy: true,
           passReqToCallback: true,
@@ -274,14 +282,29 @@ export function configurePassport(storage: IStorage) {
                 return done(null, false, { message: 'This account has been deactivated' });
               }
               
-              // Update photo URL if it changed
+              // Update photo URL and Gmail tokens
+              console.log('- Updating user with photo URL and Gmail tokens');
+              const updateData: any = {};
+              
               if (profile.photos && profile.photos[0] && profile.photos[0].value !== existingUser.photoUrl) {
-                console.log('- Updating user photo URL');
-                console.log('  -> Old URL:', existingUser.photoUrl || 'none');
-                console.log('  -> New URL:', profile.photos[0].value);
-                existingUser = await storage.updateUser(existingUser.id, {
-                  photoUrl: profile.photos[0].value
-                }) || existingUser;
+                console.log('  -> Updating photo URL');
+                updateData.photoUrl = profile.photos[0].value;
+              }
+              
+              // Store Gmail tokens for email integration
+              if (accessToken) {
+                console.log('  -> Storing Gmail access token');
+                updateData.gmailAccessToken = accessToken;
+                updateData.gmailConnectedEmail = email;
+                updateData.gmailTokenExpiresAt = new Date(Date.now() + 3600 * 1000); // 1 hour from now
+              }
+              if (refreshToken) {
+                console.log('  -> Storing Gmail refresh token');
+                updateData.gmailRefreshToken = refreshToken;
+              }
+              
+              if (Object.keys(updateData).length > 0) {
+                existingUser = await storage.updateUser(existingUser.id, updateData) || existingUser;
                 console.log('  -> Update successful:', !!existingUser);
               }
               
@@ -315,13 +338,25 @@ export function configurePassport(storage: IStorage) {
                   console.log('- User is INACTIVE - attempting reactivation');
                   console.log('  -> Reactivating user and linking Google account');
                   
-                  // Reactivate the user account and update with Google credentials
-                  const updatedUser = await storage.updateUser(userWithEmail.id, {
+                  // Reactivate the user account and update with Google credentials and Gmail tokens
+                  const reactivateData: any = {
                     googleId: profile.id,
                     photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                     authProvider: 'google',
                     active: true
-                  });
+                  };
+                  
+                  // Store Gmail tokens for email integration
+                  if (accessToken) {
+                    reactivateData.gmailAccessToken = accessToken;
+                    reactivateData.gmailConnectedEmail = email;
+                    reactivateData.gmailTokenExpiresAt = new Date(Date.now() + 3600 * 1000);
+                  }
+                  if (refreshToken) {
+                    reactivateData.gmailRefreshToken = refreshToken;
+                  }
+                  
+                  const updatedUser = await storage.updateUser(userWithEmail.id, reactivateData);
                   
                   if (updatedUser) {
                     console.log('  -> Reactivation successful');
@@ -340,13 +375,25 @@ export function configurePassport(storage: IStorage) {
                 console.log('- User is ACTIVE - linking Google account');
                 console.log('  -> Email match (case-insensitive):', userWithEmail.email.toLowerCase() === email.toLowerCase());
                 
-                // Link Google account to existing user
-                console.log('  -> Updating user with Google credentials');
-                const updatedUser = await storage.updateUser(userWithEmail.id, {
+                // Link Google account to existing user and store Gmail tokens
+                console.log('  -> Updating user with Google credentials and Gmail tokens');
+                const linkData: any = {
                   googleId: profile.id,
                   photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
                   authProvider: 'google'
-                });
+                };
+                
+                // Store Gmail tokens for email integration
+                if (accessToken) {
+                  linkData.gmailAccessToken = accessToken;
+                  linkData.gmailConnectedEmail = email;
+                  linkData.gmailTokenExpiresAt = new Date(Date.now() + 3600 * 1000);
+                }
+                if (refreshToken) {
+                  linkData.gmailRefreshToken = refreshToken;
+                }
+                
+                const updatedUser = await storage.updateUser(userWithEmail.id, linkData);
                 
                 if (updatedUser) {
                   console.log('  -> Google account linked successfully');
@@ -422,8 +469,8 @@ export function configurePassport(storage: IStorage) {
                 throw new Error('Failed to create organization');
               }
               
-              // Create the new user with Google OAuth info
-              const newUser = await storage.createUser({
+              // Create the new user with Google OAuth info and Gmail tokens
+              const newUserData: any = {
                 username: username,
                 email: email,
                 name: displayName,
@@ -434,12 +481,25 @@ export function configurePassport(storage: IStorage) {
                 authProvider: 'google',
                 active: true,
                 password: '' // OAuth users don't need a password
-              });
+              };
+              
+              // Store Gmail tokens for email integration
+              if (accessToken) {
+                newUserData.gmailAccessToken = accessToken;
+                newUserData.gmailConnectedEmail = email;
+                newUserData.gmailTokenExpiresAt = new Date(Date.now() + 3600 * 1000);
+              }
+              if (refreshToken) {
+                newUserData.gmailRefreshToken = refreshToken;
+              }
+              
+              const newUser = await storage.createUser(newUserData);
               
               console.log('- Created new user with ID:', newUser.id);
               console.log('- User email:', newUser.email);
               console.log('- User role:', newUser.role);
               console.log('- User organization ID:', newUser.organizationId);
+              console.log('- Gmail connected:', !!newUserData.gmailAccessToken);
               console.log('========== GOOGLE STRATEGY CALLBACK END (NEW USER CREATED) ==========\n');
               
               return done(null, newUser);

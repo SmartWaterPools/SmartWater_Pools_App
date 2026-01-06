@@ -43,6 +43,14 @@ export const users = pgTable("users", {
   googleId: text("google_id"),
   photoUrl: text("photo_url"),
   authProvider: text("auth_provider").default("local"),
+  gmailAccessToken: text("gmail_access_token"),
+  gmailRefreshToken: text("gmail_refresh_token"),
+  gmailTokenExpiresAt: timestamp("gmail_token_expires_at"),
+  gmailConnectedEmail: text("gmail_connected_email"),
+  outlookAccessToken: text("outlook_access_token"),
+  outlookRefreshToken: text("outlook_refresh_token"),
+  outlookTokenExpiresAt: timestamp("outlook_token_expires_at"),
+  outlookConnectedEmail: text("outlook_connected_email"),
 });
 
 export const technicians = pgTable("technicians", {
