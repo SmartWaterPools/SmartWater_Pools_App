@@ -1,5 +1,5 @@
 import { storage } from '../storage';
-import { getGmailClient, parseGmailMessage, isGmailConnected, getGmailProfile } from './gmail-client';
+import { getGmailClient, parseGmailMessage, isGmailConnected, getGmailProfile, UserTokens } from './gmail-client';
 import type { InsertEmail, InsertEmailLink, Email } from '@shared/schema';
 
 interface SyncResult {
@@ -12,7 +12,8 @@ interface SyncResult {
 export async function syncGmailEmails(
   providerId: number,
   organizationId: number,
-  maxResults: number = 50
+  maxResults: number = 50,
+  userTokens?: UserTokens
 ): Promise<SyncResult> {
   const result: SyncResult = {
     success: true,
@@ -22,16 +23,16 @@ export async function syncGmailEmails(
   };
 
   try {
-    const isConnected = await isGmailConnected();
+    const isConnected = await isGmailConnected(userTokens);
     if (!isConnected) {
       result.success = false;
       result.errors.push('Gmail is not connected');
       return result;
     }
 
-    const gmail = await getGmailClient();
+    const gmail = await getGmailClient(userTokens);
     
-    const profile = await getGmailProfile();
+    const profile = await getGmailProfile(userTokens);
     const profileEmail = profile?.emailAddress?.toLowerCase() || '';
     
     const response = await gmail.users.messages.list({
@@ -178,18 +179,18 @@ function extractEmailAddress(emailString: string): string {
   return emailString.trim().toLowerCase();
 }
 
-export async function getGmailConnectionStatus(): Promise<{
+export async function getGmailConnectionStatus(userTokens?: UserTokens): Promise<{
   connected: boolean;
   email?: string;
   messagesTotal?: number;
 }> {
   try {
-    const isConnected = await isGmailConnected();
+    const isConnected = await isGmailConnected(userTokens);
     if (!isConnected) {
       return { connected: false };
     }
 
-    const profile = await getGmailProfile();
+    const profile = await getGmailProfile(userTokens);
     return {
       connected: true,
       email: profile?.emailAddress || undefined,

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { storage } from '../storage';
 import { isAuthenticated } from '../auth';
 import { syncGmailEmails, getGmailConnectionStatus } from '../services/email-sync-service';
+import type { UserTokens } from '../services/gmail-client';
 import { sendGmailMessage } from '../services/gmail-client';
 import { 
   sendAppointmentReminder,
@@ -143,7 +144,15 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
       return res.status(400).json({ error: 'Provider ID is required' });
     }
     
-    const result = await syncGmailEmails(providerId, user.organizationId, 50);
+    const userTokens: UserTokens | undefined = user.gmailAccessToken ? {
+      userId: user.id,
+      gmailAccessToken: user.gmailAccessToken,
+      gmailRefreshToken: user.gmailRefreshToken,
+      gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+      gmailConnectedEmail: user.gmailConnectedEmail
+    } : undefined;
+    
+    const result = await syncGmailEmails(providerId, user.organizationId, 50, userTokens);
     res.json(result);
   } catch (error) {
     console.error('Error syncing emails:', error);

@@ -1,10 +1,22 @@
 import { google, gmail_v1 } from 'googleapis';
+import { storage } from '../storage';
 
-let connectionSettings: any;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 
-async function getAccessToken(): Promise<string> {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
+export interface UserTokens {
+  userId: number;
+  gmailAccessToken?: string | null;
+  gmailRefreshToken?: string | null;
+  gmailTokenExpiresAt?: Date | null;
+  gmailConnectedEmail?: string | null;
+}
+
+let replitConnectionSettings: any;
+
+async function getReplitAccessToken(): Promise<string> {
+  if (replitConnectionSettings && replitConnectionSettings.settings.expires_at && new Date(replitConnectionSettings.settings.expires_at).getTime() > Date.now()) {
+    return replitConnectionSettings.settings.access_token;
   }
   
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -18,7 +30,7 @@ async function getAccessToken(): Promise<string> {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
-  connectionSettings = await fetch(
+  replitConnectionSettings = await fetch(
     'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=google-mail',
     {
       headers: {
@@ -28,16 +40,62 @@ async function getAccessToken(): Promise<string> {
     }
   ).then(res => res.json()).then(data => data.items?.[0]);
 
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
+  const accessToken = replitConnectionSettings?.settings?.access_token || replitConnectionSettings.settings?.oauth?.credentials?.access_token;
 
-  if (!connectionSettings || !accessToken) {
-    throw new Error('Gmail not connected');
+  if (!replitConnectionSettings || !accessToken) {
+    throw new Error('Gmail not connected via Replit');
   }
   return accessToken;
 }
 
-export async function getGmailClient(): Promise<gmail_v1.Gmail> {
-  const accessToken = await getAccessToken();
+async function refreshUserAccessToken(userId: number, refreshToken: string): Promise<string> {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    throw new Error('Google OAuth not configured');
+  }
+
+  const oauth2Client = new google.auth.OAuth2(
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET
+  );
+
+  oauth2Client.setCredentials({
+    refresh_token: refreshToken
+  });
+
+  const { credentials } = await oauth2Client.refreshAccessToken();
+  
+  await storage.updateUser(userId, {
+    gmailAccessToken: credentials.access_token,
+    gmailTokenExpiresAt: credentials.expiry_date ? new Date(credentials.expiry_date) : null
+  });
+
+  return credentials.access_token!;
+}
+
+async function getUserAccessToken(userTokens: UserTokens): Promise<string> {
+  if (!userTokens.gmailAccessToken) {
+    throw new Error('No Gmail access token available');
+  }
+
+  if (userTokens.gmailTokenExpiresAt && new Date(userTokens.gmailTokenExpiresAt).getTime() < Date.now()) {
+    if (userTokens.gmailRefreshToken) {
+      console.log('Gmail token expired, refreshing...');
+      return refreshUserAccessToken(userTokens.userId, userTokens.gmailRefreshToken);
+    }
+    throw new Error('Gmail token expired and no refresh token available');
+  }
+
+  return userTokens.gmailAccessToken;
+}
+
+export async function getGmailClient(userTokens?: UserTokens): Promise<gmail_v1.Gmail> {
+  let accessToken: string;
+  
+  if (userTokens && userTokens.gmailAccessToken) {
+    accessToken = await getUserAccessToken(userTokens);
+  } else {
+    accessToken = await getReplitAccessToken();
+  }
 
   const oauth2Client = new google.auth.OAuth2();
   oauth2Client.setCredentials({
@@ -47,9 +105,9 @@ export async function getGmailClient(): Promise<gmail_v1.Gmail> {
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
 
-export async function getGmailProfile(): Promise<gmail_v1.Schema$Profile | null> {
+export async function getGmailProfile(userTokens?: UserTokens): Promise<gmail_v1.Schema$Profile | null> {
   try {
-    const gmail = await getGmailClient();
+    const gmail = await getGmailClient(userTokens);
     const response = await gmail.users.getProfile({ userId: 'me' });
     return response.data;
   } catch (error) {
@@ -61,9 +119,10 @@ export async function getGmailProfile(): Promise<gmail_v1.Schema$Profile | null>
 export async function listGmailMessages(
   maxResults: number = 50,
   pageToken?: string,
-  query?: string
+  query?: string,
+  userTokens?: UserTokens
 ): Promise<{ messages: gmail_v1.Schema$Message[]; nextPageToken?: string }> {
-  const gmail = await getGmailClient();
+  const gmail = await getGmailClient(userTokens);
   
   const response = await gmail.users.messages.list({
     userId: 'me',
@@ -93,9 +152,9 @@ export async function listGmailMessages(
   };
 }
 
-export async function getGmailMessage(messageId: string): Promise<gmail_v1.Schema$Message | null> {
+export async function getGmailMessage(messageId: string, userTokens?: UserTokens): Promise<gmail_v1.Schema$Message | null> {
   try {
-    const gmail = await getGmailClient();
+    const gmail = await getGmailClient(userTokens);
     const response = await gmail.users.messages.get({
       userId: 'me',
       id: messageId,
@@ -112,10 +171,11 @@ export async function sendGmailMessage(
   to: string,
   subject: string,
   body: string,
-  isHtml: boolean = false
+  isHtml: boolean = false,
+  userTokens?: UserTokens
 ): Promise<gmail_v1.Schema$Message | null> {
   try {
-    const gmail = await getGmailClient();
+    const gmail = await getGmailClient(userTokens);
     
     const message = [
       `To: ${to}`,
@@ -197,9 +257,9 @@ export function parseGmailMessage(message: gmail_v1.Schema$Message) {
   };
 }
 
-export async function isGmailConnected(): Promise<boolean> {
+export async function isGmailConnected(userTokens?: UserTokens): Promise<boolean> {
   try {
-    const profile = await getGmailProfile();
+    const profile = await getGmailProfile(userTokens);
     return profile !== null && !!profile.emailAddress;
   } catch {
     return false;
