@@ -261,19 +261,15 @@ export interface RepairWithDetails {
   id: number;
   clientId: number;
   technicianId?: number | null;
-  type: string; // e.g., 'filter', 'pump', 'leak', etc.
+  issue: string; // e.g., 'filter', 'pump', 'leak', etc.
   priority: string; // e.g., 'low', 'medium', 'high', 'urgent'
-  description: string;
+  description?: string | null;
   reportedDate: string;
   scheduledDate?: string | null;
-  completedDate?: string | null;
+  completionDate?: string | null;
   status: string; // e.g., 'reported', 'scheduled', 'in_progress', 'completed', 'cancelled'
-  notes?: string;
-  cost?: number;
-  parts?: string[];
-  labor?: number; // hours
-  createdAt?: string;
-  updatedAt?: string;
+  notes?: string | null;
+  scheduledTime?: string | null;
   // Relations
   client: ClientWithUser;
   technician?: {

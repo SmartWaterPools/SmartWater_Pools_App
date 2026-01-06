@@ -78,8 +78,8 @@ export default function Repairs() {
     if (statusFilter !== "all" && repair.status !== statusFilter) return false;
     if (priorityFilter !== "all" && repair.priority !== priorityFilter) return false;
     if (searchTerm && !repair.client.user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !repair.type.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !repair.description.toLowerCase().includes(searchTerm.toLowerCase())) {
+        !repair.issue.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !(repair.description || '').toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
     return true;
@@ -253,7 +253,7 @@ export default function Repairs() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{repair.type}</div>
+                            <div className="text-sm text-gray-900">{repair.issue}</div>
                             <div className="text-xs text-gray-500">{repair.description ? repair.description.substring(0, 30) + '...' : 'No description'}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -336,7 +336,7 @@ export default function Repairs() {
                     return (
                       <div key={repair.id} className="p-3 bg-gray-50 rounded-md hover:shadow-sm cursor-pointer">
                         <h4 className="font-medium text-sm">{repair.client.user.name}</h4>
-                        <p className="text-xs text-gray-500 mb-2">{repair.type}</p>
+                        <p className="text-xs text-gray-500 mb-2">{repair.issue}</p>
                         <div className="flex justify-between items-center">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${priorityClasses.bg} ${priorityClasses.text}`}>
                             {repair.priority.charAt(0).toUpperCase() + repair.priority.slice(1)}
@@ -383,7 +383,7 @@ export default function Repairs() {
                     return (
                       <div key={repair.id} className="p-3 bg-gray-50 rounded-md hover:shadow-sm cursor-pointer">
                         <h4 className="font-medium text-sm">{repair.client.user.name}</h4>
-                        <p className="text-xs text-gray-500 mb-1">{repair.type}</p>
+                        <p className="text-xs text-gray-500 mb-1">{repair.issue}</p>
                         <div className="flex items-center text-xs text-gray-600 mb-2">
                           <User className="h-3 w-3 mr-1" />
                           {repair.technician?.user.name}
@@ -434,7 +434,7 @@ export default function Repairs() {
                     return (
                       <div key={repair.id} className="p-3 bg-gray-50 rounded-md hover:shadow-sm cursor-pointer">
                         <h4 className="font-medium text-sm">{repair.client.user.name}</h4>
-                        <p className="text-xs text-gray-500 mb-1">{repair.type}</p>
+                        <p className="text-xs text-gray-500 mb-1">{repair.issue}</p>
                         <div className="flex flex-wrap gap-2 mb-2">
                           <div className="flex items-center text-xs text-gray-600">
                             <Calendar className="h-3 w-3 mr-1" />
@@ -491,7 +491,7 @@ export default function Repairs() {
                     return (
                       <div key={repair.id} className="p-3 bg-gray-50 rounded-md hover:shadow-sm cursor-pointer">
                         <h4 className="font-medium text-sm">{repair.client.user.name}</h4>
-                        <p className="text-xs text-gray-500 mb-1">{repair.type}</p>
+                        <p className="text-xs text-gray-500 mb-1">{repair.issue}</p>
                         <div className="flex items-center text-xs text-gray-600 mb-2">
                           <User className="h-3 w-3 mr-1" />
                           {repair.technician?.user.name}
@@ -542,7 +542,7 @@ export default function Repairs() {
                     return (
                       <div key={repair.id} className="p-3 bg-gray-50 rounded-md hover:shadow-sm cursor-pointer">
                         <h4 className="font-medium text-sm">{repair.client.user.name}</h4>
-                        <p className="text-xs text-gray-500 mb-1">{repair.type}</p>
+                        <p className="text-xs text-gray-500 mb-1">{repair.issue}</p>
                         <div className="flex items-center text-xs text-gray-600 mb-2">
                           <User className="h-3 w-3 mr-1" />
                           {repair.technician?.user.name}
@@ -589,7 +589,7 @@ export default function Repairs() {
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Issue Type</h3>
-                  <p className="mt-1">{selectedRepair.type}</p>
+                  <p className="mt-1">{selectedRepair.issue}</p>
                 </div>
               </div>
               <div>
@@ -647,7 +647,7 @@ export default function Repairs() {
                 <EntityEmailList
                   entityType="repair"
                   entityId={selectedRepair.id}
-                  entityName={`${selectedRepair.type} - ${selectedRepair.client.user.name}`}
+                  entityName={`${selectedRepair.issue} - ${selectedRepair.client.user.name}`}
                 />
               </div>
             </div>

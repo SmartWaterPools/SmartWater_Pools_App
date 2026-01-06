@@ -66,7 +66,7 @@ export const clients = pgTable("clients", {
 });
 
 export const projects = pgTable("projects", {
-  id: integer("id").primaryKey(),
+  id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
   name: text("name").notNull(),
   description: text("description"),
@@ -86,7 +86,7 @@ export const projects = pgTable("projects", {
 });
 
 export const repairs = pgTable("repairs", {
-  id: integer("id").primaryKey(),
+  id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
   technicianId: integer("technician_id"),
   issue: text("issue").notNull(),
