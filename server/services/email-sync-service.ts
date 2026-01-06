@@ -70,35 +70,25 @@ export async function fetchGmailEmailsTransient(
     const profile = await getGmailProfile(userTokens);
     const profileEmail = profile?.emailAddress?.toLowerCase() || '';
 
-    // Build labelIds filter
-    const labelIds: string[] = [];
-    if (starredOnly) {
-      labelIds.push('STARRED');
-    }
-    if (includeSent) {
-      labelIds.push('SENT');
-    } else if (!starredOnly) {
-      // Default to INBOX if no filters
-      labelIds.push('INBOX');
-    }
-
     const listParams: any = {
       userId: 'me',
       maxResults
     };
 
-    // Add label filter if specified
-    if (labelIds.length > 0 && !starredOnly) {
-      // For sent emails, we need to use labelIds
-      listParams.labelIds = labelIds;
-    } else if (starredOnly) {
-      // For starred, we can use labelIds
+    // Build filter based on options:
+    // - Default: INBOX only
+    // - starredOnly=true: STARRED label (gets starred from anywhere)
+    // - includeSent=true: INBOX + SENT labels
+    // - Both true: STARRED label only (starred emails from anywhere)
+    if (starredOnly) {
+      // When starredOnly is true, use STARRED label (covers all starred emails)
       listParams.labelIds = ['STARRED'];
-      if (includeSent) {
-        // Query for starred emails in both inbox and sent
-        listParams.labelIds = undefined;
-        listParams.q = 'is:starred';
-      }
+    } else if (includeSent) {
+      // Include both INBOX and SENT emails
+      listParams.labelIds = ['INBOX', 'SENT'];
+    } else {
+      // Default: INBOX only
+      listParams.labelIds = ['INBOX'];
     }
 
     if (pageToken) {
