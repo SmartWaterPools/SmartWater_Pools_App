@@ -28,17 +28,24 @@ export async function syncGmailEmails(
   };
 
   try {
-    console.log('Starting Gmail sync with providerId:', providerId, 'maxResults:', maxResults, 'pageToken:', pageToken);
+    console.log('=== SYNC SERVICE STARTED ===');
+    console.log('providerId:', providerId, 'maxResults:', maxResults, 'pageToken:', pageToken);
+    console.log('userTokens present:', !!userTokens);
+    console.log('userTokens.userId:', userTokens?.userId);
+    console.log('userTokens.gmailAccessToken present:', !!userTokens?.gmailAccessToken);
+    console.log('userTokens.gmailAccessToken length:', userTokens?.gmailAccessToken?.length || 0);
     
-    const isConnected = await isGmailConnected(userTokens);
-    if (!isConnected) {
-      console.log('Gmail is not connected');
+    // Skip connection check and try to get client directly - let it fail with a clear error
+    let gmail;
+    try {
+      gmail = await getGmailClient(userTokens);
+      console.log('Gmail client created successfully');
+    } catch (clientError) {
+      console.error('Failed to create Gmail client:', clientError);
       result.success = false;
-      result.errors.push('Gmail is not connected');
+      result.errors.push(`Gmail client error: ${clientError instanceof Error ? clientError.message : 'Unknown error'}`);
       return result;
     }
-
-    const gmail = await getGmailClient(userTokens);
     
     const profile = await getGmailProfile(userTokens);
     const profileEmail = profile?.emailAddress?.toLowerCase() || '';
