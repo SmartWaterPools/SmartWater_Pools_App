@@ -59,10 +59,19 @@ interface TransientEmail {
   receivedAt: string | null;
 }
 
-interface Client {
+interface ClientResponse {
   id: number;
-  name: string;
-  email: string;
+  client: {
+    id: number;
+    companyName: string | null;
+    contractType: string;
+  };
+  user: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string | null;
+  };
 }
 
 const EMAILS_PER_PAGE = 10;
@@ -88,6 +97,9 @@ export default function Communications() {
   const [emailToLink, setEmailToLink] = useState<TransientEmail | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<number | null>(null);
   
+  // Search
+  const [searchQuery, setSearchQuery] = useState("");
+  
   const { toast } = useToast();
   
   const { data: emailProviders = [], isLoading: isLoadingEmailProviders } = useQuery<CommunicationProvider[]>({
@@ -108,7 +120,7 @@ export default function Communications() {
   });
 
   // Fetch clients for the link dialog
-  const { data: clients = [] } = useQuery<Client[]>({
+  const { data: clients = [] } = useQuery<ClientResponse[]>({
     queryKey: ['/api/clients']
   });
 
@@ -250,9 +262,20 @@ export default function Communications() {
   const hasSmsProvider = smsProviders.length > 0;
   const hasVoiceProvider = voiceProviders.length > 0;
 
-  // Pagination
-  const totalPages = Math.ceil(transientEmails.length / EMAILS_PER_PAGE);
-  const paginatedEmails = transientEmails.slice(
+  // Search filter and pagination
+  const filteredEmails = transientEmails.filter(email => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      email.subject?.toLowerCase().includes(query) ||
+      email.fromEmail?.toLowerCase().includes(query) ||
+      email.fromName?.toLowerCase().includes(query) ||
+      email.snippet?.toLowerCase().includes(query)
+    );
+  });
+  
+  const totalPages = Math.ceil(filteredEmails.length / EMAILS_PER_PAGE);
+  const paginatedEmails = filteredEmails.slice(
     (currentPage - 1) * EMAILS_PER_PAGE,
     currentPage * EMAILS_PER_PAGE
   );
@@ -432,7 +455,16 @@ export default function Communications() {
           <div className="flex flex-col gap-4 mb-4">
             <div className="flex justify-between">
               <div className="flex gap-2">
-                <Input placeholder="Search emails..." className="w-64" data-testid="input-search-emails" />
+                <Input 
+                  placeholder="Search emails..." 
+                  className="w-64" 
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  data-testid="input-search-emails" 
+                />
               </div>
               <div className="flex gap-2">
                 <Button 
@@ -553,17 +585,21 @@ export default function Communications() {
                     </div>
                   ))}
                 </div>
-              ) : transientEmails.length === 0 ? (
+              ) : filteredEmails.length === 0 ? (
                 <div className="space-y-2">
                   <div className="bg-muted rounded-md p-6 text-center" data-testid="emails-empty">
                     <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium">No emails loaded</h3>
+                    <h3 className="text-lg font-medium">
+                      {searchQuery ? 'No matching emails' : 'No emails loaded'}
+                    </h3>
                     <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
-                      {hasEmailProvider 
-                        ? "Click 'Sync Emails' to fetch your latest emails from Gmail. Emails are only saved when you link them to a client." 
-                        : "Connect your email account to view and link client emails."}
+                      {searchQuery 
+                        ? `No emails match "${searchQuery}". Try a different search term.`
+                        : hasEmailProvider 
+                          ? "Click 'Sync Emails' to fetch your latest emails from Gmail. Emails are only saved when you link them to a client." 
+                          : "Connect your email account to view and link client emails."}
                     </p>
-                    {hasEmailProvider && (
+                    {hasEmailProvider && !searchQuery && (
                       <Button 
                         className="mt-4" 
                         onClick={() => handleFetchEmails()}
@@ -712,7 +748,7 @@ export default function Communications() {
                           <SelectContent>
                             {clients.map((client) => (
                               <SelectItem key={client.id} value={client.id.toString()}>
-                                {client.name} ({client.email})
+                                {client.user?.name || 'Unknown'} ({client.user?.email || 'No email'})
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -745,7 +781,9 @@ export default function Communications() {
               <div className="flex w-full justify-between items-center">
                 <div className="text-sm text-muted-foreground" data-testid="text-email-count">
                   {transientEmails.length > 0 
-                    ? `Showing ${(currentPage - 1) * EMAILS_PER_PAGE + 1}-${Math.min(currentPage * EMAILS_PER_PAGE, transientEmails.length)} of ${transientEmails.length} emails${hasMoreEmails ? ' (more available)' : ''}` 
+                    ? filteredEmails.length > 0
+                      ? `Showing ${(currentPage - 1) * EMAILS_PER_PAGE + 1}-${Math.min(currentPage * EMAILS_PER_PAGE, filteredEmails.length)} of ${filteredEmails.length}${searchQuery ? ' matching' : ''} emails${hasMoreEmails && !searchQuery ? ' (more available)' : ''}`
+                      : `0 matching emails (${transientEmails.length} total loaded)` 
                     : gmailStatus?.connected 
                       ? `Gmail connected as ${gmailStatus.email || 'your account'}`
                       : emailProviders.length > 0
