@@ -828,26 +828,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allRepairs = await storage.getRepairs();
       const organizationRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
       
-      // Format repairs with proper client and technician details
+      // Format repairs with proper client and technician details matching ClientWithUser structure
       const formattedRepairs = await Promise.all(organizationRepairs.map(async (repair) => {
-        const client = await storage.getUser(repair.clientId);
-        const technician = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
+        const clientUser = await storage.getUser(repair.clientId);
+        const technicianUser = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
         
         return {
           ...repair,
-          // Add client details
-          client: client ? {
-            id: client.id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            address: client.address
+          // Add client details in ClientWithUser format (matching /api/clients pattern)
+          client: clientUser ? {
+            client: {
+              id: clientUser.id,
+              userId: clientUser.id,
+              organizationId: clientUser.organizationId,
+              companyName: null,
+              contractType: 'residential'
+            },
+            user: {
+              id: clientUser.id,
+              name: clientUser.name,
+              email: clientUser.email,
+              role: clientUser.role,
+              organizationId: clientUser.organizationId,
+              phone: clientUser.phone,
+              address: clientUser.address
+            }
           } : null,
-          // Add technician details
-          technician: technician ? {
-            id: technician.id,
-            name: technician.name,
-            email: technician.email
+          // Add technician details in nested format with user sub-object
+          technician: technicianUser ? {
+            id: technicianUser.id,
+            userId: technicianUser.id,
+            user: {
+              id: technicianUser.id,
+              name: technicianUser.name,
+              email: technicianUser.email
+            }
           } : null
         };
       }));
