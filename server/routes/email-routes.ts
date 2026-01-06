@@ -161,13 +161,29 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
     } : undefined;
     
     // Determine providerId: use user.id for OAuth tokens, or passed providerId for configured providers
-    let providerId = req.body.providerId;
-    if (userTokens && (!providerId || providerId === 0)) {
-      // For OAuth-connected Gmail, use user's ID as a stable provider identifier
-      providerId = user.id;
+    // Parse providerId from request body - it may come as a string from JSON
+    let rawProviderId = req.body.providerId;
+    let providerId: number | undefined;
+    
+    if (rawProviderId !== undefined && rawProviderId !== null) {
+      providerId = Number(rawProviderId);
     }
     
-    if (!userTokens && !providerId) {
+    // For OAuth-connected Gmail users, default providerId to user.id
+    if (userTokens && (!providerId || isNaN(providerId) || providerId <= 0)) {
+      providerId = user.id;
+      console.log('Using user.id as providerId for OAuth user:', providerId);
+    }
+    
+    // Validate we have a valid providerId (must be a positive number)
+    if (!providerId || isNaN(providerId) || providerId <= 0) {
+      console.log('ERROR: Invalid providerId after processing:', providerId, 'raw:', rawProviderId);
+      return res.status(400).json({ error: 'Invalid provider configuration. Please reconnect Gmail in Settings.' });
+    }
+    
+    // For OAuth-connected users, userTokens is required
+    if (!userTokens) {
+      console.log('ERROR: No Gmail tokens available for user');
       return res.status(400).json({ error: 'Gmail not connected. Please connect Gmail in Settings.' });
     }
     
