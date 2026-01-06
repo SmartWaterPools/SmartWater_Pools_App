@@ -46,8 +46,8 @@ export async function syncGmailEmails(
     
     const listParams: any = {
       userId: 'me',
-      maxResults,
-      q: 'in:inbox OR in:sent'
+      maxResults
+      // Removed query filter to get ALL messages for debugging
     };
     
     // Add pageToken for pagination
