@@ -77,23 +77,37 @@ export async function syncGmailEmails(
     }
 
     let skippedDuplicates = 0;
+    let processedCount = 0;
+    console.log('Starting to process', response.data.messages.length, 'messages');
+    
     for (const msgRef of response.data.messages) {
-      if (!msgRef.id) continue;
+      processedCount++;
+      console.log(`[${processedCount}/${response.data.messages.length}] Processing message ID:`, msgRef.id);
+      
+      if (!msgRef.id) {
+        console.log('  -> Skipping: no message ID');
+        continue;
+      }
 
       try {
+        console.log('  -> Checking for duplicates with providerId:', providerId);
         const existing = await storage.getEmailByExternalId(providerId, msgRef.id);
         if (existing) {
+          console.log('  -> Skipping: already exists in database');
           skippedDuplicates++;
           continue;
         }
 
+        console.log('  -> Fetching full message from Gmail API...');
         const fullMessage = await gmail.users.messages.get({
           userId: 'me',
           id: msgRef.id,
           format: 'full'
         });
+        console.log('  -> Full message fetched, parsing...');
 
         const parsed = parseGmailMessage(fullMessage.data);
+        console.log('  -> Parsed subject:', parsed.subject?.substring(0, 50), 'from:', parsed.fromEmail);
         
         const fromEmailAddress = extractEmailAddress(parsed.fromEmail);
         const direction = fromEmailAddress === profileEmail ? 'outbound' : 'inbound';
@@ -118,15 +132,18 @@ export async function syncGmailEmails(
           isSent: direction === 'outbound'
         };
 
+        console.log('  -> Saving email to database...');
         const savedEmail = await storage.createEmail(emailData);
+        console.log('  -> Email saved with ID:', savedEmail.id);
         result.emailsSynced++;
 
         const linksCreated = await autoLinkEmail(savedEmail, organizationId);
         result.emailsLinked += linksCreated;
+        console.log('  -> SUCCESS: Email synced and linked');
 
       } catch (msgError) {
-        console.error(`Error processing message ${msgRef.id}:`, msgError);
-        result.errors.push(`Failed to process message ${msgRef.id}`);
+        console.error(`  -> ERROR processing message ${msgRef.id}:`, msgError);
+        result.errors.push(`Failed to process message ${msgRef.id}: ${msgError instanceof Error ? msgError.message : 'Unknown error'}`);
       }
     }
     
