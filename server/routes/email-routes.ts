@@ -138,10 +138,14 @@ router.get('/api/emails/:id', isAuthenticated, async (req: Request, res: Respons
 router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    console.log('=== EMAIL SYNC REQUEST ===');
-    console.log('User ID:', user.id, 'Email:', user.email);
-    console.log('Has gmailAccessToken:', !!user.gmailAccessToken);
+    console.log('==========================================================');
+    console.log('=== EMAIL SYNC REQUEST RECEIVED AT', new Date().toISOString(), '===');
+    console.log('==========================================================');
+    console.log('User ID:', user.id, 'Email:', user.email, 'OrgId:', user.organizationId);
+    console.log('Has gmailAccessToken:', !!user.gmailAccessToken, 'Length:', user.gmailAccessToken?.length || 0);
     console.log('Has gmailRefreshToken:', !!user.gmailRefreshToken);
+    console.log('Gmail Connected Email:', user.gmailConnectedEmail);
+    console.log('Token Expires At:', user.gmailTokenExpiresAt);
     console.log('Request body:', JSON.stringify(req.body));
     
     const maxResults = req.body.maxResults || 10; // Default to 10 emails
