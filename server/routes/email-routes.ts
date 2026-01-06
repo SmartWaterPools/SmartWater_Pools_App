@@ -243,6 +243,82 @@ router.get('/api/emails/connection-status/outlook', isAuthenticated, async (req:
   }
 });
 
+router.post('/api/emails/disconnect-gmail', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    
+    await storage.updateUser(user.id, {
+      gmailAccessToken: null,
+      gmailRefreshToken: null,
+      gmailTokenExpiresAt: null,
+      gmailConnectedEmail: null
+    });
+    
+    res.json({ success: true, message: 'Gmail disconnected successfully' });
+  } catch (error) {
+    console.error('Error disconnecting Gmail:', error);
+    res.status(500).json({ error: 'Failed to disconnect Gmail' });
+  }
+});
+
+router.get('/api/emails/diagnose-gmail', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const diagnostics: any = {
+      userId: user.id,
+      email: user.email,
+      hasAccessToken: !!user.gmailAccessToken,
+      hasRefreshToken: !!user.gmailRefreshToken,
+      gmailConnectedEmail: user.gmailConnectedEmail,
+      tokenExpiresAt: user.gmailTokenExpiresAt,
+      tokenExpired: user.gmailTokenExpiresAt ? new Date(user.gmailTokenExpiresAt) < new Date() : null,
+      currentTime: new Date().toISOString()
+    };
+    
+    if (!user.gmailAccessToken) {
+      diagnostics.error = 'No Gmail access token found';
+      return res.json(diagnostics);
+    }
+    
+    const userTokens: UserTokens = {
+      userId: user.id,
+      gmailAccessToken: user.gmailAccessToken,
+      gmailRefreshToken: user.gmailRefreshToken,
+      gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+      gmailConnectedEmail: user.gmailConnectedEmail
+    };
+    
+    try {
+      const { getGmailClient, getGmailProfile } = await import('../services/gmail-client');
+      const gmail = await getGmailClient(userTokens);
+      diagnostics.gmailClientCreated = true;
+      
+      const profile = await getGmailProfile(userTokens);
+      diagnostics.profile = {
+        emailAddress: profile?.emailAddress,
+        messagesTotal: profile?.messagesTotal
+      };
+      
+      const listResponse = await gmail.users.messages.list({
+        userId: 'me',
+        maxResults: 5
+      });
+      
+      diagnostics.messagesFound = listResponse.data.messages?.length || 0;
+      diagnostics.resultSizeEstimate = listResponse.data.resultSizeEstimate;
+      diagnostics.hasNextPageToken = !!listResponse.data.nextPageToken;
+      
+    } catch (apiError) {
+      diagnostics.apiError = apiError instanceof Error ? apiError.message : 'Unknown API error';
+    }
+    
+    res.json(diagnostics);
+  } catch (error) {
+    console.error('Error diagnosing Gmail:', error);
+    res.status(500).json({ error: 'Failed to diagnose Gmail connection' });
+  }
+});
+
 const sendEmailSchema = z.object({
   to: z.string().email(),
   subject: z.string().min(1),

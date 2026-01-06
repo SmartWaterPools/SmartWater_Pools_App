@@ -105,10 +105,19 @@ export default function Communications() {
       });
       return response.json();
     },
-    onSuccess: (data: { emailsSynced: number; emailsSkipped?: number; emailsChecked?: number; nextPageToken?: string | null; hasMore: boolean }) => {
+    onSuccess: (data: { emailsSynced: number; emailsSkipped?: number; emailsChecked?: number; nextPageToken?: string | null; hasMore: boolean; success?: boolean; errors?: string[] }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/emails'] });
       setNextPageToken(data.nextPageToken || null);
       setHasMoreEmails(data.hasMore);
+      
+      if (data.success === false || (data.errors && data.errors.length > 0)) {
+        toast({ 
+          title: "Sync Error", 
+          description: data.errors?.join(', ') || 'Unknown error occurred',
+          variant: "destructive"
+        });
+        return;
+      }
       
       let description = '';
       if (data.emailsSynced > 0) {
@@ -129,6 +138,56 @@ export default function Communications() {
     },
     onError: (error: Error) => {
       toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
+    }
+  });
+  
+  const disconnectGmailMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/emails/disconnect-gmail', {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/emails/connection-status/gmail'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/session'] });
+      toast({ title: "Gmail Disconnected", description: "You can reconnect Gmail using Google Sign In." });
+      setTimeout(() => window.location.reload(), 1000);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Disconnect Failed", description: error.message, variant: "destructive" });
+    }
+  });
+  
+  const diagnoseGmailMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/emails/diagnose-gmail', { credentials: 'include' });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      console.log('Gmail Diagnostics:', data);
+      if (data.apiError) {
+        toast({ 
+          title: "Gmail API Error", 
+          description: data.apiError,
+          variant: "destructive"
+        });
+      } else if (data.messagesFound !== undefined) {
+        toast({ 
+          title: "Gmail Connection OK", 
+          description: `Found ${data.messagesFound} messages. Profile: ${data.profile?.emailAddress || 'Unknown'}`
+        });
+      } else if (data.error) {
+        toast({ 
+          title: "Gmail Issue", 
+          description: data.error,
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Diagnose Failed", description: error.message, variant: "destructive" });
     }
   });
 
@@ -292,9 +351,30 @@ export default function Communications() {
                   </>
                 ) : null}
               </div>
-              {gmailStatus?.connected && gmailStatus.messagesTotal !== undefined && (
-                <div className="flex items-center gap-2" data-testid="gmail-status">
-                  <span className="text-sm text-muted-foreground">({gmailStatus.messagesTotal} messages in account)</span>
+              {gmailStatus?.connected && (
+                <div className="flex items-center gap-2 mt-2" data-testid="gmail-status">
+                  {gmailStatus.messagesTotal !== undefined && (
+                    <span className="text-sm text-muted-foreground">({gmailStatus.messagesTotal} messages in account)</span>
+                  )}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => diagnoseGmailMutation.mutate()}
+                    disabled={diagnoseGmailMutation.isPending}
+                    data-testid="button-diagnose-gmail"
+                  >
+                    {diagnoseGmailMutation.isPending ? 'Testing...' : 'Test Connection'}
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => disconnectGmailMutation.mutate()}
+                    disabled={disconnectGmailMutation.isPending}
+                    data-testid="button-disconnect-gmail"
+                  >
+                    {disconnectGmailMutation.isPending ? 'Disconnecting...' : 'Disconnect'}
+                  </Button>
                 </div>
               )}
             </div>
