@@ -138,6 +138,12 @@ router.get('/api/emails/:id', isAuthenticated, async (req: Request, res: Respons
 router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
+    console.log('=== EMAIL SYNC REQUEST ===');
+    console.log('User ID:', user.id, 'Email:', user.email);
+    console.log('Has gmailAccessToken:', !!user.gmailAccessToken);
+    console.log('Has gmailRefreshToken:', !!user.gmailRefreshToken);
+    console.log('Request body:', JSON.stringify(req.body));
+    
     const maxResults = req.body.maxResults || 10; // Default to 10 emails
     const pageToken = req.body.pageToken || null; // For pagination
     
@@ -161,7 +167,9 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
       return res.status(400).json({ error: 'Gmail not connected. Please connect Gmail in Settings.' });
     }
     
+    console.log('Calling syncGmailEmails with providerId:', providerId, 'orgId:', user.organizationId);
     const result = await syncGmailEmails(providerId, user.organizationId, maxResults, userTokens, pageToken);
+    console.log('Sync result:', JSON.stringify(result));
     res.json(result);
   } catch (error) {
     console.error('Error syncing emails:', error);
