@@ -74,6 +74,24 @@ interface ClientResponse {
   };
 }
 
+interface RingCentralStatus {
+  connected: boolean;
+  phoneNumber?: string;
+  error?: string;
+}
+
+interface SMSMessage {
+  id: string;
+  direction: 'inbound' | 'outbound';
+  from: string;
+  to: string;
+  subject?: string;
+  messageStatus: string;
+  readStatus?: string;
+  creationTime: string;
+  lastModifiedTime?: string;
+}
+
 const EMAILS_PER_PAGE = 10;
 
 export default function Communications() {
@@ -101,6 +119,10 @@ export default function Communications() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeSearchQuery, setActiveSearchQuery] = useState<string | null>(null);
   
+  // SMS compose dialog
+  const [composeSmsOpen, setComposeSmsOpen] = useState(false);
+  const [composeSmsData, setComposeSmsData] = useState({ to: "", message: "", clientId: "" });
+  
   const { toast } = useToast();
   
   const { data: emailProviders = [], isLoading: isLoadingEmailProviders } = useQuery<CommunicationProvider[]>({
@@ -127,6 +149,17 @@ export default function Communications() {
 
   const { data: gmailStatus } = useQuery<{ connected: boolean; email?: string; messagesTotal?: number }>({
     queryKey: ['/api/emails/connection-status/gmail']
+  });
+
+  // Fetch RingCentral connection status
+  const { data: ringCentralStatus, isLoading: isRingCentralLoading } = useQuery<RingCentralStatus>({
+    queryKey: ['/api/sms/connection-status']
+  });
+
+  // Fetch SMS messages
+  const { data: smsMessagesData, isLoading: isSmsMessagesLoading, refetch: refetchSmsMessages } = useQuery<{ messages: SMSMessage[]; success: boolean }>({
+    queryKey: ['/api/sms/messages'],
+    enabled: ringCentralStatus?.connected === true
   });
 
   // Fetch emails mutation (transient - not saved to database)
@@ -258,10 +291,28 @@ export default function Communications() {
       toast({ title: "Send Failed", description: error.message, variant: "destructive" });
     }
   });
+
+  // Send SMS mutation
+  const sendSMSMutation = useMutation({
+    mutationFn: async (data: { to: string; message: string }) => {
+      const response = await apiRequest('POST', '/api/sms/send', data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sms/messages'] });
+      toast({ title: "SMS Sent", description: "Your SMS has been sent successfully." });
+      setComposeSmsOpen(false);
+      setComposeSmsData({ to: "", message: "", clientId: "" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Send Failed", description: error.message, variant: "destructive" });
+    }
+  });
   
   // Email is ready if Gmail connector is connected OR we have database providers
   const hasEmailProvider = gmailStatus?.connected || emailProviders.length > 0;
-  const hasSmsProvider = smsProviders.length > 0;
+  // SMS is ready if RingCentral is connected OR we have Twilio providers
+  const hasSmsProvider = ringCentralStatus?.connected || smsProviders.length > 0;
   const hasVoiceProvider = voiceProviders.length > 0;
 
   // Pagination (no local filtering - search is done via API)
@@ -306,6 +357,21 @@ export default function Communications() {
       return;
     }
     sendEmailMutation.mutate(composeData);
+  };
+
+  const handleSendSms = () => {
+    if (!composeSmsData.to || !composeSmsData.message) {
+      toast({ title: "Validation Error", description: "Please fill in phone number and message.", variant: "destructive" });
+      return;
+    }
+    sendSMSMutation.mutate({ to: composeSmsData.to, message: composeSmsData.message });
+  };
+
+  const handleClientSelectForSms = (clientId: string) => {
+    const client = clients.find(c => c.id.toString() === clientId);
+    if (client?.user.phone) {
+      setComposeSmsData({ ...composeSmsData, to: client.user.phone, clientId });
+    }
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -855,7 +921,7 @@ export default function Communications() {
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>No SMS Provider Configured</AlertTitle>
               <AlertDescription className="flex justify-between items-center">
-                <span>You need to set up an SMS provider (like Twilio) to use this feature.</span>
+                <span>You need to connect RingCentral or set up Twilio to use this feature.</span>
                 <Button variant="outline" size="sm" asChild>
                   <Link to="/settings">
                     <Settings className="h-4 w-4 mr-2" />
@@ -867,12 +933,25 @@ export default function Communications() {
           ) : (
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  {smsProviders.filter(p => p.isDefault)[0]?.name || smsProviders[0]?.name}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Using {smsProviders.filter(p => p.isDefault)[0]?.type || smsProviders[0]?.type} for SMS messaging
-                </span>
+                {ringCentralStatus?.connected ? (
+                  <>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" data-testid="badge-ringcentral-connected">
+                      RingCentral Connected
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      Connected as {ringCentralStatus.phoneNumber || 'RingCentral account'}
+                    </span>
+                  </>
+                ) : smsProviders.length > 0 ? (
+                  <>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      {smsProviders.filter(p => p.isDefault)[0]?.name || smsProviders[0]?.name}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      Using {smsProviders.filter(p => p.isDefault)[0]?.type || smsProviders[0]?.type} for SMS messaging
+                    </span>
+                  </>
+                ) : null}
               </div>
             </div>
           )}
@@ -880,7 +959,7 @@ export default function Communications() {
           <div className="flex justify-between mb-4">
             <div className="flex gap-2">
               <Select defaultValue="all">
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-[180px]" data-testid="select-sms-filter">
                   <SelectValue placeholder="Filter by" />
                 </SelectTrigger>
                 <SelectContent>
@@ -889,12 +968,95 @@ export default function Communications() {
                   <SelectItem value="received">Received</SelectItem>
                 </SelectContent>
               </Select>
-              <Input placeholder="Search messages..." className="w-64" />
+              <Input placeholder="Search messages..." className="w-64" data-testid="input-search-sms" />
             </div>
-            <Button disabled={!hasSmsProvider}>
-              <MessageSquare className="h-4 w-4 mr-2" />
-              New SMS
-            </Button>
+            <div className="flex gap-2">
+              {ringCentralStatus?.connected && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => refetchSmsMessages()}
+                  disabled={isSmsMessagesLoading}
+                  data-testid="button-sync-sms"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isSmsMessagesLoading ? 'animate-spin' : ''}`} />
+                  {isSmsMessagesLoading ? 'Syncing...' : 'Sync Messages'}
+                </Button>
+              )}
+              <Dialog open={composeSmsOpen} onOpenChange={setComposeSmsOpen}>
+                <DialogTrigger asChild>
+                  <Button disabled={!hasSmsProvider} data-testid="button-compose-sms">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Compose SMS
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[500px]">
+                  <DialogHeader>
+                    <DialogTitle>Compose SMS</DialogTitle>
+                    <DialogDescription>
+                      Send a text message to a client or contact.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="sms-client">Select Client (optional)</Label>
+                      <Select 
+                        value={composeSmsData.clientId} 
+                        onValueChange={handleClientSelectForSms}
+                      >
+                        <SelectTrigger data-testid="select-sms-client">
+                          <SelectValue placeholder="Choose a client to auto-fill phone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {clients.filter(c => c.user.phone).map((client) => (
+                            <SelectItem key={client.id} value={client.id.toString()}>
+                              {client.user.name} - {client.user.phone}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="sms-to">Phone Number</Label>
+                      <Input 
+                        id="sms-to" 
+                        type="tel"
+                        placeholder="+1234567890"
+                        value={composeSmsData.to}
+                        onChange={(e) => setComposeSmsData({ ...composeSmsData, to: e.target.value })}
+                        data-testid="input-sms-to"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="sms-message">Message</Label>
+                      <Textarea 
+                        id="sms-message" 
+                        placeholder="Type your message here..."
+                        rows={4}
+                        value={composeSmsData.message}
+                        onChange={(e) => setComposeSmsData({ ...composeSmsData, message: e.target.value })}
+                        data-testid="textarea-sms-message"
+                      />
+                      <p className="text-xs text-muted-foreground text-right">
+                        {composeSmsData.message.length} characters
+                      </p>
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setComposeSmsOpen(false)} data-testid="button-sms-cancel">
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={handleSendSms} 
+                      disabled={sendSMSMutation.isPending}
+                      data-testid="button-sms-send"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      {sendSMSMutation.isPending ? 'Sending...' : 'Send SMS'}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </div>
           
           <Card>
@@ -905,25 +1067,77 @@ export default function Communications() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <p className="text-muted-foreground">No messages to display yet.</p>
-                <div className="bg-muted rounded-md p-6 text-center">
-                  <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">SMS Integration</h3>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
-                    {hasSmsProvider 
-                      ? "Your SMS provider is configured. You can now send text messages to clients." 
-                      : "Connect with an SMS provider to send maintenance reminders, service updates, and other communications to clients."}
-                  </p>
+              {isSmsMessagesLoading ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex items-center gap-4 p-3 border rounded-md">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-1/4" />
+                        <Skeleton className="h-3 w-3/4" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              </div>
+              ) : smsMessagesData?.messages && smsMessagesData.messages.length > 0 ? (
+                <div className="space-y-2">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Direction</TableHead>
+                        <TableHead>From</TableHead>
+                        <TableHead>To</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {smsMessagesData.messages.map((message) => (
+                        <TableRow key={message.id} data-testid={`row-sms-${message.id}`}>
+                          <TableCell>
+                            <Badge variant={message.direction === 'outbound' ? 'default' : 'secondary'}>
+                              {message.direction === 'outbound' ? 'Sent' : 'Received'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-mono text-sm">{message.from}</TableCell>
+                          <TableCell className="font-mono text-sm">{message.to}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-xs">
+                              {message.messageStatus}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDate(message.creationTime)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="bg-muted rounded-md p-6 text-center">
+                    <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">SMS Integration</h3>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
+                      {ringCentralStatus?.connected 
+                        ? "Your RingCentral account is connected. Click 'Sync Messages' to load your SMS history, or 'Compose SMS' to send a new message." 
+                        : hasSmsProvider 
+                          ? "Your SMS provider is configured. You can now send text messages to clients." 
+                          : "Connect RingCentral or configure Twilio to send maintenance reminders, service updates, and other communications to clients."}
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
             <CardFooter className="border-t p-4">
               <div className="flex w-full justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  {hasSmsProvider 
-                    ? `${smsProviders.length} SMS ${smsProviders.length === 1 ? 'provider' : 'providers'} configured` 
-                    : "No SMS providers configured"}
+                <div className="text-sm text-muted-foreground" data-testid="text-sms-status">
+                  {ringCentralStatus?.connected 
+                    ? `RingCentral connected as ${ringCentralStatus.phoneNumber || 'your account'}${smsMessagesData?.messages ? ` • ${smsMessagesData.messages.length} messages` : ''}`
+                    : hasSmsProvider 
+                      ? `${smsProviders.length} SMS ${smsProviders.length === 1 ? 'provider' : 'providers'} configured` 
+                      : "No SMS providers configured"}
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <Link to="/settings">

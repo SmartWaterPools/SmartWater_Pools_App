@@ -64,7 +64,14 @@ Preferred communication style: Simple, everyday language.
   - Users connect their Gmail in Settings page using OAuth flow
   - Tokens stored per-user for tenant isolation (gmail_access_token, gmail_refresh_token, etc.)
 - **Microsoft Outlook Integration**: NOT YET CONFIGURED - Requires Microsoft OAuth 2.0 credentials (MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET). Schema ready for outlook_access_token, outlook_refresh_token, etc.
-- **SMS Services**: Schema configured for SMS communication providers
+- **RingCentral SMS Integration**: Multi-tenant SMS service using RingCentral OAuth. Supports:
+  - Organization-level RingCentral account connection via OAuth flow
+  - On-the-way notifications, job complete texts, appointment reminders
+  - Client portal messaging and custom alerts
+  - Manual SMS sending from Communications tab and Client Details pages
+  - SMS templates with variable substitution ({{client_name}}, {{tech_name}}, {{address}}, etc.)
+  - Tokens stored per-organization in communication_providers table
+  - Auto-refresh for tokens (access tokens expire in 2 hours, refresh tokens in 7 days)
 
 ## Email Integration Architecture
 - **Core Services**: 
@@ -80,6 +87,20 @@ Preferred communication style: Simple, everyday language.
   - `client/src/components/communications/EntityEmailList.tsx` - Reusable component for showing entity-linked emails
 - **Database Tables**: emails, email_links, email_templates, scheduled_emails, communication_providers
 - **User Token Fields**: gmail_access_token, gmail_refresh_token, gmail_token_expires_at, gmail_connected_email (and outlook equivalents)
+
+## SMS Integration Architecture
+- **Core Services**:
+  - `server/ringcentral-service.ts` - RingCentral SDK wrapper with OAuth token management and auto-refresh
+- **API Routes**:
+  - `server/routes/sms-routes.ts` - SMS endpoints: send, history, templates, send-on-the-way, send-job-complete, send-reminder
+  - `server/routes/auth-routes.ts` - RingCentral OAuth routes (/api/auth/connect-ringcentral, /api/auth/ringcentral/callback)
+- **Frontend Components**:
+  - `client/src/pages/Communications.tsx` - SMS tab with compose dialog and message history
+  - `client/src/components/settings/CommunicationProviders.tsx` - RingCentral connect/disconnect UI
+  - `client/src/components/communications/EntitySMSList.tsx` - Reusable component for client SMS history
+  - `client/src/components/maintenance/MaintenanceListView.tsx` - SMS trigger buttons in job dropdown menus
+- **Database Tables**: sms_messages, sms_templates, communication_providers
+- **Environment Variables**: RINGCENTRAL_CLIENT_ID, RINGCENTRAL_CLIENT_SECRET, RINGCENTRAL_SERVER (optional)
 
 ## Deployment Platform
 - **Google Cloud Run**: Target deployment platform with container-based architecture

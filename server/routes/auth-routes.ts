@@ -694,4 +694,206 @@ router.post('/disconnect-outlook', async (req: Request, res: Response) => {
   }
 });
 
+// ============================================================
+// RINGCENTRAL CONNECTION ROUTES
+// These routes handle RingCentral OAuth for SMS functionality
+// ============================================================
+
+const RINGCENTRAL_CLIENT_ID = process.env.RINGCENTRAL_CLIENT_ID;
+const RINGCENTRAL_CLIENT_SECRET = process.env.RINGCENTRAL_CLIENT_SECRET;
+const RINGCENTRAL_SERVER = process.env.RINGCENTRAL_SERVER || 'https://platform.ringcentral.com';
+const APP_URL = process.env.APP_URL || 'https://smartwaterpools.replit.app';
+
+router.get('/connect-ringcentral', (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    return res.redirect('/login?error=not-authenticated&redirect=/settings');
+  }
+
+  const user = req.user as any;
+  if (!user?.organizationId) {
+    return res.redirect('/settings?error=no-organization');
+  }
+
+  if (!RINGCENTRAL_CLIENT_ID) {
+    console.error('RINGCENTRAL_CLIENT_ID not configured');
+    return res.redirect('/settings?error=ringcentral-not-configured');
+  }
+
+  console.log('RingCentral connection initiated for org:', user.organizationId);
+
+  const state = Buffer.from(JSON.stringify({ 
+    organizationId: user.organizationId,
+    userId: user.id,
+    timestamp: Date.now()
+  })).toString('base64');
+
+  (req.session as any).ringcentralState = state;
+
+  const redirectUri = encodeURIComponent(`${APP_URL}/api/auth/ringcentral/callback`);
+  const authUrl = `${RINGCENTRAL_SERVER}/restapi/oauth/authorize?` +
+    `response_type=code&` +
+    `client_id=${RINGCENTRAL_CLIENT_ID}&` +
+    `redirect_uri=${redirectUri}&` +
+    `state=${state}`;
+
+  res.redirect(authUrl);
+});
+
+router.get('/ringcentral/callback', async (req: Request, res: Response) => {
+  try {
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      console.error('RingCentral OAuth error:', error, error_description);
+      return res.redirect(`/settings?error=ringcentral-auth-failed&details=${encodeURIComponent(error_description as string || error as string)}`);
+    }
+
+    if (!code) {
+      console.error('No authorization code in RingCentral callback');
+      return res.redirect('/settings?error=no-code');
+    }
+
+    if (!state) {
+      console.error('No state parameter in RingCentral callback');
+      return res.redirect('/settings?error=invalid-state');
+    }
+
+    let stateData: { organizationId: number; userId: number; timestamp: number };
+    try {
+      stateData = JSON.parse(Buffer.from(state as string, 'base64').toString());
+    } catch (e) {
+      console.error('Invalid state parameter:', e);
+      return res.redirect('/settings?error=invalid-state');
+    }
+
+    if (!RINGCENTRAL_CLIENT_ID || !RINGCENTRAL_CLIENT_SECRET) {
+      console.error('RingCentral credentials not configured');
+      return res.redirect('/settings?error=ringcentral-not-configured');
+    }
+
+    console.log('RingCentral callback for org:', stateData.organizationId);
+
+    const tokenResponse = await fetch(`${RINGCENTRAL_SERVER}/restapi/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': 'Basic ' + Buffer.from(`${RINGCENTRAL_CLIENT_ID}:${RINGCENTRAL_CLIENT_SECRET}`).toString('base64'),
+      },
+      body: new URLSearchParams({
+        grant_type: 'authorization_code',
+        code: code as string,
+        redirect_uri: `${APP_URL}/api/auth/ringcentral/callback`,
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      const errorData = await tokenResponse.text();
+      console.error('RingCentral token exchange failed:', errorData);
+      return res.redirect('/settings?error=token-exchange-failed');
+    }
+
+    const tokens = await tokenResponse.json();
+    console.log('RingCentral tokens received:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expires_in,
+    });
+
+    let phoneNumber: string | null = null;
+    try {
+      const phoneResponse = await fetch(`${RINGCENTRAL_SERVER}/restapi/v1.0/account/~/extension/~/phone-number`, {
+        headers: {
+          'Authorization': `Bearer ${tokens.access_token}`,
+        },
+      });
+      
+      if (phoneResponse.ok) {
+        const phoneData = await phoneResponse.json();
+        const smsNumber = phoneData.records?.find((num: any) => 
+          num.features?.includes('SmsSender')
+        );
+        phoneNumber = smsNumber?.phoneNumber || phoneData.records?.[0]?.phoneNumber || null;
+        console.log('RingCentral phone number:', phoneNumber);
+      }
+    } catch (phoneError) {
+      console.error('Error fetching phone numbers:', phoneError);
+    }
+
+    const tokenExpiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000);
+
+    const existingProviders = await storage.getCommunicationProvidersByType('ringcentral', stateData.organizationId);
+    
+    if (existingProviders.length > 0) {
+      await storage.updateCommunicationProvider(existingProviders[0].id, {
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiresAt,
+        phoneNumber,
+        isActive: true,
+        lastUsed: new Date(),
+        clientId: RINGCENTRAL_CLIENT_ID,
+        clientSecret: RINGCENTRAL_CLIENT_SECRET,
+      });
+      console.log('Updated existing RingCentral provider for org:', stateData.organizationId);
+    } else {
+      await storage.createCommunicationProvider({
+        name: 'RingCentral',
+        type: 'ringcentral',
+        organizationId: stateData.organizationId,
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token,
+        tokenExpiresAt,
+        phoneNumber,
+        isActive: true,
+        isDefault: true,
+        clientId: RINGCENTRAL_CLIENT_ID,
+        clientSecret: RINGCENTRAL_CLIENT_SECRET,
+      });
+      console.log('Created new RingCentral provider for org:', stateData.organizationId);
+    }
+
+    delete (req.session as any).ringcentralState;
+
+    res.redirect('/settings?success=ringcentral-connected');
+  } catch (error) {
+    console.error('Error in RingCentral callback:', error);
+    res.redirect('/settings?error=ringcentral-connection-failed');
+  }
+});
+
+router.post('/disconnect-ringcentral', async (req: Request, res: Response) => {
+  if (!req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  try {
+    const user = req.user as any;
+    if (!user?.organizationId) {
+      return res.status(400).json({ error: 'Organization not found' });
+    }
+
+    const providers = await storage.getCommunicationProvidersByType('ringcentral', user.organizationId);
+    
+    if (providers.length === 0) {
+      return res.json({ success: true, message: 'Already disconnected' });
+    }
+
+    for (const provider of providers) {
+      await storage.updateCommunicationProvider(provider.id, {
+        accessToken: null,
+        refreshToken: null,
+        tokenExpiresAt: null,
+        phoneNumber: null,
+        isActive: false,
+      });
+    }
+
+    console.log('RingCentral disconnected for org:', user.organizationId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error disconnecting RingCentral:', error);
+    res.status(500).json({ error: 'Failed to disconnect RingCentral' });
+  }
+});
+
 export default router;

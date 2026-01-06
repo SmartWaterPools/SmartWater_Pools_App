@@ -123,6 +123,15 @@ interface OutlookStatus {
   tokenExpiresAt?: string;
 }
 
+// RingCentral connection status type
+interface RingCentralStatus {
+  connected: boolean;
+  phoneNumber?: string;
+  error?: string;
+  hasRefreshToken?: boolean;
+  tokenExpiresAt?: string;
+}
+
 export function CommunicationProviders() {
   const [activeTab, setActiveTab] = useState<ProviderType>("gmail");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -139,6 +148,11 @@ export function CommunicationProviders() {
   // Fetch Outlook connection status (OAuth-based)
   const { data: outlookStatus, isLoading: isOutlookLoading, refetch: refetchOutlookStatus } = useQuery<OutlookStatus>({
     queryKey: ['/api/emails/connection-status/outlook'],
+  });
+
+  // Fetch RingCentral connection status (OAuth-based)
+  const { data: ringCentralStatus, isLoading: isRingCentralLoading, refetch: refetchRingCentralStatus } = useQuery<RingCentralStatus>({
+    queryKey: ['/api/sms/connection-status'],
   });
 
   // Mutation to disconnect Gmail
@@ -199,6 +213,34 @@ export function CommunicationProviders() {
       description: "Outlook integration requires Microsoft OAuth configuration. Please contact your administrator.",
       variant: "destructive",
     });
+  };
+
+  // Mutation to disconnect RingCentral
+  const disconnectRingCentralMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/auth/disconnect-ringcentral');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/sms/connection-status'] });
+      toast({
+        title: "RingCentral Disconnected",
+        description: "Your RingCentral account has been disconnected.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect RingCentral. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Handle connect RingCentral button click
+  const handleConnectRingCentral = () => {
+    // Redirect to the RingCentral OAuth connection route
+    window.location.href = '/api/auth/connect-ringcentral';
   };
 
   // Fetch providers
@@ -639,19 +681,108 @@ export function CommunicationProviders() {
                   </>
                 )}
 
-                {/* Show RingCentral/Twilio provider configuration */}
-                {(type === "ringcentral" || type === "twilio") && (isLoading ? (
+                {/* Show RingCentral connection status */}
+                {type === "ringcentral" && (
+                  <>
+                    {isRingCentralLoading ? (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+                        Checking RingCentral connection...
+                      </div>
+                    ) : ringCentralStatus?.connected ? (
+                      <div className="py-6 border rounded-md bg-green-50/50 dark:bg-green-900/20">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 flex items-center gap-1 text-sm px-3 py-1">
+                              <Check className="h-4 w-4" />
+                              RingCentral Connected
+                            </Badge>
+                          </div>
+                          {ringCentralStatus.phoneNumber && (
+                            <p className="text-sm text-muted-foreground">
+                              Connected as <strong>{ringCentralStatus.phoneNumber}</strong>
+                            </p>
+                          )}
+                          <div className="flex gap-2 mt-2">
+                            <Button variant="outline" size="sm" asChild data-testid="btn-go-to-communications-ringcentral">
+                              <Link to="/communications">
+                                <Phone className="h-4 w-4 mr-2" />
+                                Go to Communications
+                              </Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  disabled={disconnectRingCentralMutation.isPending}
+                                  data-testid="btn-disconnect-ringcentral"
+                                >
+                                  {disconnectRingCentralMutation.isPending ? (
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Trash className="h-4 w-4 mr-2" />
+                                  )}
+                                  Disconnect
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Disconnect RingCentral?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will remove the RingCentral connection from your account. You won't be able to send or receive SMS until you reconnect.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => disconnectRingCentralMutation.mutate()}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  >
+                                    Disconnect
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            RingCentral is connected via OAuth. Use the Communications page to send and view SMS messages.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-8 text-center border rounded-md">
+                        <Phone className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <p className="text-muted-foreground mb-4">RingCentral not connected</p>
+                        <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+                          Connect your RingCentral account to send SMS messages, receive notifications, and communicate with clients via text.
+                        </p>
+                        <Button
+                          onClick={handleConnectRingCentral}
+                          className="flex items-center gap-2"
+                          data-testid="btn-connect-ringcentral"
+                        >
+                          <Phone className="h-4 w-4" />
+                          Connect RingCentral Account
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Show Twilio provider configuration */}
+                {type === "twilio" && (isLoading ? (
                   <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
                 ) : filteredProviders.length === 0 ? (
                   <div className="py-8 text-center border rounded-md">
-                    <p className="text-muted-foreground mb-4">No {type} providers configured</p>
+                    <p className="text-muted-foreground mb-4">No Twilio providers configured</p>
                     <Button
                       variant="outline"
                       onClick={() => {
                         createForm.reset({
-                          type: type as ProviderType,
+                          type: "twilio" as ProviderType,
                           name: "",
-                          isDefault: true, // First one is default
+                          isDefault: true,
                           isActive: true,
                           clientId: null,
                           clientSecret: null,
@@ -667,7 +798,7 @@ export function CommunicationProviders() {
                       className="flex items-center gap-2"
                     >
                       <Plus className="h-4 w-4" />
-                      <span>Add {type} Provider</span>
+                      <span>Add Twilio Provider</span>
                     </Button>
                   </div>
                 ) : (
@@ -712,18 +843,7 @@ export function CommunicationProviders() {
                             )}
                           </TableCell>
                           <TableCell>
-                            {type === "gmail" && (
-                              <span>{provider.clientId ? "Configured" : "Not configured"}</span>
-                            )}
-                            {type === "outlook" && (
-                              <span>{provider.clientId ? "Configured" : "Not configured"}</span>
-                            )}
-                            {type === "ringcentral" && (
-                              <span>{provider.clientId ? "Configured" : "Not configured"}</span>
-                            )}
-                            {type === "twilio" && (
-                              <span>{provider.accountSid ? "Configured" : "Not configured"}</span>
-                            )}
+                            <span>{provider.accountSid ? "Configured" : "Not configured"}</span>
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-2">
@@ -778,7 +898,9 @@ export function CommunicationProviders() {
               <CardFooter className="border-t p-4 flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
                   {type === "gmail" && gmailStatus?.connected
-                    ? "Gmail connected via Replit integration"
+                    ? "Gmail connected via Google OAuth"
+                    : type === "ringcentral" && ringCentralStatus?.connected
+                    ? "RingCentral connected via OAuth"
                     : filteredProviders.length > 0
                     ? `${filteredProviders.length} ${
                         filteredProviders.length === 1 ? "provider" : "providers"

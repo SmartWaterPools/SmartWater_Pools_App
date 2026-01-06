@@ -11,6 +11,7 @@ import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } 
 import { useIsMobile } from '@/hooks/use-mobile';
 import ClientAddressMap from '@/components/maps/ClientAddressMap';
 import { EntityEmailList } from '@/components/communications/EntityEmailList';
+import { EntitySMSList } from '@/components/communications/EntitySMSList';
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
@@ -1205,11 +1206,19 @@ export default function ClientDetails() {
         </TabsContent>
 
         <TabsContent value="communications">
-          <EntityEmailList
-            entityType="client"
-            entityId={client.client.id}
-            entityName={client.user.name}
-          />
+          <div className="space-y-6">
+            <EntityEmailList
+              entityType="client"
+              entityId={client.client.id}
+              entityName={client.user.name}
+            />
+            <EntitySMSList
+              entityType="client"
+              entityId={client.client.id}
+              entityName={client.user.name}
+              entityPhone={client.user.phone || undefined}
+            />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -36,8 +36,11 @@ import {
   User,
   XCircle,
   ChevronDown,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare,
+  Navigation
 } from "lucide-react";
+import { apiRequest } from "../../lib/queryClient";
 import { MaintenanceWithDetails, TechnicianWithUser, formatDate, getStatusClasses } from "../../lib/types";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "../../lib/queryClient";
@@ -75,6 +78,53 @@ export function MaintenanceListView({
   });
   
   const { toast } = useToast();
+  
+  // Check RingCentral SMS connection status
+  const { data: smsStatus } = useQuery<{ connected: boolean; phoneNumber?: string }>({
+    queryKey: ['/api/sms/connection-status'],
+    staleTime: 60 * 1000
+  });
+  
+  // SMS mutations
+  const sendOnTheWaySms = useMutation({
+    mutationFn: async (maintenanceId: number) => {
+      const res = await apiRequest('POST', '/api/sms/send-on-the-way', { maintenanceId });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "SMS Sent",
+        description: "On The Way notification sent to client.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "SMS Failed",
+        description: error.message || "Could not send SMS notification.",
+        variant: "destructive",
+      });
+    },
+  });
+  
+  const sendJobCompleteSms = useMutation({
+    mutationFn: async (maintenanceId: number) => {
+      const res = await apiRequest('POST', '/api/sms/send-job-complete', { maintenanceId });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "SMS Sent",
+        description: "Job Complete notification sent to client.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "SMS Failed",
+        description: error.message || "Could not send SMS notification.",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Mutation for updating technician assignment
   const updateTechnicianMutation = useMutation({
@@ -352,6 +402,28 @@ export function MaintenanceListView({
                           </DropdownMenuItem>
                         </>
                       )}
+                      {smsStatus?.connected && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuLabel>SMS Notifications</DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onClick={() => sendOnTheWaySms.mutate(maintenance.id)}
+                            disabled={sendOnTheWaySms.isPending}
+                            data-testid="button-send-on-the-way-sms"
+                          >
+                            <Navigation className="h-4 w-4 mr-2" />
+                            {sendOnTheWaySms.isPending ? 'Sending...' : 'Send "On The Way" SMS'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => sendJobCompleteSms.mutate(maintenance.id)}
+                            disabled={sendJobCompleteSms.isPending}
+                            data-testid="button-send-job-complete-sms"
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            {sendJobCompleteSms.isPending ? 'Sending...' : 'Send "Job Complete" SMS'}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </CardFooter>
@@ -481,6 +553,28 @@ export function MaintenanceListView({
                           >
                             <XCircle className="h-4 w-4 mr-2" />
                             Mark as Cancelled
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {smsStatus?.connected && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuLabel>SMS Notifications</DropdownMenuLabel>
+                          <DropdownMenuItem
+                            onClick={() => sendOnTheWaySms.mutate(maintenance.id)}
+                            disabled={sendOnTheWaySms.isPending}
+                            data-testid="button-send-on-the-way-sms-grouped"
+                          >
+                            <Navigation className="h-4 w-4 mr-2" />
+                            {sendOnTheWaySms.isPending ? 'Sending...' : 'Send "On The Way" SMS'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => sendJobCompleteSms.mutate(maintenance.id)}
+                            disabled={sendJobCompleteSms.isPending}
+                            data-testid="button-send-job-complete-sms-grouped"
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            {sendJobCompleteSms.isPending ? 'Sending...' : 'Send "Job Complete" SMS'}
                           </DropdownMenuItem>
                         </>
                       )}

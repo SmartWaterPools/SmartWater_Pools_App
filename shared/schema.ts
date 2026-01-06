@@ -449,3 +449,60 @@ export const insertScheduledEmailSchema = createInsertSchema(scheduledEmails).om
 
 export type InsertScheduledEmail = z.infer<typeof insertScheduledEmailSchema>;
 export type ScheduledEmail = typeof scheduledEmails.$inferSelect;
+
+// SMS Messages table - stores sent/received SMS messages
+export const smsMessages = pgTable("sms_messages", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").notNull(), // FK to communication_providers (RingCentral)
+  externalId: text("external_id"), // RingCentral message ID
+  direction: text("direction").notNull().default("outbound"), // inbound, outbound
+  fromNumber: text("from_number").notNull(),
+  toNumber: text("to_number").notNull(),
+  body: text("body").notNull(),
+  status: text("status").notNull().default("pending"), // pending, sent, delivered, failed
+  errorMessage: text("error_message"),
+  sentAt: timestamp("sent_at"),
+  deliveredAt: timestamp("delivered_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  organizationId: integer("organization_id"),
+  // Related entities for tracking
+  clientId: integer("client_id"),
+  maintenanceId: integer("maintenance_id"),
+  repairId: integer("repair_id"),
+  projectId: integer("project_id"),
+  // Message type for categorization
+  messageType: text("message_type"), // 'on_the_way', 'job_complete', 'reminder', 'verification', 'custom'
+  sentBy: integer("sent_by"), // User who sent the message
+});
+
+export const insertSmsMessageSchema = createInsertSchema(smsMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSmsMessage = z.infer<typeof insertSmsMessageSchema>;
+export type SmsMessage = typeof smsMessages.$inferSelect;
+
+// SMS Templates table - reusable SMS templates for notifications
+export const smsTemplates = pgTable("sms_templates", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  category: text("category").notNull(), // 'on_the_way', 'job_complete', 'reminder', 'verification', 'marketing', 'custom'
+  body: text("body").notNull(),
+  variables: text("variables").array(), // List of template variables like {{client_name}}, {{tech_name}}
+  isActive: boolean("is_active").default(true),
+  isSystemTemplate: boolean("is_system_template").default(false), // Built-in templates
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+  organizationId: integer("organization_id"),
+});
+
+export const insertSmsTemplateSchema = createInsertSchema(smsTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSmsTemplate = z.infer<typeof insertSmsTemplateSchema>;
+export type SmsTemplate = typeof smsTemplates.$inferSelect;
