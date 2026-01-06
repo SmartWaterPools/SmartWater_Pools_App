@@ -40,6 +40,7 @@ export interface FetchEmailsOptions {
   pageToken?: string | null;
   starredOnly?: boolean;
   includeSent?: boolean;
+  searchQuery?: string | null;
 }
 
 export interface FetchEmailsResult {
@@ -55,7 +56,7 @@ export async function fetchGmailEmailsTransient(
   userTokens: UserTokens,
   options: FetchEmailsOptions = {}
 ): Promise<FetchEmailsResult> {
-  const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false } = options;
+  const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false, searchQuery = null } = options;
   
   const result: FetchEmailsResult = {
     success: true,
@@ -75,12 +76,17 @@ export async function fetchGmailEmailsTransient(
       maxResults
     };
 
-    // Build filter based on options:
+    // When searching, use Gmail's q parameter instead of labelIds
+    // Otherwise, build filter based on options:
     // - Default: INBOX only
     // - starredOnly=true: STARRED label (gets starred from anywhere)
     // - includeSent=true: INBOX + SENT labels
     // - Both true: STARRED label only (starred emails from anywhere)
-    if (starredOnly) {
+    if (searchQuery && searchQuery.trim()) {
+      // Use Gmail search query - this searches across all emails
+      listParams.q = searchQuery.trim();
+      console.log('Searching Gmail with query:', listParams.q);
+    } else if (starredOnly) {
       // When starredOnly is true, use STARRED label (covers all starred emails)
       listParams.labelIds = ['STARRED'];
     } else if (includeSent) {

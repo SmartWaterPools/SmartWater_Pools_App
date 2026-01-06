@@ -99,6 +99,7 @@ export default function Communications() {
   
   // Search
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeSearchQuery, setActiveSearchQuery] = useState<string | null>(null);
   
   const { toast } = useToast();
   
@@ -130,12 +131,13 @@ export default function Communications() {
 
   // Fetch emails mutation (transient - not saved to database)
   const fetchEmailsMutation = useMutation({
-    mutationFn: async ({ pageToken, appendEmails = false }: { pageToken?: string | null; appendEmails?: boolean }) => {
+    mutationFn: async ({ pageToken, appendEmails = false, searchQuery: queryToSearch = null }: { pageToken?: string | null; appendEmails?: boolean; searchQuery?: string | null }) => {
       const response = await apiRequest('POST', '/api/emails/fetch', { 
         maxResults: 20,
         pageToken,
         starredOnly,
-        includeSent
+        includeSent,
+        searchQuery: queryToSearch
       });
       return { data: await response.json(), appendEmails };
     },
@@ -262,31 +264,27 @@ export default function Communications() {
   const hasSmsProvider = smsProviders.length > 0;
   const hasVoiceProvider = voiceProviders.length > 0;
 
-  // Search filter and pagination
-  const filteredEmails = transientEmails.filter(email => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      email.subject?.toLowerCase().includes(query) ||
-      email.fromEmail?.toLowerCase().includes(query) ||
-      email.fromName?.toLowerCase().includes(query) ||
-      email.snippet?.toLowerCase().includes(query)
-    );
-  });
-  
-  const totalPages = Math.ceil(filteredEmails.length / EMAILS_PER_PAGE);
-  const paginatedEmails = filteredEmails.slice(
+  // Pagination (no local filtering - search is done via API)
+  const totalPages = Math.ceil(transientEmails.length / EMAILS_PER_PAGE);
+  const paginatedEmails = transientEmails.slice(
     (currentPage - 1) * EMAILS_PER_PAGE,
     currentPage * EMAILS_PER_PAGE
   );
 
-  const handleFetchEmails = (loadMore: boolean = false) => {
+  const handleFetchEmails = (loadMore: boolean = false, search: string | null = null) => {
     const pageToken = loadMore ? nextPageToken : null;
-    fetchEmailsMutation.mutate({ pageToken, appendEmails: loadMore });
+    fetchEmailsMutation.mutate({ pageToken, appendEmails: loadMore, searchQuery: search });
+  };
+
+  const handleSearch = () => {
+    const query = searchQuery.trim() || null;
+    setActiveSearchQuery(query);
+    setCurrentPage(1);
+    handleFetchEmails(false, query);
   };
 
   const handleFetchMore = () => {
-    handleFetchEmails(true);
+    handleFetchEmails(true, activeSearchQuery);
   };
 
   const handleSendToClient = (email: TransientEmail) => {
@@ -456,21 +454,36 @@ export default function Communications() {
             <div className="flex justify-between">
               <div className="flex gap-2">
                 <Input 
-                  placeholder="Search emails..." 
+                  placeholder="Search inbox..." 
                   className="w-64" 
                   value={searchQuery}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setCurrentPage(1);
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleSearch();
+                    }
                   }}
                   data-testid="input-search-emails" 
                 />
+                <Button
+                  variant="outline"
+                  onClick={handleSearch}
+                  disabled={fetchEmailsMutation.isPending}
+                  data-testid="button-search-emails"
+                >
+                  <Search className="h-4 w-4 mr-2" />
+                  Search
+                </Button>
               </div>
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
                   disabled={!hasEmailProvider || fetchEmailsMutation.isPending}
-                  onClick={() => handleFetchEmails()}
+                  onClick={() => {
+                    setSearchQuery("");
+                    setActiveSearchQuery(null);
+                    handleFetchEmails();
+                  }}
                   data-testid="button-sync-emails"
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${fetchEmailsMutation.isPending ? 'animate-spin' : ''}`} />
@@ -585,21 +598,21 @@ export default function Communications() {
                     </div>
                   ))}
                 </div>
-              ) : filteredEmails.length === 0 ? (
+              ) : transientEmails.length === 0 ? (
                 <div className="space-y-2">
                   <div className="bg-muted rounded-md p-6 text-center" data-testid="emails-empty">
                     <Mail className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium">
-                      {searchQuery ? 'No matching emails' : 'No emails loaded'}
+                      {activeSearchQuery ? 'No matching emails' : 'No emails loaded'}
                     </h3>
                     <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
-                      {searchQuery 
-                        ? `No emails match "${searchQuery}". Try a different search term.`
+                      {activeSearchQuery 
+                        ? `No emails match "${activeSearchQuery}". Try a different search term.`
                         : hasEmailProvider 
                           ? "Click 'Sync Emails' to fetch your latest emails from Gmail. Emails are only saved when you link them to a client." 
                           : "Connect your email account to view and link client emails."}
                     </p>
-                    {hasEmailProvider && !searchQuery && (
+                    {hasEmailProvider && !activeSearchQuery && (
                       <Button 
                         className="mt-4" 
                         onClick={() => handleFetchEmails()}
@@ -781,9 +794,7 @@ export default function Communications() {
               <div className="flex w-full justify-between items-center">
                 <div className="text-sm text-muted-foreground" data-testid="text-email-count">
                   {transientEmails.length > 0 
-                    ? filteredEmails.length > 0
-                      ? `Showing ${(currentPage - 1) * EMAILS_PER_PAGE + 1}-${Math.min(currentPage * EMAILS_PER_PAGE, filteredEmails.length)} of ${filteredEmails.length}${searchQuery ? ' matching' : ''} emails${hasMoreEmails && !searchQuery ? ' (more available)' : ''}`
-                      : `0 matching emails (${transientEmails.length} total loaded)` 
+                    ? `Showing ${(currentPage - 1) * EMAILS_PER_PAGE + 1}-${Math.min(currentPage * EMAILS_PER_PAGE, transientEmails.length)} of ${transientEmails.length} emails${hasMoreEmails ? ' (more available)' : ''}` 
                     : gmailStatus?.connected 
                       ? `Gmail connected as ${gmailStatus.email || 'your account'}`
                       : emailProviders.length > 0
