@@ -138,12 +138,11 @@ router.get('/api/emails/:id', isAuthenticated, async (req: Request, res: Respons
 router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const providerId = req.body.providerId;
+    const providerId = req.body.providerId || 0; // 0 = use OAuth tokens directly
+    const maxResults = req.body.maxResults || 10; // Default to 10 emails
+    const pageToken = req.body.pageToken || null; // For pagination
     
-    if (!providerId) {
-      return res.status(400).json({ error: 'Provider ID is required' });
-    }
-    
+    // Check if user has Gmail OAuth tokens
     const userTokens: UserTokens | undefined = user.gmailAccessToken ? {
       userId: user.id,
       gmailAccessToken: user.gmailAccessToken,
@@ -152,7 +151,11 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
       gmailConnectedEmail: user.gmailConnectedEmail
     } : undefined;
     
-    const result = await syncGmailEmails(providerId, user.organizationId, 50, userTokens);
+    if (!userTokens && !providerId) {
+      return res.status(400).json({ error: 'Gmail not connected. Please connect Gmail in Settings.' });
+    }
+    
+    const result = await syncGmailEmails(providerId, user.organizationId, maxResults, userTokens, pageToken);
     res.json(result);
   } catch (error) {
     console.error('Error syncing emails:', error);

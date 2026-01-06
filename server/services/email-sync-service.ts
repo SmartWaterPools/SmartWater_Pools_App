@@ -7,19 +7,24 @@ interface SyncResult {
   emailsSynced: number;
   emailsLinked: number;
   errors: string[];
+  nextPageToken?: string | null;
+  hasMore: boolean;
 }
 
 export async function syncGmailEmails(
   providerId: number,
   organizationId: number,
-  maxResults: number = 50,
-  userTokens?: UserTokens
+  maxResults: number = 10,
+  userTokens?: UserTokens,
+  pageToken?: string | null
 ): Promise<SyncResult> {
   const result: SyncResult = {
     success: true,
     emailsSynced: 0,
     emailsLinked: 0,
-    errors: []
+    errors: [],
+    nextPageToken: null,
+    hasMore: false
   };
 
   try {
@@ -35,11 +40,22 @@ export async function syncGmailEmails(
     const profile = await getGmailProfile(userTokens);
     const profileEmail = profile?.emailAddress?.toLowerCase() || '';
     
-    const response = await gmail.users.messages.list({
+    const listParams: any = {
       userId: 'me',
       maxResults,
       q: 'in:inbox OR in:sent'
-    });
+    };
+    
+    // Add pageToken for pagination
+    if (pageToken) {
+      listParams.pageToken = pageToken;
+    }
+    
+    const response = await gmail.users.messages.list(listParams);
+    
+    // Store next page token for pagination
+    result.nextPageToken = response.data.nextPageToken || null;
+    result.hasMore = !!response.data.nextPageToken;
 
     if (!response.data.messages) {
       return result;

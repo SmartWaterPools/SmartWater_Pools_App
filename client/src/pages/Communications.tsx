@@ -67,6 +67,8 @@ export default function Communications() {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   const [composeData, setComposeData] = useState({ to: "", subject: "", body: "" });
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [hasMoreEmails, setHasMoreEmails] = useState(false);
   const { toast } = useToast();
   
   const { data: emailProviders = [], isLoading: isLoadingEmailProviders } = useQuery<CommunicationProvider[]>({
@@ -95,13 +97,22 @@ export default function Communications() {
   });
 
   const syncEmailsMutation = useMutation({
-    mutationFn: async (providerId: number) => {
-      const response = await apiRequest('POST', '/api/emails/sync', { providerId });
+    mutationFn: async ({ providerId, pageToken }: { providerId?: number; pageToken?: string | null }) => {
+      const response = await apiRequest('POST', '/api/emails/sync', { 
+        providerId: providerId || 0,
+        maxResults: 10,
+        pageToken 
+      });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { emailsSynced: number; nextPageToken?: string | null; hasMore: boolean }) => {
       queryClient.invalidateQueries({ queryKey: ['/api/emails'] });
-      toast({ title: "Emails Synced", description: "Your emails have been synced successfully." });
+      setNextPageToken(data.nextPageToken || null);
+      setHasMoreEmails(data.hasMore);
+      toast({ 
+        title: "Emails Synced", 
+        description: `${data.emailsSynced} new emails synced.${data.hasMore ? ' More emails available.' : ''}`
+      });
     },
     onError: (error: Error) => {
       toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
@@ -129,16 +140,22 @@ export default function Communications() {
   const hasSmsProvider = smsProviders.length > 0;
   const hasVoiceProvider = voiceProviders.length > 0;
 
-  const handleSyncEmails = () => {
+  const handleSyncEmails = (loadMore: boolean = false) => {
+    const pageToken = loadMore ? nextPageToken : null;
+    
     // If Gmail connector is connected, use it directly (no providerId needed)
     if (gmailStatus?.connected) {
-      syncEmailsMutation.mutate(0); // 0 indicates use Gmail connector
+      syncEmailsMutation.mutate({ providerId: 0, pageToken });
     } else {
       const providerId = emailProviders[0]?.id;
       if (providerId) {
-        syncEmailsMutation.mutate(providerId);
+        syncEmailsMutation.mutate({ providerId, pageToken });
       }
     }
+  };
+
+  const handleSyncMore = () => {
+    handleSyncEmails(true);
   };
 
   const handleSendEmail = () => {
@@ -289,7 +306,7 @@ export default function Communications() {
               <Button 
                 variant="outline" 
                 disabled={!hasEmailProvider || syncEmailsMutation.isPending}
-                onClick={handleSyncEmails}
+                onClick={() => handleSyncEmails()}
                 data-testid="button-sync-emails"
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${syncEmailsMutation.isPending ? 'animate-spin' : ''}`} />
@@ -395,7 +412,7 @@ export default function Communications() {
                     {hasEmailProvider && (
                       <Button 
                         className="mt-4" 
-                        onClick={handleSyncEmails}
+                        onClick={() => handleSyncEmails()}
                         disabled={syncEmailsMutation.isPending}
                         data-testid="button-sync-emails-empty"
                       >
@@ -500,17 +517,31 @@ export default function Communications() {
               <div className="flex w-full justify-between items-center">
                 <div className="text-sm text-muted-foreground" data-testid="text-email-count">
                   {emails.length > 0 
-                    ? `${emails.length} email${emails.length === 1 ? '' : 's'}` 
+                    ? `${emails.length} email${emails.length === 1 ? '' : 's'} synced${hasMoreEmails ? ' (more available)' : ''}` 
                     : hasEmailProvider 
                       ? `${emailProviders.length} email ${emailProviders.length === 1 ? 'provider' : 'providers'} configured` 
                       : "No email providers configured"}
                 </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/settings">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Manage Providers
-                  </Link>
-                </Button>
+                <div className="flex gap-2">
+                  {hasMoreEmails && emails.length > 0 && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleSyncMore}
+                      disabled={syncEmailsMutation.isPending}
+                      data-testid="button-sync-more"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${syncEmailsMutation.isPending ? 'animate-spin' : ''}`} />
+                      {syncEmailsMutation.isPending ? 'Syncing...' : 'Sync More'}
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" asChild>
+                    <Link to="/settings">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Manage Providers
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </CardFooter>
           </Card>
