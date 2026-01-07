@@ -1058,14 +1058,14 @@ export default function Communications() {
                             <div>
                               <Label htmlFor="client-select">Client (optional)</Label>
                               <Select 
-                                value={selectedClientId?.toString() || ""} 
-                                onValueChange={(val) => setSelectedClientId(val ? Number(val) : null)}
+                                value={selectedClientId?.toString() || "none"} 
+                                onValueChange={(val) => setSelectedClientId(val && val !== "none" ? Number(val) : null)}
                               >
                                 <SelectTrigger className="mt-2" data-testid="select-client">
                                   <SelectValue placeholder="Choose a client..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {clients.map((client) => (
                                     <SelectItem key={client.id} value={client.id.toString()}>
                                       {client.user?.name || 'Unknown'} ({client.user?.email || 'No email'})
@@ -1089,14 +1089,14 @@ export default function Communications() {
                             <div>
                               <Label htmlFor="email-vendor-select">Vendor (optional)</Label>
                               <Select 
-                                value={selectedEmailVendorId?.toString() || ""} 
-                                onValueChange={(val) => setSelectedEmailVendorId(val ? Number(val) : null)}
+                                value={selectedEmailVendorId?.toString() || "none"} 
+                                onValueChange={(val) => setSelectedEmailVendorId(val && val !== "none" ? Number(val) : null)}
                               >
                                 <SelectTrigger className="mt-2" data-testid="select-email-vendor">
                                   <SelectValue placeholder="Choose a vendor..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {vendors.map((vendor) => (
                                     <SelectItem key={vendor.id} value={vendor.id.toString()}>
                                       {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
@@ -1109,14 +1109,14 @@ export default function Communications() {
                             <div>
                               <Label htmlFor="email-project-select">Project/Job (optional)</Label>
                               <Select 
-                                value={selectedEmailProjectId?.toString() || ""} 
-                                onValueChange={(val) => setSelectedEmailProjectId(val ? Number(val) : null)}
+                                value={selectedEmailProjectId?.toString() || "none"} 
+                                onValueChange={(val) => setSelectedEmailProjectId(val && val !== "none" ? Number(val) : null)}
                               >
                                 <SelectTrigger className="mt-2" data-testid="select-email-project">
                                   <SelectValue placeholder="Choose a project..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {projects.map((project) => (
                                     <SelectItem key={project.id} value={project.id.toString()}>
                                       {project.name} ({project.status})
@@ -1609,14 +1609,14 @@ export default function Communications() {
                     <div>
                       <Label htmlFor="sms-client-select">Client (optional)</Label>
                       <Select 
-                        value={selectedSmsClientId?.toString() || ""} 
-                        onValueChange={(val) => setSelectedSmsClientId(val ? Number(val) : null)}
+                        value={selectedSmsClientId?.toString() || "none"} 
+                        onValueChange={(val) => setSelectedSmsClientId(val && val !== "none" ? Number(val) : null)}
                       >
                         <SelectTrigger className="mt-2" data-testid="select-sms-client-link">
                           <SelectValue placeholder="Choose a client..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {clients.map((client) => (
                             <SelectItem key={client.id} value={client.id.toString()}>
                               {client.user?.name || 'Unknown'} {client.user?.phone ? `- ${client.user.phone}` : `(${client.user?.email || 'No contact'})`}
@@ -1646,14 +1646,14 @@ export default function Communications() {
                     <div>
                       <Label htmlFor="sms-vendor-select">Vendor (optional)</Label>
                       <Select 
-                        value={selectedSmsVendorId?.toString() || ""} 
-                        onValueChange={(val) => setSelectedSmsVendorId(val ? Number(val) : null)}
+                        value={selectedSmsVendorId?.toString() || "none"} 
+                        onValueChange={(val) => setSelectedSmsVendorId(val && val !== "none" ? Number(val) : null)}
                       >
                         <SelectTrigger className="mt-2" data-testid="select-sms-vendor-link">
                           <SelectValue placeholder="Choose a vendor..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {vendors.map((vendor) => (
                             <SelectItem key={vendor.id} value={vendor.id.toString()}>
                               {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
@@ -1666,14 +1666,14 @@ export default function Communications() {
                     <div>
                       <Label htmlFor="sms-project-select">Project/Job (optional)</Label>
                       <Select 
-                        value={selectedSmsProjectId?.toString() || ""} 
-                        onValueChange={(val) => setSelectedSmsProjectId(val ? Number(val) : null)}
+                        value={selectedSmsProjectId?.toString() || "none"} 
+                        onValueChange={(val) => setSelectedSmsProjectId(val && val !== "none" ? Number(val) : null)}
                       >
                         <SelectTrigger className="mt-2" data-testid="select-sms-project-link">
                           <SelectValue placeholder="Choose a project..." />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           {projects.map((project) => (
                             <SelectItem key={project.id} value={project.id.toString()}>
                               {project.name} ({project.status})
