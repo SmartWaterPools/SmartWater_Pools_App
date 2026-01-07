@@ -3,7 +3,7 @@ import { ringCentralService, replaceTemplateVariables } from '../ringcentral-ser
 import { storage } from '../storage';
 import { db } from '../db';
 import { isAuthenticated } from '../auth';
-import { type User, smsTemplates, insertSmsTemplateSchema, bazzaMaintenanceAssignments, bazzaRouteStops, bazzaRoutes, users, clients, technicians, organizations } from '@shared/schema';
+import { type User, smsTemplates, smsMessages, insertSmsTemplateSchema, bazzaMaintenanceAssignments, bazzaRouteStops, bazzaRoutes, users, clients, technicians, organizations } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -225,6 +225,39 @@ router.post('/sync', isAuthenticated, async (req: Request, res: Response) => {
   } catch (error) {
     console.error('Error syncing SMS messages:', error);
     res.status(500).json({ error: 'Failed to sync messages' });
+  }
+});
+
+// Link SMS message to a client
+router.patch('/messages/:id/link', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as User;
+    if (!user?.organizationId) {
+      return res.status(400).json({ success: false, error: 'Organization not found' });
+    }
+
+    const messageId = parseInt(req.params.id);
+    const { clientId } = req.body;
+
+    if (!clientId) {
+      return res.status(400).json({ success: false, error: 'Client ID is required' });
+    }
+
+    // Update the SMS message with the client ID
+    await db.update(smsMessages)
+      .set({ clientId: parseInt(clientId) })
+      .where(and(
+        eq(smsMessages.id, messageId),
+        eq(smsMessages.organizationId, user.organizationId)
+      ));
+
+    res.json({ 
+      success: true, 
+      message: 'SMS message linked to client successfully' 
+    });
+  } catch (error) {
+    console.error('Error linking SMS to client:', error);
+    res.status(500).json({ success: false, error: 'Failed to link SMS to client' });
   }
 });
 

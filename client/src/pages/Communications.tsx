@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Mail, MessageSquare, Phone, Search, AlertCircle, Settings, RefreshCw, Send, Check, Circle, Paperclip, Star, UserPlus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Mail, MessageSquare, Phone, Search, AlertCircle, Settings, RefreshCw, Send, Check, Circle, Paperclip, Star, UserPlus, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -128,6 +128,11 @@ export default function Communications() {
   const [composeSmsOpen, setComposeSmsOpen] = useState(false);
   const [composeSmsData, setComposeSmsData] = useState({ to: "", message: "", clientId: "" });
   
+  // SMS link to client dialog
+  const [linkSmsDialogOpen, setLinkSmsDialogOpen] = useState(false);
+  const [smsToLink, setSmsToLink] = useState<SMSMessage | null>(null);
+  const [selectedSmsClientId, setSelectedSmsClientId] = useState<number | null>(null);
+  
   const { toast } = useToast();
   
   const { data: emailProviders = [], isLoading: isLoadingEmailProviders } = useQuery<CommunicationProvider[]>({
@@ -190,6 +195,27 @@ export default function Communications() {
     },
     onError: (error: Error) => {
       toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Link SMS to client mutation
+  const linkSmsMutation = useMutation({
+    mutationFn: async ({ messageId, clientId }: { messageId: number; clientId: number }) => {
+      const response = await apiRequest('PATCH', `/api/sms/messages/${messageId}/link`, { clientId });
+      return response.json();
+    },
+    onSuccess: (data: { success: boolean; message: string }) => {
+      toast({ 
+        title: "SMS Linked", 
+        description: data.message || 'SMS message linked to client'
+      });
+      setLinkSmsDialogOpen(false);
+      setSmsToLink(null);
+      setSelectedSmsClientId(null);
+      refetchSmsMessages();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Link Failed", description: error.message, variant: "destructive" });
     }
   });
 
@@ -403,6 +429,44 @@ export default function Communications() {
     if (client?.user.phone) {
       setComposeSmsData({ ...composeSmsData, to: client.user.phone, clientId });
     }
+  };
+
+  // Normalize phone number for comparison (remove all non-digit characters except +)
+  const normalizePhone = (phone: string): string => {
+    if (!phone) return '';
+    const digits = phone.replace(/[^\d]/g, '');
+    // Return last 10 digits for US numbers to compare
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+  };
+
+  // Handler to open link SMS to client dialog with auto-matching by phone
+  const handleLinkSmsToClient = (message: SMSMessage) => {
+    setSmsToLink(message);
+    setLinkSmsDialogOpen(true);
+    
+    // Try to auto-match client by phone number
+    const phoneToMatch = message.direction === 'inbound' ? message.fromNumber : message.toNumber;
+    const normalizedPhone = normalizePhone(phoneToMatch);
+    
+    const matchingClient = clients.find(c => {
+      if (!c.user.phone) return false;
+      return normalizePhone(c.user.phone) === normalizedPhone;
+    });
+    
+    if (matchingClient) {
+      setSelectedSmsClientId(matchingClient.id);
+    } else {
+      setSelectedSmsClientId(null);
+    }
+  };
+
+  // Confirm linking SMS to client
+  const handleConfirmSmsLink = () => {
+    if (!smsToLink || !selectedSmsClientId) {
+      toast({ title: "Error", description: "Please select a client.", variant: "destructive" });
+      return;
+    }
+    linkSmsMutation.mutate({ messageId: smsToLink.id, clientId: selectedSmsClientId });
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -887,6 +951,67 @@ export default function Communications() {
                 </>
               )}
             </CardContent>
+          
+          {/* SMS Link to Client Dialog */}
+          <Dialog open={linkSmsDialogOpen} onOpenChange={setLinkSmsDialogOpen}>
+            <DialogContent className="sm:max-w-[400px]">
+              <DialogHeader>
+                <DialogTitle>Link SMS to Client</DialogTitle>
+                <DialogDescription>
+                  Select a client to link this SMS message to their record.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <Label htmlFor="sms-client-select">Select Client</Label>
+                <Select 
+                  value={selectedSmsClientId?.toString() || ""} 
+                  onValueChange={(val) => setSelectedSmsClientId(Number(val))}
+                >
+                  <SelectTrigger className="mt-2" data-testid="select-sms-client-link">
+                    <SelectValue placeholder="Choose a client..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clients.map((client) => (
+                      <SelectItem key={client.id} value={client.id.toString()}>
+                        {client.user?.name || 'Unknown'} {client.user?.phone ? `- ${client.user.phone}` : `(${client.user?.email || 'No contact'})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {smsToLink && (
+                  <div className="mt-4 p-3 bg-muted rounded-md text-sm space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {smsToLink.direction === 'inbound' ? 'From:' : 'To:'}
+                      </span>
+                      <span className="font-mono">
+                        {smsToLink.direction === 'inbound' ? smsToLink.fromNumber : smsToLink.toNumber}
+                      </span>
+                    </div>
+                    <p className="border-t pt-2">{smsToLink.body || '(No message content)'}</p>
+                  </div>
+                )}
+                {selectedSmsClientId && (
+                  <div className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                    <Check className="h-4 w-4" />
+                    Client matched by phone number
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setLinkSmsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleConfirmSmsLink}
+                  disabled={!selectedSmsClientId || linkSmsMutation.isPending}
+                  data-testid="button-confirm-sms-link"
+                >
+                  {linkSmsMutation.isPending ? 'Linking...' : 'Link to Client'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
             <CardFooter className="border-t p-4">
               <div className="flex w-full justify-between items-center">
                 <div className="text-sm text-muted-foreground" data-testid="text-email-count">
@@ -1118,8 +1243,10 @@ export default function Communications() {
                         <TableHead>Direction</TableHead>
                         <TableHead>From</TableHead>
                         <TableHead>To</TableHead>
+                        <TableHead className="w-1/3">Message</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Date</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -1132,6 +1259,11 @@ export default function Communications() {
                           </TableCell>
                           <TableCell className="font-mono text-sm">{message.fromNumber}</TableCell>
                           <TableCell className="font-mono text-sm">{message.toNumber}</TableCell>
+                          <TableCell className="text-sm max-w-xs">
+                            <p className="truncate" title={message.body}>
+                              {message.body || <span className="text-muted-foreground italic">No message content</span>}
+                            </p>
+                          </TableCell>
                           <TableCell>
                             <Badge 
                               variant="outline" 
@@ -1147,6 +1279,23 @@ export default function Communications() {
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
                             {message.sentAt ? formatDate(message.sentAt) : formatDate(message.createdAt)}
+                          </TableCell>
+                          <TableCell>
+                            {message.clientId ? (
+                              <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                                Linked
+                              </Badge>
+                            ) : (
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => handleLinkSmsToClient(message)}
+                                data-testid={`button-link-sms-${message.id}`}
+                              >
+                                <Users className="h-4 w-4 mr-1" />
+                                Link
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
