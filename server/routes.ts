@@ -199,60 +199,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: 'Failed to create client' });
     }
   });
-  
-  // Get single client endpoint  
-  app.get('/api/clients/:id', isAuthenticated, async (req, res) => {
-    try {
-      const clientId = parseInt(req.params.id);
-      const client = await storage.getUser(clientId);
-      
-      // Check if client exists and belongs to the same organization
-      if (!client || client.role !== 'client') {
-        return res.status(404).json({ error: 'Client not found' });
-      }
-      
-      // Verify organization access - critical security check
-      const authUser = req.user as User;
-      if (client.organizationId !== authUser?.organizationId) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-      
-      // Sanitize client data - remove sensitive fields
-      const sanitizedClient = {
-        id: client.id,
-        username: client.username,
-        name: client.name,
-        email: client.email,
-        role: client.role,
-        phone: client.phone,
-        address: client.address,
-        addressLat: client.addressLat,
-        addressLng: client.addressLng,
-        active: client.active,
-        organizationId: client.organizationId,
-        authProvider: client.authProvider
-        // Explicitly exclude: password, googleId, photoUrl
-      };
-      
-      // Return client data in the expected format
-      res.json({
-        client: {
-          id: client.id,
-          companyName: null, // Will need to add this field to users table later
-          contractType: 'residential', // Default value for now
-          latitude: client.addressLat ? parseFloat(client.addressLat) : null,
-          longitude: client.addressLng ? parseFloat(client.addressLng) : null
-        },
-        user: sanitizedClient,
-        // Add convenience fields
-        address: client.address,
-        phone: client.phone
-      });
-    } catch (error) {
-      console.error('Get client error:', error);
-      res.status(500).json({ error: 'Failed to get client' });
-    }
-  });
 
   // Export clients as CSV
   app.get('/api/clients/export', isAuthenticated, async (req, res) => {
@@ -406,6 +352,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Import clients error:', error);
       res.status(500).json({ error: 'Failed to import clients' });
+    }
+  });
+  
+  // Get single client endpoint  
+  app.get('/api/clients/:id', isAuthenticated, async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      const client = await storage.getUser(clientId);
+      
+      // Check if client exists and belongs to the same organization
+      if (!client || client.role !== 'client') {
+        return res.status(404).json({ error: 'Client not found' });
+      }
+      
+      // Verify organization access - critical security check
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Sanitize client data - remove sensitive fields
+      const sanitizedClient = {
+        id: client.id,
+        username: client.username,
+        name: client.name,
+        email: client.email,
+        role: client.role,
+        phone: client.phone,
+        address: client.address,
+        addressLat: client.addressLat,
+        addressLng: client.addressLng,
+        active: client.active,
+        organizationId: client.organizationId,
+        authProvider: client.authProvider
+        // Explicitly exclude: password, googleId, photoUrl
+      };
+      
+      // Return client data in the expected format
+      res.json({
+        client: {
+          id: client.id,
+          companyName: null, // Will need to add this field to users table later
+          contractType: 'residential', // Default value for now
+          latitude: client.addressLat ? parseFloat(client.addressLat) : null,
+          longitude: client.addressLng ? parseFloat(client.addressLng) : null
+        },
+        user: sanitizedClient,
+        // Add convenience fields
+        address: client.address,
+        phone: client.phone
+      });
+    } catch (error) {
+      console.error('Get client error:', error);
+      res.status(500).json({ error: 'Failed to get client' });
     }
   });
 
