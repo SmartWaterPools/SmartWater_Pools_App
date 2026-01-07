@@ -231,7 +231,7 @@ router.post('/api/emails/fetch', isAuthenticated, async (req: Request, res: Resp
   }
 });
 
-// Link schema for saving email to a client
+// Link schema for saving email to entities
 const linkEmailSchema = z.object({
   email: z.object({
     externalId: z.string(),
@@ -253,10 +253,12 @@ const linkEmailSchema = z.object({
     labels: z.array(z.string()).nullable(),
     receivedAt: z.string().nullable()
   }),
-  clientId: z.number()
+  clientId: z.number().nullable().optional(),
+  vendorId: z.number().nullable().optional(),
+  projectId: z.number().nullable().optional()
 });
 
-// Save email and link to client (only saves when explicitly linked)
+// Save email and link to entities (only saves when explicitly linked)
 router.post('/api/emails/link', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
@@ -266,12 +268,19 @@ router.post('/api/emails/link', isAuthenticated, async (req: Request, res: Respo
       return res.status(400).json({ error: 'Invalid request data', details: validation.error.errors });
     }
 
-    const { email, clientId } = validation.data;
+    const { email, clientId, vendorId, projectId } = validation.data;
 
-    // Verify client belongs to user's organization
-    const client = await storage.getUser(clientId);
-    if (!client || client.organizationId !== user.organizationId) {
-      return res.status(403).json({ error: 'Access denied to this client' });
+    // Validate that at least one entity is provided
+    if (!clientId && !vendorId && !projectId) {
+      return res.status(400).json({ error: 'At least one entity (client, vendor, or project) is required' });
+    }
+
+    // Verify client belongs to user's organization if provided
+    if (clientId) {
+      const client = await storage.getUser(clientId);
+      if (!client || client.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied to this client' });
+      }
     }
 
     // Check if email already exists by externalId
@@ -307,30 +316,63 @@ router.post('/api/emails/link', isAuthenticated, async (req: Request, res: Respo
       savedEmailId = savedEmail.id;
     }
 
-    // Check if link already exists
-    const existingLinks = await storage.getEmailLinksByClient(clientId);
-    const alreadyLinked = existingLinks.some(link => link.emailId === savedEmailId);
+    const linksCreated: string[] = [];
 
-    if (!alreadyLinked) {
-      // Create the link to client
-      const linkData: InsertEmailLink = {
-        emailId: savedEmailId,
-        linkType: 'client',
-        clientId: clientId,
-        isAutoLinked: false
-      };
+    // Link to client if provided
+    if (clientId) {
+      const existingLinks = await storage.getEmailLinksByClient(clientId);
+      const alreadyLinked = existingLinks.some(link => link.emailId === savedEmailId);
 
-      await storage.createEmailLink(linkData);
+      if (!alreadyLinked) {
+        const linkData: InsertEmailLink = {
+          emailId: savedEmailId,
+          linkType: 'client',
+          clientId: clientId,
+          isAutoLinked: false
+        };
+        await storage.createEmailLink(linkData);
+        linksCreated.push('Client');
+      }
+    }
+
+    // Link to vendor if provided (using communication_links table)
+    if (vendorId) {
+      await storage.createCommunicationLink({
+        organizationId: user.organizationId,
+        communicationType: 'email',
+        communicationId: savedEmailId,
+        entityType: 'vendor',
+        entityId: vendorId,
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      linksCreated.push('Vendor');
+    }
+
+    // Link to project if provided (using communication_links table)
+    if (projectId) {
+      await storage.createCommunicationLink({
+        organizationId: user.organizationId,
+        communicationType: 'email',
+        communicationId: savedEmailId,
+        entityType: 'project',
+        entityId: projectId,
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      linksCreated.push('Project');
     }
 
     res.json({ 
       success: true, 
       emailId: savedEmailId,
-      message: alreadyLinked ? 'Email already linked to this client' : 'Email saved and linked to client'
+      message: linksCreated.length > 0 
+        ? `Email saved and linked to ${linksCreated.join(', ')}` 
+        : 'Email saved (already linked)'
     });
   } catch (error) {
     console.error('Error linking email:', error);
-    res.status(500).json({ error: 'Failed to link email to client' });
+    res.status(500).json({ error: 'Failed to link email' });
   }
 });
 
