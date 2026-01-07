@@ -506,3 +506,52 @@ export const insertSmsTemplateSchema = createInsertSchema(smsTemplates).omit({
 
 export type InsertSmsTemplate = z.infer<typeof insertSmsTemplateSchema>;
 export type SmsTemplate = typeof smsTemplates.$inferSelect;
+
+// Vendors table - subcontractors, suppliers, and other business partners
+export const vendors = pgTable("vendors", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  name: text("name").notNull(),
+  contactName: text("contact_name"),
+  email: text("email"),
+  phone: text("phone"),
+  category: text("category").notNull(), // 'chemical_supplier', 'equipment', 'parts', 'service', 'office', 'other'
+  vendorType: text("vendor_type").notNull().default("supplier"), // 'subcontractor', 'supplier'
+  website: text("website"),
+  address: text("address"),
+  notes: text("notes"),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertVendorSchema = createInsertSchema(vendors).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertVendor = z.infer<typeof insertVendorSchema>;
+export type Vendor = typeof vendors.$inferSelect;
+
+// Communication Links - unified table for linking emails/SMS to multiple entities
+export const communicationLinks = pgTable("communication_links", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  communicationType: text("communication_type").notNull(), // 'sms', 'email'
+  communicationId: integer("communication_id").notNull(), // FK to sms_messages or emails
+  entityType: text("entity_type").notNull(), // 'client', 'vendor', 'project', 'repair', 'maintenance'
+  entityId: integer("entity_id").notNull(), // FK to the entity table
+  linkSource: text("link_source").notNull().default("manual"), // 'manual', 'auto'
+  confidence: integer("confidence"), // Auto-link confidence score (0-100), null for manual
+  linkedBy: integer("linked_by"), // User who created the link (null if auto)
+  linkedAt: timestamp("linked_at").notNull().default(sql`now()`),
+});
+
+export const insertCommunicationLinkSchema = createInsertSchema(communicationLinks).omit({
+  id: true,
+  linkedAt: true,
+});
+
+export type InsertCommunicationLink = z.infer<typeof insertCommunicationLinkSchema>;
+export type CommunicationLink = typeof communicationLinks.$inferSelect;
