@@ -187,17 +187,17 @@ router.get('/messages', isAuthenticated, async (req: Request, res: Response) => 
   try {
     const user = req.user as User;
     if (!user?.organizationId) {
-      return res.status(400).json({ error: 'Organization not found' });
+      return res.status(400).json({ success: false, messages: [], error: 'Organization not found' });
     }
 
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
 
     const messages = await ringCentralService.getMessages(user.organizationId, limit, offset);
-    res.json(messages);
+    res.json({ success: true, messages });
   } catch (error) {
     console.error('Error fetching SMS messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    res.status(500).json({ success: false, messages: [], error: 'Failed to fetch messages' });
   }
 });
 
