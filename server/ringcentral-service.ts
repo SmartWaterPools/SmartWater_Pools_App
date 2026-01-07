@@ -1,19 +1,12 @@
-import * as RingCentralSDK from '@ringcentral/sdk';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
-// Resolve the SDK constructor - prefer the named SDK export, then default if it's a function
-const resolveSDK = () => {
-  const exports = RingCentralSDK as any;
-  if (typeof exports.SDK === 'function') return exports.SDK;
-  if (typeof exports.default === 'function') return exports.default;
-  if (typeof exports === 'function') return exports;
-  return null;
-};
+// Use require for better CommonJS/ESM interop with the RingCentral SDK
+const RingCentralModule = require('@ringcentral/sdk');
+const SDK = RingCentralModule.SDK || RingCentralModule.default || RingCentralModule;
 
-const SDK = resolveSDK();
-
-if (!SDK) {
-  console.error('RingCentral SDK import failed - no valid constructor found. Available exports:', Object.keys(RingCentralSDK));
-}
+// Log SDK resolution for debugging
+console.log('RingCentral SDK resolved:', typeof SDK === 'function' ? 'Success' : 'Failed');
 import { storage } from './storage';
 import { db } from './db';
 import { smsMessages, communicationProviders, type CommunicationProvider, type InsertSmsMessage } from '@shared/schema';
