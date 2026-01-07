@@ -102,16 +102,10 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
     mutationFn: async (values: VendorFormValues) => {
       if (vendorToEdit?.id) {
         // Update existing vendor
-        return apiRequest(`/api/business/vendors/${vendorToEdit.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(values),
-        });
+        return apiRequest("PATCH", `/api/vendors/${vendorToEdit.id}`, values);
       } else {
         // Create new vendor
-        return apiRequest("/api/business/vendors", {
-          method: "POST",
-          body: JSON.stringify(values),
-        });
+        return apiRequest("POST", "/api/vendors", values);
       }
     },
     onSuccess: () => {
@@ -121,7 +115,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
           ? "The vendor has been updated successfully."
           : "A new vendor has been created successfully.",
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/business/vendors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendors'] });
       handleClose();
     },
     onError: (error) => {

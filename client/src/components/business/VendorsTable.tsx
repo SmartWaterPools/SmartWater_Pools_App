@@ -47,48 +47,8 @@ export default function VendorsTable({
   onDelete,
   onCreateOrder
 }: VendorsTableProps) {
-  // Mock data for initial UI development
-  const mockData: Vendor[] = [
-    {
-      id: 1,
-      name: "Pool Supply Warehouse",
-      contactName: "John Smith",
-      email: "john@poolsupply.example.com",
-      phone: "555-123-4567",
-      category: "chemical supplier",
-      isActive: true
-    },
-    {
-      id: 2,
-      name: "Equipment Pros",
-      contactName: "Sarah Johnson",
-      email: "sarah@equipmentpros.example.com",
-      phone: "555-987-6543",
-      category: "equipment",
-      isActive: true
-    },
-    {
-      id: 3,
-      name: "Pool Parts Direct",
-      contactName: "Mike Wilson",
-      email: "mike@poolparts.example.com",
-      phone: "555-456-7890",
-      category: "parts",
-      isActive: true
-    },
-    {
-      id: 4,
-      name: "Office Supplies Inc",
-      contactName: "Jessica Brown",
-      email: "jessica@officesupplies.example.com",
-      phone: "555-222-3333",
-      category: "office",
-      isActive: false
-    }
-  ];
-
-  // Use mock data if no real data is provided
-  const vendors = data.length > 0 ? data : mockData;
+  // Use the data from the API
+  const vendors = data;
 
   // Get appropriate badge color for vendor category
   const getCategoryColor = (category: string) => {

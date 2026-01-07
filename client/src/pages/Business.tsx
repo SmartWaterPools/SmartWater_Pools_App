@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   Tabs,
   TabsContent,
@@ -68,18 +70,51 @@ import { InsuranceForm } from "@/components/business/InsuranceForm";
 import { EXPENSE_CATEGORIES } from "@shared/schema";
 
 export default function Business() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [location, setLocation] = useLocation();
   const [showExpenseForm, setShowExpenseForm] = useState(false);
-  // Payroll state removed
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
   const [showPoolReportForm, setShowPoolReportForm] = useState(false);
   const [showVendorForm, setShowVendorForm] = useState(false);
+  const [vendorToEdit, setVendorToEdit] = useState<any>(null);
   const [showPurchaseOrderForm, setShowPurchaseOrderForm] = useState(false);
   const [showInventoryForm, setShowInventoryForm] = useState(false);
   const [showLicenseForm, setShowLicenseForm] = useState(false);
   const [showInsuranceForm, setShowInsuranceForm] = useState(false);
+
+  // Delete vendor mutation
+  const deleteVendorMutation = useMutation({
+    mutationFn: async (vendorId: number) => {
+      return apiRequest("DELETE", `/api/vendors/${vendorId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Vendor deleted", description: "The vendor has been removed successfully." });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendors'] });
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to delete vendor: ${error.message}`, variant: "destructive" });
+    }
+  });
+
+  // Vendor handlers
+  const handleEditVendor = (vendor: any) => {
+    setVendorToEdit(vendor);
+    setShowVendorForm(true);
+  };
+
+  const handleDeleteVendor = (vendorId: number) => {
+    if (confirm("Are you sure you want to delete this vendor?")) {
+      deleteVendorMutation.mutate(vendorId);
+    }
+  };
+
+  const handleCloseVendorForm = () => {
+    setShowVendorForm(false);
+    setVendorToEdit(null);
+  };
 
   // Query for business dashboard data
   const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
@@ -109,7 +144,7 @@ export default function Business() {
 
   // Query for vendors data
   const { data: vendors, isLoading: vendorsLoading } = useQuery<any[]>({
-    queryKey: ['/api/business/vendors'],
+    queryKey: ['/api/vendors'],
     enabled: activeTab === "vendors"
   });
 
@@ -436,12 +471,15 @@ export default function Business() {
           </div>
           {showVendorForm && (
             <VendorForm
-              onClose={() => setShowVendorForm(false)}
+              vendorToEdit={vendorToEdit}
+              onClose={handleCloseVendorForm}
             />
           )}
           <VendorsTable
             data={vendors || []}
             isLoading={vendorsLoading}
+            onEdit={handleEditVendor}
+            onDelete={handleDeleteVendor}
           />
         </TabsContent>
 
