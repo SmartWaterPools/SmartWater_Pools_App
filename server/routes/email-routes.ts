@@ -486,27 +486,128 @@ router.post('/api/emails/send', isAuthenticated, async (req: Request, res: Respo
 
 router.post('/api/emails/:id/link', isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
     const emailId = parseInt(req.params.id);
-    const { linkType, projectId, repairId, clientId, maintenanceId } = req.body;
+    const { clientId, vendorId, projectId, repairId, maintenanceId } = req.body;
     
-    if (!linkType) {
-      return res.status(400).json({ error: 'Link type is required' });
+    // Validate that at least one entity is provided
+    if (!clientId && !vendorId && !projectId && !repairId && !maintenanceId) {
+      return res.status(400).json({ error: 'At least one entity ID is required' });
+    }
+
+    const linksCreated: any[] = [];
+
+    // Create links using the new communication_links table for each entity
+    if (clientId) {
+      await storage.createCommunicationLink({
+        organizationId: user.organizationId,
+        communicationType: 'email',
+        communicationId: emailId,
+        entityType: 'client',
+        entityId: parseInt(clientId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      // Also create legacy email_links for backward compatibility
+      await storage.createEmailLink({
+        emailId,
+        linkType: 'client',
+        clientId: parseInt(clientId),
+        isAutoLinked: false
+      });
+      linksCreated.push({ type: 'client', id: clientId });
+    }
+
+    if (vendorId) {
+      await storage.createCommunicationLink({
+        organizationId: user.organizationId,
+        communicationType: 'email',
+        communicationId: emailId,
+        entityType: 'vendor',
+        entityId: parseInt(vendorId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      linksCreated.push({ type: 'vendor', id: vendorId });
+    }
+
+    if (projectId) {
+      await storage.createCommunicationLink({
+        organizationId: user.organizationId,
+        communicationType: 'email',
+        communicationId: emailId,
+        entityType: 'project',
+        entityId: parseInt(projectId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      await storage.createEmailLink({
+        emailId,
+        linkType: 'project',
+        projectId: parseInt(projectId),
+        isAutoLinked: false
+      });
+      linksCreated.push({ type: 'project', id: projectId });
+    }
+
+    if (repairId) {
+      await storage.createCommunicationLink({
+        organizationId: user.organizationId,
+        communicationType: 'email',
+        communicationId: emailId,
+        entityType: 'repair',
+        entityId: parseInt(repairId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      await storage.createEmailLink({
+        emailId,
+        linkType: 'repair',
+        repairId: parseInt(repairId),
+        isAutoLinked: false
+      });
+      linksCreated.push({ type: 'repair', id: repairId });
+    }
+
+    if (maintenanceId) {
+      await storage.createCommunicationLink({
+        organizationId: user.organizationId,
+        communicationType: 'email',
+        communicationId: emailId,
+        entityType: 'maintenance',
+        entityId: parseInt(maintenanceId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      await storage.createEmailLink({
+        emailId,
+        linkType: 'maintenance',
+        maintenanceId: parseInt(maintenanceId),
+        isAutoLinked: false
+      });
+      linksCreated.push({ type: 'maintenance', id: maintenanceId });
     }
     
-    const link = await storage.createEmailLink({
-      emailId,
-      linkType,
-      projectId: projectId || null,
-      repairId: repairId || null,
-      clientId: clientId || null,
-      maintenanceId: maintenanceId || null,
-      isAutoLinked: false
+    res.json({ 
+      success: true, 
+      message: `Email linked to ${linksCreated.length} entity(ies) successfully`,
+      links: linksCreated 
     });
-    
-    res.json(link);
   } catch (error) {
     console.error('Error linking email:', error);
     res.status(500).json({ error: 'Failed to link email' });
+  }
+});
+
+// Get communication links for an email
+router.get('/api/emails/:id/communication-links', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const emailId = parseInt(req.params.id);
+    const links = await storage.getCommunicationLinks('email', emailId);
+    res.json({ success: true, links });
+  } catch (error) {
+    console.error('Error fetching email links:', error);
+    res.status(500).json({ error: 'Failed to fetch links' });
   }
 });
 
