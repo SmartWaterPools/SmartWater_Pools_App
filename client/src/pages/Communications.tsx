@@ -162,6 +162,32 @@ export default function Communications() {
     enabled: ringCentralStatus?.connected === true
   });
 
+  // Sync SMS messages from RingCentral
+  const syncSmsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/sms/sync');
+      return response.json();
+    },
+    onSuccess: (data: { success: boolean; synced: number; message: string; error?: string }) => {
+      if (data.success) {
+        toast({ 
+          title: "Messages Synced", 
+          description: data.message || `Synced ${data.synced} messages from RingCentral`
+        });
+        refetchSmsMessages();
+      } else {
+        toast({ 
+          title: "Sync Failed", 
+          description: data.error || 'Failed to sync messages',
+          variant: "destructive"
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Sync Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
   // Fetch emails mutation (transient - not saved to database)
   const fetchEmailsMutation = useMutation({
     mutationFn: async ({ pageToken, appendEmails = false, searchQuery: queryToSearch = null }: { pageToken?: string | null; appendEmails?: boolean; searchQuery?: string | null }) => {
@@ -974,12 +1000,12 @@ export default function Communications() {
               {ringCentralStatus?.connected && (
                 <Button 
                   variant="outline" 
-                  onClick={() => refetchSmsMessages()}
-                  disabled={isSmsMessagesLoading}
+                  onClick={() => syncSmsMutation.mutate()}
+                  disabled={syncSmsMutation.isPending || isSmsMessagesLoading}
                   data-testid="button-sync-sms"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${isSmsMessagesLoading ? 'animate-spin' : ''}`} />
-                  {isSmsMessagesLoading ? 'Syncing...' : 'Sync Messages'}
+                  <RefreshCw className={`h-4 w-4 mr-2 ${syncSmsMutation.isPending ? 'animate-spin' : ''}`} />
+                  {syncSmsMutation.isPending ? 'Syncing...' : 'Sync Messages'}
                 </Button>
               )}
               <Dialog open={composeSmsOpen} onOpenChange={setComposeSmsOpen}>
