@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Mail, MessageSquare, Phone, Search, AlertCircle, Settings, RefreshCw, Send, Check, Circle, Paperclip, Star, UserPlus, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { Mail, MessageSquare, Phone, Search, AlertCircle, Settings, RefreshCw, Send, Check, Circle, Paperclip, Star, UserPlus, ChevronLeft, ChevronRight, Users, Eye, Link2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -132,6 +132,9 @@ export default function Communications() {
   const [linkSmsDialogOpen, setLinkSmsDialogOpen] = useState(false);
   const [smsToLink, setSmsToLink] = useState<SMSMessage | null>(null);
   const [selectedSmsClientId, setSelectedSmsClientId] = useState<number | null>(null);
+  
+  // SMS view message dialog
+  const [selectedSmsMessage, setSelectedSmsMessage] = useState<SMSMessage | null>(null);
   
   const { toast } = useToast();
   
@@ -1012,6 +1015,85 @@ export default function Communications() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          
+          {/* SMS View Message Dialog */}
+          <Dialog open={!!selectedSmsMessage} onOpenChange={(open) => !open && setSelectedSmsMessage(null)}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  SMS Message Details
+                </DialogTitle>
+                <DialogDescription>
+                  {selectedSmsMessage?.direction === 'outbound' ? 'Outbound message' : 'Inbound message'}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4" data-testid="sms-detail-modal">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">From:</span>
+                    <p className="font-mono">{selectedSmsMessage?.fromNumber}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">To:</span>
+                    <p className="font-mono">{selectedSmsMessage?.toNumber}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <p>
+                      <Badge 
+                        variant="outline" 
+                        className={`text-xs ${
+                          selectedSmsMessage?.status === 'delivered' ? 'border-green-500 text-green-700' :
+                          selectedSmsMessage?.status === 'sent' ? 'border-blue-500 text-blue-700' :
+                          selectedSmsMessage?.status === 'failed' ? 'border-red-500 text-red-700' :
+                          'border-yellow-500 text-yellow-700'
+                        }`}
+                      >
+                        {selectedSmsMessage?.status ? selectedSmsMessage.status.charAt(0).toUpperCase() + selectedSmsMessage.status.slice(1) : '-'}
+                      </Badge>
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Date:</span>
+                    <p>{selectedSmsMessage?.sentAt ? formatDate(selectedSmsMessage.sentAt) : formatDate(selectedSmsMessage?.createdAt || null)}</p>
+                  </div>
+                </div>
+                <div className="border-t pt-4">
+                  <span className="text-sm text-muted-foreground">Message:</span>
+                  <p className="mt-2 whitespace-pre-wrap bg-muted p-3 rounded-md">
+                    {selectedSmsMessage?.body || <span className="text-muted-foreground italic">No message content</span>}
+                  </p>
+                </div>
+                {!selectedSmsMessage?.clientId && (
+                  <div className="border-t pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        if (selectedSmsMessage) {
+                          handleLinkSmsToClient(selectedSmsMessage);
+                          setSelectedSmsMessage(null);
+                        }
+                      }}
+                      data-testid="button-link-from-modal"
+                    >
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Link to Client
+                    </Button>
+                  </div>
+                )}
+                {selectedSmsMessage?.clientId && (
+                  <div className="border-t pt-4">
+                    <Badge variant="outline" className="border-green-500 text-green-700">
+                      <Check className="h-3 w-3 mr-1" />
+                      Linked to Client
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+          
             <CardFooter className="border-t p-4">
               <div className="flex w-full justify-between items-center">
                 <div className="text-sm text-muted-foreground" data-testid="text-email-count">
@@ -1251,7 +1333,12 @@ export default function Communications() {
                     </TableHeader>
                     <TableBody>
                       {smsMessagesData.messages.map((message) => (
-                        <TableRow key={message.id} data-testid={`row-sms-${message.id}`}>
+                        <TableRow 
+                          key={message.id} 
+                          data-testid={`row-sms-${message.id}`}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedSmsMessage(message)}
+                        >
                           <TableCell>
                             <Badge variant={message.direction === 'outbound' ? 'default' : 'secondary'}>
                               {message.direction === 'outbound' ? 'Sent' : 'Received'}
@@ -1260,7 +1347,7 @@ export default function Communications() {
                           <TableCell className="font-mono text-sm">{message.fromNumber}</TableCell>
                           <TableCell className="font-mono text-sm">{message.toNumber}</TableCell>
                           <TableCell className="text-sm max-w-xs">
-                            <p className="truncate" title={message.body}>
+                            <p className="truncate" title="Click to view full message">
                               {message.body || <span className="text-muted-foreground italic">No message content</span>}
                             </p>
                           </TableCell>
@@ -1281,21 +1368,31 @@ export default function Communications() {
                             {message.sentAt ? formatDate(message.sentAt) : formatDate(message.createdAt)}
                           </TableCell>
                           <TableCell>
-                            {message.clientId ? (
-                              <Badge variant="outline" className="text-xs border-green-500 text-green-700">
-                                Linked
-                              </Badge>
-                            ) : (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                               <Button 
                                 variant="ghost" 
                                 size="sm"
-                                onClick={() => handleLinkSmsToClient(message)}
-                                data-testid={`button-link-sms-${message.id}`}
+                                onClick={() => setSelectedSmsMessage(message)}
+                                data-testid={`button-view-sms-${message.id}`}
                               >
-                                <Users className="h-4 w-4 mr-1" />
-                                Link
+                                <Eye className="h-4 w-4" />
                               </Button>
-                            )}
+                              {message.clientId ? (
+                                <Badge variant="outline" className="text-xs border-green-500 text-green-700">
+                                  Linked
+                                </Badge>
+                              ) : (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  onClick={() => handleLinkSmsToClient(message)}
+                                  data-testid={`button-link-sms-${message.id}`}
+                                >
+                                  <Link2 className="h-4 w-4 mr-1" />
+                                  Link
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
