@@ -81,15 +81,20 @@ interface RingCentralStatus {
 }
 
 interface SMSMessage {
-  id: string;
+  id: number;
   direction: 'inbound' | 'outbound';
-  from: string;
-  to: string;
-  subject?: string;
-  messageStatus: string;
-  readStatus?: string;
-  creationTime: string;
-  lastModifiedTime?: string;
+  fromNumber: string;
+  toNumber: string;
+  body: string;
+  status: 'pending' | 'sent' | 'delivered' | 'failed';
+  externalId?: string | null;
+  sentAt?: string | null;
+  deliveredAt?: string | null;
+  createdAt: string;
+  clientId?: number | null;
+  maintenanceId?: number | null;
+  repairId?: number | null;
+  projectId?: number | null;
 }
 
 const EMAILS_PER_PAGE = 10;
@@ -1125,15 +1130,23 @@ export default function Communications() {
                               {message.direction === 'outbound' ? 'Sent' : 'Received'}
                             </Badge>
                           </TableCell>
-                          <TableCell className="font-mono text-sm">{message.from}</TableCell>
-                          <TableCell className="font-mono text-sm">{message.to}</TableCell>
+                          <TableCell className="font-mono text-sm">{message.fromNumber}</TableCell>
+                          <TableCell className="font-mono text-sm">{message.toNumber}</TableCell>
                           <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {message.messageStatus}
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                message.status === 'delivered' ? 'border-green-500 text-green-700' :
+                                message.status === 'sent' ? 'border-blue-500 text-blue-700' :
+                                message.status === 'failed' ? 'border-red-500 text-red-700' :
+                                'border-yellow-500 text-yellow-700'
+                              }`}
+                            >
+                              {message.status.charAt(0).toUpperCase() + message.status.slice(1)}
                             </Badge>
                           </TableCell>
                           <TableCell className="text-sm text-muted-foreground">
-                            {formatDate(message.creationTime)}
+                            {message.sentAt ? formatDate(message.sentAt) : formatDate(message.createdAt)}
                           </TableCell>
                         </TableRow>
                       ))}
