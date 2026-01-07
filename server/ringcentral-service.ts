@@ -6,7 +6,10 @@ const RingCentralModule = require('@ringcentral/sdk');
 const SDK = RingCentralModule.SDK || RingCentralModule.default || RingCentralModule;
 
 // Log SDK resolution for debugging
-console.log('RingCentral SDK resolved:', typeof SDK === 'function' ? 'Success' : 'Failed');
+console.log('RingCentral SDK resolved:', typeof SDK === 'function' ? 'Success' : 'Failed', 'Type:', typeof SDK);
+if (typeof SDK !== 'function') {
+  console.error('RingCentral SDK module structure:', Object.keys(RingCentralModule));
+}
 import { storage } from './storage';
 import { db } from './db';
 import { smsMessages, communicationProviders, type CommunicationProvider, type InsertSmsMessage } from '@shared/schema';
@@ -307,19 +310,35 @@ export class RingCentralService {
 
   async syncMessages(organizationId: number): Promise<{ success: boolean; synced: number; error?: string }> {
     try {
+      console.log(`[SMS Sync] Starting sync for org ${organizationId}`);
+      
       const provider = await this.getOrganizationProvider(organizationId);
       
       if (!provider) {
+        console.log('[SMS Sync] No provider found');
         return { success: false, synced: 0, error: 'RingCentral not connected' };
       }
 
       if (!provider.accessToken || !provider.clientId || !provider.clientSecret) {
+        console.log('[SMS Sync] Credentials incomplete:', {
+          hasAccessToken: !!provider.accessToken,
+          hasClientId: !!provider.clientId,
+          hasClientSecret: !!provider.clientSecret
+        });
         return { success: false, synced: 0, error: 'RingCentral credentials incomplete' };
       }
 
+      console.log('[SMS Sync] Refreshing token if needed...');
       const refreshedProvider = await this.refreshTokenIfNeeded(provider);
 
+      console.log('[SMS Sync] Creating SDK instance...');
+      if (typeof SDK !== 'function') {
+        console.error('[SMS Sync] SDK is not a constructor! Type:', typeof SDK);
+        return { success: false, synced: 0, error: 'SDK is not a constructor' };
+      }
+      
       const sdk = this.getSDK(refreshedProvider.clientId!, refreshedProvider.clientSecret!);
+      console.log('[SMS Sync] SDK created, getting platform...');
       const platform = sdk.platform();
       
       // Set auth data properly for authenticated requests
@@ -416,7 +435,9 @@ export class RingCentralService {
       console.log(`Synced ${syncedCount} SMS messages for org ${organizationId}`);
       return { success: true, synced: syncedCount };
     } catch (error: any) {
-      console.error('Error syncing SMS messages:', error);
+      console.error('[SMS Sync] Error syncing SMS messages:', error);
+      console.error('[SMS Sync] Error stack:', error.stack);
+      console.error('[SMS Sync] Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       return { success: false, synced: 0, error: error.message || 'Failed to sync messages' };
     }
   }
