@@ -201,6 +201,33 @@ router.get('/messages', isAuthenticated, async (req: Request, res: Response) => 
   }
 });
 
+router.post('/sync', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as User;
+    if (!user?.organizationId) {
+      return res.status(400).json({ error: 'Organization not found' });
+    }
+
+    const result = await ringCentralService.syncMessages(user.organizationId);
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        synced: result.synced,
+        message: `Synced ${result.synced} messages from RingCentral`
+      });
+    } else {
+      res.status(400).json({ 
+        success: false, 
+        error: result.error 
+      });
+    }
+  } catch (error) {
+    console.error('Error syncing SMS messages:', error);
+    res.status(500).json({ error: 'Failed to sync messages' });
+  }
+});
+
 router.get('/phone-numbers', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as User;

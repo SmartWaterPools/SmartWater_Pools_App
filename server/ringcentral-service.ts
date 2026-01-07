@@ -297,6 +297,122 @@ export class RingCentralService {
       .offset(offset);
   }
 
+  async syncMessages(organizationId: number): Promise<{ success: boolean; synced: number; error?: string }> {
+    try {
+      const provider = await this.getOrganizationProvider(organizationId);
+      
+      if (!provider) {
+        return { success: false, synced: 0, error: 'RingCentral not connected' };
+      }
+
+      if (!provider.accessToken || !provider.clientId || !provider.clientSecret) {
+        return { success: false, synced: 0, error: 'RingCentral credentials incomplete' };
+      }
+
+      const refreshedProvider = await this.refreshTokenIfNeeded(provider);
+
+      const sdk = this.getSDK(refreshedProvider.clientId!, refreshedProvider.clientSecret!);
+      const platform = sdk.platform();
+      
+      // Set auth data properly for authenticated requests
+      await platform.auth().setData({
+        access_token: refreshedProvider.accessToken,
+        refresh_token: refreshedProvider.refreshToken,
+        expires_in: 3600,
+        token_type: 'bearer',
+      });
+
+      // Fetch SMS message log from RingCentral (last 7 days) with pagination
+      const dateFrom = new Date();
+      dateFrom.setDate(dateFrom.getDate() - 7);
+      
+      let syncedCount = 0;
+      let page = 1;
+      const maxPages = 10; // Limit to prevent infinite loops
+      let hasMore = true;
+
+      while (hasMore && page <= maxPages) {
+        const response = await platform.get('/restapi/v1.0/account/~/extension/~/message-store', {
+          messageType: 'SMS',
+          dateFrom: dateFrom.toISOString(),
+          perPage: 100,
+          page,
+        });
+
+        const data = await response.json();
+        const messages = data.records || [];
+        
+        if (messages.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        for (const msg of messages) {
+          // Skip messages without a valid ID - can't dedupe them reliably
+          const externalId = msg.id?.toString();
+          if (!externalId) {
+            continue;
+          }
+
+          // Check if message already exists by externalId
+          const existing = await db.select()
+            .from(smsMessages)
+            .where(and(
+              eq(smsMessages.organizationId, organizationId),
+              eq(smsMessages.externalId, externalId)
+            ))
+            .limit(1);
+
+          if (existing.length > 0) {
+            continue; // Skip already synced messages
+          }
+
+          const direction = msg.direction === 'Inbound' ? 'inbound' : 'outbound';
+          const fromNumber = msg.from?.phoneNumber || '';
+          const toNumber = msg.to?.[0]?.phoneNumber || '';
+
+          await db.insert(smsMessages).values({
+            providerId: provider.id,
+            organizationId,
+            direction,
+            fromNumber,
+            toNumber,
+            body: msg.subject || '',
+            status: msg.messageStatus === 'Delivered' ? 'delivered' : 
+                    msg.messageStatus === 'Sent' ? 'sent' : 
+                    msg.messageStatus === 'Failed' ? 'failed' : 'sent',
+            externalId,
+            sentAt: msg.creationTime ? new Date(msg.creationTime) : null,
+            deliveredAt: msg.messageStatus === 'Delivered' ? new Date(msg.lastModifiedTime) : null,
+            messageType: 'custom',
+            clientId: null,
+            maintenanceId: null,
+            repairId: null,
+            projectId: null,
+            sentBy: null,
+          });
+
+          syncedCount++;
+        }
+
+        // Check if there are more pages
+        hasMore = data.navigation?.nextPage || messages.length === 100;
+        page++;
+      }
+
+      // Update last used timestamp
+      await storage.updateCommunicationProvider(provider.id, {
+        lastUsed: new Date(),
+      });
+
+      console.log(`Synced ${syncedCount} SMS messages for org ${organizationId}`);
+      return { success: true, synced: syncedCount };
+    } catch (error: any) {
+      console.error('Error syncing SMS messages:', error);
+      return { success: false, synced: 0, error: error.message || 'Failed to sync messages' };
+    }
+  }
+
   async disconnectProvider(organizationId: number): Promise<boolean> {
     const provider = await this.getOrganizationProvider(organizationId);
     
