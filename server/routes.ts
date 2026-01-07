@@ -9,6 +9,7 @@ import bazzaRoutes from "./routes/bazza-routes";
 import communicationRoutes from "./routes/communication-routes";
 import emailRoutes from "./routes/email-routes";
 import smsRoutes from "./routes/sms-routes";
+import vendorRoutes from "./routes/vendor-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema } from "@shared/schema";
 
@@ -30,6 +31,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount SMS routes
   app.use('/api/sms', smsRoutes);
+
+  // Mount vendor routes
+  app.use('/api/vendors', vendorRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();

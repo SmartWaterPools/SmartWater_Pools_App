@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte } from "drizzle-orm";
 
@@ -103,6 +103,22 @@ export interface IStorage {
   createScheduledEmail(email: InsertScheduledEmail): Promise<ScheduledEmail>;
   getPendingScheduledEmails(before: Date, organizationId?: number): Promise<ScheduledEmail[]>;
   updateScheduledEmailStatus(id: number, status: string, error?: string): Promise<ScheduledEmail | undefined>;
+
+  // Vendor operations
+  getVendors(organizationId: number): Promise<Vendor[]>;
+  getVendor(id: number): Promise<Vendor | undefined>;
+  getVendorByPhone(phone: string, organizationId: number): Promise<Vendor | undefined>;
+  getVendorByEmail(email: string, organizationId: number): Promise<Vendor | undefined>;
+  createVendor(vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(id: number, data: Partial<Vendor>): Promise<Vendor | undefined>;
+  deleteVendor(id: number): Promise<boolean>;
+
+  // Communication Link operations
+  getCommunicationLinks(communicationType: string, communicationId: number): Promise<CommunicationLink[]>;
+  getCommunicationLinksByEntity(entityType: string, entityId: number): Promise<CommunicationLink[]>;
+  createCommunicationLink(link: InsertCommunicationLink): Promise<CommunicationLink>;
+  deleteCommunicationLink(id: number): Promise<boolean>;
+  deleteCommunicationLinksByCommunication(communicationType: string, communicationId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -505,6 +521,106 @@ export class DatabaseStorage implements IStorage {
       .where(eq(scheduledEmails.id, id))
       .returning();
     return result[0] || undefined;
+  }
+
+  // Vendor operations
+  async getVendors(organizationId: number): Promise<Vendor[]> {
+    return await db.select()
+      .from(vendors)
+      .where(eq(vendors.organizationId, organizationId))
+      .orderBy(vendors.name);
+  }
+
+  async getVendor(id: number): Promise<Vendor | undefined> {
+    const result = await db.select()
+      .from(vendors)
+      .where(eq(vendors.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getVendorByPhone(phone: string, organizationId: number): Promise<Vendor | undefined> {
+    const result = await db.select()
+      .from(vendors)
+      .where(and(
+        eq(vendors.phone, phone),
+        eq(vendors.organizationId, organizationId)
+      ))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getVendorByEmail(email: string, organizationId: number): Promise<Vendor | undefined> {
+    const result = await db.select()
+      .from(vendors)
+      .where(and(
+        eq(vendors.email, email),
+        eq(vendors.organizationId, organizationId)
+      ))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    const result = await db.insert(vendors).values(vendor).returning();
+    return result[0];
+  }
+
+  async updateVendor(id: number, data: Partial<Vendor>): Promise<Vendor | undefined> {
+    const result = await db.update(vendors)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(vendors.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteVendor(id: number): Promise<boolean> {
+    const result = await db.delete(vendors)
+      .where(eq(vendors.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Communication Link operations
+  async getCommunicationLinks(communicationType: string, communicationId: number): Promise<CommunicationLink[]> {
+    return await db.select()
+      .from(communicationLinks)
+      .where(and(
+        eq(communicationLinks.communicationType, communicationType),
+        eq(communicationLinks.communicationId, communicationId)
+      ));
+  }
+
+  async getCommunicationLinksByEntity(entityType: string, entityId: number): Promise<CommunicationLink[]> {
+    return await db.select()
+      .from(communicationLinks)
+      .where(and(
+        eq(communicationLinks.entityType, entityType),
+        eq(communicationLinks.entityId, entityId)
+      ))
+      .orderBy(desc(communicationLinks.linkedAt));
+  }
+
+  async createCommunicationLink(link: InsertCommunicationLink): Promise<CommunicationLink> {
+    const result = await db.insert(communicationLinks).values(link).returning();
+    return result[0];
+  }
+
+  async deleteCommunicationLink(id: number): Promise<boolean> {
+    const result = await db.delete(communicationLinks)
+      .where(eq(communicationLinks.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deleteCommunicationLinksByCommunication(communicationType: string, communicationId: number): Promise<boolean> {
+    const result = await db.delete(communicationLinks)
+      .where(and(
+        eq(communicationLinks.communicationType, communicationType),
+        eq(communicationLinks.communicationId, communicationId)
+      ))
+      .returning();
+    return result.length > 0;
   }
 }
 

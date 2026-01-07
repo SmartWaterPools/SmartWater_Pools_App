@@ -3,7 +3,7 @@ import { ringCentralService, replaceTemplateVariables } from '../ringcentral-ser
 import { storage } from '../storage';
 import { db } from '../db';
 import { isAuthenticated } from '../auth';
-import { type User, smsTemplates, smsMessages, insertSmsTemplateSchema, bazzaMaintenanceAssignments, bazzaRouteStops, bazzaRoutes, users, clients, technicians, organizations } from '@shared/schema';
+import { type User, smsTemplates, smsMessages, insertSmsTemplateSchema, bazzaMaintenanceAssignments, bazzaRouteStops, bazzaRoutes, users, clients, technicians, organizations, communicationLinks } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { z } from 'zod';
 
@@ -228,7 +228,7 @@ router.post('/sync', isAuthenticated, async (req: Request, res: Response) => {
   }
 });
 
-// Link SMS message to a client
+// Link SMS message to entities (clients, vendors, projects, etc.)
 router.patch('/messages/:id/link', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as User;
@@ -237,27 +237,116 @@ router.patch('/messages/:id/link', isAuthenticated, async (req: Request, res: Re
     }
 
     const messageId = parseInt(req.params.id);
-    const { clientId } = req.body;
+    const { clientId, vendorId, projectId, repairId, maintenanceId } = req.body;
 
-    if (!clientId) {
-      return res.status(400).json({ success: false, error: 'Client ID is required' });
+    // Validate that at least one entity is provided
+    if (!clientId && !vendorId && !projectId && !repairId && !maintenanceId) {
+      return res.status(400).json({ success: false, error: 'At least one entity ID is required' });
     }
 
-    // Update the SMS message with the client ID
-    await db.update(smsMessages)
-      .set({ clientId: parseInt(clientId) })
+    // Delete existing links for this SMS
+    await db.delete(communicationLinks)
       .where(and(
-        eq(smsMessages.id, messageId),
-        eq(smsMessages.organizationId, user.organizationId)
+        eq(communicationLinks.communicationType, 'sms'),
+        eq(communicationLinks.communicationId, messageId)
       ));
+
+    // Create new links for each entity
+    const linksToCreate: any[] = [];
+    
+    if (clientId) {
+      linksToCreate.push({
+        organizationId: user.organizationId,
+        communicationType: 'sms',
+        communicationId: messageId,
+        entityType: 'client',
+        entityId: parseInt(clientId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      // Also update the legacy clientId field for backward compatibility
+      await db.update(smsMessages)
+        .set({ clientId: parseInt(clientId) })
+        .where(eq(smsMessages.id, messageId));
+    }
+
+    if (vendorId) {
+      linksToCreate.push({
+        organizationId: user.organizationId,
+        communicationType: 'sms',
+        communicationId: messageId,
+        entityType: 'vendor',
+        entityId: parseInt(vendorId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+    }
+
+    if (projectId) {
+      linksToCreate.push({
+        organizationId: user.organizationId,
+        communicationType: 'sms',
+        communicationId: messageId,
+        entityType: 'project',
+        entityId: parseInt(projectId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+      // Also update the legacy projectId field
+      await db.update(smsMessages)
+        .set({ projectId: parseInt(projectId) })
+        .where(eq(smsMessages.id, messageId));
+    }
+
+    if (repairId) {
+      linksToCreate.push({
+        organizationId: user.organizationId,
+        communicationType: 'sms',
+        communicationId: messageId,
+        entityType: 'repair',
+        entityId: parseInt(repairId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+    }
+
+    if (maintenanceId) {
+      linksToCreate.push({
+        organizationId: user.organizationId,
+        communicationType: 'sms',
+        communicationId: messageId,
+        entityType: 'maintenance',
+        entityId: parseInt(maintenanceId),
+        linkSource: 'manual',
+        linkedBy: user.id,
+      });
+    }
+
+    // Insert all links
+    if (linksToCreate.length > 0) {
+      await db.insert(communicationLinks).values(linksToCreate);
+    }
 
     res.json({ 
       success: true, 
-      message: 'SMS message linked to client successfully' 
+      message: `SMS message linked to ${linksToCreate.length} entity(ies) successfully`,
+      links: linksToCreate.length
     });
   } catch (error) {
-    console.error('Error linking SMS to client:', error);
-    res.status(500).json({ success: false, error: 'Failed to link SMS to client' });
+    console.error('Error linking SMS to entities:', error);
+    res.status(500).json({ success: false, error: 'Failed to link SMS to entities' });
+  }
+});
+
+// Get links for an SMS message
+router.get('/messages/:id/links', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const messageId = parseInt(req.params.id);
+    const links = await storage.getCommunicationLinks('sms', messageId);
+    res.json({ success: true, links });
+  } catch (error) {
+    console.error('Error fetching SMS links:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch links' });
   }
 });
 
