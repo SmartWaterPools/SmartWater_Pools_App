@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Mail, MessageSquare, Phone, Search, AlertCircle, Settings, RefreshCw, Send, Check, Circle, Paperclip, Star, UserPlus, ChevronLeft, ChevronRight, Users, Eye, Link2 } from "lucide-react";
+import { Mail, MessageSquare, Phone, Search, AlertCircle, Settings, RefreshCw, Send, Check, Circle, Paperclip, Star, UserPlus, ChevronLeft, ChevronRight, Users, Eye, Link2, Building2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -162,6 +162,12 @@ export default function Communications() {
   const [showCreateEmailClient, setShowCreateEmailClient] = useState(false);
   const [newSmsClientForm, setNewSmsClientForm] = useState({ name: "", email: "", phone: "", address: "" });
   const [newEmailClientForm, setNewEmailClientForm] = useState({ name: "", email: "", phone: "", address: "" });
+  
+  // Create new vendor from link dialogs
+  const [showCreateSmsVendor, setShowCreateSmsVendor] = useState(false);
+  const [showCreateEmailVendor, setShowCreateEmailVendor] = useState(false);
+  const [newSmsVendorForm, setNewSmsVendorForm] = useState({ name: "", category: "", email: "", phone: "" });
+  const [newEmailVendorForm, setNewEmailVendorForm] = useState({ name: "", category: "", email: "", phone: "" });
   
   const { toast } = useToast();
   
@@ -428,6 +434,14 @@ export default function Communications() {
       toast({ title: "Create Failed", description: error.message, variant: "destructive" });
     }
   });
+
+  // Create new vendor mutation
+  const createVendorMutation = useMutation({
+    mutationFn: async (data: { name: string; category: string; email: string; phone: string }): Promise<Vendor> => {
+      const response = await apiRequest('POST', '/api/vendors', data);
+      return response.json();
+    }
+  });
   
   // Email is ready if Gmail connector is connected OR we have database providers
   const hasEmailProvider = gmailStatus?.connected || emailProviders.length > 0;
@@ -602,6 +616,64 @@ export default function Communications() {
       }
     } catch (error) {
       // Error handled by mutation
+    }
+  };
+
+  // Handle opening SMS link dialog vendor form
+  const handleOpenSmsCreateVendor = () => {
+    setNewSmsVendorForm({ name: "", category: "", email: "", phone: "" });
+    setShowCreateSmsVendor(true);
+  };
+
+  // Handle opening Email link dialog vendor form
+  const handleOpenEmailCreateVendor = () => {
+    setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
+    setShowCreateEmailVendor(true);
+  };
+
+  // Create vendor from SMS dialog
+  const handleCreateSmsVendor = async () => {
+    if (!newSmsVendorForm.name.trim()) {
+      toast({ title: "Validation Error", description: "Vendor name is required.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      const result = await createVendorMutation.mutateAsync(newSmsVendorForm);
+      queryClient.invalidateQueries({ queryKey: ['/api/vendors'] });
+      if (result && result.id) {
+        setSelectedSmsVendorId(result.id);
+        setShowCreateSmsVendor(false);
+        setNewSmsVendorForm({ name: "", category: "", email: "", phone: "" });
+        toast({ title: "Vendor Created", description: `${result.name} created successfully.` });
+      } else {
+        toast({ title: "Error", description: "Vendor created but response was unexpected.", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Create Failed", description: error?.message || "Failed to create vendor", variant: "destructive" });
+    }
+  };
+
+  // Create vendor from Email dialog
+  const handleCreateEmailVendor = async () => {
+    if (!newEmailVendorForm.name.trim()) {
+      toast({ title: "Validation Error", description: "Vendor name is required.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      const result = await createVendorMutation.mutateAsync(newEmailVendorForm);
+      queryClient.invalidateQueries({ queryKey: ['/api/vendors'] });
+      if (result && result.id) {
+        setSelectedEmailVendorId(result.id);
+        setShowCreateEmailVendor(false);
+        setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
+        toast({ title: "Vendor Created", description: `${result.name} created successfully.` });
+      } else {
+        toast({ title: "Error", description: "Vendor created but response was unexpected.", variant: "destructive" });
+      }
+    } catch (error: any) {
+      toast({ title: "Create Failed", description: error?.message || "Failed to create vendor", variant: "destructive" });
     }
   };
 
@@ -1043,6 +1115,8 @@ export default function Communications() {
                     if (!open) {
                       setShowCreateEmailClient(false);
                       setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
+                      setShowCreateEmailVendor(false);
+                      setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
                     }
                   }}>
                     <DialogContent className="sm:max-w-[450px]">
@@ -1104,6 +1178,97 @@ export default function Communications() {
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {!showCreateEmailVendor && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="mt-2 text-blue-600 hover:text-blue-700"
+                                  onClick={handleOpenEmailCreateVendor}
+                                  data-testid="button-create-email-vendor"
+                                >
+                                  <Building2 className="h-4 w-4 mr-1" />
+                                  Create New Vendor
+                                </Button>
+                              )}
+                              {showCreateEmailVendor && (
+                                <div className="space-y-3 p-3 border rounded-md bg-muted/30 mt-2">
+                                  <div className="flex items-center justify-between">
+                                    <Label className="font-medium">Create New Vendor</Label>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        setShowCreateEmailVendor(false);
+                                        setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
+                                      }}
+                                    >
+                                      Cancel
+                                    </Button>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="new-email-vendor-name">Name *</Label>
+                                    <Input
+                                      id="new-email-vendor-name"
+                                      placeholder="Vendor name"
+                                      value={newEmailVendorForm.name}
+                                      onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, name: e.target.value })}
+                                      data-testid="input-new-email-vendor-name"
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="new-email-vendor-category">Category</Label>
+                                    <Select 
+                                      value={newEmailVendorForm.category} 
+                                      onValueChange={(val) => setNewEmailVendorForm({ ...newEmailVendorForm, category: val })}
+                                    >
+                                      <SelectTrigger data-testid="select-new-email-vendor-category">
+                                        <SelectValue placeholder="Select category..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="chemical supplier">Chemical Supplier</SelectItem>
+                                        <SelectItem value="equipment">Equipment</SelectItem>
+                                        <SelectItem value="parts">Parts</SelectItem>
+                                        <SelectItem value="service">Service</SelectItem>
+                                        <SelectItem value="tools">Tools</SelectItem>
+                                        <SelectItem value="office">Office</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="new-email-vendor-email">Email (optional)</Label>
+                                    <Input
+                                      id="new-email-vendor-email"
+                                      type="email"
+                                      placeholder="Email address"
+                                      value={newEmailVendorForm.email}
+                                      onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, email: e.target.value })}
+                                      data-testid="input-new-email-vendor-email"
+                                    />
+                                  </div>
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="new-email-vendor-phone">Phone (optional)</Label>
+                                    <Input
+                                      id="new-email-vendor-phone"
+                                      type="tel"
+                                      placeholder="Phone number"
+                                      value={newEmailVendorForm.phone}
+                                      onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, phone: e.target.value })}
+                                      data-testid="input-new-email-vendor-phone"
+                                    />
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    onClick={handleCreateEmailVendor}
+                                    disabled={createVendorMutation.isPending}
+                                    className="w-full"
+                                    data-testid="button-submit-new-email-vendor"
+                                  >
+                                    {createVendorMutation.isPending ? 'Creating...' : 'Create Vendor'}
+                                  </Button>
+                                </div>
+                              )}
                             </div>
 
                             <div>
@@ -1594,6 +1759,8 @@ export default function Communications() {
             if (!open) {
               setShowCreateSmsClient(false);
               setNewSmsClientForm({ name: "", email: "", phone: "", address: "" });
+              setShowCreateSmsVendor(false);
+              setNewSmsVendorForm({ name: "", category: "", email: "", phone: "" });
             }
           }}>
             <DialogContent className="sm:max-w-[450px]">
@@ -1661,6 +1828,97 @@ export default function Communications() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {!showCreateSmsVendor && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2 text-blue-600 hover:text-blue-700"
+                          onClick={handleOpenSmsCreateVendor}
+                          data-testid="button-create-sms-vendor"
+                        >
+                          <Building2 className="h-4 w-4 mr-1" />
+                          Create New Vendor
+                        </Button>
+                      )}
+                      {showCreateSmsVendor && (
+                        <div className="space-y-3 p-3 border rounded-md bg-muted/30 mt-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="font-medium">Create New Vendor</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setShowCreateSmsVendor(false);
+                                setNewSmsVendorForm({ name: "", category: "", email: "", phone: "" });
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-sms-vendor-name">Name *</Label>
+                            <Input
+                              id="new-sms-vendor-name"
+                              placeholder="Vendor name"
+                              value={newSmsVendorForm.name}
+                              onChange={(e) => setNewSmsVendorForm({ ...newSmsVendorForm, name: e.target.value })}
+                              data-testid="input-new-sms-vendor-name"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-sms-vendor-category">Category</Label>
+                            <Select 
+                              value={newSmsVendorForm.category} 
+                              onValueChange={(val) => setNewSmsVendorForm({ ...newSmsVendorForm, category: val })}
+                            >
+                              <SelectTrigger data-testid="select-new-sms-vendor-category">
+                                <SelectValue placeholder="Select category..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="chemical supplier">Chemical Supplier</SelectItem>
+                                <SelectItem value="equipment">Equipment</SelectItem>
+                                <SelectItem value="parts">Parts</SelectItem>
+                                <SelectItem value="service">Service</SelectItem>
+                                <SelectItem value="tools">Tools</SelectItem>
+                                <SelectItem value="office">Office</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-sms-vendor-email">Email (optional)</Label>
+                            <Input
+                              id="new-sms-vendor-email"
+                              type="email"
+                              placeholder="Email address"
+                              value={newSmsVendorForm.email}
+                              onChange={(e) => setNewSmsVendorForm({ ...newSmsVendorForm, email: e.target.value })}
+                              data-testid="input-new-sms-vendor-email"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-sms-vendor-phone">Phone (optional)</Label>
+                            <Input
+                              id="new-sms-vendor-phone"
+                              type="tel"
+                              placeholder="Phone number"
+                              value={newSmsVendorForm.phone}
+                              onChange={(e) => setNewSmsVendorForm({ ...newSmsVendorForm, phone: e.target.value })}
+                              data-testid="input-new-sms-vendor-phone"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={handleCreateSmsVendor}
+                            disabled={createVendorMutation.isPending}
+                            className="w-full"
+                            data-testid="button-submit-new-sms-vendor"
+                          >
+                            {createVendorMutation.isPending ? 'Creating...' : 'Create Vendor'}
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     <div>
