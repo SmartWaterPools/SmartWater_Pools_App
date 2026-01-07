@@ -157,6 +157,12 @@ export default function Communications() {
   // SMS view message dialog
   const [selectedSmsMessage, setSelectedSmsMessage] = useState<SMSMessage | null>(null);
   
+  // Create new client from link dialogs
+  const [showCreateSmsClient, setShowCreateSmsClient] = useState(false);
+  const [showCreateEmailClient, setShowCreateEmailClient] = useState(false);
+  const [newSmsClientForm, setNewSmsClientForm] = useState({ name: "", email: "", phone: "", address: "" });
+  const [newEmailClientForm, setNewEmailClientForm] = useState({ name: "", email: "", phone: "", address: "" });
+  
   const { toast } = useToast();
   
   const { data: emailProviders = [], isLoading: isLoadingEmailProviders } = useQuery<CommunicationProvider[]>({
@@ -403,6 +409,21 @@ export default function Communications() {
       toast({ title: "Send Failed", description: error.message, variant: "destructive" });
     }
   });
+
+  // Create new client mutation
+  const createClientMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; phone: string; address: string }) => {
+      const response = await apiRequest('POST', '/api/clients', data);
+      return response.json();
+    },
+    onSuccess: (data: { success: boolean; client: ClientResponse['user']; message: string }, variables, context) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+      toast({ title: "Client Created", description: data.message || "New client created successfully." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Create Failed", description: error.message, variant: "destructive" });
+    }
+  });
   
   // Email is ready if Gmail connector is connected OR we have database providers
   const hasEmailProvider = gmailStatus?.connected || emailProviders.length > 0;
@@ -515,6 +536,69 @@ export default function Communications() {
       vendorId: selectedSmsVendorId, 
       projectId: selectedSmsProjectId 
     });
+  };
+
+  // Handle opening SMS link dialog with phone pre-fill for new client
+  const handleOpenSmsCreateClient = () => {
+    if (smsToLink) {
+      const phoneToUse = smsToLink.direction === 'inbound' ? smsToLink.fromNumber : smsToLink.toNumber;
+      setNewSmsClientForm({ name: "", email: "", phone: phoneToUse, address: "" });
+      setShowCreateSmsClient(true);
+    }
+  };
+
+  // Handle opening Email link dialog with email pre-fill for new client
+  const handleOpenEmailCreateClient = () => {
+    if (emailToLink) {
+      setNewEmailClientForm({ name: "", email: emailToLink.fromEmail, phone: "", address: "" });
+      setShowCreateEmailClient(true);
+    }
+  };
+
+  // Create client from SMS dialog
+  const handleCreateSmsClient = async () => {
+    if (!newSmsClientForm.name.trim()) {
+      toast({ title: "Validation Error", description: "Name is required.", variant: "destructive" });
+      return;
+    }
+    if (!newSmsClientForm.phone.trim() && !newSmsClientForm.email.trim()) {
+      toast({ title: "Validation Error", description: "Phone or email is required.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      const result = await createClientMutation.mutateAsync(newSmsClientForm);
+      if (result.success && result.client) {
+        setSelectedSmsClientId(result.client.id);
+        setShowCreateSmsClient(false);
+        setNewSmsClientForm({ name: "", email: "", phone: "", address: "" });
+      }
+    } catch (error) {
+      // Error handled by mutation
+    }
+  };
+
+  // Create client from Email dialog
+  const handleCreateEmailClient = async () => {
+    if (!newEmailClientForm.name.trim()) {
+      toast({ title: "Validation Error", description: "Name is required.", variant: "destructive" });
+      return;
+    }
+    if (!newEmailClientForm.email.trim() && !newEmailClientForm.phone.trim()) {
+      toast({ title: "Validation Error", description: "Email or phone is required.", variant: "destructive" });
+      return;
+    }
+    
+    try {
+      const result = await createClientMutation.mutateAsync(newEmailClientForm);
+      if (result.success && result.client) {
+        setSelectedClientId(result.client.id);
+        setShowCreateEmailClient(false);
+        setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
+      }
+    } catch (error) {
+      // Error handled by mutation
+    }
   };
 
   const formatDate = (dateStr: string | null) => {
@@ -950,7 +1034,13 @@ export default function Communications() {
                     </DialogContent>
                   </Dialog>
 
-                  <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
+                  <Dialog open={linkDialogOpen} onOpenChange={(open) => {
+                    setLinkDialogOpen(open);
+                    if (!open) {
+                      setShowCreateEmailClient(false);
+                      setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
+                    }
+                  }}>
                     <DialogContent className="sm:max-w-[450px]">
                       <DialogHeader>
                         <DialogTitle>Link Email</DialogTitle>
@@ -959,65 +1049,148 @@ export default function Communications() {
                         </DialogDescription>
                       </DialogHeader>
                       <div className="py-4 space-y-4">
-                        <div>
-                          <Label htmlFor="client-select">Client (optional)</Label>
-                          <Select 
-                            value={selectedClientId?.toString() || ""} 
-                            onValueChange={(val) => setSelectedClientId(val ? Number(val) : null)}
-                          >
-                            <SelectTrigger className="mt-2" data-testid="select-client">
-                              <SelectValue placeholder="Choose a client..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">None</SelectItem>
-                              {clients.map((client) => (
-                                <SelectItem key={client.id} value={client.id.toString()}>
-                                  {client.user?.name || 'Unknown'} ({client.user?.email || 'No email'})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        {!showCreateEmailClient ? (
+                          <>
+                            <div>
+                              <Label htmlFor="client-select">Client (optional)</Label>
+                              <Select 
+                                value={selectedClientId?.toString() || ""} 
+                                onValueChange={(val) => setSelectedClientId(val ? Number(val) : null)}
+                              >
+                                <SelectTrigger className="mt-2" data-testid="select-client">
+                                  <SelectValue placeholder="Choose a client..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {clients.map((client) => (
+                                    <SelectItem key={client.id} value={client.id.toString()}>
+                                      {client.user?.name || 'Unknown'} ({client.user?.email || 'No email'})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="mt-2 text-blue-600 hover:text-blue-700"
+                                onClick={handleOpenEmailCreateClient}
+                                data-testid="button-create-email-client"
+                              >
+                                <UserPlus className="h-4 w-4 mr-1" />
+                                Create New Client
+                              </Button>
+                            </div>
 
-                        <div>
-                          <Label htmlFor="email-vendor-select">Vendor (optional)</Label>
-                          <Select 
-                            value={selectedEmailVendorId?.toString() || ""} 
-                            onValueChange={(val) => setSelectedEmailVendorId(val ? Number(val) : null)}
-                          >
-                            <SelectTrigger className="mt-2" data-testid="select-email-vendor">
-                              <SelectValue placeholder="Choose a vendor..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">None</SelectItem>
-                              {vendors.map((vendor) => (
-                                <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                                  {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            <div>
+                              <Label htmlFor="email-vendor-select">Vendor (optional)</Label>
+                              <Select 
+                                value={selectedEmailVendorId?.toString() || ""} 
+                                onValueChange={(val) => setSelectedEmailVendorId(val ? Number(val) : null)}
+                              >
+                                <SelectTrigger className="mt-2" data-testid="select-email-vendor">
+                                  <SelectValue placeholder="Choose a vendor..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {vendors.map((vendor) => (
+                                    <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                                      {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
 
-                        <div>
-                          <Label htmlFor="email-project-select">Project/Job (optional)</Label>
-                          <Select 
-                            value={selectedEmailProjectId?.toString() || ""} 
-                            onValueChange={(val) => setSelectedEmailProjectId(val ? Number(val) : null)}
-                          >
-                            <SelectTrigger className="mt-2" data-testid="select-email-project">
-                              <SelectValue placeholder="Choose a project..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="">None</SelectItem>
-                              {projects.map((project) => (
-                                <SelectItem key={project.id} value={project.id.toString()}>
-                                  {project.name} ({project.status})
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                            <div>
+                              <Label htmlFor="email-project-select">Project/Job (optional)</Label>
+                              <Select 
+                                value={selectedEmailProjectId?.toString() || ""} 
+                                onValueChange={(val) => setSelectedEmailProjectId(val ? Number(val) : null)}
+                              >
+                                <SelectTrigger className="mt-2" data-testid="select-email-project">
+                                  <SelectValue placeholder="Choose a project..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {projects.map((project) => (
+                                    <SelectItem key={project.id} value={project.id.toString()}>
+                                      {project.name} ({project.status})
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="space-y-3 p-3 border rounded-md bg-muted/30">
+                            <div className="flex items-center justify-between">
+                              <Label className="font-medium">Create New Client</Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setShowCreateEmailClient(false);
+                                  setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
+                                }}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="new-email-client-name">Name *</Label>
+                              <Input
+                                id="new-email-client-name"
+                                placeholder="Client name"
+                                value={newEmailClientForm.name}
+                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, name: e.target.value })}
+                                data-testid="input-new-email-client-name"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="new-email-client-email">Email</Label>
+                              <Input
+                                id="new-email-client-email"
+                                type="email"
+                                placeholder="Email address"
+                                value={newEmailClientForm.email}
+                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, email: e.target.value })}
+                                data-testid="input-new-email-client-email"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="new-email-client-phone">Phone (optional)</Label>
+                              <Input
+                                id="new-email-client-phone"
+                                type="tel"
+                                placeholder="Phone number"
+                                value={newEmailClientForm.phone}
+                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, phone: e.target.value })}
+                                data-testid="input-new-email-client-phone"
+                              />
+                            </div>
+                            <div className="grid gap-2">
+                              <Label htmlFor="new-email-client-address">Address (optional)</Label>
+                              <Input
+                                id="new-email-client-address"
+                                placeholder="Address"
+                                value={newEmailClientForm.address}
+                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, address: e.target.value })}
+                                data-testid="input-new-email-client-address"
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              onClick={handleCreateEmailClient}
+                              disabled={createClientMutation.isPending}
+                              className="w-full"
+                              data-testid="button-submit-new-email-client"
+                            >
+                              {createClientMutation.isPending ? 'Creating...' : 'Create Client'}
+                            </Button>
+                          </div>
+                        )}
 
                         {emailToLink && (
                           <div className="p-3 bg-muted rounded-md text-sm">
@@ -1026,7 +1199,7 @@ export default function Communications() {
                           </div>
                         )}
 
-                        {(selectedClientId || selectedEmailVendorId || selectedEmailProjectId) && (
+                        {!showCreateEmailClient && (selectedClientId || selectedEmailVendorId || selectedEmailProjectId) && (
                           <div className="text-sm text-muted-foreground">
                             Linking to: {[
                               selectedClientId && 'Client',
@@ -1036,18 +1209,20 @@ export default function Communications() {
                           </div>
                         )}
                       </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button 
-                          onClick={handleConfirmLink}
-                          disabled={(!selectedClientId && !selectedEmailVendorId && !selectedEmailProjectId) || linkEmailMutation.isPending}
-                          data-testid="button-confirm-link"
-                        >
-                          {linkEmailMutation.isPending ? 'Linking...' : 'Link'}
-                        </Button>
-                      </DialogFooter>
+                      {!showCreateEmailClient && (
+                        <DialogFooter>
+                          <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button 
+                            onClick={handleConfirmLink}
+                            disabled={(!selectedClientId && !selectedEmailVendorId && !selectedEmailProjectId) || linkEmailMutation.isPending}
+                            data-testid="button-confirm-link"
+                          >
+                            {linkEmailMutation.isPending ? 'Linking...' : 'Link'}
+                          </Button>
+                        </DialogFooter>
+                      )}
                     </DialogContent>
                   </Dialog>
                 </>
@@ -1410,7 +1585,13 @@ export default function Communications() {
           </Card>
           
           {/* SMS Link Dialog */}
-          <Dialog open={linkSmsDialogOpen} onOpenChange={setLinkSmsDialogOpen}>
+          <Dialog open={linkSmsDialogOpen} onOpenChange={(open) => {
+            setLinkSmsDialogOpen(open);
+            if (!open) {
+              setShowCreateSmsClient(false);
+              setNewSmsClientForm({ name: "", email: "", phone: "", address: "" });
+            }
+          }}>
             <DialogContent className="sm:max-w-[450px]">
               <DialogHeader>
                 <DialogTitle>Link SMS</DialogTitle>
@@ -1419,71 +1600,154 @@ export default function Communications() {
                 </DialogDescription>
               </DialogHeader>
               <div className="py-4 space-y-4">
-                <div>
-                  <Label htmlFor="sms-client-select">Client (optional)</Label>
-                  <Select 
-                    value={selectedSmsClientId?.toString() || ""} 
-                    onValueChange={(val) => setSelectedSmsClientId(val ? Number(val) : null)}
-                  >
-                    <SelectTrigger className="mt-2" data-testid="select-sms-client-link">
-                      <SelectValue placeholder="Choose a client..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {clients.map((client) => (
-                        <SelectItem key={client.id} value={client.id.toString()}>
-                          {client.user?.name || 'Unknown'} {client.user?.phone ? `- ${client.user.phone}` : `(${client.user?.email || 'No contact'})`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedSmsClientId && (
-                    <div className="mt-1 text-sm text-green-600 flex items-center gap-1">
-                      <Check className="h-4 w-4" />
-                      Client matched by phone number
+                {!showCreateSmsClient ? (
+                  <>
+                    <div>
+                      <Label htmlFor="sms-client-select">Client (optional)</Label>
+                      <Select 
+                        value={selectedSmsClientId?.toString() || ""} 
+                        onValueChange={(val) => setSelectedSmsClientId(val ? Number(val) : null)}
+                      >
+                        <SelectTrigger className="mt-2" data-testid="select-sms-client-link">
+                          <SelectValue placeholder="Choose a client..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id.toString()}>
+                              {client.user?.name || 'Unknown'} {client.user?.phone ? `- ${client.user.phone}` : `(${client.user?.email || 'No contact'})`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedSmsClientId && (
+                        <div className="mt-1 text-sm text-green-600 flex items-center gap-1">
+                          <Check className="h-4 w-4" />
+                          Client matched by phone number
+                        </div>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 text-blue-600 hover:text-blue-700"
+                        onClick={handleOpenSmsCreateClient}
+                        data-testid="button-create-sms-client"
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Create New Client
+                      </Button>
                     </div>
-                  )}
-                </div>
 
-                <div>
-                  <Label htmlFor="sms-vendor-select">Vendor (optional)</Label>
-                  <Select 
-                    value={selectedSmsVendorId?.toString() || ""} 
-                    onValueChange={(val) => setSelectedSmsVendorId(val ? Number(val) : null)}
-                  >
-                    <SelectTrigger className="mt-2" data-testid="select-sms-vendor-link">
-                      <SelectValue placeholder="Choose a vendor..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {vendors.map((vendor) => (
-                        <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                          {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div>
+                      <Label htmlFor="sms-vendor-select">Vendor (optional)</Label>
+                      <Select 
+                        value={selectedSmsVendorId?.toString() || ""} 
+                        onValueChange={(val) => setSelectedSmsVendorId(val ? Number(val) : null)}
+                      >
+                        <SelectTrigger className="mt-2" data-testid="select-sms-vendor-link">
+                          <SelectValue placeholder="Choose a vendor..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {vendors.map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                              {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div>
-                  <Label htmlFor="sms-project-select">Project/Job (optional)</Label>
-                  <Select 
-                    value={selectedSmsProjectId?.toString() || ""} 
-                    onValueChange={(val) => setSelectedSmsProjectId(val ? Number(val) : null)}
-                  >
-                    <SelectTrigger className="mt-2" data-testid="select-sms-project-link">
-                      <SelectValue placeholder="Choose a project..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id.toString()}>
-                          {project.name} ({project.status})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <div>
+                      <Label htmlFor="sms-project-select">Project/Job (optional)</Label>
+                      <Select 
+                        value={selectedSmsProjectId?.toString() || ""} 
+                        onValueChange={(val) => setSelectedSmsProjectId(val ? Number(val) : null)}
+                      >
+                        <SelectTrigger className="mt-2" data-testid="select-sms-project-link">
+                          <SelectValue placeholder="Choose a project..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id.toString()}>
+                              {project.name} ({project.status})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3 p-3 border rounded-md bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-medium">Create New Client</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowCreateSmsClient(false);
+                          setNewSmsClientForm({ name: "", email: "", phone: "", address: "" });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-sms-client-name">Name *</Label>
+                      <Input
+                        id="new-sms-client-name"
+                        placeholder="Client name"
+                        value={newSmsClientForm.name}
+                        onChange={(e) => setNewSmsClientForm({ ...newSmsClientForm, name: e.target.value })}
+                        data-testid="input-new-sms-client-name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-sms-client-phone">Phone</Label>
+                      <Input
+                        id="new-sms-client-phone"
+                        type="tel"
+                        placeholder="Phone number"
+                        value={newSmsClientForm.phone}
+                        onChange={(e) => setNewSmsClientForm({ ...newSmsClientForm, phone: e.target.value })}
+                        data-testid="input-new-sms-client-phone"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-sms-client-email">Email (optional)</Label>
+                      <Input
+                        id="new-sms-client-email"
+                        type="email"
+                        placeholder="Email address"
+                        value={newSmsClientForm.email}
+                        onChange={(e) => setNewSmsClientForm({ ...newSmsClientForm, email: e.target.value })}
+                        data-testid="input-new-sms-client-email"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-sms-client-address">Address (optional)</Label>
+                      <Input
+                        id="new-sms-client-address"
+                        placeholder="Address"
+                        value={newSmsClientForm.address}
+                        onChange={(e) => setNewSmsClientForm({ ...newSmsClientForm, address: e.target.value })}
+                        data-testid="input-new-sms-client-address"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleCreateSmsClient}
+                      disabled={createClientMutation.isPending}
+                      className="w-full"
+                      data-testid="button-submit-new-sms-client"
+                    >
+                      {createClientMutation.isPending ? 'Creating...' : 'Create Client'}
+                    </Button>
+                  </div>
+                )}
 
                 {smsToLink && (
                   <div className="p-3 bg-muted rounded-md text-sm space-y-2">
@@ -1499,7 +1763,7 @@ export default function Communications() {
                   </div>
                 )}
 
-                {(selectedSmsClientId || selectedSmsVendorId || selectedSmsProjectId) && (
+                {!showCreateSmsClient && (selectedSmsClientId || selectedSmsVendorId || selectedSmsProjectId) && (
                   <div className="text-sm text-muted-foreground">
                     Linking to: {[
                       selectedSmsClientId && 'Client',
@@ -1509,18 +1773,20 @@ export default function Communications() {
                   </div>
                 )}
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setLinkSmsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleConfirmSmsLink}
-                  disabled={(!selectedSmsClientId && !selectedSmsVendorId && !selectedSmsProjectId) || linkSmsMutation.isPending}
-                  data-testid="button-confirm-sms-link"
-                >
-                  {linkSmsMutation.isPending ? 'Linking...' : 'Link'}
-                </Button>
-              </DialogFooter>
+              {!showCreateSmsClient && (
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setLinkSmsDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleConfirmSmsLink}
+                    disabled={(!selectedSmsClientId && !selectedSmsVendorId && !selectedSmsProjectId) || linkSmsMutation.isPending}
+                    data-testid="button-confirm-sms-link"
+                  >
+                    {linkSmsMutation.isPending ? 'Linking...' : 'Link'}
+                  </Button>
+                </DialogFooter>
+              )}
             </DialogContent>
           </Dialog>
           
