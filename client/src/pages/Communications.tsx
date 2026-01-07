@@ -1369,34 +1369,44 @@ export default function Communications() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <Button 
-                                variant="ghost" 
-                                size="sm"
+                              <button
+                                type="button"
+                                className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 w-8"
+                                onPointerDown={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                }}
                                 onClick={(e) => {
                                   e.stopPropagation();
+                                  e.preventDefault();
                                   setSelectedSmsMessage(message);
                                 }}
                                 data-testid={`button-view-sms-${message.id}`}
                               >
                                 <Eye className="h-4 w-4" />
-                              </Button>
+                              </button>
                               {message.clientId ? (
                                 <Badge variant="outline" className="text-xs border-green-500 text-green-700">
                                   Linked
                                 </Badge>
                               ) : (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm"
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-8 px-3"
+                                  onPointerDown={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                  }}
                                   onClick={(e) => {
                                     e.stopPropagation();
+                                    e.preventDefault();
                                     handleLinkSmsToClient(message);
                                   }}
                                   data-testid={`button-link-sms-${message.id}`}
                                 >
                                   <Link2 className="h-4 w-4 mr-1" />
                                   Link
-                                </Button>
+                                </button>
                               )}
                             </div>
                           </TableCell>
