@@ -254,6 +254,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Export clients as CSV
+  app.get('/api/clients/export', isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const clients = await storage.getUsersByRole('client');
+      const orgClients = clients.filter(c => c.organizationId === user?.organizationId);
+      
+      // Create CSV header and rows
+      const csvHeader = 'name,email,phone,address\n';
+      const csvRows = orgClients.map(client => {
+        const escapeCsv = (val: string | null) => {
+          if (!val) return '';
+          if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+            return `"${val.replace(/"/g, '""')}"`;
+          }
+          return val;
+        };
+        return `${escapeCsv(client.name)},${escapeCsv(client.email)},${escapeCsv(client.phone)},${escapeCsv(client.address)}`;
+      }).join('\n');
+      
+      const csv = csvHeader + csvRows;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=clients.csv');
+      res.send(csv);
+    } catch (error) {
+      console.error('Export clients error:', error);
+      res.status(500).json({ error: 'Failed to export clients' });
+    }
+  });
+
+  // Import clients from CSV
+  app.post('/api/clients/import', isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as User;
+      if (!user?.organizationId) {
+        return res.status(400).json({ error: 'Organization not found' });
+      }
+      
+      const { csvData } = req.body;
+      if (!csvData) {
+        return res.status(400).json({ error: 'No CSV data provided' });
+      }
+      
+      // Parse CSV
+      const lines = csvData.split('\n').filter((line: string) => line.trim());
+      if (lines.length < 2) {
+        return res.status(400).json({ error: 'CSV must have a header row and at least one data row' });
+      }
+      
+      // Skip header row
+      const dataLines = lines.slice(1);
+      
+      const results = {
+        success: 0,
+        failed: 0,
+        errors: [] as string[]
+      };
+      
+      for (let lineIndex = 0; lineIndex < dataLines.length; lineIndex++) {
+        const line = dataLines[lineIndex];
+        const rowNum = lineIndex + 2; // +2 for 1-indexed and header row
+        
+        try {
+          // Parse CSV line (handle quoted values)
+          const values: string[] = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            if (char === '"') {
+              if (inQuotes && line[i + 1] === '"') {
+                current += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === ',' && !inQuotes) {
+              values.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          values.push(current.trim());
+          
+          const [name, email, phone, address] = values;
+          
+          if (!name || !email) {
+            results.failed++;
+            results.errors.push(`Row ${rowNum}: Missing required field (name or email)`);
+            continue;
+          }
+          
+          // Validate email format
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(email)) {
+            results.failed++;
+            results.errors.push(`Row ${rowNum}: Invalid email format "${email}"`);
+            continue;
+          }
+          
+          // Check if email already exists
+          const existingUser = await storage.getUserByEmail(email);
+          if (existingUser) {
+            results.failed++;
+            results.errors.push(`Row ${rowNum}: Email already exists "${email}"`);
+            continue;
+          }
+          
+          // Generate unique username
+          let username = email.split('@')[0];
+          let suffix = 0;
+          let uniqueUsername = username;
+          
+          while (await storage.getUserByUsername(uniqueUsername)) {
+            suffix++;
+            uniqueUsername = `${username}${suffix}`;
+          }
+          
+          // Create the client
+          await storage.createUser({
+            username: uniqueUsername,
+            name,
+            email,
+            phone: phone || null,
+            address: address || null,
+            role: 'client',
+            organizationId: user.organizationId,
+            active: true,
+            authProvider: 'local'
+          });
+          
+          results.success++;
+        } catch (lineError: any) {
+          results.failed++;
+          const errorMessage = lineError?.message || 'Unknown error';
+          results.errors.push(`Row ${rowNum}: ${errorMessage}`);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Imported ${results.success} clients, ${results.failed} failed`,
+        imported: results.success,
+        failed: results.failed,
+        errors: results.errors
+      });
+    } catch (error) {
+      console.error('Import clients error:', error);
+      res.status(500).json({ error: 'Failed to import clients' });
+    }
+  });
+
   // Basic projects endpoint  
   app.get('/api/projects', isAuthenticated, async (req, res) => {
     try {

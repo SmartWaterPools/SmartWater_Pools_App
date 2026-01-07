@@ -52,8 +52,8 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
 
   React.useEffect(() => {
     if (!latitude || !longitude) {
-      // Only try to geocode if we have an address and API key
-      if (address && apiKey && window.google) {
+      // Only try to geocode if we have an address, API key, and the map is loaded
+      if (address && apiKey && mapLoaded && window.google?.maps?.Geocoder) {
         const geocoder = new window.google.maps.Geocoder();
         geocoder.geocode({ address }, (results, status) => {
           if (status === 'OK' && results && results[0]) {
@@ -66,7 +66,7 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
         });
       }
     }
-  }, [address, apiKey, latitude, longitude]);
+  }, [address, apiKey, latitude, longitude, mapLoaded]);
 
   // Use provided coordinates or geocoded ones
   const center = latitude && longitude

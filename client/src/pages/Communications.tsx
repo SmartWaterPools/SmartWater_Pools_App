@@ -183,8 +183,12 @@ export default function Communications() {
   });
 
   // Fetch clients for the link dialog
-  const { data: clients = [] } = useQuery<ClientResponse[]>({
-    queryKey: ['/api/clients']
+  const { data: clients = [] } = useQuery<{ clients: ClientResponse[] } | ClientResponse[], Error, ClientResponse[]>({
+    queryKey: ['/api/clients'],
+    select: (data): ClientResponse[] => {
+      if (Array.isArray(data)) return data;
+      return data?.clients || [];
+    }
   });
 
   // Fetch vendors for the link dialog
