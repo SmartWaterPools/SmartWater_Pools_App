@@ -1368,11 +1368,14 @@ export default function Communications() {
                             {message.sentAt ? formatDate(message.sentAt) : formatDate(message.createdAt)}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center gap-2">
                               <Button 
                                 variant="ghost" 
                                 size="sm"
-                                onClick={() => setSelectedSmsMessage(message)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedSmsMessage(message);
+                                }}
                                 data-testid={`button-view-sms-${message.id}`}
                               >
                                 <Eye className="h-4 w-4" />
@@ -1385,7 +1388,10 @@ export default function Communications() {
                                 <Button 
                                   variant="ghost" 
                                   size="sm"
-                                  onClick={() => handleLinkSmsToClient(message)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleLinkSmsToClient(message);
+                                  }}
                                   data-testid={`button-link-sms-${message.id}`}
                                 >
                                   <Link2 className="h-4 w-4 mr-1" />
