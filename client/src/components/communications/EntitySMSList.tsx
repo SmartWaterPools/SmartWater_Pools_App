@@ -33,7 +33,7 @@ interface RingCentralStatus {
 }
 
 interface EntitySMSListProps {
-  entityType: 'project' | 'repair' | 'client' | 'maintenance';
+  entityType: 'project' | 'repair' | 'client' | 'maintenance' | 'vendor';
   entityId: number;
   entityName: string;
   entityPhone?: string;
@@ -55,6 +55,8 @@ export function EntitySMSList({ entityType, entityId, entityName, entityPhone }:
       const params = new URLSearchParams();
       if (entityType === 'client') {
         params.set('clientId', entityId.toString());
+      } else if (entityType === 'vendor') {
+        params.set('vendorId', entityId.toString());
       }
       const res = await fetch(`/api/sms/messages?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch SMS messages');

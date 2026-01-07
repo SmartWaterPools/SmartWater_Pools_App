@@ -119,6 +119,36 @@ router.get('/api/emails/by-client/:clientId', isAuthenticated, async (req: Reque
   }
 });
 
+router.get('/api/emails/by-vendor/:vendorId', isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const vendorId = parseInt(req.params.vendorId);
+    
+    const vendor = await storage.getVendor(vendorId);
+    if (!vendor) {
+      return res.status(404).json({ error: 'Vendor not found' });
+    }
+    if (vendor.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const links = await storage.getCommunicationLinksByEntity('vendor', vendorId);
+    const emailLinks = links.filter(link => link.communicationType === 'email');
+    
+    const emails = await Promise.all(
+      emailLinks.map(async (link) => {
+        const email = await storage.getEmail(link.communicationId);
+        return email ? { ...email, linkInfo: link } : null;
+      })
+    );
+    
+    res.json(emails.filter(Boolean));
+  } catch (error) {
+    console.error('Error fetching vendor emails:', error);
+    res.status(500).json({ error: 'Failed to fetch vendor emails' });
+  }
+});
+
 router.get('/api/emails/:id', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);

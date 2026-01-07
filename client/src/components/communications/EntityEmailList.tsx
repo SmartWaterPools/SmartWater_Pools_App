@@ -42,7 +42,7 @@ interface Email {
 }
 
 interface EntityEmailListProps {
-  entityType: 'project' | 'repair' | 'client';
+  entityType: 'project' | 'repair' | 'client' | 'vendor';
   entityId: number;
   entityName: string;
 }
@@ -53,7 +53,8 @@ export function EntityEmailList({ entityType, entityId, entityName }: EntityEmai
   const endpointMap = {
     project: `/api/emails/by-project/${entityId}`,
     repair: `/api/emails/by-repair/${entityId}`,
-    client: `/api/emails/by-client/${entityId}`
+    client: `/api/emails/by-client/${entityId}`,
+    vendor: `/api/emails/by-vendor/${entityId}`
   };
 
   const { data: emails = [], isLoading, refetch, isFetching } = useQuery<Email[]>({

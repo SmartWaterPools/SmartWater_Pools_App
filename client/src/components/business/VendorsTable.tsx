@@ -10,8 +10,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useLocation } from "wouter";
 import {
   Card,
   CardContent
@@ -19,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Edit, MoreHorizontal, Trash2, ShoppingCart, Phone, Mail, ExternalLink } from "lucide-react";
+import { Edit, MoreHorizontal, Trash2, ShoppingCart, Phone, Mail, ExternalLink, Eye } from "lucide-react";
 
 // Define the vendor interface
 interface Vendor {
@@ -47,8 +49,13 @@ export default function VendorsTable({
   onDelete,
   onCreateOrder
 }: VendorsTableProps) {
+  const [, setLocation] = useLocation();
   // Use the data from the API
   const vendors = data;
+
+  const handleRowClick = (vendor: Vendor) => {
+    setLocation(`/vendors/${vendor.id}`);
+  };
 
   // Get appropriate badge color for vendor category
   const getCategoryColor = (category: string) => {
@@ -101,7 +108,12 @@ export default function VendorsTable({
             </TableHeader>
             <TableBody>
               {vendors.map((vendor) => (
-                <TableRow key={vendor.id}>
+                <TableRow 
+                  key={vendor.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleRowClick(vendor)}
+                  data-testid={`vendor-row-${vendor.id}`}
+                >
                   <TableCell className="font-medium">{vendor.name}</TableCell>
                   <TableCell>
                     <Badge
@@ -137,20 +149,25 @@ export default function VendorsTable({
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button variant="ghost" className="h-8 w-8 p-0" data-testid={`vendor-menu-${vendor.id}`}>
                           <span className="sr-only">Open menu</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit && onEdit(vendor)}>
+                        <DropdownMenuItem onClick={() => setLocation(`/vendors/${vendor.id}`)} data-testid={`vendor-view-${vendor.id}`}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onEdit && onEdit(vendor)} data-testid={`vendor-edit-${vendor.id}`}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onDelete && onDelete(vendor.id)}>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onDelete && onDelete(vendor.id)} data-testid={`vendor-delete-${vendor.id}`}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>

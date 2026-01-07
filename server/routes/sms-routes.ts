@@ -192,6 +192,25 @@ router.get('/messages', isAuthenticated, async (req: Request, res: Response) => 
 
     const limit = parseInt(req.query.limit as string) || 50;
     const offset = parseInt(req.query.offset as string) || 0;
+    const vendorId = req.query.vendorId ? parseInt(req.query.vendorId as string) : undefined;
+
+    if (vendorId) {
+      const vendor = await storage.getVendor(vendorId);
+      if (!vendor) {
+        return res.status(404).json({ success: false, messages: [], error: 'Vendor not found' });
+      }
+      if (vendor.organizationId !== user.organizationId) {
+        return res.status(403).json({ success: false, messages: [], error: 'Access denied' });
+      }
+      const links = await storage.getCommunicationLinksByEntity('vendor', vendorId);
+      const smsLinks = links.filter(link => link.communicationType === 'sms');
+      const smsMessages = await Promise.all(
+        smsLinks.map(async (link) => {
+          return ringCentralService.getMessage(link.communicationId);
+        })
+      );
+      return res.json({ success: true, messages: smsMessages.filter(Boolean) });
+    }
 
     const messages = await ringCentralService.getMessages(user.organizationId, limit, offset);
     res.json({ success: true, messages });

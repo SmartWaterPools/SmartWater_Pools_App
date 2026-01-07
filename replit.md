@@ -97,10 +97,36 @@ Preferred communication style: Simple, everyday language.
 - **Frontend Components**:
   - `client/src/pages/Communications.tsx` - SMS tab with compose dialog and message history
   - `client/src/components/settings/CommunicationProviders.tsx` - RingCentral connect/disconnect UI
-  - `client/src/components/communications/EntitySMSList.tsx` - Reusable component for client SMS history
+  - `client/src/components/communications/EntitySMSList.tsx` - Reusable component for client/vendor SMS history
   - `client/src/components/maintenance/MaintenanceListView.tsx` - SMS trigger buttons in job dropdown menus
 - **Database Tables**: sms_messages, sms_templates, communication_providers
 - **Environment Variables**: RINGCENTRAL_CLIENT_ID, RINGCENTRAL_CLIENT_SECRET, RINGCENTRAL_SERVER (optional)
+
+## Vendor Management
+- **Purpose**: Track and manage subcontractors, suppliers, and service vendors
+- **Database Table**: `vendors` - name, contactName, email, phone, category (chemical supplier/equipment/parts/service/tools/office), vendorType (subcontractor/supplier), website, address, notes, isActive, organizationId
+- **API Routes**: `server/routes/vendor-routes.ts`
+  - `GET /api/vendors` - List all vendors for organization
+  - `GET /api/vendors/:id` - Get vendor details (with org scoping)
+  - `POST /api/vendors` - Create new vendor
+  - `PATCH /api/vendors/:id` - Update vendor
+  - `DELETE /api/vendors/:id` - Delete vendor
+  - `GET /api/vendors/:id/communications` - Get linked emails and SMS
+- **Frontend Components**:
+  - `client/src/pages/VendorDetail.tsx` - Vendor detail page with info and communications tabs
+  - `client/src/components/business/VendorsTable.tsx` - Vendor list with CRUD actions
+  - `client/src/components/business/VendorForm.tsx` - Create/edit vendor dialog
+
+## Communication Linking System
+- **Purpose**: Link emails and SMS messages to multiple entities (clients, vendors, projects, repairs, maintenance jobs)
+- **Database Table**: `communication_links` - organizationId, communicationType (sms/email), communicationId, entityType (client/vendor/project/repair/maintenance), entityId, linkSource (manual/auto), confidence, linkedBy
+- **Multi-Entity Linking**: Single communication can be linked to multiple entities simultaneously (e.g., email about a vendor's work on a client's project)
+- **Link Dialog Features**:
+  - Three optional dropdowns: Client, Vendor, Project/Job
+  - Auto-match by phone number (SMS) or email address (Email)
+  - "Create New Client" inline form for unrecognized contacts
+  - At least one entity must be selected to enable Link button
+- **Backward Compatibility**: Legacy `email_links` table and `sms_messages.clientId/projectId` fields maintained for existing functionality
 
 ## Deployment Platform
 - **Google Cloud Run**: Target deployment platform with container-based architecture
