@@ -20,7 +20,8 @@ import {
   MapPin,
   Truck,
   Cog,
-  ShieldCheck
+  ShieldCheck,
+  ClipboardList
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -61,6 +62,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnBusiness] = useRoute("/business");
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
+  const [isOnWorkOrders] = useRoute("/work-orders");
   const [isOnSettings] = useRoute("/settings");
   const [isOnAdmin] = useRoute("/admin");
   
@@ -136,6 +138,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Maintenance';
       case '/repairs':
         return 'Repair';
+      case '/work-orders':
+        return 'Work Orders';
       case '/clients':
         return 'Clients';
       case '/technicians':
@@ -163,6 +167,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <CalendarCheck className="h-4 w-4" />;
       case '/repairs':
         return <Wrench className="h-4 w-4" />;
+      case '/work-orders':
+        return <ClipboardList className="h-4 w-4" />;
       case '/clients':
         return <Users className="h-4 w-4" />;
       case '/technicians':
@@ -406,6 +412,40 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 isOnRepairs ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Repair
+              </span>
+            )}
+          </div>
+          
+          {/* Work Orders */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/work-orders")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnWorkOrders ? "text-primary" : "text-gray-500"
+            )}>
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnWorkOrders ? "text-primary" : "text-gray-700"
+              )}>
+                Work Orders
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnWorkOrders ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Work Orders
               </span>
             )}
           </div>
@@ -813,6 +853,16 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             <Wrench className="h-5 w-5" />
           </div>
           <span className={cn("text-xs mt-0.5", isOnRepairs ? "text-primary font-medium" : "text-gray-500")}>Repair</span>
+        </div>
+        
+        <div 
+          onClick={(e) => handleSidebarNavigation(e, "/work-orders")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnWorkOrders ? "text-primary" : "text-gray-500")}>
+            <ClipboardList className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnWorkOrders ? "text-primary font-medium" : "text-gray-500")}>Jobs</span>
         </div>
         
         <div 
