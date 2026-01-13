@@ -34,14 +34,49 @@ router.get('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
+// Helper to normalize and serialize checklist items
+function serializeChecklistItems(items: unknown): string | null {
+  if (!items) return null;
+  
+  // If already a string, check if it's valid JSON and return it
+  if (typeof items === 'string') {
+    try {
+      JSON.parse(items);
+      return items; // Already valid JSON string
+    } catch {
+      return null;
+    }
+  }
+  
+  // If it's an array, normalize and stringify
+  if (Array.isArray(items)) {
+    const normalized = items.map((item: unknown, index: number) => {
+      if (typeof item === 'string') {
+        return { id: `item-${index}`, text: item, required: true };
+      }
+      if (typeof item === 'object' && item !== null) {
+        const obj = item as Record<string, unknown>;
+        return {
+          id: typeof obj.id === 'string' ? obj.id : `item-${index}`,
+          text: typeof obj.text === 'string' ? obj.text : '',
+          required: typeof obj.required === 'boolean' ? obj.required : true
+        };
+      }
+      return { id: `item-${index}`, text: '', required: true };
+    });
+    return JSON.stringify(normalized);
+  }
+  
+  return null;
+}
+
 router.post('/', isAuthenticated, async (req, res) => {
   try {
     const user = req.user as User;
     const requestBody = { ...req.body };
     
-    if (requestBody.checklistItems && Array.isArray(requestBody.checklistItems)) {
-      requestBody.checklistItems = JSON.stringify(requestBody.checklistItems);
-    }
+    // Normalize and serialize checklistItems
+    requestBody.checklistItems = serializeChecklistItems(requestBody.checklistItems);
     
     const validatedData = insertServiceTemplateSchema.parse({
       ...requestBody,
@@ -70,8 +105,9 @@ router.patch('/:id', isAuthenticated, async (req, res) => {
     }
     
     const requestBody = { ...req.body };
-    if (requestBody.checklistItems && Array.isArray(requestBody.checklistItems)) {
-      requestBody.checklistItems = JSON.stringify(requestBody.checklistItems);
+    if (requestBody.checklistItems !== undefined) {
+      // Normalize and serialize checklistItems
+      requestBody.checklistItems = serializeChecklistItems(requestBody.checklistItems);
     }
     
     const updatedTemplate = await storage.updateServiceTemplate(id, requestBody);

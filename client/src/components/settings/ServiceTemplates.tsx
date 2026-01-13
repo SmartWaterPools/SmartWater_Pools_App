@@ -153,11 +153,30 @@ export function ServiceTemplates() {
   };
 
   // Helper to parse checklist items from JSON string
+  // Handles both legacy string arrays and new object arrays
   const parseChecklistItems = (items: string | null | undefined): Array<{id: string; text: string; required?: boolean}> => {
     if (!items) return [];
     try {
       const parsed = typeof items === 'string' ? JSON.parse(items) : items;
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      
+      // Normalize items to always be objects with id, text, required
+      return parsed.map((item: unknown, index: number) => {
+        if (typeof item === 'string') {
+          // Legacy format: plain strings
+          return { id: `item-${index}`, text: item, required: true };
+        }
+        if (typeof item === 'object' && item !== null) {
+          // New format: objects with id, text, required
+          const obj = item as Record<string, unknown>;
+          return {
+            id: typeof obj.id === 'string' ? obj.id : `item-${index}`,
+            text: typeof obj.text === 'string' ? obj.text : '',
+            required: typeof obj.required === 'boolean' ? obj.required : true
+          };
+        }
+        return { id: `item-${index}`, text: '', required: true };
+      });
     } catch {
       return [];
     }
@@ -165,13 +184,8 @@ export function ServiceTemplates() {
 
   // Edit template
   const handleEdit = (template: ServiceTemplate) => {
-    // Parse the checklist items from JSON string to our expected format
-    const checklistItems = parseChecklistItems(template.checklistItems);
-    const formattedItems = checklistItems.map((item: {id?: string; text?: string; required?: boolean} | string, index: number) => ({
-      id: typeof item === 'string' ? `item-${index}` : (item.id || `item-${index}`),
-      text: typeof item === 'string' ? item : (item.text || ''),
-      required: typeof item === 'string' ? true : (item.required ?? true),
-    }));
+    // Parse the checklist items - parseChecklistItems already normalizes the format
+    const parsedItems = parseChecklistItems(template.checklistItems);
 
     setEditingTemplate(template);
     form.reset({
@@ -179,7 +193,9 @@ export function ServiceTemplates() {
       type: template.type,
       description: template.description || "",
       isDefault: template.isDefault === null ? false : template.isDefault,
-      checklistItems: formattedItems,
+      checklistItems: parsedItems.length > 0 ? parsedItems : [
+        { id: crypto.randomUUID(), text: "", required: true }
+      ],
     });
     setOpen(true);
   };
@@ -212,12 +228,8 @@ export function ServiceTemplates() {
 
   // Form submission handler
   const onSubmit = (data: ServiceTemplateFormValues) => {
-    // Convert the checklist items to the format expected by the backend
-    const formattedData = {
-      ...data,
-      checklistItems: data.checklistItems.map(item => item.text),
-    };
-    mutation.mutate(formattedData as any);
+    // Send the full checklist items array - backend will handle JSON serialization
+    mutation.mutate(data);
   };
 
   return (
@@ -447,7 +459,7 @@ export function ServiceTemplates() {
                     <ul className="list-disc pl-5 space-y-1">
                       {parseChecklistItems(template.checklistItems).slice(0, 3).map((item, i) => (
                         <li key={i} className="text-sm text-gray-700">
-                          {typeof item === 'string' ? item : item.text}
+                          {item.text}
                         </li>
                       ))}
                       {parseChecklistItems(template.checklistItems).length > 3 && (
