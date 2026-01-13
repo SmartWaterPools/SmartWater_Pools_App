@@ -83,6 +83,12 @@ interface ChecklistItem {
   completed: boolean;
 }
 
+interface Project {
+  id: number;
+  name: string;
+  status: string;
+}
+
 const workOrderFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -91,6 +97,7 @@ const workOrderFormSchema = z.object({
   priority: z.enum(WORK_ORDER_PRIORITIES).default("medium"),
   scheduledDate: z.string().optional(),
   technicianId: z.number().optional().nullable(),
+  projectId: z.number().optional().nullable(),
   checklist: z.array(z.object({
     id: z.string(),
     text: z.string(),
@@ -100,7 +107,12 @@ const workOrderFormSchema = z.object({
 
 type WorkOrderFormValues = z.infer<typeof workOrderFormSchema>;
 
-function WorkOrderForm({ onClose }: { onClose: () => void }) {
+interface WorkOrderFormProps {
+  onClose: () => void;
+  initialProjectId?: number | null;
+}
+
+function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps) {
   const { toast } = useToast();
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [newItemText, setNewItemText] = useState("");
@@ -108,17 +120,22 @@ function WorkOrderForm({ onClose }: { onClose: () => void }) {
   const { data: technicians } = useQuery<TechnicianWithUser[]>({
     queryKey: ["/api/technicians-with-users"],
   });
+  
+  const { data: projects } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
 
   const form = useForm<WorkOrderFormValues>({
     resolver: zodResolver(workOrderFormSchema),
     defaultValues: {
       title: "",
       description: "",
-      category: "maintenance",
+      category: initialProjectId ? "construction" : "maintenance",
       status: "pending",
       priority: "medium",
       scheduledDate: "",
       technicianId: null,
+      projectId: initialProjectId,
       checklist: [],
     },
   });
@@ -148,12 +165,15 @@ function WorkOrderForm({ onClose }: { onClose: () => void }) {
       const response = await apiRequest('POST', '/api/work-orders', payload);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast({
         title: "Work Order Created",
         description: "The work order has been created successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      if (variables.projectId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", variables.projectId, "work-orders"] });
+      }
       onClose();
     },
     onError: (error: Error) => {
@@ -298,6 +318,35 @@ function WorkOrderForm({ onClose }: { onClose: () => void }) {
           )}
         />
         
+        <FormField
+          control={form.control}
+          name="projectId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Link to Project (Optional)</FormLabel>
+              <Select 
+                onValueChange={(value) => field.onChange(value ? parseInt(value) : null)} 
+                defaultValue={field.value?.toString() || ""}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project (optional)" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="">No project</SelectItem>
+                  {projects?.filter(p => p.status !== 'completed').map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
         {/* Checklist Section */}
         <div className="space-y-3">
           <Label className="text-sm font-medium">Checklist Items</Label>
@@ -374,9 +423,17 @@ export default function WorkOrders() {
   const [technicianFilter, setTechnicianFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
+  
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialProjectId = urlParams.get('projectId') ? parseInt(urlParams.get('projectId')!) : null;
+  const [projectFilter, setProjectFilter] = useState<string>(initialProjectId?.toString() || "all");
 
   const { data: workOrders, isLoading } = useQuery<WorkOrderWithDetails[]>({
     queryKey: ["/api/work-orders"],
+  });
+  
+  const { data: projects } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
   });
 
   const { data: technicians } = useQuery<TechnicianWithUser[]>({
@@ -389,6 +446,9 @@ export default function WorkOrders() {
     if (technicianFilter !== "all") {
       if (technicianFilter === "unassigned" && workOrder.technicianId) return false;
       if (technicianFilter !== "unassigned" && workOrder.technicianId?.toString() !== technicianFilter) return false;
+    }
+    if (projectFilter !== "all") {
+      if (!workOrder.projectId || workOrder.projectId.toString() !== projectFilter) return false;
     }
     if (searchTerm && !workOrder.title.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
@@ -475,7 +535,7 @@ export default function WorkOrders() {
                   Fill in the details below to create a new work order.
                 </DialogDescription>
               </DialogHeader>
-              <WorkOrderForm onClose={() => setOpen(false)} />
+              <WorkOrderForm onClose={() => setOpen(false)} initialProjectId={initialProjectId} />
             </DialogContent>
           </Dialog>
         </div>
@@ -533,6 +593,23 @@ export default function WorkOrders() {
             </SelectContent>
           </Select>
         </div>
+        
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-gray-600">Project:</Label>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Projects" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Projects</SelectItem>
+              {projects?.map((project) => (
+                <SelectItem key={project.id} value={project.id.toString()}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -557,7 +634,7 @@ export default function WorkOrders() {
             <ClipboardList className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900">No work orders found</h3>
             <p className="text-gray-500 mt-1">
-              {searchTerm || categoryFilter !== "all" || statusFilter !== "all" || technicianFilter !== "all"
+              {searchTerm || categoryFilter !== "all" || statusFilter !== "all" || technicianFilter !== "all" || projectFilter !== "all"
                 ? "Try adjusting your filters"
                 : "Create your first work order to get started"}
             </p>
