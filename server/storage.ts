@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte } from "drizzle-orm";
 
@@ -119,6 +119,26 @@ export interface IStorage {
   createCommunicationLink(link: InsertCommunicationLink): Promise<CommunicationLink>;
   deleteCommunicationLink(id: number): Promise<boolean>;
   deleteCommunicationLinksByCommunication(communicationType: string, communicationId: number): Promise<boolean>;
+
+  // Work Order operations
+  getWorkOrders(organizationId?: number): Promise<WorkOrder[]>;
+  getWorkOrder(id: number): Promise<WorkOrder | undefined>;
+  getWorkOrdersByProject(projectId: number): Promise<WorkOrder[]>;
+  getWorkOrdersByPhase(phaseId: number): Promise<WorkOrder[]>;
+  getWorkOrdersByRepair(repairId: number): Promise<WorkOrder[]>;
+  getWorkOrdersByMaintenance(maintenanceId: number): Promise<WorkOrder[]>;
+  getWorkOrdersByTechnician(technicianId: number): Promise<WorkOrder[]>;
+  getWorkOrdersByClient(clientId: number): Promise<WorkOrder[]>;
+  getWorkOrdersByCategory(category: string, organizationId?: number): Promise<WorkOrder[]>;
+  getWorkOrdersByStatus(status: string, organizationId?: number): Promise<WorkOrder[]>;
+  createWorkOrder(workOrder: InsertWorkOrder): Promise<WorkOrder>;
+  updateWorkOrder(id: number, data: Partial<WorkOrder>): Promise<WorkOrder | undefined>;
+  deleteWorkOrder(id: number): Promise<boolean>;
+
+  // Work Order Note operations
+  getWorkOrderNotes(workOrderId: number): Promise<WorkOrderNote[]>;
+  createWorkOrderNote(note: InsertWorkOrderNote): Promise<WorkOrderNote>;
+  deleteWorkOrderNote(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -619,6 +639,141 @@ export class DatabaseStorage implements IStorage {
         eq(communicationLinks.communicationType, communicationType),
         eq(communicationLinks.communicationId, communicationId)
       ))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Work Order operations
+  async getWorkOrders(organizationId?: number): Promise<WorkOrder[]> {
+    if (organizationId) {
+      return await db.select()
+        .from(workOrders)
+        .where(eq(workOrders.organizationId, organizationId))
+        .orderBy(desc(workOrders.createdAt));
+    }
+    return await db.select()
+      .from(workOrders)
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrder(id: number): Promise<WorkOrder | undefined> {
+    const result = await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getWorkOrdersByProject(projectId: number): Promise<WorkOrder[]> {
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.projectId, projectId))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrdersByPhase(phaseId: number): Promise<WorkOrder[]> {
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.projectPhaseId, phaseId))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrdersByRepair(repairId: number): Promise<WorkOrder[]> {
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.repairId, repairId))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrdersByMaintenance(maintenanceId: number): Promise<WorkOrder[]> {
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.maintenanceAssignmentId, maintenanceId))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrdersByTechnician(technicianId: number): Promise<WorkOrder[]> {
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.technicianId, technicianId))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrdersByClient(clientId: number): Promise<WorkOrder[]> {
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.clientId, clientId))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrdersByCategory(category: string, organizationId?: number): Promise<WorkOrder[]> {
+    if (organizationId) {
+      return await db.select()
+        .from(workOrders)
+        .where(and(
+          eq(workOrders.category, category),
+          eq(workOrders.organizationId, organizationId)
+        ))
+        .orderBy(desc(workOrders.createdAt));
+    }
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.category, category))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async getWorkOrdersByStatus(status: string, organizationId?: number): Promise<WorkOrder[]> {
+    if (organizationId) {
+      return await db.select()
+        .from(workOrders)
+        .where(and(
+          eq(workOrders.status, status),
+          eq(workOrders.organizationId, organizationId)
+        ))
+        .orderBy(desc(workOrders.createdAt));
+    }
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.status, status))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  async createWorkOrder(workOrder: InsertWorkOrder): Promise<WorkOrder> {
+    const result = await db.insert(workOrders).values(workOrder).returning();
+    return result[0];
+  }
+
+  async updateWorkOrder(id: number, data: Partial<WorkOrder>): Promise<WorkOrder | undefined> {
+    const result = await db.update(workOrders)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(workOrders.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteWorkOrder(id: number): Promise<boolean> {
+    const result = await db.delete(workOrders)
+      .where(eq(workOrders.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Work Order Note operations
+  async getWorkOrderNotes(workOrderId: number): Promise<WorkOrderNote[]> {
+    return await db.select()
+      .from(workOrderNotes)
+      .where(eq(workOrderNotes.workOrderId, workOrderId))
+      .orderBy(desc(workOrderNotes.createdAt));
+  }
+
+  async createWorkOrderNote(note: InsertWorkOrderNote): Promise<WorkOrderNote> {
+    const result = await db.insert(workOrderNotes).values(note).returning();
+    return result[0];
+  }
+
+  async deleteWorkOrderNote(id: number): Promise<boolean> {
+    const result = await db.delete(workOrderNotes)
+      .where(eq(workOrderNotes.id, id))
       .returning();
     return result.length > 0;
   }
