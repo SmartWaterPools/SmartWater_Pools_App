@@ -2,6 +2,8 @@ import { Router } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth";
 import { type User, insertWorkOrderSchema, insertWorkOrderNoteSchema } from "@shared/schema";
+import { ZodError } from "zod";
+import { fromZodError } from "zod-validation-error";
 
 const router = Router();
 
@@ -67,6 +69,10 @@ router.post('/', isAuthenticated, async (req, res) => {
     res.status(201).json(workOrder);
   } catch (error) {
     console.error('Error creating work order:', error);
+    if (error instanceof ZodError) {
+      const humanError = fromZodError(error);
+      return res.status(400).json({ error: humanError.message });
+    }
     res.status(500).json({ error: 'Failed to create work order' });
   }
 });
@@ -89,6 +95,10 @@ router.patch('/:id', isAuthenticated, async (req, res) => {
     res.json(updatedWorkOrder);
   } catch (error) {
     console.error('Error updating work order:', error);
+    if (error instanceof ZodError) {
+      const humanError = fromZodError(error);
+      return res.status(400).json({ error: humanError.message });
+    }
     res.status(500).json({ error: 'Failed to update work order' });
   }
 });
