@@ -555,3 +555,100 @@ export const insertCommunicationLinkSchema = createInsertSchema(communicationLin
 
 export type InsertCommunicationLink = z.infer<typeof insertCommunicationLinkSchema>;
 export type CommunicationLink = typeof communicationLinks.$inferSelect;
+
+// Work Order categories
+export const WORK_ORDER_CATEGORIES = ['construction', 'cleaning', 'maintenance', 'repair'] as const;
+export type WorkOrderCategory = (typeof WORK_ORDER_CATEGORIES)[number];
+
+// Work Order statuses
+export const WORK_ORDER_STATUSES = ['pending', 'scheduled', 'in_progress', 'completed', 'cancelled'] as const;
+export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
+
+// Work Order priorities
+export const WORK_ORDER_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number];
+
+// Work Orders table - unified work orders for construction, cleaning, maintenance, repair
+export const workOrders = pgTable("work_orders", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // 'construction', 'cleaning', 'maintenance', 'repair'
+  status: text("status").notNull().default("pending"), // 'pending', 'scheduled', 'in_progress', 'completed', 'cancelled'
+  priority: text("priority").notNull().default("medium"), // 'low', 'medium', 'high', 'urgent'
+  
+  // Scheduling
+  scheduledDate: date("scheduled_date"),
+  scheduledTime: time("scheduled_time"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  estimatedDuration: integer("estimated_duration"), // in minutes
+  actualDuration: integer("actual_duration"), // in minutes
+  
+  // Related entities - polymorphic linking
+  technicianId: integer("technician_id"), // FK to technicians
+  clientId: integer("client_id"), // FK to clients/users
+  projectId: integer("project_id"), // FK to projects (for construction)
+  projectPhaseId: integer("project_phase_id"), // FK to project_phases (link to specific phase/stage)
+  repairId: integer("repair_id"), // FK to repairs
+  maintenanceAssignmentId: integer("maintenance_assignment_id"), // FK to bazza_maintenance_assignments
+  
+  // Template reference
+  serviceTemplateId: integer("service_template_id"), // FK to service_templates
+  
+  // Checklist - stored as JSON array
+  checklist: text("checklist"), // JSON array of checklist items with completion status
+  
+  // Photos/attachments
+  photos: text("photos").array(), // Array of photo URLs
+  
+  // Cost tracking
+  laborCost: integer("labor_cost"),
+  materialsCost: integer("materials_cost"),
+  totalCost: integer("total_cost"),
+  
+  // Location
+  address: text("address"),
+  addressLat: text("address_lat"),
+  addressLng: text("address_lng"),
+  
+  // Notes and signature
+  notes: text("notes"),
+  customerSignature: text("customer_signature"), // Base64 signature or URL
+  
+  // Metadata
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertWorkOrderSchema = createInsertSchema(workOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWorkOrder = z.infer<typeof insertWorkOrderSchema>;
+export type WorkOrder = typeof workOrders.$inferSelect;
+
+// Work Order Notes - threaded comments/updates on work orders
+export const workOrderNotes = pgTable("work_order_notes", {
+  id: serial("id").primaryKey(),
+  workOrderId: integer("work_order_id").notNull(), // FK to work_orders
+  userId: integer("user_id").notNull(), // FK to users who created the note
+  content: text("content").notNull(),
+  noteType: text("note_type").notNull().default("comment"), // 'comment', 'status_update', 'checklist_update', 'photo_added'
+  isInternal: boolean("is_internal").default(false), // Internal notes not visible to clients
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertWorkOrderNoteSchema = createInsertSchema(workOrderNotes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWorkOrderNote = z.infer<typeof insertWorkOrderNoteSchema>;
+export type WorkOrderNote = typeof workOrderNotes.$inferSelect;
