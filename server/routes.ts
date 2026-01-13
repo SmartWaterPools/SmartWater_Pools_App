@@ -10,6 +10,7 @@ import communicationRoutes from "./routes/communication-routes";
 import emailRoutes from "./routes/email-routes";
 import smsRoutes from "./routes/sms-routes";
 import vendorRoutes from "./routes/vendor-routes";
+import workOrderRoutes from "./routes/work-order-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema } from "@shared/schema";
 
@@ -34,6 +35,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount vendor routes
   app.use('/api/vendors', vendorRoutes);
+
+  // Mount work order routes
+  app.use('/api/work-orders', workOrderRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();
@@ -562,6 +566,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Get project phases error:', error);
       res.status(500).json({ error: 'Failed to get project phases' });
+    }
+  });
+
+  // Get project work orders endpoint
+  app.get('/api/projects/:id/work-orders', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      
+      const client = await storage.getUser(project.clientId);
+      if (!client) {
+        return res.status(404).json({ error: 'Client not found for project' });
+      }
+      
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      const workOrders = await storage.getWorkOrdersByProject(projectId);
+      res.json(workOrders);
+    } catch (error) {
+      console.error('Get project work orders error:', error);
+      res.status(500).json({ error: 'Failed to get project work orders' });
     }
   });
 
