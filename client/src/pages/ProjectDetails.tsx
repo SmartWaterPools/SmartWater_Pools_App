@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { ProjectPhases } from "@/components/projects/ProjectPhases";
 import { ProjectDocuments } from "@/components/projects/ProjectDocuments";
+import { ProjectWorkOrders } from "@/components/projects/ProjectWorkOrders";
 import { getStatusClasses, ProjectWithDetails } from "@/lib/types";
-import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus, Trash2, Archive } from "lucide-react";
+import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus, Trash2, Archive, ClipboardList } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/types";
 import { Link } from "wouter";
 import { ProjectEditForm } from "@/components/projects/ProjectEditForm";
@@ -233,6 +234,11 @@ export default function ProjectDetails() {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="phases">Project Phases</TabsTrigger>
             <TabsTrigger value="documents">Documents</TabsTrigger>
+            <TabsTrigger value="work-orders" className="flex items-center">
+              <ClipboardList className="h-4 w-4 mr-2" />
+              <span className="hidden xs:inline">Work Orders</span>
+              <span className="xs:hidden">Jobs</span>
+            </TabsTrigger>
             <TabsTrigger value="communications" className="flex items-center">
               <MessageSquare className="h-4 w-4 mr-2" />
               <span className="hidden xs:inline">Communications</span>
@@ -552,6 +558,10 @@ export default function ProjectDetails() {
               </TabsContent>
             </Tabs>
           </div>
+        </TabsContent>
+        
+        <TabsContent value="work-orders">
+          <ProjectWorkOrders projectId={projectId} projectName={projectData.name} />
         </TabsContent>
         
         <TabsContent value="settings">
