@@ -51,8 +51,14 @@ router.get('/:id', isAuthenticated, async (req, res) => {
 router.post('/', isAuthenticated, async (req, res) => {
   try {
     const user = req.user as User;
+    const requestBody = { ...req.body };
+    
+    if (requestBody.checklist && Array.isArray(requestBody.checklist)) {
+      requestBody.checklist = JSON.stringify(requestBody.checklist);
+    }
+    
     const validatedData = insertWorkOrderSchema.parse({
-      ...req.body,
+      ...requestBody,
       organizationId: user.organizationId,
       createdBy: user.id
     });
@@ -74,7 +80,12 @@ router.patch('/:id', isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: 'Work order not found' });
     }
     
-    const updatedWorkOrder = await storage.updateWorkOrder(id, req.body);
+    const requestBody = { ...req.body };
+    if (requestBody.checklist && Array.isArray(requestBody.checklist)) {
+      requestBody.checklist = JSON.stringify(requestBody.checklist);
+    }
+    
+    const updatedWorkOrder = await storage.updateWorkOrder(id, requestBody);
     res.json(updatedWorkOrder);
   } catch (error) {
     console.error('Error updating work order:', error);

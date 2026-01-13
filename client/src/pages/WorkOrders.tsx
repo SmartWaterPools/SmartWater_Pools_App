@@ -7,7 +7,10 @@ import {
   ChevronDown, 
   Calendar,
   User,
-  ClipboardList
+  ClipboardList,
+  Plus,
+  Trash2,
+  GripVertical
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +77,12 @@ interface WorkOrderWithDetails extends WorkOrder {
   } | null;
 }
 
+interface ChecklistItem {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
 const workOrderFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -82,12 +91,19 @@ const workOrderFormSchema = z.object({
   priority: z.enum(WORK_ORDER_PRIORITIES).default("medium"),
   scheduledDate: z.string().optional(),
   technicianId: z.number().optional().nullable(),
+  checklist: z.array(z.object({
+    id: z.string(),
+    text: z.string(),
+    completed: z.boolean(),
+  })).optional(),
 });
 
 type WorkOrderFormValues = z.infer<typeof workOrderFormSchema>;
 
 function WorkOrderForm({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
+  const [newItemText, setNewItemText] = useState("");
   
   const { data: technicians } = useQuery<TechnicianWithUser[]>({
     queryKey: ["/api/technicians-with-users"],
@@ -103,12 +119,33 @@ function WorkOrderForm({ onClose }: { onClose: () => void }) {
       priority: "medium",
       scheduledDate: "",
       technicianId: null,
+      checklist: [],
     },
   });
+  
+  const addChecklistItem = () => {
+    if (newItemText.trim()) {
+      const newItem: ChecklistItem = {
+        id: `item-${Date.now()}`,
+        text: newItemText.trim(),
+        completed: false,
+      };
+      setChecklistItems([...checklistItems, newItem]);
+      setNewItemText("");
+    }
+  };
+  
+  const removeChecklistItem = (id: string) => {
+    setChecklistItems(checklistItems.filter(item => item.id !== id));
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: WorkOrderFormValues) => {
-      const response = await apiRequest('POST', '/api/work-orders', data);
+      const payload = {
+        ...data,
+        checklist: checklistItems.length > 0 ? checklistItems : null,
+      };
+      const response = await apiRequest('POST', '/api/work-orders', payload);
       return response.json();
     },
     onSuccess: () => {
@@ -260,6 +297,62 @@ function WorkOrderForm({ onClose }: { onClose: () => void }) {
             </FormItem>
           )}
         />
+        
+        {/* Checklist Section */}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Checklist Items</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Add a checklist item..."
+              value={newItemText}
+              onChange={(e) => setNewItemText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addChecklistItem();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={addChecklistItem}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {checklistItems.length > 0 && (
+            <div className="border rounded-md divide-y">
+              {checklistItems.map((item, index) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 px-3 py-2 bg-muted/30"
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex-1 text-sm">{item.text}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeChecklistItem(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {checklistItems.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              No checklist items added. Add items above for technicians to complete on-site.
+            </p>
+          )}
+        </div>
         
         <div className="flex justify-end gap-2 pt-4">
           <Button type="button" variant="outline" onClick={onClose}>
