@@ -11,6 +11,7 @@ import emailRoutes from "./routes/email-routes";
 import smsRoutes from "./routes/sms-routes";
 import vendorRoutes from "./routes/vendor-routes";
 import workOrderRoutes from "./routes/work-order-routes";
+import serviceTemplateRoutes from "./routes/service-template-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema } from "@shared/schema";
 
@@ -38,6 +39,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount work order routes
   app.use('/api/work-orders', workOrderRoutes);
+
+  // Mount service template routes
+  app.use('/api/service-templates', serviceTemplateRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();

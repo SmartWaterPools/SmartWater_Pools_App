@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte } from "drizzle-orm";
 
@@ -139,6 +139,15 @@ export interface IStorage {
   getWorkOrderNotes(workOrderId: number): Promise<WorkOrderNote[]>;
   createWorkOrderNote(note: InsertWorkOrderNote): Promise<WorkOrderNote>;
   deleteWorkOrderNote(id: number): Promise<boolean>;
+
+  // Service Template operations
+  getServiceTemplates(organizationId?: number): Promise<ServiceTemplate[]>;
+  getServiceTemplate(id: number): Promise<ServiceTemplate | undefined>;
+  getServiceTemplatesByType(type: string, organizationId?: number): Promise<ServiceTemplate[]>;
+  getDefaultServiceTemplate(type: string, organizationId?: number): Promise<ServiceTemplate | undefined>;
+  createServiceTemplate(template: InsertServiceTemplate): Promise<ServiceTemplate>;
+  updateServiceTemplate(id: number, data: Partial<ServiceTemplate>): Promise<ServiceTemplate | undefined>;
+  deleteServiceTemplate(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -774,6 +783,85 @@ export class DatabaseStorage implements IStorage {
   async deleteWorkOrderNote(id: number): Promise<boolean> {
     const result = await db.delete(workOrderNotes)
       .where(eq(workOrderNotes.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Service Template operations
+  async getServiceTemplates(organizationId?: number): Promise<ServiceTemplate[]> {
+    if (organizationId) {
+      return await db.select()
+        .from(serviceTemplates)
+        .where(eq(serviceTemplates.organizationId, organizationId))
+        .orderBy(desc(serviceTemplates.createdAt));
+    }
+    return await db.select()
+      .from(serviceTemplates)
+      .orderBy(desc(serviceTemplates.createdAt));
+  }
+
+  async getServiceTemplate(id: number): Promise<ServiceTemplate | undefined> {
+    const result = await db.select()
+      .from(serviceTemplates)
+      .where(eq(serviceTemplates.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getServiceTemplatesByType(type: string, organizationId?: number): Promise<ServiceTemplate[]> {
+    if (organizationId) {
+      return await db.select()
+        .from(serviceTemplates)
+        .where(and(
+          eq(serviceTemplates.type, type),
+          eq(serviceTemplates.organizationId, organizationId)
+        ))
+        .orderBy(desc(serviceTemplates.createdAt));
+    }
+    return await db.select()
+      .from(serviceTemplates)
+      .where(eq(serviceTemplates.type, type))
+      .orderBy(desc(serviceTemplates.createdAt));
+  }
+
+  async getDefaultServiceTemplate(type: string, organizationId?: number): Promise<ServiceTemplate | undefined> {
+    if (organizationId) {
+      const result = await db.select()
+        .from(serviceTemplates)
+        .where(and(
+          eq(serviceTemplates.type, type),
+          eq(serviceTemplates.organizationId, organizationId),
+          eq(serviceTemplates.isDefault, true)
+        ))
+        .limit(1);
+      return result[0] || undefined;
+    }
+    const result = await db.select()
+      .from(serviceTemplates)
+      .where(and(
+        eq(serviceTemplates.type, type),
+        eq(serviceTemplates.isDefault, true)
+      ))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async createServiceTemplate(template: InsertServiceTemplate): Promise<ServiceTemplate> {
+    const result = await db.insert(serviceTemplates).values(template).returning();
+    return result[0];
+  }
+
+  async updateServiceTemplate(id: number, data: Partial<ServiceTemplate>): Promise<ServiceTemplate | undefined> {
+    const result = await db.update(serviceTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(serviceTemplates.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteServiceTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(serviceTemplates)
+      .where(eq(serviceTemplates.id, id))
       .returning();
     return result.length > 0;
   }

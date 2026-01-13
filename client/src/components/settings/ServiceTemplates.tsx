@@ -152,14 +152,25 @@ export function ServiceTemplates() {
     setOpen(open);
   };
 
+  // Helper to parse checklist items from JSON string
+  const parseChecklistItems = (items: string | null | undefined): Array<{id: string; text: string; required?: boolean}> => {
+    if (!items) return [];
+    try {
+      const parsed = typeof items === 'string' ? JSON.parse(items) : items;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
   // Edit template
   const handleEdit = (template: ServiceTemplate) => {
-    // Parse the checklist items from string array to our expected format
-    const checklistItems = template.checklistItems || [];
-    const formattedItems = checklistItems.map((item, index) => ({
-      id: `item-${index}`,
-      text: item,
-      required: true,
+    // Parse the checklist items from JSON string to our expected format
+    const checklistItems = parseChecklistItems(template.checklistItems);
+    const formattedItems = checklistItems.map((item: {id?: string; text?: string; required?: boolean} | string, index: number) => ({
+      id: typeof item === 'string' ? `item-${index}` : (item.id || `item-${index}`),
+      text: typeof item === 'string' ? item : (item.text || ''),
+      required: typeof item === 'string' ? true : (item.required ?? true),
     }));
 
     setEditingTemplate(template);
@@ -434,12 +445,14 @@ export function ServiceTemplates() {
                   <div className="space-y-2">
                     <h4 className="font-medium text-sm">Checklist Items:</h4>
                     <ul className="list-disc pl-5 space-y-1">
-                      {(template.checklistItems || []).slice(0, 3).map((item, i) => (
-                        <li key={i} className="text-sm text-gray-700">{item}</li>
+                      {parseChecklistItems(template.checklistItems).slice(0, 3).map((item, i) => (
+                        <li key={i} className="text-sm text-gray-700">
+                          {typeof item === 'string' ? item : item.text}
+                        </li>
                       ))}
-                      {(template.checklistItems || []).length > 3 && (
+                      {parseChecklistItems(template.checklistItems).length > 3 && (
                         <li className="text-sm text-gray-500 italic">
-                          +{(template.checklistItems || []).length - 3} more items
+                          +{parseChecklistItems(template.checklistItems).length - 3} more items
                         </li>
                       )}
                     </ul>

@@ -556,6 +556,28 @@ export const insertCommunicationLinkSchema = createInsertSchema(communicationLin
 export type InsertCommunicationLink = z.infer<typeof insertCommunicationLinkSchema>;
 export type CommunicationLink = typeof communicationLinks.$inferSelect;
 
+// Service Templates - define work order types with customizable checklists
+export const serviceTemplates = pgTable("service_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // 'maintenance', 'repair', 'construction', 'cleaning'
+  description: text("description"),
+  isDefault: boolean("is_default").default(false),
+  checklistItems: text("checklist_items"), // JSON array of checklist items
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertServiceTemplateSchema = createInsertSchema(serviceTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertServiceTemplate = z.infer<typeof insertServiceTemplateSchema>;
+export type ServiceTemplate = typeof serviceTemplates.$inferSelect;
+
 // Work Order categories
 export const WORK_ORDER_CATEGORIES = ['construction', 'cleaning', 'maintenance', 'repair'] as const;
 export type WorkOrderCategory = (typeof WORK_ORDER_CATEGORIES)[number];
