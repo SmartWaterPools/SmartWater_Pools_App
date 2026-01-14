@@ -600,20 +600,22 @@ export function EnhancedTabManager() {
                   : "text-gray-600 border-b-transparent border-b-2 border-t-0 border-l-0 border-r-0"
               )}
             >
-              <div className="flex items-center space-x-1 truncate">
-                {/* Show icon if available */}
-                {tab.icon && (
-                  <span className={cn(
-                    "mr-1.5 flex-shrink-0", 
-                    activeTabId === tab.id ? "text-primary" : "text-gray-500"
-                  )}>
-                    {tab.icon}
-                  </span>
-                )}
-                <span className="truncate text-sm">{tab.title}</span>
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center min-w-0 flex-1">
+                  {/* Show icon if available */}
+                  {tab.icon && (
+                    <span className={cn(
+                      "mr-1.5 flex-shrink-0", 
+                      activeTabId === tab.id ? "text-primary" : "text-gray-500"
+                    )}>
+                      {tab.icon}
+                    </span>
+                  )}
+                  <span className="truncate text-sm">{tab.title}</span>
+                </div>
                 <button
                   onClick={(e) => handleCloseTab(e, tab.id)}
-                  className="p-0.5 rounded-full hover:bg-gray-100 ml-1 flex-shrink-0"
+                  className="p-0.5 rounded-full hover:bg-gray-100 ml-2 flex-shrink-0"
                   title="Close Tab"
                 >
                   <X className="h-3 w-3 text-gray-400 hover:text-gray-600" />
