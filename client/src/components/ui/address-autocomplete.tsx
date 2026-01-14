@@ -218,7 +218,7 @@ export function AddressAutocomplete({
   };
 
   const handleBlur = () => {
-    // Small delay to allow click on suggestions to register
+    // Longer delay to allow touch/pointer events on suggestions to register on mobile
     setTimeout(() => {
       // Skip if we just selected a suggestion (it already called onAddressSelect with coordinates)
       if (justSelectedRef.current) {
@@ -231,7 +231,7 @@ export function AddressAutocomplete({
         onAddressSelect(inputValue);
       }
       setShowSuggestions(false);
-    }, 200);
+    }, 350);
   };
 
   return (
@@ -274,7 +274,11 @@ export function AddressAutocomplete({
                   role="option"
                   tabIndex={0}
                   className="px-4 py-3 text-sm hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation active:bg-blue-100"
-                  onClick={(e) => handleSelectSuggestion(suggestion, e)}
+                  onPointerDown={(e) => {
+                    e.preventDefault();
+                    justSelectedRef.current = true;
+                    handleSelectSuggestion(suggestion, e);
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -292,7 +296,11 @@ export function AddressAutocomplete({
               role="option"
               tabIndex={0}
               className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation active:bg-blue-100"
-              onClick={(e) => handleSelectSuggestion(debouncedValue, e)}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                justSelectedRef.current = true;
+                handleSelectSuggestion(debouncedValue, e);
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
