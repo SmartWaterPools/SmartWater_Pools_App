@@ -62,9 +62,9 @@ export default function ProjectDetails() {
   // Delete project mutation
   const deleteMutation = useMutation({
     mutationFn: () => {
-      return apiRequest<void>(
-        `/api/projects/${projectId}`,
-        'DELETE'
+      return apiRequest(
+        'DELETE',
+        `/api/projects/${projectId}`
       );
     },
     onSuccess: () => {
@@ -90,9 +90,9 @@ export default function ProjectDetails() {
   const archiveMutation = useMutation({
     mutationFn: () => {
       // Toggle the isArchived status
-      return apiRequest<any>(
-        `/api/projects/${projectId}`,
+      return apiRequest(
         'PATCH',
+        `/api/projects/${projectId}`,
         { isArchived: !projectData.isArchived }
       );
     },
