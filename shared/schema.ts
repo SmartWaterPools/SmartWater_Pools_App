@@ -83,6 +83,7 @@ export const projects = pgTable("projects", {
   isTemplate: boolean("is_template").default(false),
   templateName: text("template_name"),
   templateCategory: text("template_category"),
+  isArchived: boolean("is_archived").default(false),
 });
 
 export const repairs = pgTable("repairs", {
