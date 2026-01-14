@@ -84,7 +84,8 @@ export function InviteUserDialog({ onSuccess }: InviteUserDialogProps) {
 
       console.log('Sending invitation with payload:', payload);
 
-      const response = await apiRequest('/api/invitations', 'POST', payload);
+      const res = await apiRequest('POST', '/api/invitations', payload);
+      const response = await res.json();
 
       if (response.success) {
         toast({
