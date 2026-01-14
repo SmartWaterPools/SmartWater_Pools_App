@@ -38,12 +38,12 @@ export function AppLayout({ children }: AppLayoutProps) {
         />
         
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Header with mobile menu toggle */}
           <Header toggleMobileMenu={toggleMobileMenu} />
           
           {/* Tab Manager */}
-          <div className="bg-white border-b">
+          <div className="bg-white border-b overflow-hidden">
             <EnhancedTabManager />
           </div>
           

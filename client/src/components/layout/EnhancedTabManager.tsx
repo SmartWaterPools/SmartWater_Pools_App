@@ -484,14 +484,8 @@ export function EnhancedTabManager() {
     };
   }, [tabs]);
   
-  // Handle tab interaction
-  // Single click just selects/highlights the tab without navigation
-  const handleTabClick = (tabId: string) => {
-    setActiveTabId(tabId);
-  };
-  
-  // Double click navigates to the tab
-  const handleTabDoubleClick = (tab: TabItem) => {
+  // Handle tab click - single click navigates directly to the tab
+  const handleTabClick = (tab: TabItem) => {
     navigateToTab(tab.id);
   };
   
@@ -554,9 +548,9 @@ export function EnhancedTabManager() {
   }, [activeTabId]);
   
   return (
-    <div className="bg-white border-b border-gray-200 relative">
-      {/* Tab Navigation - exactly matching the UI in screenshots */}
-      <div className="relative flex items-center">
+    <div className="bg-white border-b border-gray-200 relative overflow-hidden">
+      {/* Tab Navigation */}
+      <div className="relative flex items-center w-full">
         {/* Left scroll button */}
         {canScrollLeft && (
           <Button 
@@ -570,10 +564,10 @@ export function EnhancedTabManager() {
           </Button>
         )}
         
-        {/* Scrollable tab container - exactly matching the screenshots */}
+        {/* Scrollable tab container - constrained width to prevent page stretching */}
         <div 
           ref={scrollContainerRef}
-          className="flex overflow-x-auto scrollbar-hide w-full"
+          className="flex overflow-x-auto scrollbar-hide flex-1 min-w-0"
           onScroll={handleScroll}
           style={{ scrollBehavior: 'smooth' }}
         >
@@ -581,9 +575,8 @@ export function EnhancedTabManager() {
             <div
               key={tab.id}
               data-tab-id={tab.id}
-              onClick={() => handleTabClick(tab.id)}
-              onDoubleClick={() => handleTabDoubleClick(tab)}
-              title="Click to select this tab. Double-click to navigate to it."
+              onClick={() => handleTabClick(tab)}
+              title="Click to navigate to this tab"
               className={cn(
                 "flex items-center py-2.5 px-4 cursor-pointer min-w-fit max-w-[180px] relative",
                 activeTabId === tab.id 
