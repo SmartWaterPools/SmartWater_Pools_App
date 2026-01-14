@@ -279,13 +279,32 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // But still allow users to explicitly create them if desired
   
   // Watch for location changes to sync tabs
-  // Only create new tabs for new paths - don't force activeTabId to match location
-  // This allows single-click tab selection without immediate navigation
+  // When location changes, find the matching tab and set it as active
   useEffect(() => {
-    // If the location doesn't match any tab, create a new one (unless it's a dashboard and we already have one)
-    const matchingTab = getTabByPath(location);
+    // First check if the currently active tab already matches the location
+    const activeTab = getTabById(activeTabId);
+    if (activeTab && activeTab.path === location) {
+      // Active tab already matches location, no sync needed - just update last accessed
+      return;
+    }
     
-    if (!matchingTab) {
+    // Find all tabs matching this location
+    const matchingTabs = tabs.filter(tab => tab.path === location);
+    
+    if (matchingTabs.length > 0) {
+      // Prefer the most recently accessed tab for this path
+      const mostRecentTab = matchingTabs.sort((a, b) => b.lastAccessed - a.lastAccessed)[0];
+      
+      // If a tab exists for this location, make it active and update its last accessed time
+      if (activeTabId !== mostRecentTab.id) {
+        setActiveTabId(mostRecentTab.id);
+        setTabs(currentTabs => 
+          currentTabs.map(t => 
+            t.id === mostRecentTab.id ? { ...t, lastAccessed: Date.now() } : t
+          )
+        );
+      }
+    } else {
       // Special case - don't create new tabs for 404 pages or other special routes
       if (location === '/404' || location === '/error') {
         return;
@@ -296,10 +315,7 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       // Set the new tab as active
       setActiveTabId(newTabId);
     }
-    // NOTE: We intentionally DO NOT sync activeTabId to location when a matching tab exists
-    // This allows users to single-click to highlight a tab without navigating
-    // Double-click will navigate and update location, which will then match the active tab
-  }, [location, getTabByPath, addTab]);
+  }, [location, getTabById, tabs, addTab, activeTabId]);
   
   // Listen for custom addTab events
   useEffect(() => {
