@@ -674,3 +674,24 @@ export const insertWorkOrderNoteSchema = createInsertSchema(workOrderNotes).omit
 
 export type InsertWorkOrderNote = z.infer<typeof insertWorkOrderNoteSchema>;
 export type WorkOrderNote = typeof workOrderNotes.$inferSelect;
+
+// Work Order Audit Log - tracks all changes made to work orders
+export const workOrderAuditLogs = pgTable("work_order_audit_logs", {
+  id: serial("id").primaryKey(),
+  workOrderId: integer("work_order_id").notNull(),
+  userId: integer("user_id").notNull(),
+  action: text("action").notNull(), // 'created', 'updated', 'deleted', 'status_changed', 'assigned', 'checklist_updated'
+  fieldName: text("field_name"), // Which field was changed (null for 'created')
+  oldValue: text("old_value"), // Previous value (JSON stringified if complex)
+  newValue: text("new_value"), // New value (JSON stringified if complex)
+  description: text("description"), // Human-readable description of the change
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertWorkOrderAuditLogSchema = createInsertSchema(workOrderAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWorkOrderAuditLog = z.infer<typeof insertWorkOrderAuditLogSchema>;
+export type WorkOrderAuditLog = typeof workOrderAuditLogs.$inferSelect;
