@@ -12,12 +12,18 @@ import {
   Circle,
   ClipboardList,
   Building2,
-  Layers
+  Layers,
+  Plus,
+  GripVertical,
+  History
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -29,9 +35,36 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { WorkOrder } from "@shared/schema";
+import type { WorkOrder, WorkOrderAuditLog } from "@shared/schema";
+import { WORK_ORDER_CATEGORIES, WORK_ORDER_STATUSES, WORK_ORDER_PRIORITIES } from "@shared/schema";
 
 interface WorkOrderWithDetails extends WorkOrder {
   technician?: {
@@ -52,10 +85,36 @@ interface WorkOrderWithDetails extends WorkOrder {
   } | null;
 }
 
+interface TechnicianWithUser {
+  id: number;
+  userId: number;
+  user: {
+    id: number;
+    name: string;
+    email: string;
+  };
+}
+
+interface Project {
+  id: number;
+  name: string;
+  status: string;
+}
+
+interface ProjectPhase {
+  id: number;
+  name: string;
+  projectId: number;
+}
+
 interface ChecklistItem {
   id: string;
   text: string;
   completed: boolean;
+}
+
+interface AuditLogWithUser extends WorkOrderAuditLog {
+  userName: string;
 }
 
 const statusColors: Record<string, string> = {
@@ -81,14 +140,414 @@ const categoryColors: Record<string, string> = {
   repair: "bg-red-100 text-red-800",
 };
 
+const workOrderEditSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().optional(),
+  category: z.enum(WORK_ORDER_CATEGORIES),
+  status: z.enum(WORK_ORDER_STATUSES),
+  priority: z.enum(WORK_ORDER_PRIORITIES),
+  scheduledDate: z.string().optional(),
+  technicianId: z.number().optional().nullable(),
+  projectId: z.number().optional().nullable(),
+  projectPhaseId: z.number().optional().nullable(),
+});
+
+type WorkOrderEditValues = z.infer<typeof workOrderEditSchema>;
+
+interface EditWorkOrderFormProps {
+  workOrder: WorkOrderWithDetails;
+  onClose: () => void;
+}
+
+function EditWorkOrderForm({ workOrder, onClose }: EditWorkOrderFormProps) {
+  const { toast } = useToast();
+  const workOrderId = workOrder.id;
+  
+  const parseChecklist = (checklist: string | ChecklistItem[] | null): ChecklistItem[] => {
+    if (!checklist) return [];
+    if (Array.isArray(checklist)) return checklist;
+    try {
+      return JSON.parse(checklist);
+    } catch {
+      return [];
+    }
+  };
+  
+  const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>(parseChecklist(workOrder.checklist));
+  const [newItemText, setNewItemText] = useState("");
+  
+  const { data: technicians } = useQuery<TechnicianWithUser[]>({
+    queryKey: ["/api/technicians-with-users"],
+  });
+  
+  const { data: projects } = useQuery<Project[]>({
+    queryKey: ["/api/projects"],
+  });
+  
+  const form = useForm<WorkOrderEditValues>({
+    resolver: zodResolver(workOrderEditSchema),
+    defaultValues: {
+      title: workOrder.title,
+      description: workOrder.description || "",
+      category: workOrder.category as typeof WORK_ORDER_CATEGORIES[number],
+      status: workOrder.status as typeof WORK_ORDER_STATUSES[number],
+      priority: workOrder.priority as typeof WORK_ORDER_PRIORITIES[number],
+      scheduledDate: workOrder.scheduledDate || "",
+      technicianId: workOrder.technicianId || null,
+      projectId: workOrder.projectId || null,
+      projectPhaseId: workOrder.projectPhaseId || null,
+    },
+  });
+
+  const selectedProjectId = form.watch("projectId");
+  
+  const { data: phases } = useQuery<ProjectPhase[]>({
+    queryKey: ['/api/projects', selectedProjectId, 'phases'],
+    enabled: !!selectedProjectId,
+  });
+  
+  const addChecklistItem = () => {
+    if (newItemText.trim()) {
+      const newItem: ChecklistItem = {
+        id: `item-${Date.now()}`,
+        text: newItemText.trim(),
+        completed: false,
+      };
+      setChecklistItems([...checklistItems, newItem]);
+      setNewItemText("");
+    }
+  };
+  
+  const removeChecklistItem = (id: string) => {
+    setChecklistItems(checklistItems.filter(item => item.id !== id));
+  };
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: WorkOrderEditValues) => {
+      const payload = {
+        ...data,
+        checklist: checklistItems.length > 0 ? checklistItems : null,
+      };
+      const response = await apiRequest('PATCH', `/api/work-orders/${workOrderId}`, payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Work Order Updated",
+        description: "The work order has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-orders/${workOrderId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-orders/${workOrderId}/audit-logs`] });
+      onClose();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update work order",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: WorkOrderEditValues) => {
+    updateMutation.mutate(data);
+  };
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <FormField
+          control={form.control}
+          name="title"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Title</FormLabel>
+              <FormControl>
+                <Input placeholder="Work order title" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Description</FormLabel>
+              <FormControl>
+                <Textarea 
+                  placeholder="Describe the work to be done..." 
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <div className="grid grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="category"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Category</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {WORK_ORDER_CATEGORIES.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {WORK_ORDER_STATUSES.map((status) => (
+                      <SelectItem key={status} value={status}>
+                        {status.replace('_', ' ').charAt(0).toUpperCase() + status.replace('_', ' ').slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          
+          <FormField
+            control={form.control}
+            name="priority"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Priority</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {WORK_ORDER_PRIORITIES.map((priority) => (
+                      <SelectItem key={priority} value={priority}>
+                        {priority.charAt(0).toUpperCase() + priority.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
+        <FormField
+          control={form.control}
+          name="scheduledDate"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Scheduled Date</FormLabel>
+              <FormControl>
+                <Input type="date" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="technicianId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Assign Technician</FormLabel>
+              <Select 
+                onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                value={field.value?.toString() || "none"}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select technician (optional)" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">Unassigned</SelectItem>
+                  {technicians?.map((tech) => (
+                    <SelectItem key={tech.id} value={tech.id.toString()}>
+                      {tech.user.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="projectId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Link to Project (Optional)</FormLabel>
+              <Select 
+                onValueChange={(value) => {
+                  const newProjectId = value === "none" ? null : parseInt(value);
+                  field.onChange(newProjectId);
+                  form.setValue("projectPhaseId", null);
+                }} 
+                value={field.value?.toString() || "none"}
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project (optional)" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects?.filter(p => p.status !== 'completed').map((project) => (
+                    <SelectItem key={project.id} value={project.id.toString()}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {selectedProjectId && phases && phases.length > 0 && (
+          <FormField
+            control={form.control}
+            name="projectPhaseId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Project Phase (Optional)</FormLabel>
+                <Select 
+                  onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                  value={field.value?.toString() || "none"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select phase (optional)" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No specific phase</SelectItem>
+                    {phases.map((phase) => (
+                      <SelectItem key={phase.id} value={phase.id.toString()}>
+                        {phase.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
+        
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Checklist Items</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Add a checklist item..."
+              value={newItemText}
+              onChange={(e) => setNewItemText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  addChecklistItem();
+                }
+              }}
+              className="flex-1"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={addChecklistItem}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          
+          {checklistItems.length > 0 && (
+            <div className="border rounded-md divide-y">
+              {checklistItems.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex items-center gap-3 px-3 py-2 bg-muted/30"
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                  <span className="flex-1 text-sm">{item.text}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => removeChecklistItem(item.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <div className="flex justify-end gap-2 pt-4">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={updateMutation.isPending}>
+            {updateMutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  );
+}
+
 export default function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const workOrderId = parseInt(id || "0");
 
   const { data: workOrder, isLoading, error } = useQuery<WorkOrderWithDetails>({
     queryKey: [`/api/work-orders/${workOrderId}`],
+    enabled: !!workOrderId,
+  });
+  
+  const { data: auditLogs } = useQuery<AuditLogWithUser[]>({
+    queryKey: [`/api/work-orders/${workOrderId}/audit-logs`],
     enabled: !!workOrderId,
   });
 
@@ -130,6 +589,7 @@ export default function WorkOrderDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/work-orders/${workOrderId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/work-orders/${workOrderId}/audit-logs`] });
     },
     onError: (error: Error) => {
       toast({
@@ -153,6 +613,11 @@ export default function WorkOrderDetail() {
   const formatDate = (date: string | Date | null) => {
     if (!date) return "Not scheduled";
     return new Date(date).toLocaleDateString();
+  };
+  
+  const formatDateTime = (date: string | Date | null) => {
+    if (!date) return "";
+    return new Date(date).toLocaleString();
   };
 
   if (isLoading) {
@@ -210,6 +675,26 @@ export default function WorkOrderDetail() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Edit className="h-4 w-4 mr-2" />
+                Edit
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit Work Order</DialogTitle>
+                <DialogDescription>
+                  Update the work order details below.
+                </DialogDescription>
+              </DialogHeader>
+              <EditWorkOrderForm 
+                workOrder={workOrder} 
+                onClose={() => setEditDialogOpen(false)} 
+              />
+            </DialogContent>
+          </Dialog>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="sm">
@@ -347,23 +832,44 @@ export default function WorkOrderDetail() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Timeline</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-5 w-5" />
+                Timeline
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Created</span>
-                <span>{formatDate(workOrder.createdAt)}</span>
-              </div>
-              {workOrder.startedAt && (
+            <CardContent className="space-y-4">
+              <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Started</span>
-                  <span>{formatDate(workOrder.startedAt)}</span>
+                  <span className="text-muted-foreground">Created</span>
+                  <span>{formatDate(workOrder.createdAt)}</span>
                 </div>
-              )}
-              {workOrder.completedAt && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Completed</span>
-                  <span>{formatDate(workOrder.completedAt)}</span>
+                {workOrder.startedAt && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Started</span>
+                    <span>{formatDate(workOrder.startedAt)}</span>
+                  </div>
+                )}
+                {workOrder.completedAt && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Completed</span>
+                    <span>{formatDate(workOrder.completedAt)}</span>
+                  </div>
+                )}
+              </div>
+              
+              {auditLogs && auditLogs.length > 0 && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-3">Audit Log</h4>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {auditLogs.map((log) => (
+                      <div key={log.id} className="flex flex-col text-xs border-l-2 border-muted pl-3 py-1">
+                        <span className="font-medium">{log.description}</span>
+                        <span className="text-muted-foreground">
+                          by {log.userName} • {formatDateTime(log.createdAt)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>
