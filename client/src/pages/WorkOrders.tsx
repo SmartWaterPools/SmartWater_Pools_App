@@ -10,8 +10,10 @@ import {
   ClipboardList,
   Plus,
   Trash2,
-  GripVertical
+  GripVertical,
+  Eye
 } from "lucide-react";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -729,6 +731,15 @@ export default function WorkOrders() {
                     Assigned to: {workOrder.technician.user.name}
                   </div>
                 )}
+                
+                <div className="pt-2">
+                  <Link href={`/work-orders/${workOrder.id}`}>
+                    <Button variant="outline" size="sm" className="w-full">
+                      <Eye className="h-4 w-4 mr-2" />
+                      Details
+                    </Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           ))
