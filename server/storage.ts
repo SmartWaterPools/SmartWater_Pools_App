@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc, lte } from "drizzle-orm";
+import { eq, and, inArray, desc, lte, sql } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -44,6 +44,7 @@ export interface IStorage {
     scheduledEmails: number;
     communicationLinks: number;
     smsMessages: number;
+    teamAssignments: number;
   }>;
   
   // Repair operations
@@ -299,6 +300,7 @@ export class DatabaseStorage implements IStorage {
     scheduledEmails: number;
     communicationLinks: number;
     smsMessages: number;
+    teamAssignments: number;
   }> {
     // Get counts of all related records
     const phasesResult = await db.select().from(projectPhases).where(eq(projectPhases.projectId, id));
@@ -313,15 +315,22 @@ export class DatabaseStorage implements IStorage {
       )
     );
     const smsMessagesResult = await db.select().from(smsMessages).where(eq(smsMessages.projectId, id));
+    
+    // Count from tables not in ORM schema (use raw SQL)
+    const assignmentsResult = await db.execute(sql`SELECT COUNT(*) as count FROM project_assignments WHERE project_id = ${id}`);
+    const docResult = await db.execute(sql`SELECT COUNT(*) as count FROM project_documentation WHERE project_id = ${id}`);
+    const assignmentsCount = Number((assignmentsResult.rows[0] as any)?.count || 0);
+    const legacyDocsCount = Number((docResult.rows[0] as any)?.count || 0);
 
     return {
       phases: phasesResult.length,
-      documents: documentsResult.length,
+      documents: documentsResult.length + legacyDocsCount,
       workOrders: workOrdersResult.length,
       emailLinks: emailLinksResult.length,
       scheduledEmails: scheduledEmailsResult.length,
       communicationLinks: communicationLinksResult.length,
-      smsMessages: smsMessagesResult.length
+      smsMessages: smsMessagesResult.length,
+      teamAssignments: assignmentsCount
     };
   }
 
@@ -338,6 +347,10 @@ export class DatabaseStorage implements IStorage {
           await tx.delete(workOrderNotes).where(inArray(workOrderNotes.workOrderId, workOrderIds));
           await tx.delete(workOrderAuditLogs).where(inArray(workOrderAuditLogs.workOrderId, workOrderIds));
         }
+
+        // Delete from tables with FK constraints that aren't in the ORM schema (use raw SQL)
+        await tx.execute(sql`DELETE FROM project_assignments WHERE project_id = ${id}`);
+        await tx.execute(sql`DELETE FROM project_documentation WHERE project_id = ${id}`);
 
         // Delete related records in order (child tables first)
         await tx.delete(workOrders).where(eq(workOrders.projectId, id));

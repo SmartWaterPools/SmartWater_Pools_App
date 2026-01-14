@@ -665,17 +665,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch('/api/projects/:id', isAuthenticated, async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
+      console.log(`PATCH /api/projects/${projectId} - Starting update`, { body: req.body });
       
       // Get the project and verify access
       const project = await storage.getProject(projectId);
       if (!project) {
+        console.log(`PATCH /api/projects/${projectId} - Project not found`);
         return res.status(404).json({ error: 'Project not found' });
       }
+      console.log(`PATCH /api/projects/${projectId} - Found project:`, { clientId: project.clientId, name: project.name });
 
       // Verify the project belongs to a client in the user's organization
       const client = await storage.getUser(project.clientId);
+      const authUser = req.user as User;
+      console.log(`PATCH /api/projects/${projectId} - Auth check:`, { 
+        clientId: project.clientId, 
+        clientOrgId: client?.organizationId, 
+        userOrgId: authUser?.organizationId,
+        clientFound: !!client
+      });
+      
       // @ts-ignore - TypeScript issue with organizationId
-      if (!client || client.organizationId !== req.user?.organizationId) {
+      if (!client || client.organizationId !== authUser?.organizationId) {
+        console.log(`PATCH /api/projects/${projectId} - Access denied`);
         return res.status(403).json({ error: 'Access denied' });
       }
 
@@ -683,9 +695,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedProject = await storage.updateProject(projectId, req.body);
       
       if (!updatedProject) {
+        console.log(`PATCH /api/projects/${projectId} - Update returned null`);
         return res.status(500).json({ error: 'Failed to update project' });
       }
 
+      console.log(`PATCH /api/projects/${projectId} - Update successful`);
       res.json({
         success: true,
         message: 'Project updated successfully',
@@ -729,27 +743,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/projects/:id', isAuthenticated, async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
+      console.log(`DELETE /api/projects/${projectId} - Starting delete`);
       
       // Get the project and verify access
       const project = await storage.getProject(projectId);
       if (!project) {
+        console.log(`DELETE /api/projects/${projectId} - Project not found`);
         return res.status(404).json({ error: 'Project not found' });
       }
+      console.log(`DELETE /api/projects/${projectId} - Found project:`, { clientId: project.clientId, name: project.name });
 
       // Verify the project belongs to a client in the user's organization
       const client = await storage.getUser(project.clientId);
+      const authUser = req.user as User;
+      console.log(`DELETE /api/projects/${projectId} - Auth check:`, { 
+        clientId: project.clientId, 
+        clientOrgId: client?.organizationId, 
+        userOrgId: authUser?.organizationId,
+        clientFound: !!client
+      });
+      
       // @ts-ignore - TypeScript issue with organizationId
-      if (!client || client.organizationId !== req.user?.organizationId) {
+      if (!client || client.organizationId !== authUser?.organizationId) {
+        console.log(`DELETE /api/projects/${projectId} - Access denied`);
         return res.status(403).json({ error: 'Access denied' });
       }
 
       // Delete the project with cascade
+      console.log(`DELETE /api/projects/${projectId} - Starting cascade delete`);
       const deleted = await storage.deleteProjectWithCascade(projectId);
       
       if (!deleted) {
+        console.log(`DELETE /api/projects/${projectId} - Cascade delete returned false`);
         return res.status(500).json({ error: 'Failed to delete project' });
       }
 
+      console.log(`DELETE /api/projects/${projectId} - Delete successful`);
       res.json({
         success: true,
         message: 'Project deleted successfully'
