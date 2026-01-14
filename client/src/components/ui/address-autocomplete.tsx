@@ -151,19 +151,34 @@ export function AddressAutocomplete({
     setShowSuggestions(e.target.value.length >= 3);
   };
 
-  const handleSelectSuggestion = async (suggestion: string) => {
-    justSelectedRef.current = true; // Mark that we just selected a suggestion
-    setShowSuggestions(false);
+  const handleSelectSuggestion = async (suggestion: string, e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     
-    // Geocode the selected address to get coordinates and full formatted address (with zip code)
+    // Prevent double-firing
+    if (geocoding || justSelectedRef.current) {
+      console.log('Already processing, skipping duplicate call');
+      return;
+    }
+    
+    justSelectedRef.current = true;
+    setShowSuggestions(false);
     setGeocoding(true);
+    
+    // Update input immediately to show feedback
+    setInputValue(suggestion + ' (loading...)');
+    
+    console.log('handleSelectSuggestion called with:', suggestion);
     
     try {
       const result = await geocodeAddress(suggestion);
-      if (result) {
-        console.log('Geocoded address:', result);
-        // Use the formatted address from geocoding (includes zip code)
+      console.log('Geocode result:', result);
+      
+      if (result && result.formattedAddress) {
         const fullAddress = result.formattedAddress;
+        console.log('Setting full address with zip:', fullAddress);
         setInputValue(fullAddress);
         onAddressSelect(fullAddress, {
           latitude: result.latitude,
@@ -171,11 +186,10 @@ export function AddressAutocomplete({
           formattedAddress: fullAddress
         });
       } else {
-        // If geocoding fails, use the original suggestion
-        console.warn('Geocoding failed for address:', suggestion);
+        console.warn('Geocoding returned no result for:', suggestion);
         setInputValue(suggestion);
         onAddressSelect(suggestion, {
-          latitude: 40.8478, // Default to New Jersey
+          latitude: 40.8478,
           longitude: -74.0858,
           formattedAddress: suggestion
         });
@@ -184,12 +198,16 @@ export function AddressAutocomplete({
       console.error('Error geocoding address:', error);
       setInputValue(suggestion);
       onAddressSelect(suggestion, {
-        latitude: 40.8478, // Default to New Jersey
+        latitude: 40.8478,
         longitude: -74.0858,
         formattedAddress: suggestion
       });
     } finally {
       setGeocoding(false);
+      // Reset after a delay to allow for new selections
+      setTimeout(() => {
+        justSelectedRef.current = false;
+      }, 500);
     }
   };
 
@@ -247,20 +265,21 @@ export function AddressAutocomplete({
           {loading ? (
             <div className="px-4 py-2 text-sm text-gray-500">Searching addresses...</div>
           ) : geocoding ? (
-            <div className="px-4 py-2 text-sm text-gray-500">Getting address details...</div>
+            <div className="px-4 py-2 text-sm text-blue-500 animate-pulse">Getting full address with zip code...</div>
           ) : suggestions.length > 0 ? (
-            <ul>
+            <ul role="listbox">
               {suggestions.map((suggestion, index) => (
                 <li 
-                  key={index} 
-                  className="px-4 py-2 text-sm hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handleSelectSuggestion(suggestion);
-                  }}
-                  onTouchEnd={(e) => {
-                    e.preventDefault();
-                    handleSelectSuggestion(suggestion);
+                  key={index}
+                  role="option"
+                  tabIndex={0}
+                  className="px-4 py-3 text-sm hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation active:bg-blue-100"
+                  onClick={(e) => handleSelectSuggestion(suggestion, e)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleSelectSuggestion(suggestion);
+                    }
                   }}
                 >
                   <MapPin className="h-4 w-4 mr-2 text-blue-500 flex-shrink-0" />
@@ -270,14 +289,15 @@ export function AddressAutocomplete({
             </ul>
           ) : debouncedValue.length >= 3 ? (
             <div 
-              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleSelectSuggestion(debouncedValue);
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleSelectSuggestion(debouncedValue);
+              role="option"
+              tabIndex={0}
+              className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation active:bg-blue-100"
+              onClick={(e) => handleSelectSuggestion(debouncedValue, e)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleSelectSuggestion(debouncedValue);
+                }
               }}
             >
               <MapPin className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
