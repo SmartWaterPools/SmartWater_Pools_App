@@ -465,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           completion: project.percentComplete || 0,
           deadline: project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate) : new Date(),
           assignments: [],
-          isArchived: false
+          isArchived: project.isArchived || false
         };
       }));
       
@@ -529,7 +529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completion: project.percentComplete || 0,
         deadline: project.estimatedCompletionDate ? new Date(project.estimatedCompletionDate) : new Date(),
         assignments: [],
-        isArchived: false
+        isArchived: project.isArchived || false
       };
       
       res.json(formattedProject);
