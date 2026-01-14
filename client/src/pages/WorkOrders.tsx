@@ -296,8 +296,8 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
             <FormItem>
               <FormLabel>Assign Technician</FormLabel>
               <Select 
-                onValueChange={(value) => field.onChange(value ? parseInt(value) : null)} 
-                defaultValue={field.value?.toString() || ""}
+                onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                defaultValue={field.value?.toString() || "none"}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -305,7 +305,7 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="none">Unassigned</SelectItem>
                   {technicians?.map((tech) => (
                     <SelectItem key={tech.id} value={tech.id.toString()}>
                       {tech.user.name}
@@ -325,8 +325,8 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
             <FormItem>
               <FormLabel>Link to Project (Optional)</FormLabel>
               <Select 
-                onValueChange={(value) => field.onChange(value ? parseInt(value) : null)} 
-                defaultValue={field.value?.toString() || ""}
+                onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                defaultValue={field.value?.toString() || "none"}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -334,7 +334,7 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">No project</SelectItem>
+                  <SelectItem value="none">No project</SelectItem>
                   {projects?.filter(p => p.status !== 'completed').map((project) => (
                     <SelectItem key={project.id} value={project.id.toString()}>
                       {project.name}
