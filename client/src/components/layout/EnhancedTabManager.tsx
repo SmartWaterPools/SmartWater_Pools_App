@@ -594,7 +594,7 @@ export function EnhancedTabManager() {
               onClick={() => handleTabClick(tab)}
               title="Click to navigate to this tab"
               className={cn(
-                "flex items-center py-2.5 px-4 cursor-pointer min-w-fit max-w-[180px] relative",
+                "flex items-center py-2.5 px-4 cursor-pointer w-[140px] relative",
                 activeTabId === tab.id 
                   ? "text-primary border-b-2 border-b-primary border-t-0 border-l-0 border-r-0" 
                   : "text-gray-600 border-b-transparent border-b-2 border-t-0 border-l-0 border-r-0"
