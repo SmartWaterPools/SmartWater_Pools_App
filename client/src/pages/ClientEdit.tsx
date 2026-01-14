@@ -779,14 +779,15 @@ export default function ClientEdit() {
     // Skip if we don't have the initial data set yet
     if (!initialData) return;
     
-    const subscription = form.watch((formData) => {
+    const subscription = form.watch(() => {
+      // Get complete form values - don't use the watch callback parameter as it may be partial
+      const formValues = form.getValues();
+      
       // Make sure we have complete data
-      if (!formData.name || !formData.email) {
+      if (!formValues.name || !formValues.email) {
         console.log("[Auto-save] Incomplete required data, not saving");
         return;
       }
-      
-      const formValues = form.getValues();
       
       // Process contract type
       let contractTypeValue = "residential";
