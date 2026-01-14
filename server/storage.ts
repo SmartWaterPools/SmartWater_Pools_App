@@ -35,6 +35,15 @@ export interface IStorage {
   createProject(project: InsertProject): Promise<Project>;
   updateProject(id: number, data: Partial<Project>): Promise<Project | undefined>;
   deleteProject(id: number): Promise<boolean>;
+  deleteProjectWithCascade(id: number): Promise<boolean>;
+  getProjectDeletionPreview(id: number): Promise<{
+    phases: number;
+    documents: number;
+    workOrders: number;
+    emailLinks: number;
+    scheduledEmails: number;
+    communicationLinks: number;
+  }>;
   
   // Repair operations
   getRepair(id: number): Promise<Repair | undefined>;
@@ -279,6 +288,76 @@ export class DatabaseStorage implements IStorage {
   async deleteProject(id: number): Promise<boolean> {
     const result = await db.delete(projects).where(eq(projects.id, id)).returning();
     return result.length > 0;
+  }
+
+  async getProjectDeletionPreview(id: number): Promise<{
+    phases: number;
+    documents: number;
+    workOrders: number;
+    emailLinks: number;
+    scheduledEmails: number;
+    communicationLinks: number;
+  }> {
+    // Get counts of all related records
+    const phasesResult = await db.select().from(projectPhases).where(eq(projectPhases.projectId, id));
+    const documentsResult = await db.select().from(projectDocuments).where(eq(projectDocuments.projectId, id));
+    const workOrdersResult = await db.select().from(workOrders).where(eq(workOrders.projectId, id));
+    const emailLinksResult = await db.select().from(emailLinks).where(eq(emailLinks.projectId, id));
+    const scheduledEmailsResult = await db.select().from(scheduledEmails).where(eq(scheduledEmails.relatedProjectId, id));
+    const communicationLinksResult = await db.select().from(communicationLinks).where(
+      and(
+        eq(communicationLinks.entityType, 'project'),
+        eq(communicationLinks.entityId, id)
+      )
+    );
+
+    return {
+      phases: phasesResult.length,
+      documents: documentsResult.length,
+      workOrders: workOrdersResult.length,
+      emailLinks: emailLinksResult.length,
+      scheduledEmails: scheduledEmailsResult.length,
+      communicationLinks: communicationLinksResult.length
+    };
+  }
+
+  async deleteProjectWithCascade(id: number): Promise<boolean> {
+    try {
+      // Use a transaction to ensure atomicity - all deletes succeed or none do
+      const result = await db.transaction(async (tx) => {
+        // Get work orders for this project to delete their related notes and audit logs
+        const projectWorkOrders = await tx.select().from(workOrders).where(eq(workOrders.projectId, id));
+        const workOrderIds = projectWorkOrders.map(wo => wo.id);
+
+        // Delete work order notes and audit logs for these work orders
+        if (workOrderIds.length > 0) {
+          await tx.delete(workOrderNotes).where(inArray(workOrderNotes.workOrderId, workOrderIds));
+          await tx.delete(workOrderAuditLogs).where(inArray(workOrderAuditLogs.workOrderId, workOrderIds));
+        }
+
+        // Delete related records in order (child tables first)
+        await tx.delete(workOrders).where(eq(workOrders.projectId, id));
+        await tx.delete(projectDocuments).where(eq(projectDocuments.projectId, id));
+        await tx.delete(projectPhases).where(eq(projectPhases.projectId, id));
+        await tx.delete(emailLinks).where(eq(emailLinks.projectId, id));
+        await tx.delete(scheduledEmails).where(eq(scheduledEmails.relatedProjectId, id));
+        await tx.delete(communicationLinks).where(
+          and(
+            eq(communicationLinks.entityType, 'project'),
+            eq(communicationLinks.entityId, id)
+          )
+        );
+
+        // Finally delete the project itself
+        const deleteResult = await tx.delete(projects).where(eq(projects.id, id)).returning();
+        return deleteResult.length > 0;
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('Error in deleteProjectWithCascade:', error);
+      throw error;
+    }
   }
 
   // Repair operations

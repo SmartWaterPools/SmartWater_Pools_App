@@ -697,6 +697,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get project deletion preview - shows what will be deleted
+  app.get('/api/projects/:id/deletion-preview', isAuthenticated, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.id);
+      
+      // Get the project and verify access
+      const project = await storage.getProject(projectId);
+      if (!project) {
+        return res.status(404).json({ error: 'Project not found' });
+      }
+
+      // Verify the project belongs to a client in the user's organization
+      const client = await storage.getUser(project.clientId);
+      // @ts-ignore - TypeScript issue with organizationId
+      if (!client || client.organizationId !== req.user?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+
+      // Get counts of all related records
+      const preview = await storage.getProjectDeletionPreview(projectId);
+      
+      res.json(preview);
+    } catch (error) {
+      console.error('Get project deletion preview error:', error);
+      res.status(500).json({ error: 'Failed to get deletion preview' });
+    }
+  });
+
   // Delete project endpoint
   app.delete('/api/projects/:id', isAuthenticated, async (req, res) => {
     try {
@@ -715,8 +743,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Access denied' });
       }
 
-      // Delete the project
-      const deleted = await storage.deleteProject(projectId);
+      // Delete the project with cascade
+      const deleted = await storage.deleteProjectWithCascade(projectId);
       
       if (!deleted) {
         return res.status(500).json({ error: 'Failed to delete project' });

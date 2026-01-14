@@ -29,6 +29,15 @@ import { EntityEmailList } from "@/components/communications/EntityEmailList";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
+interface DeletionPreview {
+  phases: number;
+  documents: number;
+  workOrders: number;
+  emailLinks: number;
+  scheduledEmails: number;
+  communicationLinks: number;
+}
+
 export default function ProjectDetails() {
   const { id } = useParams();
   const projectId = parseInt(id || "0");
@@ -41,6 +50,12 @@ export default function ProjectDetails() {
   const queryClient = useQueryClient();
   const [_location, setLocation] = useLocation();
   const initialTab = new URLSearchParams(window.location.search).get("tab");
+  
+  // Fetch deletion preview when delete dialog opens
+  const { data: deletionPreview, isLoading: previewLoading } = useQuery<DeletionPreview>({
+    queryKey: ['/api/projects', projectId, 'deletion-preview'],
+    enabled: deleteDialogOpen && !!projectId,
+  });
   
   // Delete project mutation
   const deleteMutation = useMutation({
@@ -738,12 +753,40 @@ export default function ProjectDetails() {
             
             <div className="mt-4 text-sm text-destructive">
               <strong>Warning:</strong> This will also delete:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>All project phases and associated tasks</li>
-                <li>All project documents and files</li>
-                <li>All team assignments</li>
-                <li>All communication records</li>
-              </ul>
+              {previewLoading ? (
+                <div className="mt-2 text-muted-foreground">Loading related items...</div>
+              ) : deletionPreview ? (
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  {deletionPreview.phases > 0 && (
+                    <li>{deletionPreview.phases} project phase{deletionPreview.phases !== 1 ? 's' : ''}</li>
+                  )}
+                  {deletionPreview.documents > 0 && (
+                    <li>{deletionPreview.documents} document{deletionPreview.documents !== 1 ? 's' : ''} and file{deletionPreview.documents !== 1 ? 's' : ''}</li>
+                  )}
+                  {deletionPreview.workOrders > 0 && (
+                    <li>{deletionPreview.workOrders} work order{deletionPreview.workOrders !== 1 ? 's' : ''}</li>
+                  )}
+                  {deletionPreview.emailLinks > 0 && (
+                    <li>{deletionPreview.emailLinks} email link{deletionPreview.emailLinks !== 1 ? 's' : ''}</li>
+                  )}
+                  {deletionPreview.scheduledEmails > 0 && (
+                    <li>{deletionPreview.scheduledEmails} scheduled email{deletionPreview.scheduledEmails !== 1 ? 's' : ''}</li>
+                  )}
+                  {deletionPreview.communicationLinks > 0 && (
+                    <li>{deletionPreview.communicationLinks} communication record{deletionPreview.communicationLinks !== 1 ? 's' : ''}</li>
+                  )}
+                  {Object.values(deletionPreview).every(v => v === 0) && (
+                    <li className="text-muted-foreground">No additional related records found</li>
+                  )}
+                </ul>
+              ) : (
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>All project phases and associated tasks</li>
+                  <li>All project documents and files</li>
+                  <li>All work orders</li>
+                  <li>All communication records</li>
+                </ul>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -757,7 +800,7 @@ export default function ProjectDetails() {
               variant="destructive"
               className="flex items-center gap-2"
               onClick={() => deleteMutation.mutate()}
-              disabled={deleteMutation.isPending}
+              disabled={deleteMutation.isPending || previewLoading}
             >
               {deleteMutation.isPending ? (
                 <>
