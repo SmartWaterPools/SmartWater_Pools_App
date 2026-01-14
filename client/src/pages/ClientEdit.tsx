@@ -85,32 +85,31 @@ export default function ClientEdit() {
     mutationFn: async (data: ClientFormValues) => {
       if (!client || !clientId) return null;
 
-      const userData = {
-        name: data.name,
-        email: data.email,
-        phone: data.phone || null,
-        address: data.address || null,
-      };
-
-      await apiRequest('PATCH', `/api/users/${client.user.id}`, userData);
-
       const normalizedContractType = data.contractType 
         ? String(data.contractType).toLowerCase() 
         : "residential";
 
-      const clientData: Record<string, any> = {
+      // Send all data to the PATCH /api/clients/:id endpoint
+      // This endpoint handles both user data and coordinates
+      const updateData: Record<string, any> = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone || null,
+        address: data.address || null,
         companyName: data.companyName || null,
         contractType: normalizedContractType,
       };
 
+      // Add coordinates if available (will be saved as addressLat/addressLng in users table)
       if (data.latitude !== undefined && data.latitude !== null) {
-        clientData.latitude = data.latitude;
+        updateData.addressLat = String(data.latitude);
       }
       if (data.longitude !== undefined && data.longitude !== null) {
-        clientData.longitude = data.longitude;
+        updateData.addressLng = String(data.longitude);
       }
 
-      const result = await apiRequest('PATCH', `/api/clients/${clientId}`, clientData);
+      console.log('Saving client data:', updateData);
+      const result = await apiRequest('PATCH', `/api/clients/${clientId}`, updateData);
       return result;
     },
     onSuccess: () => {

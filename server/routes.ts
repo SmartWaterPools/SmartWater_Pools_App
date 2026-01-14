@@ -417,6 +417,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH single client - update client data including address coordinates
+  app.patch('/api/clients/:id', isAuthenticated, async (req, res) => {
+    try {
+      const clientId = parseInt(req.params.id);
+      const client = await storage.getUser(clientId);
+      
+      // Check if client exists and belongs to the same organization
+      if (!client || client.role !== 'client') {
+        return res.status(404).json({ error: 'Client not found' });
+      }
+      
+      // Verify organization access - critical security check
+      const authUser = req.user as User;
+      if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      const { name, email, phone, address, addressLat, addressLng, companyName, contractType } = req.body;
+      
+      // Build update object with only provided fields
+      const updateData: Partial<User> = {};
+      if (name !== undefined) updateData.name = name;
+      if (email !== undefined) updateData.email = email;
+      if (phone !== undefined) updateData.phone = phone;
+      if (address !== undefined) updateData.address = address;
+      if (addressLat !== undefined) updateData.addressLat = addressLat;
+      if (addressLng !== undefined) updateData.addressLng = addressLng;
+      
+      console.log('Updating client', clientId, 'with data:', updateData);
+      
+      // Update the user
+      const updatedClient = await storage.updateUser(clientId, updateData);
+      
+      if (!updatedClient) {
+        return res.status(500).json({ error: 'Failed to update client' });
+      }
+      
+      // Return updated client data in the expected format
+      res.json({
+        client: {
+          id: updatedClient.id,
+          companyName: companyName || null,
+          contractType: contractType || 'residential',
+          latitude: updatedClient.addressLat ? parseFloat(updatedClient.addressLat) : null,
+          longitude: updatedClient.addressLng ? parseFloat(updatedClient.addressLng) : null
+        },
+        user: {
+          id: updatedClient.id,
+          username: updatedClient.username,
+          name: updatedClient.name,
+          email: updatedClient.email,
+          role: updatedClient.role,
+          phone: updatedClient.phone,
+          address: updatedClient.address,
+          addressLat: updatedClient.addressLat,
+          addressLng: updatedClient.addressLng,
+          active: updatedClient.active,
+          organizationId: updatedClient.organizationId,
+          authProvider: updatedClient.authProvider
+        },
+        address: updatedClient.address,
+        phone: updatedClient.phone
+      });
+    } catch (error) {
+      console.error('Update client error:', error);
+      res.status(500).json({ error: 'Failed to update client' });
+    }
+  });
+
   // Basic projects endpoint  
   app.get('/api/projects', isAuthenticated, async (req, res) => {
     try {
