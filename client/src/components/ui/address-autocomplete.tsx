@@ -246,25 +246,41 @@ export function AddressAutocomplete({
         <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 max-h-60 overflow-auto">
           {loading ? (
             <div className="px-4 py-2 text-sm text-gray-500">Searching addresses...</div>
+          ) : geocoding ? (
+            <div className="px-4 py-2 text-sm text-gray-500">Getting address details...</div>
           ) : suggestions.length > 0 ? (
             <ul>
               {suggestions.map((suggestion, index) => (
                 <li 
                   key={index} 
-                  className="px-4 py-2 text-sm hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center"
-                  onClick={() => handleSelectSuggestion(suggestion)}
+                  className="px-4 py-2 text-sm hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelectSuggestion(suggestion);
+                  }}
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
+                    handleSelectSuggestion(suggestion);
+                  }}
                 >
-                  <MapPin className="h-4 w-4 mr-2 text-blue-500" />
+                  <MapPin className="h-4 w-4 mr-2 text-blue-500 flex-shrink-0" />
                   <span>{suggestion}</span>
                 </li>
               ))}
             </ul>
           ) : debouncedValue.length >= 3 ? (
             <div 
-              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center"
-              onClick={() => handleSelectSuggestion(debouncedValue)}
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelectSuggestion(debouncedValue);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleSelectSuggestion(debouncedValue);
+              }}
             >
-              <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+              <MapPin className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
               <span>Use "{debouncedValue}"</span>
             </div>
           ) : null}
