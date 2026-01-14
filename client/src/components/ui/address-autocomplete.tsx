@@ -153,37 +153,39 @@ export function AddressAutocomplete({
 
   const handleSelectSuggestion = async (suggestion: string) => {
     justSelectedRef.current = true; // Mark that we just selected a suggestion
-    setInputValue(suggestion);
     setShowSuggestions(false);
     
-    // Geocode the selected address to get coordinates
+    // Geocode the selected address to get coordinates and full formatted address (with zip code)
     setGeocoding(true);
     
     try {
       const result = await geocodeAddress(suggestion);
       if (result) {
         console.log('Geocoded address:', result);
-        onAddressSelect(suggestion, {
+        // Use the formatted address from geocoding (includes zip code)
+        const fullAddress = result.formattedAddress;
+        setInputValue(fullAddress);
+        onAddressSelect(fullAddress, {
           latitude: result.latitude,
           longitude: result.longitude,
-          formattedAddress: result.formattedAddress
+          formattedAddress: fullAddress
         });
       } else {
-        // If geocoding fails, provide default coordinates to keep functionality working
+        // If geocoding fails, use the original suggestion
         console.warn('Geocoding failed for address:', suggestion);
-        // Use a default coordinate (this can be adjusted as needed)
+        setInputValue(suggestion);
         onAddressSelect(suggestion, {
-          latitude: 34.0522, // Default to Los Angeles
-          longitude: -118.2437,
+          latitude: 40.8478, // Default to New Jersey
+          longitude: -74.0858,
           formattedAddress: suggestion
         });
       }
     } catch (error) {
       console.error('Error geocoding address:', error);
-      // Use a default coordinate (this can be adjusted as needed)
+      setInputValue(suggestion);
       onAddressSelect(suggestion, {
-        latitude: 34.0522, // Default to Los Angeles
-        longitude: -118.2437,
+        latitude: 40.8478, // Default to New Jersey
+        longitude: -74.0858,
         formattedAddress: suggestion
       });
     } finally {
