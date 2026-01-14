@@ -179,44 +179,35 @@ export const geocodeAddress = async (address: string): Promise<GeocodingResult |
     return null;
   }
 
+  console.log('Starting geocode for address:', address);
+
   try {
-    // Try to load Google Maps API but don't block if it fails
+    // Check if Google Maps is already loaded (by any script)
+    if (window.google && window.google.maps && window.google.maps.Geocoder) {
+      console.log('Google Maps already loaded, using existing geocoder');
+      return await performGeocode(address);
+    }
+
+    // Try to load Google Maps API
     try {
       await loadGoogleMapsApi();
     } catch (error) {
       console.warn('Failed to load Google Maps API during geocoding:', error);
-      // Generate fallback coordinates based on address string
-      return generateFallbackCoordinates(address);
     }
 
-    // Check if API is available
+    // Check if API is available after loading attempt
     if (!window.google || !window.google.maps || !window.google.maps.Geocoder) {
-      console.warn('Google Maps Geocoder is not available, using fallback');
-      return generateFallbackCoordinates(address);
+      // Wait a bit and try again (API might be loading via another script)
+      console.log('Waiting for Google Maps API to be available...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (!window.google || !window.google.maps || !window.google.maps.Geocoder) {
+        console.warn('Google Maps Geocoder is not available, using fallback');
+        return generateFallbackCoordinates(address);
+      }
     }
 
-    // Create geocoder instance
-    const geocoder = new window.google.maps.Geocoder();
-
-    // Geocode the address
-    return new Promise((resolve, reject) => {
-      geocoder.geocode({ address }, (results, status) => {
-        if (status !== 'OK' || !results || results.length === 0) {
-          console.warn(`Geocoding error: ${status}, using fallback coordinates`);
-          resolve(generateFallbackCoordinates(address));
-          return;
-        }
-
-        const location = results[0].geometry.location;
-        
-        // Return coordinates and formatted address
-        resolve({
-          latitude: location.lat(),
-          longitude: location.lng(),
-          formattedAddress: results[0].formatted_address
-        });
-      });
-    });
+    return await performGeocode(address);
   } catch (error) {
     console.error('Error during geocoding:', error);
     return generateFallbackCoordinates(address);
@@ -224,13 +215,43 @@ export const geocodeAddress = async (address: string): Promise<GeocodingResult |
 };
 
 /**
+ * Perform the actual geocoding
+ */
+const performGeocode = (address: string): Promise<GeocodingResult> => {
+  return new Promise((resolve) => {
+    const geocoder = new window.google.maps.Geocoder();
+    
+    geocoder.geocode({ address }, (results, status) => {
+      console.log('Geocode response - status:', status, 'results:', results?.length);
+      
+      if (status !== 'OK' || !results || results.length === 0) {
+        console.warn(`Geocoding error: ${status}, using fallback coordinates`);
+        resolve(generateFallbackCoordinates(address));
+        return;
+      }
+
+      const location = results[0].geometry.location;
+      const formattedAddress = results[0].formatted_address;
+      
+      console.log('Geocoded successfully:', formattedAddress, 'coords:', location.lat(), location.lng());
+      
+      resolve({
+        latitude: location.lat(),
+        longitude: location.lng(),
+        formattedAddress: formattedAddress
+      });
+    });
+  });
+};
+
+/**
  * Generate fallback coordinates based on an address string
  * This ensures we always return something usable when the API fails
  */
 const generateFallbackCoordinates = (address: string): GeocodingResult => {
-  // Default to Los Angeles
-  let latitude = 34.0522;
-  let longitude = -118.2437;
+  // Default to New Jersey
+  let latitude = 40.8478;
+  let longitude = -74.0858;
 
   // Try to extract state from address and use a general coordinate for that state
   const stateMatch = address.match(/([A-Z]{2})\s+\d{5}/);
