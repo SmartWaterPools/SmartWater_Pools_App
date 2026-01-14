@@ -92,7 +92,7 @@ export default function ClientEdit() {
         address: data.address || null,
       };
 
-      await apiRequest(`/api/users/${client.user.id}`, 'PATCH', userData);
+      await apiRequest('PATCH', `/api/users/${client.user.id}`, userData);
 
       const normalizedContractType = data.contractType 
         ? String(data.contractType).toLowerCase() 
@@ -110,7 +110,7 @@ export default function ClientEdit() {
         clientData.longitude = data.longitude;
       }
 
-      const result = await apiRequest(`/api/clients/${clientId}`, 'PATCH', clientData);
+      const result = await apiRequest('PATCH', `/api/clients/${clientId}`, clientData);
       return result;
     },
     onSuccess: () => {
