@@ -59,17 +59,15 @@ export const getGoogleMapsApiKey = async (retryCount = 0): Promise<string> => {
     
     if (!response.ok) {
       console.error(`Failed to fetch Google Maps API key: ${response.status} ${response.statusText}`);
-      // Return the default development key as a last resort to keep the functionality working
-      return 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk';
+      return '';
     }
     
     const data = await response.json();
     const apiKey = data.apiKey || '';
     
-    // If the API returns an empty key, use the default development key
     if (!apiKey) {
-      console.warn('Empty API key received from server, using default development key');
-      return 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk';
+      console.warn('No Google Maps API key configured - address autocomplete will be disabled');
+      return '';
     }
     
     // Verify we actually got a key
@@ -92,9 +90,8 @@ export const getGoogleMapsApiKey = async (retryCount = 0): Promise<string> => {
       return getGoogleMapsApiKey(retryCount + 1);
     }
     
-    // As a last resort, return the development key
-    console.warn('All API key fetch attempts failed, using default development key');
-    return 'AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk';
+    console.error('All API key fetch attempts failed - address autocomplete will be disabled');
+    return '';
   }
 };
 

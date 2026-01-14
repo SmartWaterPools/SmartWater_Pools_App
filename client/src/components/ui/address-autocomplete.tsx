@@ -66,71 +66,10 @@ const getAddressSuggestions = async (input: string): Promise<string[]> => {
   }
 };
 
-// Fallback function if Google Maps API is not available
+// Fallback function if Google Maps API is not available - returns empty to allow manual entry
 const getFallbackSuggestions = (input: string): Promise<string[]> => {
-  // Only return suggestions if input is at least 3 characters
-  if (!input || input.length < 3) {
-    return Promise.resolve([]);
-  }
-
-  // Simulation of API delay
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      // Realistic address suggestions based on input
-      const cityState = ['CA', 'FL', 'NY', 'TX', 'IL'];
-      const streets = ['Main', 'Park', 'Oak', 'Maple', 'Washington', 'Cedar'];
-      const types = ['St', 'Ave', 'Blvd', 'Dr', 'Ln', 'Rd'];
-      const cities = ['Springfield', 'Riverside', 'Oakdale', 'Lakeside', 'Maplewood'];
-      
-      // Generate 5 random but realistic looking addresses
-      const suggestions = [];
-      
-      // First, direct match if input looks like a number + street
-      if (/^\d+\s+\w+/.test(input)) {
-        const parts = input.split(' ');
-        const number = parts[0];
-        const streetName = parts.slice(1).join(' ');
-        
-        // Add variations of the street name with different suffixes and states
-        for (let i = 0; i < 3 && i < types.length; i++) {
-          for (let j = 0; j < 2 && j < cities.length; j++) {
-            const zip = Math.floor(90000 + Math.random() * 10000);
-            suggestions.push(`${number} ${streetName} ${types[i]}, ${cities[j]}, ${cityState[j % cityState.length]} ${zip}`);
-          }
-        }
-      }
-      
-      // Add some more variations based on the input string
-      for (let i = 0; i < 5 - suggestions.length; i++) {
-        const number = Math.floor(100 + Math.random() * 900);
-        const street = streets[Math.floor(Math.random() * streets.length)];
-        const type = types[Math.floor(Math.random() * types.length)];
-        const city = cities[Math.floor(Math.random() * cities.length)];
-        const state = cityState[Math.floor(Math.random() * cityState.length)];
-        const zip = Math.floor(90000 + Math.random() * 10000);
-        
-        // If input seems to match part of this suggestion, include it
-        const suggestion = `${number} ${street} ${type}, ${city}, ${state} ${zip}`;
-        if (suggestion.toLowerCase().includes(input.toLowerCase())) {
-          suggestions.push(suggestion);
-        }
-      }
-      
-      // If we still don't have enough suggestions, add some generic ones
-      while (suggestions.length < 3) {
-        const number = Math.floor(100 + Math.random() * 900);
-        const street = streets[Math.floor(Math.random() * streets.length)];
-        const type = types[Math.floor(Math.random() * types.length)];
-        const city = cities[Math.floor(Math.random() * cities.length)];
-        const state = cityState[Math.floor(Math.random() * cityState.length)];
-        const zip = Math.floor(90000 + Math.random() * 10000);
-        
-        suggestions.push(`${number} ${street} ${type}, ${city}, ${state} ${zip}`);
-      }
-      
-      resolve(suggestions);
-    }, 300); // Simulate network delay
-  });
+  // Return empty array - user can still type addresses manually
+  return Promise.resolve([]);
 };
 
 export interface AddressCoordinates {
@@ -169,9 +108,12 @@ export function AddressAutocomplete({
       try {
         const results = await getAddressSuggestions(debouncedValue);
         setSuggestions(results);
-        setShowSuggestions(results.length > 0);
+        // Keep dropdown open for manual entry option even when no results
+        setShowSuggestions(true);
       } catch (error) {
         console.error('Error fetching address suggestions:', error);
+        // Still show dropdown for manual entry option on error
+        setShowSuggestions(true);
       } finally {
         setLoading(false);
       }
@@ -253,6 +195,17 @@ export function AddressAutocomplete({
     setShowSuggestions(false);
   };
 
+  const handleBlur = () => {
+    // Small delay to allow click on suggestions to register
+    setTimeout(() => {
+      if (inputValue && inputValue !== value) {
+        // User typed an address manually, submit it
+        onAddressSelect(inputValue);
+      }
+      setShowSuggestions(false);
+    }, 200);
+  };
+
   return (
     <div className="relative" ref={suggestionContainerRef}>
       <div className="relative">
@@ -264,8 +217,9 @@ export function AddressAutocomplete({
           value={inputValue}
           onChange={handleInputChange}
           onFocus={() => inputValue.length >= 3 && setShowSuggestions(true)}
+          onBlur={handleBlur}
           className="pl-8 pr-8"
-          placeholder="123 Main St, City, State"
+          placeholder="Enter address..."
         />
         {inputValue && (
           <div 
@@ -279,15 +233,15 @@ export function AddressAutocomplete({
 
       {/* Suggestions dropdown */}
       {showSuggestions && (
-        <div className="absolute z-10 mt-1 w-full bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-auto">
+        <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 max-h-60 overflow-auto">
           {loading ? (
-            <div className="px-4 py-2 text-sm text-gray-500">Loading suggestions...</div>
+            <div className="px-4 py-2 text-sm text-gray-500">Searching addresses...</div>
           ) : suggestions.length > 0 ? (
             <ul>
               {suggestions.map((suggestion, index) => (
                 <li 
                   key={index} 
-                  className="px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer flex items-center"
+                  className="px-4 py-2 text-sm hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center"
                   onClick={() => handleSelectSuggestion(suggestion)}
                 >
                   <MapPin className="h-4 w-4 mr-2 text-blue-500" />
@@ -296,7 +250,13 @@ export function AddressAutocomplete({
               ))}
             </ul>
           ) : debouncedValue.length >= 3 ? (
-            <div className="px-4 py-2 text-sm text-gray-500">No suggestions found</div>
+            <div 
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center"
+              onClick={() => handleSelectSuggestion(debouncedValue)}
+            >
+              <MapPin className="h-4 w-4 mr-2 text-gray-400" />
+              <span>Use "{debouncedValue}"</span>
+            </div>
           ) : null}
         </div>
       )}
