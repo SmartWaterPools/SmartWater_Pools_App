@@ -95,6 +95,7 @@ export function AddressAutocomplete({
   const [geocoding, setGeocoding] = useState(false);
   const debouncedValue = useDebounce(inputValue, 300);
   const suggestionContainerRef = useRef<HTMLDivElement>(null);
+  const justSelectedRef = useRef(false); // Track if we just selected a suggestion
 
   // Fetch suggestions when input changes (debounced)
   useEffect(() => {
@@ -151,6 +152,7 @@ export function AddressAutocomplete({
   };
 
   const handleSelectSuggestion = async (suggestion: string) => {
+    justSelectedRef.current = true; // Mark that we just selected a suggestion
     setInputValue(suggestion);
     setShowSuggestions(false);
     
@@ -198,6 +200,12 @@ export function AddressAutocomplete({
   const handleBlur = () => {
     // Small delay to allow click on suggestions to register
     setTimeout(() => {
+      // Skip if we just selected a suggestion (it already called onAddressSelect with coordinates)
+      if (justSelectedRef.current) {
+        justSelectedRef.current = false;
+        setShowSuggestions(false);
+        return;
+      }
       if (inputValue && inputValue !== value) {
         // User typed an address manually, submit it
         onAddressSelect(inputValue);
