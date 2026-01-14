@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte } from "drizzle-orm";
 
@@ -139,6 +139,10 @@ export interface IStorage {
   getWorkOrderNotes(workOrderId: number): Promise<WorkOrderNote[]>;
   createWorkOrderNote(note: InsertWorkOrderNote): Promise<WorkOrderNote>;
   deleteWorkOrderNote(id: number): Promise<boolean>;
+
+  // Work Order Audit Log operations
+  getWorkOrderAuditLogs(workOrderId: number): Promise<WorkOrderAuditLog[]>;
+  createWorkOrderAuditLog(log: InsertWorkOrderAuditLog): Promise<WorkOrderAuditLog>;
 
   // Service Template operations
   getServiceTemplates(organizationId?: number): Promise<ServiceTemplate[]>;
@@ -785,6 +789,19 @@ export class DatabaseStorage implements IStorage {
       .where(eq(workOrderNotes.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  // Work Order Audit Log operations
+  async getWorkOrderAuditLogs(workOrderId: number): Promise<WorkOrderAuditLog[]> {
+    return await db.select()
+      .from(workOrderAuditLogs)
+      .where(eq(workOrderAuditLogs.workOrderId, workOrderId))
+      .orderBy(desc(workOrderAuditLogs.createdAt));
+  }
+
+  async createWorkOrderAuditLog(log: InsertWorkOrderAuditLog): Promise<WorkOrderAuditLog> {
+    const result = await db.insert(workOrderAuditLogs).values(log).returning();
+    return result[0];
   }
 
   // Service Template operations
