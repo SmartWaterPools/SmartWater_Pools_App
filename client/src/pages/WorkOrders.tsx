@@ -89,6 +89,12 @@ interface Project {
   status: string;
 }
 
+interface ProjectPhase {
+  id: number;
+  name: string;
+  projectId: number;
+}
+
 const workOrderFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
@@ -98,6 +104,7 @@ const workOrderFormSchema = z.object({
   scheduledDate: z.string().optional(),
   technicianId: z.number().optional().nullable(),
   projectId: z.number().optional().nullable(),
+  projectPhaseId: z.number().optional().nullable(),
   checklist: z.array(z.object({
     id: z.string(),
     text: z.string(),
@@ -136,8 +143,16 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
       scheduledDate: "",
       technicianId: null,
       projectId: initialProjectId,
+      projectPhaseId: null,
       checklist: [],
     },
+  });
+
+  const selectedProjectId = form.watch("projectId");
+  
+  const { data: phases } = useQuery<ProjectPhase[]>({
+    queryKey: ['/api/projects', selectedProjectId, 'phases'],
+    enabled: !!selectedProjectId,
   });
   
   const addChecklistItem = () => {
@@ -325,7 +340,11 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
             <FormItem>
               <FormLabel>Link to Project (Optional)</FormLabel>
               <Select 
-                onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                onValueChange={(value) => {
+                  const newProjectId = value === "none" ? null : parseInt(value);
+                  field.onChange(newProjectId);
+                  form.setValue("projectPhaseId", null);
+                }} 
                 defaultValue={field.value?.toString() || "none"}
               >
                 <FormControl>
@@ -346,6 +365,37 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
             </FormItem>
           )}
         />
+        
+        {selectedProjectId && phases && phases.length > 0 && (
+          <FormField
+            control={form.control}
+            name="projectPhaseId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Project Phase (Optional)</FormLabel>
+                <Select 
+                  onValueChange={(value) => field.onChange(value === "none" ? null : parseInt(value))} 
+                  defaultValue={field.value?.toString() || "none"}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select phase (optional)" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="none">No specific phase</SelectItem>
+                    {phases.map((phase) => (
+                      <SelectItem key={phase.id} value={phase.id.toString()}>
+                        {phase.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         
         {/* Checklist Section */}
         <div className="space-y-3">

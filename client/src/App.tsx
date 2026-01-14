@@ -32,6 +32,7 @@ import LoginErrorTest from "@/pages/LoginErrorTest";
 import ProjectDetails from "@/pages/ProjectDetails";
 import VendorDetail from "@/pages/VendorDetail";
 import WorkOrders from "@/pages/WorkOrders";
+import WorkOrderDetail from "@/pages/WorkOrderDetail";
 
 // Protected route wrapper that includes the AppLayout
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -85,6 +86,7 @@ function Router() {
       <Route path="/maintenance/routes" component={() => <ProtectedRoute component={() => <MaintenanceList defaultTab="routes" />} />} />
       <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} />} />
       <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} />} />
+      <Route path="/work-orders/:id" component={() => <ProtectedRoute component={WorkOrderDetail} />} />
       <Route path="/work-orders" component={() => <ProtectedRoute component={WorkOrders} />} />
       <Route path="/technicians" component={() => <ProtectedRoute component={Technicians} />} />
       <Route path="/communications" component={() => <ProtectedRoute component={Communications} />} />

@@ -5,9 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, ClipboardList, Calendar, Clock, User, Search } from "lucide-react";
+import { Plus, ClipboardList, Calendar, Clock, User, Search, Layers } from "lucide-react";
 import { Link } from "wouter";
 import type { WorkOrder } from "@shared/schema";
+
+interface ProjectPhase {
+  id: number;
+  name: string;
+}
 
 interface ProjectWorkOrdersProps {
   projectId: number;
@@ -37,6 +42,16 @@ export function ProjectWorkOrders({ projectId, projectName }: ProjectWorkOrdersP
   const { data: workOrders = [], isLoading } = useQuery<WorkOrder[]>({
     queryKey: ['/api/projects', projectId, 'work-orders'],
   });
+
+  const { data: phases = [] } = useQuery<ProjectPhase[]>({
+    queryKey: ['/api/projects', projectId, 'phases'],
+  });
+
+  const getPhaseName = (phaseId: number | null | undefined): string | null => {
+    if (!phaseId) return null;
+    const phase = phases.find(p => p.id === phaseId);
+    return phase?.name || null;
+  };
 
   const filteredWorkOrders = workOrders.filter((wo) => {
     const matchesSearch = wo.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -152,6 +167,12 @@ export function ProjectWorkOrders({ projectId, projectName }: ProjectWorkOrdersP
                           <span className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
                             {workOrder.estimatedDuration} min
+                          </span>
+                        )}
+                        {getPhaseName(workOrder.projectPhaseId) && (
+                          <span className="flex items-center gap-1">
+                            <Layers className="h-3 w-3" />
+                            {getPhaseName(workOrder.projectPhaseId)}
                           </span>
                         )}
                       </div>

@@ -43,7 +43,36 @@ router.get('/:id', isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: 'Work order not found' });
     }
     
-    res.json(workOrder);
+    const result: Record<string, unknown> = { ...workOrder };
+    
+    if (workOrder.technicianId) {
+      const technicians = await storage.getTechnicians();
+      const technician = technicians.find(t => t.id === workOrder.technicianId);
+      if (technician) {
+        const techUser = await storage.getUser(technician.userId);
+        result.technician = {
+          id: technician.id,
+          user: techUser ? { id: techUser.id, name: techUser.name, email: techUser.email } : null
+        };
+      }
+    }
+    
+    if (workOrder.projectId) {
+      const project = await storage.getProject(workOrder.projectId);
+      if (project) {
+        result.project = { id: project.id, name: project.name };
+      }
+    }
+    
+    if (workOrder.projectPhaseId) {
+      const phases = await storage.getProjectPhases(workOrder.projectId || 0);
+      const phase = phases.find(p => p.id === workOrder.projectPhaseId);
+      if (phase) {
+        result.projectPhase = { id: phase.id, name: phase.name };
+      }
+    }
+    
+    res.json(result);
   } catch (error) {
     console.error('Error fetching work order:', error);
     res.status(500).json({ error: 'Failed to fetch work order' });
