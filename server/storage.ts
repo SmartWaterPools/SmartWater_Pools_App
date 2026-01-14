@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte } from "drizzle-orm";
 
@@ -43,6 +43,7 @@ export interface IStorage {
     emailLinks: number;
     scheduledEmails: number;
     communicationLinks: number;
+    smsMessages: number;
   }>;
   
   // Repair operations
@@ -297,6 +298,7 @@ export class DatabaseStorage implements IStorage {
     emailLinks: number;
     scheduledEmails: number;
     communicationLinks: number;
+    smsMessages: number;
   }> {
     // Get counts of all related records
     const phasesResult = await db.select().from(projectPhases).where(eq(projectPhases.projectId, id));
@@ -310,6 +312,7 @@ export class DatabaseStorage implements IStorage {
         eq(communicationLinks.entityId, id)
       )
     );
+    const smsMessagesResult = await db.select().from(smsMessages).where(eq(smsMessages.projectId, id));
 
     return {
       phases: phasesResult.length,
@@ -317,7 +320,8 @@ export class DatabaseStorage implements IStorage {
       workOrders: workOrdersResult.length,
       emailLinks: emailLinksResult.length,
       scheduledEmails: scheduledEmailsResult.length,
-      communicationLinks: communicationLinksResult.length
+      communicationLinks: communicationLinksResult.length,
+      smsMessages: smsMessagesResult.length
     };
   }
 
@@ -341,6 +345,7 @@ export class DatabaseStorage implements IStorage {
         await tx.delete(projectPhases).where(eq(projectPhases.projectId, id));
         await tx.delete(emailLinks).where(eq(emailLinks.projectId, id));
         await tx.delete(scheduledEmails).where(eq(scheduledEmails.relatedProjectId, id));
+        await tx.delete(smsMessages).where(eq(smsMessages.projectId, id));
         await tx.delete(communicationLinks).where(
           and(
             eq(communicationLinks.entityType, 'project'),

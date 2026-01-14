@@ -36,6 +36,7 @@ interface DeletionPreview {
   emailLinks: number;
   scheduledEmails: number;
   communicationLinks: number;
+  smsMessages: number;
 }
 
 export default function ProjectDetails() {
@@ -774,6 +775,9 @@ export default function ProjectDetails() {
                   )}
                   {deletionPreview.communicationLinks > 0 && (
                     <li>{deletionPreview.communicationLinks} communication record{deletionPreview.communicationLinks !== 1 ? 's' : ''}</li>
+                  )}
+                  {deletionPreview.smsMessages > 0 && (
+                    <li>{deletionPreview.smsMessages} SMS message{deletionPreview.smsMessages !== 1 ? 's' : ''}</li>
                   )}
                   {Object.values(deletionPreview).every(v => v === 0) && (
                     <li className="text-muted-foreground">No additional related records found</li>
