@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { useCallback, useState, useEffect } from 'react';
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api';
 
 interface ClientAddressMapProps {
   address: string;
@@ -21,10 +21,9 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
   mapType = 'satellite',
 }) => {
   const [apiKey, setApiKey] = useState<string | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const [geocodedCoordinates, setGeocodedCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
-  // Fetch Google Maps API key from backend
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchApiKey = async () => {
       try {
         const response = await fetch('/api/google-maps-key');
@@ -32,8 +31,6 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
         const data = await response.json();
         if (data.apiKey) {
           setApiKey(data.apiKey);
-        } else {
-          console.error('No API key returned from server');
         }
       } catch (error) {
         console.error('Error fetching Google Maps API key:', error);
@@ -43,17 +40,14 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
     fetchApiKey();
   }, []);
 
-  const onLoad = useCallback(() => {
-    setMapLoaded(true);
-  }, []);
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: apiKey || '',
+    id: 'google-map-script',
+  });
 
-  // If we don't have coordinates, try to geocode the address
-  const [geocodedCoordinates, setGeocodedCoordinates] = useState<{ lat: number; lng: number } | null>(null);
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (!latitude || !longitude) {
-      // Only try to geocode if we have an address, API key, and the map is loaded
-      if (address && apiKey && mapLoaded && window.google?.maps?.Geocoder) {
+      if (address && isLoaded && window.google?.maps?.Geocoder) {
         const geocoder = new window.google.maps.Geocoder();
         geocoder.geocode({ address }, (results, status) => {
           if (status === 'OK' && results && results[0]) {
@@ -66,16 +60,37 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
         });
       }
     }
-  }, [address, apiKey, latitude, longitude, mapLoaded]);
+  }, [address, latitude, longitude, isLoaded]);
 
-  // Use provided coordinates or geocoded ones
   const center = latitude && longitude
     ? { lat: latitude, lng: longitude }
     : geocodedCoordinates
     ? geocodedCoordinates
-    : { lat: 28.3232, lng: -81.5130 }; // Orlando area as default
+    : { lat: 28.3232, lng: -81.5130 };
 
   if (!apiKey) {
+    return (
+      <div 
+        className="flex items-center justify-center bg-gray-100 rounded-md"
+        style={{ height, width }}
+      >
+        <p className="text-sm text-gray-500">Loading map...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div 
+        className="flex items-center justify-center bg-gray-100 rounded-md"
+        style={{ height, width }}
+      >
+        <p className="text-sm text-red-500">Error loading map</p>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
     return (
       <div 
         className="flex items-center justify-center bg-gray-100 rounded-md"
@@ -100,19 +115,14 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
   };
 
   return (
-    <LoadScript
-      googleMapsApiKey={apiKey}
-      onLoad={onLoad}
+    <GoogleMap
+      mapContainerStyle={containerStyle}
+      center={center}
+      zoom={zoom}
+      options={mapOptions}
     >
-      <GoogleMap
-        mapContainerStyle={containerStyle}
-        center={center}
-        zoom={zoom}
-        options={mapOptions}
-      >
-        <Marker position={center} title={address} />
-      </GoogleMap>
-    </LoadScript>
+      <Marker position={center} title={address} />
+    </GoogleMap>
   );
 };
 
