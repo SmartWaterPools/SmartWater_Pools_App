@@ -279,6 +279,8 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
   // But still allow users to explicitly create them if desired
   
   // Watch for location changes to sync tabs
+  // Only create new tabs for new paths - don't force activeTabId to match location
+  // This allows single-click tab selection without immediate navigation
   useEffect(() => {
     // If the location doesn't match any tab, create a new one (unless it's a dashboard and we already have one)
     const matchingTab = getTabByPath(location);
@@ -290,12 +292,14 @@ export function TabProvider({ children }: { children: React.ReactNode }) {
       }
       
       // Create a new tab for any path (addTab will handle dashboard path specially)
-      addTab(location);
-    } else if (matchingTab.id !== activeTabId) {
-      // If the matching tab is not the active one, activate it
-      navigateToTab(matchingTab.id);
+      const newTabId = addTab(location);
+      // Set the new tab as active
+      setActiveTabId(newTabId);
     }
-  }, [location, getTabByPath, addTab, activeTabId, navigateToTab]);
+    // NOTE: We intentionally DO NOT sync activeTabId to location when a matching tab exists
+    // This allows users to single-click to highlight a tab without navigating
+    // Double-click will navigate and update location, which will then match the active tab
+  }, [location, getTabByPath, addTab]);
   
   // Listen for custom addTab events
   useEffect(() => {
@@ -424,7 +428,7 @@ export function useTabs() {
 
 // The actual tab bar component
 export function EnhancedTabManager() {
-  const { tabs, activeTabId, navigateToTab, closeTab, duplicateTab, addTab } = useTabs();
+  const { tabs, activeTabId, setActiveTabId, navigateToTab, closeTab, duplicateTab, addTab } = useTabs();
   const [scrollPosition, setScrollPosition] = useState(0);
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
   
@@ -481,12 +485,14 @@ export function EnhancedTabManager() {
   }, [tabs]);
   
   // Handle tab interaction
+  // Single click just selects/highlights the tab without navigation
   const handleTabClick = (tabId: string) => {
-    navigateToTab(tabId);
+    setActiveTabId(tabId);
   };
   
+  // Double click navigates to the tab
   const handleTabDoubleClick = (tab: TabItem) => {
-    duplicateTab(tab);
+    navigateToTab(tab.id);
   };
   
   const handleCloseTab = (e: React.MouseEvent, tabId: string) => {
@@ -504,6 +510,25 @@ export function EnhancedTabManager() {
     // This allows users to create multiple dashboard tabs if desired
     addTab('/', 'Dashboard', true);
   };
+  
+  // Track previous tabs length to detect new tabs being added
+  const prevTabsLengthRef = React.useRef(tabs.length);
+  
+  // Auto-scroll to the latest (rightmost) tab when new tabs are added
+  useEffect(() => {
+    if (tabs.length > prevTabsLengthRef.current && scrollContainerRef.current) {
+      // New tab was added, scroll to the end
+      const container = scrollContainerRef.current;
+      setTimeout(() => {
+        container.scrollTo({ 
+          left: container.scrollWidth, 
+          behavior: 'smooth' 
+        });
+        setScrollPosition(container.scrollWidth - container.clientWidth);
+      }, 50); // Small delay to ensure the new tab is rendered
+    }
+    prevTabsLengthRef.current = tabs.length;
+  }, [tabs.length]);
   
   // Scroll active tab into view when it changes
   useEffect(() => {
@@ -558,7 +583,7 @@ export function EnhancedTabManager() {
               data-tab-id={tab.id}
               onClick={() => handleTabClick(tab.id)}
               onDoubleClick={() => handleTabDoubleClick(tab)}
-              title="Click to switch to this tab. Double-click to duplicate this tab."
+              title="Click to select this tab. Double-click to navigate to it."
               className={cn(
                 "flex items-center py-2.5 px-4 cursor-pointer min-w-fit max-w-[180px] relative",
                 activeTabId === tab.id 
