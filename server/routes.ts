@@ -1334,6 +1334,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Google Places Autocomplete endpoint (New API) - PUBLIC
+  // Uses server-side API calls to avoid deprecated client-side AutocompleteService
+  app.get('/api/places/autocomplete', async (req, res) => {
+    try {
+      const { input } = req.query;
+      
+      if (!input || typeof input !== 'string' || input.length < 3) {
+        return res.json({ predictions: [] });
+      }
+      
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        console.error('Google Maps API key not configured');
+        return res.json({ predictions: [] });
+      }
+      
+      // Use the new Places API (New) via HTTP
+      const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+        },
+        body: JSON.stringify({
+          input: input,
+          includedPrimaryTypes: ['street_address', 'premise', 'subpremise', 'route'],
+          languageCode: 'en',
+          regionCode: 'US',
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Places Autocomplete API error:', response.status, errorText);
+        return res.json({ predictions: [] });
+      }
+      
+      const data = await response.json();
+      
+      // Transform to simpler format for frontend
+      const predictions = (data.suggestions || []).map((suggestion: any) => ({
+        placeId: suggestion.placePrediction?.placeId || '',
+        description: suggestion.placePrediction?.text?.text || '',
+        mainText: suggestion.placePrediction?.structuredFormat?.mainText?.text || '',
+        secondaryText: suggestion.placePrediction?.structuredFormat?.secondaryText?.text || '',
+      })).filter((p: any) => p.placeId && p.description);
+      
+      res.json({ predictions });
+    } catch (error) {
+      console.error('Places Autocomplete error:', error);
+      res.json({ predictions: [] });
+    }
+  });
+
+  // Google Places Details endpoint (New API) - PUBLIC
+  // Gets full address with zip code and coordinates using place_id
+  app.get('/api/places/details/:placeId', async (req, res) => {
+    try {
+      const { placeId } = req.params;
+      
+      if (!placeId) {
+        return res.status(400).json({ error: 'Place ID required' });
+      }
+      
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        console.error('Google Maps API key not configured');
+        return res.status(500).json({ error: 'API key not configured' });
+      }
+      
+      // Use the new Places API (New) via HTTP to get place details
+      const response = await fetch(
+        `https://places.googleapis.com/v1/places/${placeId}?fields=formattedAddress,addressComponents,location`,
+        {
+          method: 'GET',
+          headers: {
+            'X-Goog-Api-Key': apiKey,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Places Details API error:', response.status, errorText);
+        return res.status(response.status).json({ error: 'Failed to get place details' });
+      }
+      
+      const data = await response.json();
+      
+      // Extract address components including zip code
+      let zipCode = '';
+      const addressComponents = data.addressComponents || [];
+      for (const component of addressComponents) {
+        if (component.types?.includes('postal_code')) {
+          zipCode = component.shortText || component.longText || '';
+          break;
+        }
+      }
+      
+      // Get coordinates
+      const latitude = data.location?.latitude || null;
+      const longitude = data.location?.longitude || null;
+      
+      // Get formatted address (already includes zip code from Places API New)
+      const formattedAddress = data.formattedAddress || '';
+      
+      console.log('Place details:', { placeId, formattedAddress, zipCode, latitude, longitude });
+      
+      res.json({
+        formattedAddress,
+        zipCode,
+        latitude,
+        longitude,
+        addressComponents: addressComponents.map((c: any) => ({
+          types: c.types,
+          longText: c.longText,
+          shortText: c.shortText,
+        })),
+      });
+    } catch (error) {
+      console.error('Places Details error:', error);
+      res.status(500).json({ error: 'Failed to get place details' });
+    }
+  });
+
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ 
