@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MapPin, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { loadGoogleMapsApi } from '../../lib/googleMapsUtils';
 
 export interface AddressCoordinates {
@@ -23,7 +23,6 @@ export function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [displayValue, setDisplayValue] = useState(value || '');
   const containerRef = useRef<HTMLDivElement>(null);
   const autocompleteRef = useRef<any>(null);
   const isInitializedRef = useRef(false);
@@ -59,14 +58,16 @@ export function AddressAutocomplete({
       placeAutocomplete.style.width = '100%';
       placeAutocomplete.style.fontSize = '14px';
       
-      // Set initial value if provided
-      if (value) {
-        placeAutocomplete.value = value;
-      }
-      
       // Clear container and append
       containerRef.current.innerHTML = '';
       containerRef.current.appendChild(placeAutocomplete);
+      
+      // Set initial value after appending to DOM (needs to be in DOM first)
+      if (value) {
+        requestAnimationFrame(() => {
+          placeAutocomplete.value = value;
+        });
+      }
       
       autocompleteRef.current = placeAutocomplete;
 
@@ -104,8 +105,6 @@ export function AddressAutocomplete({
           }
 
           console.log('Parsed address:', { formattedAddress, zipCode, location });
-          
-          setDisplayValue(formattedAddress);
 
           if (location) {
             onAddressSelect(formattedAddress, {
@@ -141,47 +140,39 @@ export function AddressAutocomplete({
   }, [initializeAutocomplete]);
 
   useEffect(() => {
-    setDisplayValue(value || '');
     // Sync value to the web component if it exists
-    if (autocompleteRef.current && value) {
-      autocompleteRef.current.value = value;
+    if (autocompleteRef.current) {
+      // Use setTimeout to ensure the web component is ready
+      setTimeout(() => {
+        if (autocompleteRef.current) {
+          autocompleteRef.current.value = value || '';
+        }
+      }, 0);
     }
   }, [value]);
 
   return (
     <div className={`relative ${className}`}>
-      <div className="relative">
-        <div className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 z-10 pointer-events-none">
-          {isLoading ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <MapPin className="h-4 w-4" />
-          )}
+      {/* Loading state */}
+      {isLoading && (
+        <div className="flex items-center h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading address search...
         </div>
-        
-        {/* Loading state overlay */}
-        {isLoading && (
-          <div className="flex h-10 w-full rounded-md border border-input bg-background px-8 py-2 text-sm text-muted-foreground">
-            Loading address search...
-          </div>
-        )}
-        
-        {/* Error state */}
-        {error && !isLoading && (
-          <div className="flex h-10 w-full rounded-md border border-red-300 bg-red-50 px-8 py-2 text-sm text-red-600">
-            {error}
-          </div>
-        )}
-        
-        {/* Container for the autocomplete - always rendered but hidden when loading/error */}
-        <div 
-          ref={containerRef}
-          className={`w-full [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:h-10 [&>gmp-place-autocomplete]:rounded-md [&>gmp-place-autocomplete]:border [&>gmp-place-autocomplete]:border-input [&>gmp-place-autocomplete]:bg-background [&>gmp-place-autocomplete]:px-8 [&>gmp-place-autocomplete]:text-sm [&>gmp-place-autocomplete]:ring-offset-background [&>gmp-place-autocomplete]:focus-within:outline-none [&>gmp-place-autocomplete]:focus-within:ring-2 [&>gmp-place-autocomplete]:focus-within:ring-ring [&>gmp-place-autocomplete]:focus-within:ring-offset-2 ${isLoading || error ? 'hidden' : ''}`}
-        />
-      </div>
-      {!isLoading && !error && (
-        <p className="text-xs text-gray-500 mt-1">Start typing to see address suggestions</p>
       )}
+      
+      {/* Error state */}
+      {error && !isLoading && (
+        <div className="flex h-10 w-full rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+      
+      {/* Container for the autocomplete - always rendered but hidden when loading/error */}
+      <div 
+        ref={containerRef}
+        className={`w-full [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:h-10 [&>gmp-place-autocomplete]:rounded-md [&>gmp-place-autocomplete]:border [&>gmp-place-autocomplete]:border-input [&>gmp-place-autocomplete]:bg-background [&>gmp-place-autocomplete]:text-sm [&>gmp-place-autocomplete]:ring-offset-background [&>gmp-place-autocomplete]:focus-within:outline-none [&>gmp-place-autocomplete]:focus-within:ring-2 [&>gmp-place-autocomplete]:focus-within:ring-ring [&>gmp-place-autocomplete]:focus-within:ring-offset-2 ${isLoading || error ? 'hidden' : ''}`}
+      />
     </div>
   );
 }
