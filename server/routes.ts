@@ -1334,68 +1334,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Google Places Autocomplete endpoint (New API) - PUBLIC
-  // Uses server-side API calls to avoid deprecated client-side AutocompleteService
-  app.get('/api/places/autocomplete', async (req, res) => {
+  // Google Geocoding API endpoint - PUBLIC
+  // Uses Geocoding API to get full address with zip code and coordinates
+  app.get('/api/places/geocode', async (req, res) => {
     try {
-      const { input } = req.query;
+      const { address } = req.query;
       
-      if (!input || typeof input !== 'string' || input.length < 3) {
-        return res.json({ predictions: [] });
-      }
-      
-      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-      if (!apiKey) {
-        console.error('Google Maps API key not configured');
-        return res.json({ predictions: [] });
-      }
-      
-      // Use the new Places API (New) via HTTP
-      const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': apiKey,
-        },
-        body: JSON.stringify({
-          input: input,
-          includedPrimaryTypes: ['street_address', 'premise', 'subpremise', 'route'],
-          languageCode: 'en',
-          regionCode: 'US',
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Places Autocomplete API error:', response.status, errorText);
-        return res.json({ predictions: [] });
-      }
-      
-      const data = await response.json();
-      
-      // Transform to simpler format for frontend
-      const predictions = (data.suggestions || []).map((suggestion: any) => ({
-        placeId: suggestion.placePrediction?.placeId || '',
-        description: suggestion.placePrediction?.text?.text || '',
-        mainText: suggestion.placePrediction?.structuredFormat?.mainText?.text || '',
-        secondaryText: suggestion.placePrediction?.structuredFormat?.secondaryText?.text || '',
-      })).filter((p: any) => p.placeId && p.description);
-      
-      res.json({ predictions });
-    } catch (error) {
-      console.error('Places Autocomplete error:', error);
-      res.json({ predictions: [] });
-    }
-  });
-
-  // Google Places Details endpoint (New API) - PUBLIC
-  // Gets full address with zip code and coordinates using place_id
-  app.get('/api/places/details/:placeId', async (req, res) => {
-    try {
-      const { placeId } = req.params;
-      
-      if (!placeId) {
-        return res.status(400).json({ error: 'Place ID required' });
+      if (!address || typeof address !== 'string' || address.length < 3) {
+        return res.status(400).json({ error: 'Address required' });
       }
       
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -1404,43 +1350,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: 'API key not configured' });
       }
       
-      // Use the new Places API (New) via HTTP to get place details
+      // Use Google Geocoding API
       const response = await fetch(
-        `https://places.googleapis.com/v1/places/${placeId}?fields=formattedAddress,addressComponents,location`,
-        {
-          method: 'GET',
-          headers: {
-            'X-Goog-Api-Key': apiKey,
-          },
-        }
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
       );
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Places Details API error:', response.status, errorText);
-        return res.status(response.status).json({ error: 'Failed to get place details' });
+        console.error('Geocoding API error:', response.status, errorText);
+        return res.status(response.status).json({ error: 'Failed to geocode address' });
       }
       
       const data = await response.json();
+      console.log('Geocoding response status:', data.status);
       
-      // Extract address components including zip code
+      if (data.status !== 'OK' || !data.results || data.results.length === 0) {
+        console.warn('Geocoding returned no results for:', address);
+        return res.json({ 
+          formattedAddress: address,
+          zipCode: '',
+          latitude: null,
+          longitude: null,
+        });
+      }
+      
+      const result = data.results[0];
+      
+      // Extract zip code from address components
       let zipCode = '';
-      const addressComponents = data.addressComponents || [];
+      const addressComponents = result.address_components || [];
       for (const component of addressComponents) {
         if (component.types?.includes('postal_code')) {
-          zipCode = component.shortText || component.longText || '';
+          zipCode = component.short_name || component.long_name || '';
           break;
         }
       }
       
       // Get coordinates
-      const latitude = data.location?.latitude || null;
-      const longitude = data.location?.longitude || null;
+      const latitude = result.geometry?.location?.lat || null;
+      const longitude = result.geometry?.location?.lng || null;
       
-      // Get formatted address (already includes zip code from Places API New)
-      const formattedAddress = data.formattedAddress || '';
+      // Get formatted address (includes zip code)
+      const formattedAddress = result.formatted_address || address;
       
-      console.log('Place details:', { placeId, formattedAddress, zipCode, latitude, longitude });
+      console.log('Geocode result:', { formattedAddress, zipCode, latitude, longitude });
       
       res.json({
         formattedAddress,
@@ -1449,13 +1402,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         longitude,
         addressComponents: addressComponents.map((c: any) => ({
           types: c.types,
-          longText: c.longText,
-          shortText: c.shortText,
+          longName: c.long_name,
+          shortName: c.short_name,
         })),
       });
     } catch (error) {
-      console.error('Places Details error:', error);
-      res.status(500).json({ error: 'Failed to get place details' });
+      console.error('Geocoding error:', error);
+      res.status(500).json({ error: 'Failed to geocode address' });
     }
   });
 

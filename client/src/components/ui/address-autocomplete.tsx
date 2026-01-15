@@ -1,75 +1,177 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '../../components/ui/input';
-import { Button } from '../../components/ui/button';
-import { Search, MapPin, X } from 'lucide-react';
+import { MapPin, X, Loader2 } from 'lucide-react';
 import { useDebounce } from '../../hooks/use-debounce';
-import { loadGoogleMapsApi, geocodeAddress } from '../../lib/googleMapsUtils';
+import { loadGoogleMapsApi } from '../../lib/googleMapsUtils';
 
-// Interface for Google Maps predictions
-interface Prediction {
+// Interface for place prediction with place_id
+interface PlacePrediction {
+  placeId: string;
   description: string;
-  place_id: string;
 }
 
-// Function to get address suggestions using Google Maps Places API
-const getAddressSuggestions = async (input: string): Promise<string[]> => {
-  // Only return suggestions if input is at least 3 characters
+// Interface for place details result
+interface PlaceDetailsResult {
+  formattedAddress: string;
+  zipCode: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+// Function to get address suggestions with place_id using client-side Places API
+const getAddressSuggestions = async (input: string): Promise<PlacePrediction[]> => {
   if (!input || input.length < 3) {
     return [];
   }
 
   try {
-    // Try to load Google Maps API, but don't block if it fails
-    try {
-      await loadGoogleMapsApi();
-    } catch (error) {
-      console.warn('Failed to load Google Maps API:', error);
-      return getFallbackSuggestions(input);
-    }
-
-    // Check if Google Maps API is loaded
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
-      console.warn('Google Maps Places API not loaded. Using fallback suggestions.');
-      return getFallbackSuggestions(input);
-    }
-
-    // Create a session token for billing efficiency if supported
-    const sessionToken = new window.google.maps.places.AutocompleteSessionToken();
+    await loadGoogleMapsApi();
     
-    // Create a new place service
+    if (!window.google?.maps?.places?.AutocompleteService) {
+      console.warn('Google Places AutocompleteService not available');
+      return [];
+    }
+
     const service = new window.google.maps.places.AutocompleteService();
     
-    // Request predictions from the service
-    const response = await new Promise<google.maps.places.AutocompletePrediction[]>((resolve, reject) => {
+    return new Promise((resolve) => {
       service.getPlacePredictions(
         {
           input: input,
           types: ['address'],
-          sessionToken: sessionToken,
         },
         (predictions, status) => {
-          if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
-            console.warn('Google Places API status:', status);
+          if (status !== 'OK' || !predictions) {
+            console.warn('Places predictions status:', status);
             resolve([]);
           } else {
-            resolve(predictions);
+            resolve(predictions.map(p => ({
+              placeId: p.place_id,
+              description: p.description
+            })));
           }
         }
       );
     });
-    
-    // Extract address descriptions from predictions
-    return response.map(prediction => prediction.description);
   } catch (error) {
     console.error('Error fetching address suggestions:', error);
-    return getFallbackSuggestions(input);
+    return [];
   }
 };
 
-// Fallback function if Google Maps API is not available - returns empty to allow manual entry
-const getFallbackSuggestions = (input: string): Promise<string[]> => {
-  // Return empty array - user can still type addresses manually
-  return Promise.resolve([]);
+// Function to geocode address as a fallback
+const geocodeAddressFallback = async (address: string): Promise<PlaceDetailsResult | null> => {
+  if (!address || !window.google?.maps?.Geocoder) {
+    return null;
+  }
+
+  const geocoder = new window.google.maps.Geocoder();
+  
+  return new Promise((resolve) => {
+    geocoder.geocode({ address }, (results, status) => {
+      console.log('Geocoder fallback status:', status);
+      
+      if (status !== 'OK' || !results || results.length === 0) {
+        resolve(null);
+        return;
+      }
+      
+      const result = results[0];
+      const formattedAddress = result.formatted_address;
+      const lat = result.geometry?.location?.lat();
+      const lng = result.geometry?.location?.lng();
+      
+      let zipCode = '';
+      for (const component of result.address_components || []) {
+        if (component.types.includes('postal_code')) {
+          zipCode = component.short_name;
+          break;
+        }
+      }
+      
+      resolve({
+        formattedAddress,
+        zipCode,
+        latitude: lat || null,
+        longitude: lng || null,
+      });
+    });
+  });
+};
+
+// Function to get place details by place_id using client-side PlacesService
+const getPlaceDetails = async (placeId: string, descriptionFallback: string): Promise<PlaceDetailsResult | null> => {
+  if (!placeId) {
+    return null;
+  }
+
+  try {
+    await loadGoogleMapsApi();
+    
+    if (!window.google?.maps?.places?.PlacesService) {
+      console.warn('Google PlacesService not available, trying geocoder fallback');
+      return geocodeAddressFallback(descriptionFallback);
+    }
+
+    // PlacesService requires a map or div element
+    const dummyDiv = document.createElement('div');
+    const service = new window.google.maps.places.PlacesService(dummyDiv);
+    
+    return new Promise((resolve) => {
+      service.getDetails(
+        {
+          placeId: placeId,
+          fields: ['formatted_address', 'address_components', 'geometry'],
+        },
+        async (place, status) => {
+          console.log('PlaceDetails status:', status);
+          
+          if (status !== 'OK' || !place) {
+            console.warn('Place details failed:', status, '- trying geocoder fallback');
+            const fallbackResult = await geocodeAddressFallback(descriptionFallback);
+            resolve(fallbackResult);
+            return;
+          }
+          
+          const formattedAddress = place.formatted_address || '';
+          const lat = place.geometry?.location?.lat();
+          const lng = place.geometry?.location?.lng();
+          
+          // Extract zip code from address components
+          let zipCode = '';
+          for (const component of place.address_components || []) {
+            if (component.types.includes('postal_code')) {
+              zipCode = component.short_name;
+              break;
+            }
+          }
+          
+          // If we got no coordinates, try geocoder fallback
+          if (lat === undefined || lng === undefined) {
+            console.warn('No coordinates from Place Details, trying geocoder fallback');
+            const fallbackResult = await geocodeAddressFallback(descriptionFallback);
+            if (fallbackResult && fallbackResult.latitude && fallbackResult.longitude) {
+              resolve(fallbackResult);
+              return;
+            }
+          }
+          
+          console.log('Place details result:', { formattedAddress, zipCode, lat, lng });
+          
+          resolve({
+            formattedAddress,
+            zipCode,
+            latitude: lat || null,
+            longitude: lng || null,
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Error fetching place details:', error);
+    // Try geocoder fallback on error
+    return geocodeAddressFallback(descriptionFallback);
+  }
 };
 
 export interface AddressCoordinates {
@@ -89,13 +191,13 @@ export function AddressAutocomplete({
   ...props 
 }: AddressAutocompleteProps) {
   const [inputValue, setInputValue] = useState(value || '');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<PlacePrediction[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [geocoding, setGeocoding] = useState(false);
+  const [fetchingDetails, setFetchingDetails] = useState(false);
   const debouncedValue = useDebounce(inputValue, 300);
   const suggestionContainerRef = useRef<HTMLDivElement>(null);
-  const justSelectedRef = useRef(false); // Track if we just selected a suggestion
+  const justSelectedRef = useRef(false);
 
   // Fetch suggestions when input changes (debounced)
   useEffect(() => {
@@ -109,11 +211,9 @@ export function AddressAutocomplete({
       try {
         const results = await getAddressSuggestions(debouncedValue);
         setSuggestions(results);
-        // Keep dropdown open for manual entry option even when no results
         setShowSuggestions(true);
       } catch (error) {
         console.error('Error fetching address suggestions:', error);
-        // Still show dropdown for manual entry option on error
         setShowSuggestions(true);
       } finally {
         setLoading(false);
@@ -147,64 +247,57 @@ export function AddressAutocomplete({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputValue(e.target.value);
-    // Show suggestions only if we have input with length >= 3
     setShowSuggestions(e.target.value.length >= 3);
   };
 
-  const handleSelectSuggestion = async (suggestion: string, e?: React.MouseEvent | React.TouchEvent) => {
+  // Handle selection of a prediction - uses place_id to get full details with zip + coordinates
+  const handleSelectPrediction = async (prediction: PlacePrediction, e?: React.PointerEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
     
-    // Prevent double-firing
-    if (geocoding || justSelectedRef.current) {
+    if (fetchingDetails || justSelectedRef.current) {
       console.log('Already processing, skipping duplicate call');
       return;
     }
     
     justSelectedRef.current = true;
     setShowSuggestions(false);
-    setGeocoding(true);
+    setFetchingDetails(true);
+    setInputValue(prediction.description + ' (loading...)');
     
-    // Update input immediately to show feedback
-    setInputValue(suggestion + ' (loading...)');
-    
-    console.log('handleSelectSuggestion called with:', suggestion);
+    console.log('Fetching place details for:', prediction.placeId, prediction.description);
     
     try {
-      const result = await geocodeAddress(suggestion);
-      console.log('Geocode result:', result);
+      const result = await getPlaceDetails(prediction.placeId, prediction.description);
+      console.log('Place details result:', result);
       
       if (result && result.formattedAddress) {
         const fullAddress = result.formattedAddress;
-        console.log('Setting full address with zip:', fullAddress);
+        console.log('Setting full address with zip:', fullAddress, 'zip:', result.zipCode);
         setInputValue(fullAddress);
-        onAddressSelect(fullAddress, {
-          latitude: result.latitude,
-          longitude: result.longitude,
-          formattedAddress: fullAddress
-        });
+        
+        if (result.latitude !== null && result.longitude !== null) {
+          onAddressSelect(fullAddress, {
+            latitude: result.latitude,
+            longitude: result.longitude,
+            formattedAddress: fullAddress
+          });
+        } else {
+          onAddressSelect(fullAddress);
+        }
       } else {
-        console.warn('Geocoding returned no result for:', suggestion);
-        setInputValue(suggestion);
-        onAddressSelect(suggestion, {
-          latitude: 40.8478,
-          longitude: -74.0858,
-          formattedAddress: suggestion
-        });
+        console.warn('No details for place:', prediction.placeId);
+        setInputValue(prediction.description);
+        onAddressSelect(prediction.description);
       }
     } catch (error) {
-      console.error('Error geocoding address:', error);
-      setInputValue(suggestion);
-      onAddressSelect(suggestion, {
-        latitude: 40.8478,
-        longitude: -74.0858,
-        formattedAddress: suggestion
-      });
+      console.error('Error fetching place details:', error);
+      setInputValue(prediction.description);
+      onAddressSelect(prediction.description);
     } finally {
-      setGeocoding(false);
-      // Reset after a delay to allow for new selections
+      setFetchingDetails(false);
       setTimeout(() => {
         justSelectedRef.current = false;
       }, 500);
@@ -218,16 +311,13 @@ export function AddressAutocomplete({
   };
 
   const handleBlur = () => {
-    // Longer delay to allow touch/pointer events on suggestions to register on mobile
     setTimeout(() => {
-      // Skip if we just selected a suggestion (it already called onAddressSelect with coordinates)
       if (justSelectedRef.current) {
         justSelectedRef.current = false;
         setShowSuggestions(false);
         return;
       }
-      if (inputValue && inputValue !== value) {
-        // User typed an address manually, submit it
+      if (inputValue && inputValue !== value && !inputValue.includes('(loading...)')) {
         onAddressSelect(inputValue);
       }
       setShowSuggestions(false);
@@ -263,31 +353,37 @@ export function AddressAutocomplete({
       {showSuggestions && (
         <div className="absolute z-10 mt-1 w-full bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700 max-h-60 overflow-auto">
           {loading ? (
-            <div className="px-4 py-2 text-sm text-gray-500">Searching addresses...</div>
-          ) : geocoding ? (
-            <div className="px-4 py-2 text-sm text-blue-500 animate-pulse">Getting full address with zip code...</div>
+            <div className="px-4 py-2 text-sm text-gray-500 flex items-center">
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Searching addresses...
+            </div>
+          ) : fetchingDetails ? (
+            <div className="px-4 py-2 text-sm text-blue-500 flex items-center">
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Getting full address with zip code...
+            </div>
           ) : suggestions.length > 0 ? (
             <ul role="listbox">
-              {suggestions.map((suggestion, index) => (
+              {suggestions.map((prediction, index) => (
                 <li 
-                  key={index}
+                  key={prediction.placeId || index}
                   role="option"
                   tabIndex={0}
                   className="px-4 py-3 text-sm hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation active:bg-blue-100"
                   onPointerDown={(e) => {
                     e.preventDefault();
                     justSelectedRef.current = true;
-                    handleSelectSuggestion(suggestion, e);
+                    handleSelectPrediction(prediction, e);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      handleSelectSuggestion(suggestion);
+                      handleSelectPrediction(prediction);
                     }
                   }}
                 >
                   <MapPin className="h-4 w-4 mr-2 text-blue-500 flex-shrink-0" />
-                  <span>{suggestion}</span>
+                  <span>{prediction.description}</span>
                 </li>
               ))}
             </ul>
@@ -296,15 +392,51 @@ export function AddressAutocomplete({
               role="option"
               tabIndex={0}
               className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex items-center touch-manipulation active:bg-blue-100"
-              onPointerDown={(e) => {
+              onPointerDown={async (e) => {
                 e.preventDefault();
                 justSelectedRef.current = true;
-                handleSelectSuggestion(debouncedValue, e);
+                setShowSuggestions(false);
+                setFetchingDetails(true);
+                setInputValue(debouncedValue + ' (loading...)');
+                
+                // Try to geocode manual entry to get full address with zip and coordinates
+                const result = await geocodeAddressFallback(debouncedValue);
+                if (result && result.formattedAddress && result.latitude && result.longitude) {
+                  setInputValue(result.formattedAddress);
+                  onAddressSelect(result.formattedAddress, {
+                    latitude: result.latitude,
+                    longitude: result.longitude,
+                    formattedAddress: result.formattedAddress
+                  });
+                } else {
+                  setInputValue(debouncedValue);
+                  onAddressSelect(debouncedValue);
+                }
+                setFetchingDetails(false);
+                setTimeout(() => { justSelectedRef.current = false; }, 500);
               }}
-              onKeyDown={(e) => {
+              onKeyDown={async (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   e.preventDefault();
-                  handleSelectSuggestion(debouncedValue);
+                  justSelectedRef.current = true;
+                  setShowSuggestions(false);
+                  setFetchingDetails(true);
+                  setInputValue(debouncedValue + ' (loading...)');
+                  
+                  const result = await geocodeAddressFallback(debouncedValue);
+                  if (result && result.formattedAddress && result.latitude && result.longitude) {
+                    setInputValue(result.formattedAddress);
+                    onAddressSelect(result.formattedAddress, {
+                      latitude: result.latitude,
+                      longitude: result.longitude,
+                      formattedAddress: result.formattedAddress
+                    });
+                  } else {
+                    setInputValue(debouncedValue);
+                    onAddressSelect(debouncedValue);
+                  }
+                  setFetchingDetails(false);
+                  setTimeout(() => { justSelectedRef.current = false; }, 500);
                 }
               }}
             >
