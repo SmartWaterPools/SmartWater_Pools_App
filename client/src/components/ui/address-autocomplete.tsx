@@ -49,15 +49,20 @@ export function AddressAutocomplete({
       }
 
       // Create the autocomplete element with address type restriction
+      // Use includedPrimaryTypes for the new API (not types)
       const placeAutocomplete = new PlaceAutocompleteElement({
         includedRegionCodes: ['US'],
-        // Restrict to addresses only
-        types: ['address'],
+        includedPrimaryTypes: ['street_address', 'premise', 'subpremise'],
       });
 
       // Style the element
       placeAutocomplete.style.width = '100%';
       placeAutocomplete.style.fontSize = '14px';
+      
+      // Set initial value if provided
+      if (value) {
+        placeAutocomplete.value = value;
+      }
       
       // Clear container and append
       containerRef.current.innerHTML = '';
@@ -137,6 +142,10 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     setDisplayValue(value || '');
+    // Sync value to the web component if it exists
+    if (autocompleteRef.current && value) {
+      autocompleteRef.current.value = value;
+    }
   }, [value]);
 
   return (
