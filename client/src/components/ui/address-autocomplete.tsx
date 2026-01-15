@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Input } from '../../components/ui/input';
-import { MapPin, X, Loader2 } from 'lucide-react';
+import { MapPin, Loader2 } from 'lucide-react';
 import { loadGoogleMapsApi } from '../../lib/googleMapsUtils';
 
 export interface AddressCoordinates {
@@ -9,25 +8,28 @@ export interface AddressCoordinates {
   formattedAddress: string;
 }
 
-export interface AddressAutocompleteProps extends React.InputHTMLAttributes<HTMLInputElement> {
+export interface AddressAutocompleteProps {
   onAddressSelect: (address: string, coordinates?: AddressCoordinates) => void;
   value: string;
+  placeholder?: string;
+  className?: string;
 }
 
 export function AddressAutocomplete({ 
   onAddressSelect, 
   value,
-  ...props 
+  placeholder = "Enter address...",
+  className = ""
 }: AddressAutocompleteProps) {
-  const [inputValue, setInputValue] = useState(value || '');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
+  const [displayValue, setDisplayValue] = useState(value || '');
+  const containerRef = useRef<HTMLDivElement>(null);
+  const autocompleteRef = useRef<any>(null);
   const isInitializedRef = useRef(false);
 
   const initializeAutocomplete = useCallback(async () => {
-    if (isInitializedRef.current || !inputRef.current) return;
+    if (isInitializedRef.current || !containerRef.current) return;
     
     try {
       setIsLoading(true);
@@ -35,88 +37,88 @@ export function AddressAutocomplete({
       
       await loadGoogleMapsApi();
       
-      if (!window.google?.maps?.places?.Autocomplete) {
-        setError('Google Maps not available');
+      // Import the Places library using the new API
+      // Cast to any since TypeScript types may not include new PlaceAutocompleteElement
+      const placesLib = await google.maps.importLibrary("places") as any;
+      const PlaceAutocompleteElement = placesLib.PlaceAutocompleteElement;
+      
+      if (!PlaceAutocompleteElement) {
+        setError('Places API not available');
         setIsLoading(false);
         return;
       }
 
-      autocompleteRef.current = new window.google.maps.places.Autocomplete(
-        inputRef.current,
-        {
-          componentRestrictions: { country: ['us'] },
-          fields: ['address_components', 'geometry', 'formatted_address'],
-          types: ['address'],
-        }
-      );
+      // Create the autocomplete element with address type restriction
+      const placeAutocomplete = new PlaceAutocompleteElement({
+        includedRegionCodes: ['US'],
+        // Restrict to addresses only
+        types: ['address'],
+      });
 
-      autocompleteRef.current.addListener('place_changed', () => {
-        const place = autocompleteRef.current?.getPlace();
-        
-        if (!place) {
-          console.warn('No place data returned');
-          return;
-        }
+      // Style the element
+      placeAutocomplete.style.width = '100%';
+      placeAutocomplete.style.fontSize = '14px';
+      
+      // Clear container and append
+      containerRef.current.innerHTML = '';
+      containerRef.current.appendChild(placeAutocomplete);
+      
+      autocompleteRef.current = placeAutocomplete;
 
-        console.log('Place selected:', place);
-
-        let streetNumber = '';
-        let route = '';
-        let city = '';
-        let state = '';
-        let postalCode = '';
-        let country = '';
-
-        for (const component of place.address_components || []) {
-          const type = component.types[0];
-          
-          switch (type) {
-            case 'street_number':
-              streetNumber = component.long_name;
-              break;
-            case 'route':
-              route = component.short_name;
-              break;
-            case 'locality':
-              city = component.long_name;
-              break;
-            case 'administrative_area_level_1':
-              state = component.short_name;
-              break;
-            case 'postal_code':
-              postalCode = component.long_name;
-              break;
-            case 'postal_code_suffix':
-              if (postalCode) {
-                postalCode = `${postalCode}-${component.long_name}`;
-              }
-              break;
-            case 'country':
-              country = component.long_name;
-              break;
+      // Listen for place selection using the new gmp-select event
+      placeAutocomplete.addEventListener('gmp-select', async (event: any) => {
+        try {
+          const placePrediction = event.placePrediction;
+          if (!placePrediction) {
+            console.warn('No place prediction in event');
+            return;
           }
-        }
 
-        const streetAddress = streetNumber ? `${streetNumber} ${route}` : route;
-        const fullAddress = place.formatted_address || 
-          [streetAddress, city, state, postalCode, country].filter(Boolean).join(', ');
-
-        console.log('Parsed address:', { streetAddress, city, state, postalCode, fullAddress });
-
-        const lat = place.geometry?.location?.lat();
-        const lng = place.geometry?.location?.lng();
-
-        setInputValue(fullAddress);
-
-        if (lat !== undefined && lng !== undefined) {
-          onAddressSelect(fullAddress, {
-            latitude: lat,
-            longitude: lng,
-            formattedAddress: fullAddress
+          // Convert prediction to Place and fetch details
+          const place = placePrediction.toPlace();
+          
+          // Fetch the fields we need including addressComponents for zip code
+          await place.fetchFields({ 
+            fields: ['formattedAddress', 'location', 'addressComponents', 'displayName'] 
           });
-        } else {
-          onAddressSelect(fullAddress);
+
+          console.log('Place selected:', place);
+
+          const formattedAddress = place.formattedAddress || '';
+          const location = place.location;
+          
+          // Extract zip code from address components
+          let zipCode = '';
+          if (place.addressComponents) {
+            for (const component of place.addressComponents) {
+              if (component.types.includes('postal_code')) {
+                zipCode = component.shortText || component.longText || '';
+                break;
+              }
+            }
+          }
+
+          console.log('Parsed address:', { formattedAddress, zipCode, location });
+          
+          setDisplayValue(formattedAddress);
+
+          if (location) {
+            onAddressSelect(formattedAddress, {
+              latitude: location.lat(),
+              longitude: location.lng(),
+              formattedAddress: formattedAddress
+            });
+          } else {
+            onAddressSelect(formattedAddress);
+          }
+        } catch (err) {
+          console.error('Error processing place selection:', err);
         }
+      });
+
+      // Handle errors
+      placeAutocomplete.addEventListener('gmp-error', (event: any) => {
+        console.error('Autocomplete error:', event);
       });
 
       isInitializedRef.current = true;
@@ -131,70 +133,38 @@ export function AddressAutocomplete({
 
   useEffect(() => {
     initializeAutocomplete();
-    
-    return () => {
-      if (autocompleteRef.current) {
-        google.maps.event.clearInstanceListeners(autocompleteRef.current);
-      }
-    };
   }, [initializeAutocomplete]);
 
   useEffect(() => {
-    setInputValue(value || '');
+    setDisplayValue(value || '');
   }, [value]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
-  };
-
-  const handleClear = () => {
-    setInputValue('');
-    onAddressSelect('');
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-  };
-
-  const handleBlur = () => {
-    setTimeout(() => {
-      if (inputValue && inputValue !== value) {
-        onAddressSelect(inputValue);
-      }
-    }, 200);
-  };
-
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <div className="relative">
-        <div className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 z-10">
+        <div className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 z-10 pointer-events-none">
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <MapPin className="h-4 w-4" />
           )}
         </div>
-        <Input
-          {...props}
-          ref={inputRef}
-          value={inputValue}
-          onChange={handleInputChange}
-          onBlur={handleBlur}
-          className="pl-8 pr-8"
-          placeholder={isLoading ? "Loading..." : "Enter address..."}
-          disabled={isLoading}
-        />
-        {inputValue && !isLoading && (
-          <div 
-            className="absolute right-2 top-1/2 transform -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-600 z-10"
-            onClick={handleClear}
-          >
-            <X className="h-4 w-4" />
+        
+        {isLoading ? (
+          <div className="flex h-10 w-full rounded-md border border-input bg-background px-8 py-2 text-sm text-muted-foreground">
+            Loading address search...
           </div>
+        ) : error ? (
+          <div className="flex h-10 w-full rounded-md border border-red-300 bg-red-50 px-8 py-2 text-sm text-red-600">
+            {error}
+          </div>
+        ) : (
+          <div 
+            ref={containerRef}
+            className="w-full [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:h-10 [&>gmp-place-autocomplete]:rounded-md [&>gmp-place-autocomplete]:border [&>gmp-place-autocomplete]:border-input [&>gmp-place-autocomplete]:bg-background [&>gmp-place-autocomplete]:px-8 [&>gmp-place-autocomplete]:text-sm [&>gmp-place-autocomplete]:ring-offset-background [&>gmp-place-autocomplete]:focus-within:outline-none [&>gmp-place-autocomplete]:focus-within:ring-2 [&>gmp-place-autocomplete]:focus-within:ring-ring [&>gmp-place-autocomplete]:focus-within:ring-offset-2"
+          />
         )}
       </div>
-      {error && (
-        <p className="text-xs text-red-500 mt-1">{error}</p>
-      )}
       {!isLoading && !error && (
         <p className="text-xs text-gray-500 mt-1">Start typing to see address suggestions</p>
       )}
