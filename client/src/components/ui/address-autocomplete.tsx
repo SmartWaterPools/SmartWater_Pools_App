@@ -104,18 +104,28 @@ export function AddressAutocomplete({
     }
 
     setIsLoading(true);
+    console.log('Fetching suggestions for:', query);
     
     try {
       const { AutocompleteSuggestion } = await google.maps.importLibrary("places") as any;
       
+      if (!AutocompleteSuggestion) {
+        console.error('AutocompleteSuggestion not available in places library');
+        setIsLoading(false);
+        return;
+      }
+      
       const request = {
         input: query,
-        includedRegionCodes: ['US'],
-        includedPrimaryTypes: ['street_address', 'premise', 'subpremise', 'route'],
+        includedRegionCodes: ['us'], // lowercase per API docs
         sessionToken: getSessionToken(),
       };
 
-      const { suggestions: results } = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+      console.log('Autocomplete request:', request);
+      const response = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
+      console.log('Autocomplete response:', response);
+      
+      const results = response?.suggestions;
       
       if (results && results.length > 0) {
         const formattedSuggestions: Suggestion[] = results.map((suggestion: any) => {
@@ -128,14 +138,18 @@ export function AddressAutocomplete({
             placePrediction: placePrediction, // Store for toPlace()
           };
         });
+        console.log('Formatted suggestions:', formattedSuggestions);
         setSuggestions(formattedSuggestions);
         setShowDropdown(true);
       } else {
+        console.log('No suggestions returned');
         setSuggestions([]);
         setShowDropdown(false);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching suggestions:', err);
+      console.error('Error message:', err?.message);
+      console.error('Error stack:', err?.stack);
       setSuggestions([]);
     } finally {
       setIsLoading(false);
