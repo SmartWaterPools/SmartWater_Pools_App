@@ -159,20 +159,25 @@ export function AddressAutocomplete({
           )}
         </div>
         
-        {isLoading ? (
+        {/* Loading state overlay */}
+        {isLoading && (
           <div className="flex h-10 w-full rounded-md border border-input bg-background px-8 py-2 text-sm text-muted-foreground">
             Loading address search...
           </div>
-        ) : error ? (
+        )}
+        
+        {/* Error state */}
+        {error && !isLoading && (
           <div className="flex h-10 w-full rounded-md border border-red-300 bg-red-50 px-8 py-2 text-sm text-red-600">
             {error}
           </div>
-        ) : (
-          <div 
-            ref={containerRef}
-            className="w-full [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:h-10 [&>gmp-place-autocomplete]:rounded-md [&>gmp-place-autocomplete]:border [&>gmp-place-autocomplete]:border-input [&>gmp-place-autocomplete]:bg-background [&>gmp-place-autocomplete]:px-8 [&>gmp-place-autocomplete]:text-sm [&>gmp-place-autocomplete]:ring-offset-background [&>gmp-place-autocomplete]:focus-within:outline-none [&>gmp-place-autocomplete]:focus-within:ring-2 [&>gmp-place-autocomplete]:focus-within:ring-ring [&>gmp-place-autocomplete]:focus-within:ring-offset-2"
-          />
         )}
+        
+        {/* Container for the autocomplete - always rendered but hidden when loading/error */}
+        <div 
+          ref={containerRef}
+          className={`w-full [&>gmp-place-autocomplete]:w-full [&>gmp-place-autocomplete]:h-10 [&>gmp-place-autocomplete]:rounded-md [&>gmp-place-autocomplete]:border [&>gmp-place-autocomplete]:border-input [&>gmp-place-autocomplete]:bg-background [&>gmp-place-autocomplete]:px-8 [&>gmp-place-autocomplete]:text-sm [&>gmp-place-autocomplete]:ring-offset-background [&>gmp-place-autocomplete]:focus-within:outline-none [&>gmp-place-autocomplete]:focus-within:ring-2 [&>gmp-place-autocomplete]:focus-within:ring-ring [&>gmp-place-autocomplete]:focus-within:ring-offset-2 ${isLoading || error ? 'hidden' : ''}`}
+        />
       </div>
       {!isLoading && !error && (
         <p className="text-xs text-gray-500 mt-1">Start typing to see address suggestions</p>
