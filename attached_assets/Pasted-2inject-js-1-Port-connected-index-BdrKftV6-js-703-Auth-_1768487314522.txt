@@ -1,0 +1,555 @@
+2inject.js:1 Port connected
+index-BdrKftV6.js:703 Auth provider initialized, checking session
+index-BdrKftV6.js:703 Checking session... (attempt 1)
+index-BdrKftV6.js:748 Login page URL params check: {errorParam: null, redirectPath: '/dashboard', search: ''}
+index-BdrKftV6.js:703 Session response: {isAuthenticated: true, user: {…}}
+index-BdrKftV6.js:703 Session contains authenticated user: travis@smartwaterpools.com
+index-BdrKftV6.js:703 Initial session check complete: Authenticated
+index-BdrKftV6.js:748 Login: User authenticated, redirecting to dashboard
+index-BdrKftV6.js:748 Dashboard: Authentication status: Authenticated
+index-BdrKftV6.js:748 Fetching data from: /api/dashboard/summary
+index-BdrKftV6.js:40 [Violation] 'setTimeout' handler took 75ms
+[Violation] Forced reflow while executing JavaScript took 34ms
+index-BdrKftV6.js:835 Loading Places library...
+index-BdrKftV6.js:830 Fetching Google Maps API key from: https://smartwaterpools.replit.app/api/google-maps-key?_t=1768487275795
+index-BdrKftV6.js:835 Places library loaded: (81) ['PlacesService', 'PlacesServiceStatus', 'AutocompleteService', 'AutocompleteSessionToken', 'Autocomplete', 'BusinessStatus', 'ContentBlock', 'SearchBox', 'RankBy', 'Place', 'AccessibilityOptions', 'AddressComponent', 'Attribution', 'OpeningHours', 'OpeningHoursPeriod', 'OpeningHoursPoint', 'EvChargeAmenitySummary', 'EVChargeOptions', 'EVConnectorType', 'ConnectorAggregation', 'FuelOptions', 'FuelType', 'FuelPrice', 'GenerativeSummary', 'Money', 'NeighborhoodSummary', 'ParkingOptions', 'PaymentOptions', 'Photo', 'AuthorAttribution', 'PlusCode', 'PostalAddress', 'Review', 'ReviewSummary', 'PriceLevel', 'PriceRange', 'GoogleMapsLinks', 'ConsumerAlert', 'ConsumerAlertDetails', 'TimeZone', 'PlaceSelectEvent', 'SearchByTextRankPreference', 'SearchNearbyRankPreference', 'AutocompleteSuggestion', 'PlacePrediction', 'FormattableText', 'StringRange', 'PlaceAutocompleteElement', 'PlacePredictionSelectEvent', 'BasicPlaceAutocompleteElement', 'PlaceDetailsElement', 'PlaceDetailsCompactElement', 'PlaceDetailsOrientation', 'PlaceDetailsLocationRequestElement', 'PlaceDetailsPlaceRequestElement', 'PlaceContentConfigElement', 'PlaceStandardContentElement', 'PlaceAllContentElement', 'PlaceAccessibleEntranceIconElement', 'PlaceAddressElement', 'PlaceAttributionElement', 'AttributionColor', 'PlaceMediaElement', 'MediaSize', 'PlaceOpenNowStatusElement', 'PlacePriceElement', 'PlaceRatingElement', 'PlaceTypeElement', 'PlaceWebsiteElement', 'PlacePhoneNumberElement', 'PlaceOpeningHoursElement', 'PlaceSummaryElement', 'PlaceTypeSpecificHighlightsElement', 'PlaceReviewsElement', 'PlacePlusCodeElement', 'PlaceFeatureListElement', 'PlaceSearchElement', 'PlaceSearchAttributionPosition', 'PlaceSearchOrientation', 'PlaceNearbySearchRequestElement', 'PlaceTextSearchRequestElement']
+index-BdrKftV6.js:835 Fetching suggestions for: 35 
+index-BdrKftV6.js:835 Created new session token
+index-BdrKftV6.js:835 Autocomplete request: {input: '35 ', includedRegionCodes: Array(1), sessionToken: _.Ju}
+main.js:336  POST https://places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces 403 (Forbidden)
+_.z.send @ main.js:336
+kba @ main.js:162
+(anonymous) @ main.js:359
+(anonymous) @ main.js:359
+intercept @ main.js:602
+await in intercept
+(anonymous) @ main.js:161
+Hg @ main.js:360
+Eg @ main.js:360
+(anonymous) @ places_impl.js:35
+uxb @ places_impl.js:35
+Ita @ places.js:495
+await in Ita
+Jta @ places.js:495
+(anonymous) @ index-BdrKftV6.js:835
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Fetching suggestions for: 35 s
+index-BdrKftV6.js:835 Autocomplete request: {input: '35 s', includedRegionCodes: Array(1), sessionToken: _.Ju}
+main.js:336  POST https://places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces 403 (Forbidden)
+_.z.send @ main.js:336
+kba @ main.js:162
+(anonymous) @ main.js:359
+(anonymous) @ main.js:359
+intercept @ main.js:602
+await in intercept
+(anonymous) @ main.js:161
+Hg @ main.js:360
+Eg @ main.js:360
+(anonymous) @ places_impl.js:35
+uxb @ places_impl.js:35
+Ita @ places.js:495
+await in Ita
+Jta @ places.js:495
+(anonymous) @ index-BdrKftV6.js:835
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Fetching suggestions for: 35 st
+index-BdrKftV6.js:835 Autocomplete request: {input: '35 st', includedRegionCodes: Array(1), sessionToken: _.Ju}
+main.js:336  POST https://places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces 403 (Forbidden)
+_.z.send @ main.js:336
+kba @ main.js:162
+(anonymous) @ main.js:359
+(anonymous) @ main.js:359
+intercept @ main.js:602
+await in intercept
+(anonymous) @ main.js:161
+Hg @ main.js:360
+Eg @ main.js:360
+(anonymous) @ places_impl.js:35
+uxb @ places_impl.js:35
+Ita @ places.js:495
+await in Ita
+Jta @ places.js:495
+(anonymous) @ index-BdrKftV6.js:835
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Fetching suggestions for: 35 str
+index-BdrKftV6.js:835 Autocomplete request: {input: '35 str', includedRegionCodes: Array(1), sessionToken: _.Ju}
+main.js:336  POST https://places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces 403 (Forbidden)
+_.z.send @ main.js:336
+kba @ main.js:162
+(anonymous) @ main.js:359
+(anonymous) @ main.js:359
+intercept @ main.js:602
+await in intercept
+(anonymous) @ main.js:161
+Hg @ main.js:360
+Eg @ main.js:360
+(anonymous) @ places_impl.js:35
+uxb @ places_impl.js:35
+Ita @ places.js:495
+await in Ita
+Jta @ places.js:495
+(anonymous) @ index-BdrKftV6.js:835
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Fetching suggestions for: 35 stra
+index-BdrKftV6.js:835 Autocomplete request: {input: '35 stra', includedRegionCodes: Array(1), sessionToken: _.Ju}
+main.js:336  POST https://places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces 403 (Forbidden)
+_.z.send @ main.js:336
+kba @ main.js:162
+(anonymous) @ main.js:359
+(anonymous) @ main.js:359
+intercept @ main.js:602
+await in intercept
+(anonymous) @ main.js:161
+Hg @ main.js:360
+Eg @ main.js:360
+(anonymous) @ places_impl.js:35
+uxb @ places_impl.js:35
+Ita @ places.js:495
+await in Ita
+Jta @ places.js:495
+(anonymous) @ index-BdrKftV6.js:835
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848)
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835
+await in (anonymous)
+(anonymous) @ index-BdrKftV6.js:835
+setTimeout
+k @ index-BdrKftV6.js:835
+lB @ index-BdrKftV6.js:37
+dB @ index-BdrKftV6.js:37
+uB @ index-BdrKftV6.js:37
+pC @ index-BdrKftV6.js:37
+zT @ index-BdrKftV6.js:37
+(anonymous) @ index-BdrKftV6.js:37
+kb @ index-BdrKftV6.js:40
+uT @ index-BdrKftV6.js:37
+u1 @ index-BdrKftV6.js:37
+nb @ index-BdrKftV6.js:37
+AB @ index-BdrKftV6.js:37Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:155:214)
+    at gk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:143:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:332:399)
+    at lk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:144:361)
+    at rk (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:145:334)
+    at _.z.fM (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:410)
+    at _.z.dG (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:337:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:154:27)
+    at kba (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:162:111)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:359:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps-api-v3/api/js/63/10a/main.js:602:848
