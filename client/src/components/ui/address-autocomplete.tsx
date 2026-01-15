@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Loader2, X } from 'lucide-react';
-import { loadGoogleMapsApi } from '../../lib/googleMapsUtils';
+import { loadPlacesLibrary } from '../../lib/googleMapsUtils';
 import { Input } from './input';
 
 export interface AddressCoordinates {
@@ -21,7 +21,7 @@ interface Suggestion {
   mainText: string;
   secondaryText: string;
   fullText: string;
-  placePrediction: any; // Store the raw prediction to use toPlace()
+  placePrediction: any;
 }
 
 export function AddressAutocomplete({ 
@@ -41,16 +41,19 @@ export function AddressAutocomplete({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const sessionTokenRef = useRef<any>(null);
+  const placesLibRef = useRef<google.maps.PlacesLibrary | null>(null);
 
-  // Initialize Google Maps API
+  // Initialize Google Maps API with the new Places library
   useEffect(() => {
     const init = async () => {
       try {
-        await loadGoogleMapsApi();
-        await google.maps.importLibrary("places");
+        console.log('Loading Places library...');
+        const placesLib = await loadPlacesLibrary();
+        placesLibRef.current = placesLib;
+        console.log('Places library loaded:', Object.keys(placesLib));
         setIsApiReady(true);
       } catch (err) {
-        console.error('Failed to load Google Maps API:', err);
+        console.error('Failed to load Google Places API:', err);
         setError('Failed to load address search');
       }
     };
@@ -89,8 +92,10 @@ export function AddressAutocomplete({
 
   // Create a new session token for billing optimization
   const getSessionToken = useCallback(() => {
-    if (!sessionTokenRef.current && google?.maps?.places?.AutocompleteSessionToken) {
-      sessionTokenRef.current = new google.maps.places.AutocompleteSessionToken();
+    const placesLib = placesLibRef.current as any;
+    if (!sessionTokenRef.current && placesLib?.AutocompleteSessionToken) {
+      sessionTokenRef.current = new placesLib.AutocompleteSessionToken();
+      console.log('Created new session token');
     }
     return sessionTokenRef.current;
   }, []);
@@ -103,21 +108,27 @@ export function AddressAutocomplete({
       return;
     }
 
+    const placesLib = placesLibRef.current as any;
+    if (!placesLib) {
+      console.error('Places library not loaded');
+      return;
+    }
+
     setIsLoading(true);
     console.log('Fetching suggestions for:', query);
     
     try {
-      const { AutocompleteSuggestion } = await google.maps.importLibrary("places") as any;
+      const { AutocompleteSuggestion } = placesLib;
       
       if (!AutocompleteSuggestion) {
-        console.error('AutocompleteSuggestion not available in places library');
+        console.error('AutocompleteSuggestion not available. Available:', Object.keys(placesLib));
         setIsLoading(false);
         return;
       }
       
       const request = {
         input: query,
-        includedRegionCodes: ['us'], // lowercase per API docs
+        includedRegionCodes: ['us'],
         sessionToken: getSessionToken(),
       };
 
@@ -135,7 +146,7 @@ export function AddressAutocomplete({
             mainText: placePrediction.mainText?.text || '',
             secondaryText: placePrediction.secondaryText?.text || '',
             fullText: placePrediction.text?.text || '',
-            placePrediction: placePrediction, // Store for toPlace()
+            placePrediction: placePrediction,
           };
         });
         console.log('Formatted suggestions:', formattedSuggestions);

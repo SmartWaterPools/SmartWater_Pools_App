@@ -9,6 +9,7 @@
 let googleMapsApiLoaded = false;
 let googleMapsApiLoading = false;
 let loadCallbacks: (() => void)[] = [];
+let placesLibraryLoaded = false;
 
 // Configuration for API key fetch retries
 const MAX_RETRIES = 3;
@@ -26,8 +27,9 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const getGoogleMapsApiKey = async (retryCount = 0): Promise<string> => {
   try {
     // First check if we have it in the environment variables
-    if (import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
-      return import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    const env = import.meta.env as Record<string, string | undefined>;
+    if (env.VITE_GOOGLE_MAPS_API_KEY) {
+      return env.VITE_GOOGLE_MAPS_API_KEY;
     }
     
     // Add cache-busting to prevent stale responses
@@ -96,11 +98,12 @@ export const getGoogleMapsApiKey = async (retryCount = 0): Promise<string> => {
 };
 
 /**
- * Load the Google Maps API with the Places library
+ * Load the Google Maps Core API using dynamic import (new API style)
+ * This is required for the new Places API (AutocompleteSuggestion)
  */
 export const loadGoogleMapsApi = async (): Promise<void> => {
   // If already loaded, resolve immediately
-  if (googleMapsApiLoaded) {
+  if (googleMapsApiLoaded && window.google?.maps) {
     return Promise.resolve();
   }
 
@@ -114,49 +117,82 @@ export const loadGoogleMapsApi = async (): Promise<void> => {
   // Start loading the API
   googleMapsApiLoading = true;
 
-  return new Promise(async (resolve, reject) => {
-    try {
-      // Add callback for the API loader
-      window.initGoogleMapsCallback = () => {
-        // Mark as loaded
-        googleMapsApiLoaded = true;
-        googleMapsApiLoading = false;
-        
-        // Call all callbacks
-        loadCallbacks.forEach(callback => callback());
-        loadCallbacks = [];
-        
-        resolve();
-      };
-
-      // Get API key - now properly awaiting the async function
-      const apiKey = await getGoogleMapsApiKey();
-      
-      if (!apiKey) {
-        console.error('No Google Maps API key available');
-        reject(new Error('No Google Maps API key available'));
-        return;
-      }
-      
-      // Create script element
-      const script = document.createElement('script');
-      
-      // Set script attributes
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMapsCallback`;
-      script.async = true;
-      script.defer = true;
-      script.onerror = (error) => {
-        console.error('Error loading Google Maps API:', error);
-        reject(new Error('Failed to load Google Maps API'));
-      };
-
-      // Add script to document
-      document.head.appendChild(script);
-    } catch (error) {
-      console.error('Error setting up Google Maps API:', error);
-      reject(error);
+  try {
+    const apiKey = await getGoogleMapsApiKey();
+    
+    if (!apiKey) {
+      googleMapsApiLoading = false;
+      throw new Error('No Google Maps API key available');
     }
-  });
+
+    // Check if script already exists
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existingScript) {
+      // Wait for existing script to load
+      await new Promise<void>((resolve, reject) => {
+        if (window.google?.maps) {
+          resolve();
+        } else {
+          existingScript.addEventListener('load', () => resolve());
+          existingScript.addEventListener('error', () => reject(new Error('Failed to load Google Maps')));
+        }
+      });
+    } else {
+      // Load the new way using inline bootstrap loader
+      // This allows importLibrary() to work with the new Places API
+      await new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.innerHTML = `
+          (g=>{var h,a,k,p="The Google Maps JavaScript API",c="google",l="importLibrary",q="__ib__",m=document,b=window;b=b[c]||(b[c]={});var d=b.maps||(b.maps={}),r=new Set,e=new URLSearchParams,u=()=>h||(h=new Promise(async(f,n)=>{await (a=m.createElement("script"));e.set("libraries",[...r]);for(k in g)e.set(k.replace(/[A-Z]/g,t=>"_"+t[0].toLowerCase()),g[k]);e.set("callback",c+".maps."+q);a.src="https://maps.googleapis.com/maps/api/js?"+e;d[q]=f;a.onerror=()=>h=n(Error(p+" could not load."));a.nonce=m.querySelector("script[nonce]")?.nonce||"";m.head.append(a)}));d[l]?console.warn(p+" only loads once. Ignoring:",g):d[l]=(f,...n)=>r.add(f)&&u().then(()=>d[l](f,...n))})({
+            key: "${apiKey}",
+            v: "weekly"
+          });
+        `;
+        script.onerror = () => reject(new Error('Failed to load Google Maps bootstrap'));
+        document.head.appendChild(script);
+        
+        // Give the bootstrap a moment to set up, then verify
+        const checkLoaded = () => {
+          if (window.google?.maps?.importLibrary) {
+            resolve();
+          } else {
+            setTimeout(checkLoaded, 50);
+          }
+        };
+        setTimeout(checkLoaded, 100);
+      });
+    }
+    
+    googleMapsApiLoaded = true;
+    googleMapsApiLoading = false;
+    
+    // Call all waiting callbacks
+    loadCallbacks.forEach(callback => callback());
+    loadCallbacks = [];
+    
+  } catch (error) {
+    googleMapsApiLoading = false;
+    console.error('Error loading Google Maps API:', error);
+    throw error;
+  }
+};
+
+/**
+ * Load the Places library specifically (required for new Autocomplete API)
+ */
+export const loadPlacesLibrary = async (): Promise<google.maps.PlacesLibrary> => {
+  // Ensure core API is loaded first
+  await loadGoogleMapsApi();
+  
+  if (!window.google?.maps?.importLibrary) {
+    throw new Error('Google Maps importLibrary not available');
+  }
+  
+  // Import places library using the new API
+  const placesLib = await window.google.maps.importLibrary("places") as google.maps.PlacesLibrary;
+  placesLibraryLoaded = true;
+  
+  return placesLib;
 };
 
 /**
