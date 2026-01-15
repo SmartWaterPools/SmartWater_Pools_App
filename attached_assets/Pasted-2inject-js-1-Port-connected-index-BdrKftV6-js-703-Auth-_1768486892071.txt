@@ -1,0 +1,185 @@
+2inject.js:1 Port connected
+index-BdrKftV6.js:703 Auth provider initialized, checking session
+index-BdrKftV6.js:703 Checking session... (attempt 1)
+index-BdrKftV6.js:748 Login page URL params check: Object
+index-BdrKftV6.js:703 Session response: Object
+index-BdrKftV6.js:703 Session contains authenticated user: travis@smartwaterpools.com
+index-BdrKftV6.js:703 Initial session check complete: Authenticated
+index-BdrKftV6.js:748 Login: User authenticated, redirecting to dashboard
+index-BdrKftV6.js:748 Dashboard: Authentication status: Authenticated
+index-BdrKftV6.js:748 Fetching data from: /api/dashboard/summary
+3index-BdrKftV6.js:838 RouteFormDialog: Rendering with isOpen = false
+index-BdrKftV6.js:748 Dashboard: Authentication status: Authenticated
+index-BdrKftV6.js:838 Raw technicians data from API: Array(2)
+index-BdrKftV6.js:838 Received technician count: 2
+index-BdrKftV6.js:838 Technician data example: Array(2)
+index-BdrKftV6.js:838 Raw maintenance data from API: Array(2)
+index-BdrKftV6.js:838 No March 9, 2025 maintenance records found in API response
+index-BdrKftV6.js:838 Filtering maintenance record: 2 Object
+index-BdrKftV6.js:838 Comparing maintenance date "undefined" with filter date "2026-01-15"
+index-BdrKftV6.js:838 Error parsing date: undefined RangeError: Invalid time value
+    at Date.toISOString (<anonymous>)
+    at index-BdrKftV6.js:838:75402
+    at Array.filter (<anonymous>)
+    at ace (index-BdrKftV6.js:838:74853)
+    at jb (index-BdrKftV6.js:38:17018)
+    at z_ (index-BdrKftV6.js:40:44058)
+    at F_ (index-BdrKftV6.js:40:39790)
+    at zV (index-BdrKftV6.js:40:39718)
+    at Tx (index-BdrKftV6.js:40:39570)
+    at qC (index-BdrKftV6.js:40:36683)
+(anonymous) @ index-BdrKftV6.js:838Understand this error
+index-BdrKftV6.js:838 Filtering maintenance record: 1 Object
+index-BdrKftV6.js:838 Comparing maintenance date "undefined" with filter date "2026-01-15"
+index-BdrKftV6.js:838 Error parsing date: undefined RangeError: Invalid time value
+    at Date.toISOString (<anonymous>)
+    at index-BdrKftV6.js:838:75402
+    at Array.filter (<anonymous>)
+    at ace (index-BdrKftV6.js:838:74853)
+    at jb (index-BdrKftV6.js:38:17018)
+    at z_ (index-BdrKftV6.js:40:44058)
+    at F_ (index-BdrKftV6.js:40:39790)
+    at zV (index-BdrKftV6.js:40:39718)
+    at Tx (index-BdrKftV6.js:40:39570)
+    at qC (index-BdrKftV6.js:40:36683)
+(anonymous) @ index-BdrKftV6.js:838Understand this error
+index-BdrKftV6.js:838 Properly transformed techs for routes view: Array(2)
+index-BdrKftV6.js:838 Successfully loaded technicians: 2
+index-BdrKftV6.js:838 First technician object (full): Object
+index-BdrKftV6.js:838 All technicians summary: Array(2)
+index-BdrKftV6.js:838 Technicians data: Object
+2index-BdrKftV6.js:748 Dashboard: Authentication status: Authenticated
+index-BdrKftV6.js:773 Clients data received: undefined
+index-BdrKftV6.js:773 Clients data received: Array(7)
+index-BdrKftV6.js:773 ClientList rendering with 7 clients
+index-BdrKftV6.js:773 First client structure: Object
+index-BdrKftV6.js:773 Rendering client: ID=7, Name=TRAVIS DERISI, Company=None
+index-BdrKftV6.js:773 Rendering client: ID=51, Name=Angelo Grotticelli, Company=None
+index-BdrKftV6.js:773 Rendering client: ID=1, Name=John Smith, Company=None
+index-BdrKftV6.js:773 Rendering client: ID=3, Name=Michael Wilson, Company=None
+index-BdrKftV6.js:773 Rendering client: ID=2, Name=Sarah pistachio, Company=None
+index-BdrKftV6.js:773 Rendering client: ID=11, Name=Stevie Wonder, Company=None
+index-BdrKftV6.js:773 Rendering client: ID=8, Name=Don DeRisi, Company=None
+index-BdrKftV6.js:773 Navigating to client details for ID: 51
+index-BdrKftV6.js:830 Client data loaded: Object
+index-BdrKftV6.js:830 Client data loaded: Object
+index-BdrKftV6.js:830 Maintenance history loaded: Array(2)
+index-BdrKftV6.js:830 Service history processed: Array(0)
+js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1341 Google Maps JavaScript API has been loaded directly without loading=async. This can result in suboptimal performance. For best-practice loading patterns please see https://goo.gle/js-api-loading
+xea @ js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1341Understand this warning
+js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1440 As of February 21st, 2024, google.maps.Marker is deprecated. Please use google.maps.marker.AdvancedMarkerElement instead. At this time, google.maps.Marker is not scheduled to be discontinued, but google.maps.marker.AdvancedMarkerElement is recommended over google.maps.Marker. While google.maps.Marker will continue to receive bug fixes for any major regressions, existing bugs in google.maps.Marker will not be addressed. At least 12 months notice will be given before support is discontinued. Please see https://developers.google.com/maps/deprecations for additional details and https://developers.google.com/maps/documentation/javascript/advanced-markers/migration for the migration guide.
+Or @ js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1440Understand this warning
+index-BdrKftV6.js:835 Loading Places library...
+index-BdrKftV6.js:830 Fetching Google Maps API key from: https://smartwaterpools.replit.app/api/google-maps-key?_t=1768486815863
+index-BdrKftV6.js:835 Places library loaded: Array(81)
+index-BdrKftV6.js:835 Fetching suggestions for: 35 stra
+index-BdrKftV6.js:835 Created new session token
+index-BdrKftV6.js:835 Autocomplete request: Object
+places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces:1  Failed to load resource: the server responded with a status of 403 ()Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1191:214)
+    at gk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1179:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1368:399)
+    at lk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1180:361)
+    at rk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1181:334)
+    at _.z.fM (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:410)
+    at _.z.dG (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1190:27)
+    at kba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1198:111)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1638:848)
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1191:214)
+    at gk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1179:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1368:399)
+    at lk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1180:361)
+    at rk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1181:334)
+    at _.z.fM (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:410)
+    at _.z.dG (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1190:27)
+    at kba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1198:111)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1638:848)
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Fetching suggestions for: 35 stratford cou
+index-BdrKftV6.js:835 Autocomplete request: Object
+places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces:1  Failed to load resource: the server responded with a status of 403 ()Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1191:214)
+    at gk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1179:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1368:399)
+    at lk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1180:361)
+    at rk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1181:334)
+    at _.z.fM (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:410)
+    at _.z.dG (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1190:27)
+    at kba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1198:111)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1638:848)
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1191:214)
+    at gk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1179:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1368:399)
+    at lk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1180:361)
+    at rk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1181:334)
+    at _.z.fM (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:410)
+    at _.z.dG (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1190:27)
+    at kba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1198:111)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1638:848)
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Fetching suggestions for: 35 stratford court
+index-BdrKftV6.js:835 Autocomplete request: Object
+places.googleapis.com/$rpc/google.maps.places.v1.Places/AutocompletePlaces:1  Failed to load resource: the server responded with a status of 403 ()Understand this error
+index-BdrKftV6.js:835 Error fetching suggestions: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1191:214)
+    at gk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1179:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1368:399)
+    at lk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1180:361)
+    at rk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1181:334)
+    at _.z.fM (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:410)
+    at _.z.dG (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1190:27)
+    at kba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1198:111)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1638:848)
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Error message: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+(anonymous) @ index-BdrKftV6.js:835Understand this error
+index-BdrKftV6.js:835 Error stack: RpcError: Requests to this API places.googleapis.com method google.maps.places.v1.Places.AutocompletePlaces are blocked.
+    at _.kk.<anonymous> (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1191:214)
+    at gk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1179:344)
+    at _.fk.dispatchEvent (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1368:399)
+    at lk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1180:361)
+    at rk (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1181:334)
+    at _.z.fM (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:410)
+    at _.z.dG (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1373:385)
+AsyncStack
+    at gba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1190:27)
+    at kba (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1198:111)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:533
+    at new Promise (<anonymous>)
+    at https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1395:430
+    at _.Zu.intercept (https://maps.googleapis.com/maps/api/js?key=AIzaSyB3mCrj1qCOz6wCAxPqBq3gEd9VXt_gUYk&libraries=places:1638:848)
