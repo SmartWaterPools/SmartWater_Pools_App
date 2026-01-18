@@ -2,6 +2,8 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { Router } from "express";
 import { storage } from "./storage";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 import authRoutes from "./routes/auth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
 import documentRoutes from "./routes/document-routes";
@@ -13,7 +15,7 @@ import vendorRoutes from "./routes/vendor-routes";
 import workOrderRoutes from "./routes/work-order-routes";
 import serviceTemplateRoutes from "./routes/service-template-routes";
 import { isAuthenticated } from "./auth";
-import { type User, insertProjectPhaseSchema } from "@shared/schema";
+import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount authentication routes
@@ -64,8 +66,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const activeProjectsList = allProjects.filter(p => p.status === 'in_progress');
       const activeProjects = activeProjectsList.length;
       
-      // Get recent projects (up to 5, sorted by most recent)
+      // Get recent active/in-progress projects for the "Construction Projects" section
+      // Filter to show only active projects (in_progress, planning, on_hold) - not completed or cancelled
       const recentProjects = allProjects
+        .filter(p => ['in_progress', 'planning', 'on_hold'].includes(p.status))
         .sort((a, b) => {
           const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
           const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
@@ -117,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           notes: repair.notes
         }));
       
-      // Get maintenance work orders for this week
+      // Get maintenance assignments from bazza system - scoped to organization clients
       const now = new Date();
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
@@ -126,35 +130,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const endOfWeek = new Date(startOfWeek);
       endOfWeek.setDate(startOfWeek.getDate() + 7); // End of week
       
-      // Get maintenance-category work orders for the organization
-      const maintenanceWorkOrders = await storage.getWorkOrdersByCategory('maintenance', organizationId);
+      // Format dates for SQL query (YYYY-MM-DD format) 
+      const startDateStr = startOfWeek.toISOString().split('T')[0];
+      const endDateStr = endOfWeek.toISOString().split('T')[0];
+      const todayStr = now.toISOString().split('T')[0];
       
-      // Filter for this week's maintenance
-      const maintenanceThisWeek = maintenanceWorkOrders.filter(wo => {
-        if (!wo.scheduledDate) return false;
-        const scheduledDate = new Date(wo.scheduledDate);
-        return scheduledDate >= startOfWeek && scheduledDate < endOfWeek;
+      // Single efficient query: join maintenance assignments with route stops and routes
+      // Then filter by organization clients in JavaScript (since route_stops.clientId references users)
+      const maintenanceWithDetails = await db.select({
+        assignment: bazzaMaintenanceAssignments,
+        routeStop: bazzaRouteStops,
+        route: bazzaRoutesTable
+      })
+        .from(bazzaMaintenanceAssignments)
+        .innerJoin(bazzaRouteStops, eq(bazzaMaintenanceAssignments.routeStopId, bazzaRouteStops.id))
+        .innerJoin(bazzaRoutesTable, eq(bazzaMaintenanceAssignments.routeId, bazzaRoutesTable.id))
+        .orderBy(desc(bazzaMaintenanceAssignments.date));
+      
+      // Filter to only include maintenance for clients in this organization
+      const orgMaintenanceData = maintenanceWithDetails.filter(m => 
+        clientIds.includes(m.routeStop.clientId)
+      );
+      
+      // Count maintenance this week (scoped to org)
+      const maintenanceThisWeek = orgMaintenanceData.filter(m => {
+        const dateStr = String(m.assignment.date);
+        return dateStr >= startDateStr && dateStr < endDateStr;
       }).length;
       
-      // Get upcoming maintenances (scheduled work orders)
-      const upcomingMaintenances = maintenanceWorkOrders
-        .filter(wo => wo.status === 'scheduled' || wo.status === 'pending')
+      // Get upcoming scheduled maintenances (scoped to org)
+      const upcomingMaintenances = orgMaintenanceData
+        .filter(m => m.assignment.status === 'scheduled' && String(m.assignment.date) >= todayStr)
         .sort((a, b) => {
-          const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : Infinity;
-          const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : Infinity;
-          return dateA - dateB;
+          const dateA = String(a.assignment.date);
+          const dateB = String(b.assignment.date);
+          return dateA.localeCompare(dateB);
         })
         .slice(0, 10)
-        .map(wo => ({
-          id: wo.id,
-          title: wo.title,
-          description: wo.description,
-          status: wo.status,
-          priority: wo.priority,
-          scheduledDate: wo.scheduledDate,
-          clientId: wo.clientId,
-          technicianId: wo.technicianId,
-          category: wo.category
+        .map(m => ({
+          id: m.assignment.id,
+          title: 'Maintenance Visit',
+          description: m.assignment.notes || 'Scheduled pool maintenance',
+          status: m.assignment.status,
+          priority: 'normal',
+          scheduledDate: m.assignment.date,
+          clientId: m.routeStop.clientId,
+          technicianId: m.route.technicianId,
+          category: 'maintenance'
         }));
       
       // Build the summary in the expected format
