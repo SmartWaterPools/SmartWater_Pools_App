@@ -50,40 +50,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
   dashboardRouter.get('/summary', isAuthenticated, async (req, res) => {
     try {
       const user = req.user as User;
+      const organizationId = user?.organizationId || 0;
       
       // Get all clients from the current organization
       const allClients = await storage.getUsersByRole('client');
-      const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
+      const organizationClients = allClients.filter(c => c.organizationId === organizationId);
       const clientIds = organizationClients.map(c => c.id);
       
       // Get all projects for these clients
-      const allProjects = await storage.getProjectsByOrganization(
-        user?.organizationId || 0,
-        clientIds
-      );
+      const allProjects = await storage.getProjectsByOrganization(organizationId, clientIds);
       
       // Count projects by status
-      const activeProjects = allProjects.filter(p => p.status === 'in_progress').length;
-      const completedProjects = allProjects.filter(p => p.status === 'completed').length;
+      const activeProjectsList = allProjects.filter(p => p.status === 'in_progress');
+      const activeProjects = activeProjectsList.length;
+      
+      // Get recent projects (up to 5, sorted by most recent)
+      const recentProjects = allProjects
+        .sort((a, b) => {
+          const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+          const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+          return dateB - dateA;
+        })
+        .slice(0, 5)
+        .map(project => ({
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          status: project.status,
+          startDate: project.startDate,
+          estimatedCompletionDate: project.estimatedCompletionDate,
+          percentComplete: project.percentComplete || 0,
+          projectType: project.projectType || 'construction',
+          clientId: project.clientId,
+          assignments: []
+        }));
       
       // Get all repairs and count by status
       const allRepairs = await storage.getRepairs();
       // Filter repairs by clients in the organization
       const orgRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
-      const pendingMaintenance = orgRepairs.filter(r => 
-        r.status === 'scheduled' || r.status === 'pending'
-      ).length;
-      const upcomingMaintenance = orgRepairs.filter(r => 
-        r.status === 'in_progress'
+      
+      // Calculate pending repairs
+      const pendingRepairs = orgRepairs.filter(r => 
+        r.status === 'reported' || r.status === 'scheduled' || r.status === 'pending'
       ).length;
       
+      // Get recent repairs (up to 10, sorted by most recent)
+      const recentRepairs = orgRepairs
+        .sort((a, b) => {
+          const dateA = a.reportedDate ? new Date(a.reportedDate).getTime() : 0;
+          const dateB = b.reportedDate ? new Date(b.reportedDate).getTime() : 0;
+          return dateB - dateA;
+        })
+        .slice(0, 10)
+        .map(repair => ({
+          id: repair.id,
+          clientId: repair.clientId,
+          technicianId: repair.technicianId,
+          issue: repair.issue,
+          priority: repair.priority,
+          description: repair.description,
+          reportedDate: repair.reportedDate,
+          scheduledDate: repair.scheduledDate,
+          completionDate: repair.completionDate,
+          status: repair.status,
+          notes: repair.notes
+        }));
+      
+      // Get maintenance work orders for this week
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+      startOfWeek.setHours(0, 0, 0, 0);
+      
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 7); // End of week
+      
+      // Get maintenance-category work orders for the organization
+      const maintenanceWorkOrders = await storage.getWorkOrdersByCategory('maintenance', organizationId);
+      
+      // Filter for this week's maintenance
+      const maintenanceThisWeek = maintenanceWorkOrders.filter(wo => {
+        if (!wo.scheduledDate) return false;
+        const scheduledDate = new Date(wo.scheduledDate);
+        return scheduledDate >= startOfWeek && scheduledDate < endOfWeek;
+      }).length;
+      
+      // Get upcoming maintenances (scheduled work orders)
+      const upcomingMaintenances = maintenanceWorkOrders
+        .filter(wo => wo.status === 'scheduled' || wo.status === 'pending')
+        .sort((a, b) => {
+          const dateA = a.scheduledDate ? new Date(a.scheduledDate).getTime() : Infinity;
+          const dateB = b.scheduledDate ? new Date(b.scheduledDate).getTime() : Infinity;
+          return dateA - dateB;
+        })
+        .slice(0, 10)
+        .map(wo => ({
+          id: wo.id,
+          title: wo.title,
+          description: wo.description,
+          status: wo.status,
+          priority: wo.priority,
+          scheduledDate: wo.scheduledDate,
+          clientId: wo.clientId,
+          technicianId: wo.technicianId,
+          category: wo.category
+        }));
+      
+      // Build the summary in the expected format
       const summary = {
-        totalProjects: allProjects.length,
-        activeProjects, 
-        completedProjects,
-        totalClients: organizationClients.length,
-        pendingMaintenance,
-        upcomingMaintenance
+        metrics: {
+          activeProjects,
+          maintenanceThisWeek,
+          pendingRepairs,
+          totalClients: organizationClients.length
+        },
+        recentProjects,
+        upcomingMaintenances,
+        recentRepairs
       };
       
       res.json(summary);
