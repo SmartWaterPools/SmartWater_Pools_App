@@ -51,56 +51,8 @@ export default function ExpensesTable({
   onDelete,
   onView
 }: ExpensesTableProps) {
-  // Placeholder data for initial UI development
-  const mockData: Expense[] = [
-    {
-      id: 1,
-      date: "2025-03-01",
-      category: "chemicals",
-      description: "Chlorine purchase for route supplies",
-      amount: 12999, // $129.99
-      vendor: "Pool Supply Warehouse",
-      approved: true,
-      reimbursable: false,
-      reimbursed: false
-    },
-    {
-      id: 2,
-      date: "2025-03-05",
-      category: "vehicle",
-      description: "Fuel for service vehicles",
-      amount: 8750, // $87.50
-      vendor: "Shell Gas Station",
-      approved: true,
-      reimbursable: false,
-      reimbursed: false
-    },
-    {
-      id: 3,
-      date: "2025-03-08",
-      category: "equipment",
-      description: "Replacement pump parts",
-      amount: 34599, // $345.99
-      vendor: "Pool Equipment Supply Co",
-      approved: false,
-      reimbursable: false,
-      reimbursed: false
-    },
-    {
-      id: 4,
-      date: "2025-03-09",
-      category: "office",
-      description: "Office supplies",
-      amount: 6225, // $62.25
-      vendor: "Office Depot",
-      approved: true,
-      reimbursable: true,
-      reimbursed: false
-    }
-  ];
-
-  // Use mock data if no real data is provided
-  const expenses = data.length > 0 ? data : mockData;
+  // Use actual data from API
+  const expenses = data;
 
   // Format amount from cents to dollars
   const formatAmount = (amount: number) => {
@@ -164,9 +116,15 @@ export default function ExpensesTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {expenses.map((expense) => (
+              {expenses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    No expenses recorded yet. Click "+ Expense" to add your first expense.
+                  </TableCell>
+                </TableRow>
+              ) : expenses.map((expense) => (
                 <TableRow key={expense.id}>
-                  <TableCell>{formatDate(new Date(expense.date))}</TableCell>
+                  <TableCell>{formatDate(expense.date)}</TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, date, boolean, timestamp, time, serial, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, date, boolean, timestamp, time, serial, numeric, jsonb, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -63,6 +63,20 @@ export const technicians = pgTable("technicians", {
 export const clients = pgTable("clients", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull(),
+  organizationId: integer("organization_id"),
+  poolSize: text("pool_size"),
+  filterType: text("filter_type"),
+  heaterType: text("heater_type"),
+  chemicalSystem: text("chemical_system"),
+  specialNotes: text("special_notes"),
+  serviceDay: text("service_day"),
+  serviceLevel: text("service_level"),
+  customServiceInstructions: text("custom_service_instructions").array(),
+  companyName: text("company_name"),
+  contractType: text("contract_type"),
+  poolType: text("pool_type"),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
 });
 
 export const projects = pgTable("projects", {

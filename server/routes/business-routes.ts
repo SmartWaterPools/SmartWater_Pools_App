@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { isAuthenticated } from "../auth";
 import { db } from "../db";
-import { eq, and, gte, desc, sql } from "drizzle-orm";
+import { eq, and, gte, desc, sql, inArray } from "drizzle-orm";
 import {
   expenses,
   timeEntries,
@@ -10,6 +10,10 @@ import {
   insurancePolicies,
   purchaseOrders,
   inventoryItems,
+  projects,
+  clients,
+  repairs,
+  projectPhases,
 } from "@shared/schema";
 
 const router = Router();
@@ -97,8 +101,31 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
       po.status && ['pending', 'approved', 'ordered'].includes(po.status)
     ).length;
     
-    // Calculate revenue (placeholder - would come from invoices/payments in real app)
-    const totalRevenue = 0;
+    // Get clients for this organization to filter projects (defensive: only clients with org ID)
+    const orgClients = await db.select({ id: clients.id }).from(clients)
+      .where(eq(clients.organizationId, organizationId));
+    const clientIds = orgClients.map(c => c.id);
+    
+    // Calculate revenue from projects started within the time range using SQL filtering
+    // Revenue represents project budgets for projects started in the selected period
+    let totalRevenue = 0;
+    if (clientIds.length > 0) {
+      // Use SQL-level filtering for efficiency: filter by clientIds and startDate
+      const orgProjects = await db.select().from(projects)
+        .where(and(
+          inArray(projects.clientId, clientIds),
+          gte(projects.startDate, startDateStr)
+        ));
+      
+      // Sum only active projects (not cancelled or archived)
+      totalRevenue = orgProjects
+        .filter(p => p.status !== 'cancelled' && p.status !== 'archived')
+        .reduce((sum, p) => sum + Number(p.budget || 0), 0);
+    }
+    
+    // Note: totalExpenses already comes from the expenses table filtered by time range above
+    // Project phase costs are not added to avoid double-counting (they're part of project budgets)
+    
     const profit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
     
