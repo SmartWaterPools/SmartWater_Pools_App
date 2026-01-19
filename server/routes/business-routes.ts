@@ -1,23 +1,44 @@
 import { Router } from "express";
 import { isAuthenticated } from "../auth";
+import { db } from "../db";
+import { eq, and } from "drizzle-orm";
+import {
+  expenses,
+  timeEntries,
+  poolReports,
+  licenses,
+  insurancePolicies,
+  purchaseOrders,
+  inventoryItems,
+} from "@shared/schema";
 
 const router = Router();
 
 router.get("/dashboard", isAuthenticated, async (req, res) => {
   try {
+    const organizationId = (req.user as any).organizationId;
+    
+    const expensesList = await db.select().from(expenses).where(eq(expenses.organizationId, organizationId)).limit(5);
+    const timeEntriesList = await db.select().from(timeEntries).where(eq(timeEntries.organizationId, organizationId)).limit(5);
+    const inventoryList = await db.select().from(inventoryItems).limit(10);
+    
+    const lowStockItems = inventoryList.filter(item => 
+      item.minimumStock && item.minimumStock > 0
+    );
+    
     res.json({
       metrics: {
         totalRevenue: 0,
-        expenses: 0,
+        expenses: expensesList.reduce((sum, e) => sum + Number(e.amount || 0), 0),
         profit: 0,
         profitMargin: 0,
-        inventoryValue: 0,
-        lowStockItems: 0,
+        inventoryValue: inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0), 0),
+        lowStockItems: lowStockItems.length,
         outstandingInvoices: 0
       },
-      recentExpenses: [],
-      lowStockItems: [],
-      recentTimeEntries: []
+      recentExpenses: expensesList,
+      lowStockItems: lowStockItems,
+      recentTimeEntries: timeEntriesList
     });
   } catch (error) {
     console.error("Error fetching dashboard:", error);
@@ -25,9 +46,13 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
   }
 });
 
+// ============ EXPENSES ============
+
 router.get("/expenses", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(expenses).where(eq(expenses.organizationId, organizationId));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching expenses:", error);
     res.status(500).json({ error: "Failed to fetch expenses" });
@@ -37,7 +62,14 @@ router.get("/expenses", isAuthenticated, async (req, res) => {
 router.get("/expenses/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, description: "Placeholder expense", amount: 0, date: new Date().toISOString() });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(expenses).where(
+      and(eq(expenses.id, id), eq(expenses.organizationId, organizationId))
+    );
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching expense:", error);
     res.status(500).json({ error: "Failed to fetch expense" });
@@ -46,8 +78,12 @@ router.get("/expenses/:id", isAuthenticated, async (req, res) => {
 
 router.post("/expenses", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.insert(expenses).values({
+      ...req.body,
+      organizationId,
+    }).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating expense:", error);
     res.status(500).json({ error: "Failed to create expense" });
@@ -57,7 +93,20 @@ router.post("/expenses", isAuthenticated, async (req, res) => {
 router.patch("/expenses/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(expenses).where(
+      and(eq(expenses.id, id), eq(expenses.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+    
+    const result = await db.update(expenses)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(eq(expenses.id, id), eq(expenses.organizationId, organizationId)))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating expense:", error);
     res.status(500).json({ error: "Failed to update expense" });
@@ -66,6 +115,19 @@ router.patch("/expenses/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/expenses/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(expenses).where(
+      and(eq(expenses.id, id), eq(expenses.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Expense not found" });
+    }
+    
+    await db.delete(expenses).where(
+      and(eq(expenses.id, id), eq(expenses.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting expense:", error);
@@ -73,9 +135,13 @@ router.delete("/expenses/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+// ============ TIME ENTRIES ============
+
 router.get("/time-entries", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(timeEntries).where(eq(timeEntries.organizationId, organizationId));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching time entries:", error);
     res.status(500).json({ error: "Failed to fetch time entries" });
@@ -85,7 +151,14 @@ router.get("/time-entries", isAuthenticated, async (req, res) => {
 router.get("/time-entries/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, description: "Placeholder time entry", hours: 0, date: new Date().toISOString() });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(timeEntries).where(
+      and(eq(timeEntries.id, id), eq(timeEntries.organizationId, organizationId))
+    );
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Time entry not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching time entry:", error);
     res.status(500).json({ error: "Failed to fetch time entry" });
@@ -94,8 +167,12 @@ router.get("/time-entries/:id", isAuthenticated, async (req, res) => {
 
 router.post("/time-entries", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.insert(timeEntries).values({
+      ...req.body,
+      organizationId,
+    }).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating time entry:", error);
     res.status(500).json({ error: "Failed to create time entry" });
@@ -105,7 +182,20 @@ router.post("/time-entries", isAuthenticated, async (req, res) => {
 router.patch("/time-entries/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(timeEntries).where(
+      and(eq(timeEntries.id, id), eq(timeEntries.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Time entry not found" });
+    }
+    
+    const result = await db.update(timeEntries)
+      .set(req.body)
+      .where(and(eq(timeEntries.id, id), eq(timeEntries.organizationId, organizationId)))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating time entry:", error);
     res.status(500).json({ error: "Failed to update time entry" });
@@ -114,6 +204,19 @@ router.patch("/time-entries/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/time-entries/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(timeEntries).where(
+      and(eq(timeEntries.id, id), eq(timeEntries.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Time entry not found" });
+    }
+    
+    await db.delete(timeEntries).where(
+      and(eq(timeEntries.id, id), eq(timeEntries.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting time entry:", error);
@@ -121,9 +224,13 @@ router.delete("/time-entries/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+// ============ POOL REPORTS ============
+
 router.get("/reports", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(poolReports).where(eq(poolReports.organizationId, organizationId));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching reports:", error);
     res.status(500).json({ error: "Failed to fetch reports" });
@@ -133,7 +240,14 @@ router.get("/reports", isAuthenticated, async (req, res) => {
 router.get("/reports/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, name: "Placeholder report", type: "financial", date: new Date().toISOString() });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching report:", error);
     res.status(500).json({ error: "Failed to fetch report" });
@@ -142,8 +256,12 @@ router.get("/reports/:id", isAuthenticated, async (req, res) => {
 
 router.post("/reports", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.insert(poolReports).values({
+      ...req.body,
+      organizationId,
+    }).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating report:", error);
     res.status(500).json({ error: "Failed to create report" });
@@ -153,7 +271,20 @@ router.post("/reports", isAuthenticated, async (req, res) => {
 router.patch("/reports/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    
+    const result = await db.update(poolReports)
+      .set(req.body)
+      .where(and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId)))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating report:", error);
     res.status(500).json({ error: "Failed to update report" });
@@ -162,6 +293,19 @@ router.patch("/reports/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/reports/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    
+    await db.delete(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting report:", error);
@@ -169,9 +313,12 @@ router.delete("/reports/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+// Pool Reports alias endpoints
 router.get("/pool-reports", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(poolReports).where(eq(poolReports.organizationId, organizationId));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching pool reports:", error);
     res.status(500).json({ error: "Failed to fetch pool reports" });
@@ -181,7 +328,14 @@ router.get("/pool-reports", isAuthenticated, async (req, res) => {
 router.get("/pool-reports/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, name: "Placeholder pool report", date: new Date().toISOString() });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Pool report not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching pool report:", error);
     res.status(500).json({ error: "Failed to fetch pool report" });
@@ -190,8 +344,12 @@ router.get("/pool-reports/:id", isAuthenticated, async (req, res) => {
 
 router.post("/pool-reports", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.insert(poolReports).values({
+      ...req.body,
+      organizationId,
+    }).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating pool report:", error);
     res.status(500).json({ error: "Failed to create pool report" });
@@ -201,7 +359,20 @@ router.post("/pool-reports", isAuthenticated, async (req, res) => {
 router.patch("/pool-reports/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Pool report not found" });
+    }
+    
+    const result = await db.update(poolReports)
+      .set(req.body)
+      .where(and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId)))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating pool report:", error);
     res.status(500).json({ error: "Failed to update pool report" });
@@ -210,6 +381,19 @@ router.patch("/pool-reports/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/pool-reports/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Pool report not found" });
+    }
+    
+    await db.delete(poolReports).where(
+      and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting pool report:", error);
@@ -217,9 +401,13 @@ router.delete("/pool-reports/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+// ============ PURCHASE ORDERS ============
+
 router.get("/purchase-orders", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(purchaseOrders).where(eq(purchaseOrders.organizationId, organizationId));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching purchase orders:", error);
     res.status(500).json({ error: "Failed to fetch purchase orders" });
@@ -229,7 +417,14 @@ router.get("/purchase-orders", isAuthenticated, async (req, res) => {
 router.get("/purchase-orders/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, orderNumber: "PO-0000", status: "pending", date: new Date().toISOString() });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(purchaseOrders).where(
+      and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId))
+    );
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Purchase order not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching purchase order:", error);
     res.status(500).json({ error: "Failed to fetch purchase order" });
@@ -238,8 +433,14 @@ router.get("/purchase-orders/:id", isAuthenticated, async (req, res) => {
 
 router.post("/purchase-orders", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    const userId = (req.user as any).id;
+    const result = await db.insert(purchaseOrders).values({
+      ...req.body,
+      organizationId,
+      createdBy: userId,
+    }).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating purchase order:", error);
     res.status(500).json({ error: "Failed to create purchase order" });
@@ -249,7 +450,20 @@ router.post("/purchase-orders", isAuthenticated, async (req, res) => {
 router.patch("/purchase-orders/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(purchaseOrders).where(
+      and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Purchase order not found" });
+    }
+    
+    const result = await db.update(purchaseOrders)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId)))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating purchase order:", error);
     res.status(500).json({ error: "Failed to update purchase order" });
@@ -258,6 +472,19 @@ router.patch("/purchase-orders/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/purchase-orders/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(purchaseOrders).where(
+      and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Purchase order not found" });
+    }
+    
+    await db.delete(purchaseOrders).where(
+      and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting purchase order:", error);
@@ -265,9 +492,12 @@ router.delete("/purchase-orders/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+// ============ INVENTORY ============
+
 router.get("/inventory", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const result = await db.select().from(inventoryItems);
+    res.json(result);
   } catch (error) {
     console.error("Error fetching inventory:", error);
     res.status(500).json({ error: "Failed to fetch inventory" });
@@ -277,7 +507,11 @@ router.get("/inventory", isAuthenticated, async (req, res) => {
 router.get("/inventory/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, name: "Placeholder item", quantity: 0, unit: "each" });
+    const result = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Inventory item not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching inventory item:", error);
     res.status(500).json({ error: "Failed to fetch inventory item" });
@@ -286,8 +520,8 @@ router.get("/inventory/:id", isAuthenticated, async (req, res) => {
 
 router.post("/inventory", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const result = await db.insert(inventoryItems).values(req.body).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating inventory item:", error);
     res.status(500).json({ error: "Failed to create inventory item" });
@@ -297,7 +531,17 @@ router.post("/inventory", isAuthenticated, async (req, res) => {
 router.patch("/inventory/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    
+    const existing = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inventory item not found" });
+    }
+    
+    const result = await db.update(inventoryItems)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(eq(inventoryItems.id, id))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating inventory item:", error);
     res.status(500).json({ error: "Failed to update inventory item" });
@@ -306,6 +550,14 @@ router.patch("/inventory/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/inventory/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    
+    const existing = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Inventory item not found" });
+    }
+    
+    await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting inventory item:", error);
@@ -313,9 +565,13 @@ router.delete("/inventory/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+// ============ LICENSES ============
+
 router.get("/licenses", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(licenses).where(eq(licenses.organizationId, organizationId));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching licenses:", error);
     res.status(500).json({ error: "Failed to fetch licenses" });
@@ -325,7 +581,14 @@ router.get("/licenses", isAuthenticated, async (req, res) => {
 router.get("/licenses/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, name: "Placeholder license", type: "business", expirationDate: new Date().toISOString() });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(licenses).where(
+      and(eq(licenses.id, id), eq(licenses.organizationId, organizationId))
+    );
+    if (result.length === 0) {
+      return res.status(404).json({ error: "License not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching license:", error);
     res.status(500).json({ error: "Failed to fetch license" });
@@ -334,8 +597,12 @@ router.get("/licenses/:id", isAuthenticated, async (req, res) => {
 
 router.post("/licenses", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.insert(licenses).values({
+      ...req.body,
+      organizationId,
+    }).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating license:", error);
     res.status(500).json({ error: "Failed to create license" });
@@ -345,7 +612,20 @@ router.post("/licenses", isAuthenticated, async (req, res) => {
 router.patch("/licenses/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(licenses).where(
+      and(eq(licenses.id, id), eq(licenses.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "License not found" });
+    }
+    
+    const result = await db.update(licenses)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(eq(licenses.id, id), eq(licenses.organizationId, organizationId)))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating license:", error);
     res.status(500).json({ error: "Failed to update license" });
@@ -354,6 +634,19 @@ router.patch("/licenses/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/licenses/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(licenses).where(
+      and(eq(licenses.id, id), eq(licenses.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "License not found" });
+    }
+    
+    await db.delete(licenses).where(
+      and(eq(licenses.id, id), eq(licenses.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting license:", error);
@@ -361,9 +654,13 @@ router.delete("/licenses/:id", isAuthenticated, async (req, res) => {
   }
 });
 
+// ============ INSURANCE ============
+
 router.get("/insurance", isAuthenticated, async (req, res) => {
   try {
-    res.json([]);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(insurancePolicies).where(eq(insurancePolicies.organizationId, organizationId));
+    res.json(result);
   } catch (error) {
     console.error("Error fetching insurance policies:", error);
     res.status(500).json({ error: "Failed to fetch insurance policies" });
@@ -373,7 +670,14 @@ router.get("/insurance", isAuthenticated, async (req, res) => {
 router.get("/insurance/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, name: "Placeholder policy", type: "liability", expirationDate: new Date().toISOString() });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(insurancePolicies).where(
+      and(eq(insurancePolicies.id, id), eq(insurancePolicies.organizationId, organizationId))
+    );
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Insurance policy not found" });
+    }
+    res.json(result[0]);
   } catch (error) {
     console.error("Error fetching insurance policy:", error);
     res.status(500).json({ error: "Failed to fetch insurance policy" });
@@ -382,8 +686,12 @@ router.get("/insurance/:id", isAuthenticated, async (req, res) => {
 
 router.post("/insurance", isAuthenticated, async (req, res) => {
   try {
-    const id = Date.now();
-    res.status(201).json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.insert(insurancePolicies).values({
+      ...req.body,
+      organizationId,
+    }).returning();
+    res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating insurance policy:", error);
     res.status(500).json({ error: "Failed to create insurance policy" });
@@ -393,7 +701,20 @@ router.post("/insurance", isAuthenticated, async (req, res) => {
 router.patch("/insurance/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    res.json({ id, ...req.body });
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(insurancePolicies).where(
+      and(eq(insurancePolicies.id, id), eq(insurancePolicies.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Insurance policy not found" });
+    }
+    
+    const result = await db.update(insurancePolicies)
+      .set({ ...req.body, updatedAt: new Date() })
+      .where(and(eq(insurancePolicies.id, id), eq(insurancePolicies.organizationId, organizationId)))
+      .returning();
+    res.json(result[0]);
   } catch (error) {
     console.error("Error updating insurance policy:", error);
     res.status(500).json({ error: "Failed to update insurance policy" });
@@ -402,6 +723,19 @@ router.patch("/insurance/:id", isAuthenticated, async (req, res) => {
 
 router.delete("/insurance/:id", isAuthenticated, async (req, res) => {
   try {
+    const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
+    
+    const existing = await db.select().from(insurancePolicies).where(
+      and(eq(insurancePolicies.id, id), eq(insurancePolicies.organizationId, organizationId))
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ error: "Insurance policy not found" });
+    }
+    
+    await db.delete(insurancePolicies).where(
+      and(eq(insurancePolicies.id, id), eq(insurancePolicies.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting insurance policy:", error);

@@ -847,3 +847,27 @@ export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit
 
 export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
 export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+
+// Inventory Items table - track inventory items
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  sku: text("sku"),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category"),
+  unitCost: integer("unit_cost"),
+  unitPrice: integer("unit_price"),
+  minimumStock: integer("minimum_stock"),
+  isActive: boolean("is_active").default(true),
+  vendorId: integer("vendor_id"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+export type InventoryItem = typeof inventoryItems.$inferSelect;
