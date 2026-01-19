@@ -137,3 +137,21 @@ Preferred communication style: Simple, everyday language.
 - **TypeScript**: Type checking and compilation
 - **Vite**: Frontend build tool and development server
 - **esbuild**: Server-side bundling for production builds
+
+## Business Management System
+- **Purpose**: Comprehensive business operations management including expenses, time tracking, inventory, licenses, and insurance
+- **Database Tables**: 
+  - `expenses` - organizationId, date, amount, category, description, vendorName, vendorId, status, paymentMethod, receiptUrl, notes
+  - `time_entries` - organizationId, userId, projectId, workOrderId, date, hoursWorked, description, status, approvedBy, notes
+  - `pool_reports` - organizationId, clientId, technicianId, reportDate, poolCondition, chemicalReadings (JSONB), servicesPerformed, recommendations, photos, notes
+  - `licenses` - organizationId, licenseName, licenseNumber, issuingAuthority, issueDate, expirationDate, status, documentUrl, notes
+  - `insurance_policies` - organizationId, policyName, policyNumber, provider, policyType, coverageAmount, premium, startDate, endDate, status, documentUrl, notes
+  - `purchase_orders` - organizationId, vendorId, vendorName, orderNumber, orderDate, expectedDeliveryDate, status, totalAmount, items (JSONB), notes, createdBy
+  - `inventory_items` - organizationId, sku, name, description, category, unitCost, unitPrice, minimumStock, isActive, vendorId
+- **API Routes**: `server/routes/business-routes.ts`
+  - Dashboard with time-filtered metrics (day/week/month/year): `GET /api/business/dashboard?timeRange={day|week|month|year}`
+  - All business CRUD endpoints filter by organizationId for multi-tenant security
+- **Frontend Components**:
+  - `client/src/pages/Business.tsx` - Business management page with dashboard, expenses, time tracking, vendors, inventory, licenses, insurance tabs
+  - Time range filter buttons (1D, 1W, 1M, 1Y) for dashboard metrics
+- **Multi-tenant Security**: All queries filter by organizationId from authenticated user session, never accepting organizationId from request body
