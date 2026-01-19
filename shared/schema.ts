@@ -851,6 +851,7 @@ export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
 // Inventory Items table - track inventory items
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id),
   sku: text("sku"),
   name: text("name").notNull(),
   description: text("description"),

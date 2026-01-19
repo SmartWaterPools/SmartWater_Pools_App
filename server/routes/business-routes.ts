@@ -39,35 +39,38 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
         break;
     }
     
+    // Format date for SQL comparison
     const startDateStr = startDate.toISOString().split('T')[0];
     
-    // Fetch expenses within time range
-    const allExpenses = await db.select().from(expenses)
-      .where(eq(expenses.organizationId, organizationId))
-      .orderBy(desc(expenses.date));
+    // Fetch expenses within time range using SQL filtering
+    const recentExpenses = await db.select().from(expenses)
+      .where(and(
+        eq(expenses.organizationId, organizationId),
+        gte(expenses.date, startDateStr)
+      ))
+      .orderBy(desc(expenses.date))
+      .limit(5);
     
-    const filteredExpenses = allExpenses.filter(e => {
-      const expDate = e.date ? new Date(e.date).toISOString().split('T')[0] : '';
-      return expDate >= startDateStr;
-    });
+    // Get total expenses for metrics
+    const allExpensesInRange = await db.select().from(expenses)
+      .where(and(
+        eq(expenses.organizationId, organizationId),
+        gte(expenses.date, startDateStr)
+      ));
+    const totalExpenses = allExpensesInRange.reduce((sum, e) => sum + Number(e.amount || 0), 0);
     
-    const recentExpenses = filteredExpenses.slice(0, 5);
-    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    // Fetch time entries within time range using SQL filtering
+    const recentTimeEntries = await db.select().from(timeEntries)
+      .where(and(
+        eq(timeEntries.organizationId, organizationId),
+        gte(timeEntries.date, startDateStr)
+      ))
+      .orderBy(desc(timeEntries.date))
+      .limit(5);
     
-    // Fetch time entries within time range
-    const allTimeEntries = await db.select().from(timeEntries)
-      .where(eq(timeEntries.organizationId, organizationId))
-      .orderBy(desc(timeEntries.date));
-    
-    const filteredTimeEntries = allTimeEntries.filter(te => {
-      const teDate = te.date ? new Date(te.date).toISOString().split('T')[0] : '';
-      return teDate >= startDateStr;
-    });
-    
-    const recentTimeEntries = filteredTimeEntries.slice(0, 5);
-    
-    // Fetch inventory for value calculation
-    const inventoryList = await db.select().from(inventoryItems);
+    // Fetch inventory with organization filtering for value calculation
+    const inventoryList = await db.select().from(inventoryItems)
+      .where(eq(inventoryItems.organizationId, organizationId));
     
     const lowStockItems = inventoryList.filter(item => 
       item.minimumStock && item.minimumStock > 0
@@ -75,24 +78,27 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
     
     const inventoryValue = inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0) * Number(i.minimumStock || 1), 0);
     
-    // Fetch purchase orders within time range
-    const allPurchaseOrders = await db.select().from(purchaseOrders)
-      .where(eq(purchaseOrders.organizationId, organizationId))
-      .orderBy(desc(purchaseOrders.orderDate));
+    // Fetch purchase orders within time range using SQL filtering
+    const recentPurchaseOrders = await db.select().from(purchaseOrders)
+      .where(and(
+        eq(purchaseOrders.organizationId, organizationId),
+        gte(purchaseOrders.orderDate, startDateStr)
+      ))
+      .orderBy(desc(purchaseOrders.orderDate))
+      .limit(5);
     
-    const filteredPurchaseOrders = allPurchaseOrders.filter(po => {
-      const poDate = po.orderDate ? new Date(po.orderDate).toISOString().split('T')[0] : '';
-      return poDate >= startDateStr;
-    });
-    
-    const recentPurchaseOrders = filteredPurchaseOrders.slice(0, 5);
-    const outstandingOrders = filteredPurchaseOrders.filter(po => 
+    // Get outstanding orders count
+    const allOrdersInRange = await db.select().from(purchaseOrders)
+      .where(and(
+        eq(purchaseOrders.organizationId, organizationId),
+        gte(purchaseOrders.orderDate, startDateStr)
+      ));
+    const outstandingOrders = allOrdersInRange.filter(po => 
       po.status && ['pending', 'approved', 'ordered'].includes(po.status)
     ).length;
     
     // Calculate revenue (placeholder - would come from invoices/payments in real app)
-    // For now, use a simple calculation based on work orders or projects if available
-    const totalRevenue = 0; // Would aggregate from completed invoices/payments
+    const totalRevenue = 0;
     const profit = totalRevenue - totalExpenses;
     const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
     
@@ -568,7 +574,9 @@ router.delete("/purchase-orders/:id", isAuthenticated, async (req, res) => {
 
 router.get("/inventory", isAuthenticated, async (req, res) => {
   try {
-    const result = await db.select().from(inventoryItems);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(inventoryItems)
+      .where(eq(inventoryItems.organizationId, organizationId));
     res.json(result);
   } catch (error) {
     console.error("Error fetching inventory:", error);
@@ -579,7 +587,10 @@ router.get("/inventory", isAuthenticated, async (req, res) => {
 router.get("/inventory/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const result = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(inventoryItems).where(
+      and(eq(inventoryItems.id, id), eq(inventoryItems.organizationId, organizationId))
+    );
     if (result.length === 0) {
       return res.status(404).json({ error: "Inventory item not found" });
     }
@@ -592,7 +603,11 @@ router.get("/inventory/:id", isAuthenticated, async (req, res) => {
 
 router.post("/inventory", isAuthenticated, async (req, res) => {
   try {
-    const result = await db.insert(inventoryItems).values(req.body).returning();
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.insert(inventoryItems).values({
+      ...req.body,
+      organizationId,
+    }).returning();
     res.status(201).json(result[0]);
   } catch (error) {
     console.error("Error creating inventory item:", error);
@@ -603,15 +618,18 @@ router.post("/inventory", isAuthenticated, async (req, res) => {
 router.patch("/inventory/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
     
-    const existing = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    const existing = await db.select().from(inventoryItems).where(
+      and(eq(inventoryItems.id, id), eq(inventoryItems.organizationId, organizationId))
+    );
     if (existing.length === 0) {
       return res.status(404).json({ error: "Inventory item not found" });
     }
     
     const result = await db.update(inventoryItems)
       .set({ ...req.body, updatedAt: new Date() })
-      .where(eq(inventoryItems.id, id))
+      .where(and(eq(inventoryItems.id, id), eq(inventoryItems.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
   } catch (error) {
@@ -623,13 +641,18 @@ router.patch("/inventory/:id", isAuthenticated, async (req, res) => {
 router.delete("/inventory/:id", isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    const organizationId = (req.user as any).organizationId;
     
-    const existing = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+    const existing = await db.select().from(inventoryItems).where(
+      and(eq(inventoryItems.id, id), eq(inventoryItems.organizationId, organizationId))
+    );
     if (existing.length === 0) {
       return res.status(404).json({ error: "Inventory item not found" });
     }
     
-    await db.delete(inventoryItems).where(eq(inventoryItems.id, id));
+    await db.delete(inventoryItems).where(
+      and(eq(inventoryItems.id, id), eq(inventoryItems.organizationId, organizationId))
+    );
     res.status(204).send();
   } catch (error) {
     console.error("Error deleting inventory item:", error);
