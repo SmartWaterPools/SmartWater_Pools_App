@@ -69,10 +69,13 @@ import { LicenseForm } from "@/components/business/LicenseForm";
 import { InsuranceForm } from "@/components/business/InsuranceForm";
 import { EXPENSE_CATEGORIES } from "@shared/schema";
 
+type TimeRange = 'day' | 'week' | 'month' | 'year';
+
 export default function Business() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [timeRange, setTimeRange] = useState<TimeRange>("month");
   const [location, setLocation] = useLocation();
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
@@ -117,8 +120,30 @@ export default function Business() {
   };
 
   // Query for business dashboard data
-  const { data: dashboardData, isLoading: dashboardLoading } = useQuery({
-    queryKey: ['/api/business/dashboard'],
+  const { data: dashboardData, isLoading: dashboardLoading } = useQuery<{
+    metrics: {
+      totalRevenue: number;
+      expenses: number;
+      profit: number;
+      profitMargin: number;
+      inventoryValue: number;
+      lowStockItems: number;
+      outstandingInvoices: number;
+    };
+    recentExpenses: any[];
+    lowStockItems: any[];
+    recentTimeEntries: any[];
+    recentPurchaseOrders: any[];
+    timeRange: string;
+  }>({
+    queryKey: ['/api/business/dashboard', timeRange],
+    queryFn: async () => {
+      const res = await fetch(`/api/business/dashboard?timeRange=${timeRange}`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch dashboard');
+      return res.json();
+    },
     enabled: activeTab === "dashboard"
   });
 
@@ -178,16 +203,26 @@ export default function Business() {
     enabled: activeTab === "pool-reports"
   });
 
-  // Dashboard metrics (placeholder data until API is implemented)
-  const metrics = {
-    totalRevenue: "$45,231.89",
-    expenses: "$12,756.42",
-    profit: "$32,475.47",
-    profitMargin: "71.8%",
-    // Payroll metrics removed
-    inventoryValue: "$32,156.90",
-    lowStockItems: 7,
-    outstandingInvoices: 12
+  // Dashboard metrics from API or defaults
+  const metrics = dashboardData?.metrics || {
+    totalRevenue: 0,
+    expenses: 0,
+    profit: 0,
+    profitMargin: 0,
+    inventoryValue: 0,
+    lowStockItems: 0,
+    outstandingInvoices: 0
+  };
+  
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  };
+  
+  const timeRangeLabels: Record<TimeRange, string> = {
+    day: '1D',
+    week: '1W',
+    month: '1M',
+    year: '1Y'
   };
 
   return (
@@ -266,6 +301,25 @@ export default function Business() {
 
         {/* Dashboard Tab */}
         <TabsContent value="dashboard" className="space-y-4">
+          {/* Time Range Filter Buttons */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm text-muted-foreground">Time Range:</span>
+            <div className="flex gap-1">
+              {(['day', 'week', 'month', 'year'] as TimeRange[]).map((range) => (
+                <Button
+                  key={range}
+                  variant={timeRange === range ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTimeRange(range)}
+                  className="px-3 py-1 h-8"
+                >
+                  {timeRangeLabels[range]}
+                </Button>
+              ))}
+            </div>
+            {dashboardLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
+          </div>
+          
           <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
@@ -275,9 +329,9 @@ export default function Business() {
                 <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
-                <div className="text-base sm:text-2xl font-bold">{metrics.totalRevenue}</div>
+                <div className="text-base sm:text-2xl font-bold">{formatCurrency(metrics.totalRevenue)}</div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  +20.1% from last month
+                  This {timeRange}
                 </p>
               </CardContent>
             </Card>
@@ -289,9 +343,9 @@ export default function Business() {
                 <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
-                <div className="text-base sm:text-2xl font-bold">{metrics.expenses}</div>
+                <div className="text-base sm:text-2xl font-bold">{formatCurrency(metrics.expenses)}</div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  -4.5% from last month
+                  This {timeRange}
                 </p>
               </CardContent>
             </Card>
@@ -303,9 +357,9 @@ export default function Business() {
                 <DollarSign className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
-                <div className="text-base sm:text-2xl font-bold">{metrics.profit}</div>
+                <div className="text-base sm:text-2xl font-bold">{formatCurrency(metrics.profit)}</div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  Profit Margin: {metrics.profitMargin}
+                  Margin: {metrics.profitMargin}%
                 </p>
               </CardContent>
             </Card>
@@ -317,7 +371,7 @@ export default function Business() {
                 <Package className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
-                <div className="text-base sm:text-2xl font-bold">{metrics.inventoryValue}</div>
+                <div className="text-base sm:text-2xl font-bold">{formatCurrency(metrics.inventoryValue)}</div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
                   {metrics.lowStockItems} items low in stock
                 </p>
@@ -333,16 +387,55 @@ export default function Business() {
               </CardHeader>
               <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p className="text-sm">Loading expenses...</p>
-                ) : (
-                  <div className="space-y-2 sm:space-y-4">
-                    {/* Placeholder for expense data */}
-                    <p className="text-xs sm:text-sm text-muted-foreground">No recent expenses to display.</p>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading expenses...</span>
                   </div>
+                ) : dashboardData?.recentExpenses && dashboardData.recentExpenses.length > 0 ? (
+                  <div className="space-y-2">
+                    {dashboardData.recentExpenses.map((expense: any) => (
+                      <div key={expense.id} className="flex justify-between items-center border-b pb-2 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium">{expense.description || expense.category || 'Expense'}</p>
+                          <p className="text-xs text-muted-foreground">{expense.date ? new Date(expense.date).toLocaleDateString() : 'No date'}</p>
+                        </div>
+                        <span className="text-sm font-semibold">{formatCurrency(Number(expense.amount) || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs sm:text-sm text-muted-foreground">No recent expenses to display.</p>
                 )}
               </CardContent>
             </Card>
-            {/* Payroll card removed */}
+            <Card className="col-span-1">
+              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
+                <CardTitle className="text-base sm:text-lg">Recent Time Entries</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Latest logged work hours</CardDescription>
+              </CardHeader>
+              <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
+                {dashboardLoading ? (
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading time entries...</span>
+                  </div>
+                ) : dashboardData?.recentTimeEntries && dashboardData.recentTimeEntries.length > 0 ? (
+                  <div className="space-y-2">
+                    {dashboardData.recentTimeEntries.map((entry: any) => (
+                      <div key={entry.id} className="flex justify-between items-center border-b pb-2 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium">{entry.description || 'Time entry'}</p>
+                          <p className="text-xs text-muted-foreground">{entry.date ? new Date(entry.date).toLocaleDateString() : 'No date'}</p>
+                        </div>
+                        <span className="text-sm font-semibold">{entry.hoursWorked || 0} hrs</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs sm:text-sm text-muted-foreground">No recent time entries to display.</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
@@ -353,12 +446,24 @@ export default function Business() {
               </CardHeader>
               <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p className="text-sm">Loading purchase orders...</p>
-                ) : (
-                  <div className="space-y-2 sm:space-y-4">
-                    {/* Placeholder for purchase order data */}
-                    <p className="text-xs sm:text-sm text-muted-foreground">No recent purchase orders to display.</p>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading purchase orders...</span>
                   </div>
+                ) : dashboardData?.recentPurchaseOrders && dashboardData.recentPurchaseOrders.length > 0 ? (
+                  <div className="space-y-2">
+                    {dashboardData.recentPurchaseOrders.map((order: any) => (
+                      <div key={order.id} className="flex justify-between items-center border-b pb-2 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium">{order.vendorName || 'Order #' + order.id}</p>
+                          <p className="text-xs text-muted-foreground">{order.status || 'Pending'}</p>
+                        </div>
+                        <span className="text-sm font-semibold">{formatCurrency(Number(order.totalAmount) || 0)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs sm:text-sm text-muted-foreground">No recent purchase orders to display.</p>
                 )}
               </CardContent>
             </Card>
@@ -369,27 +474,42 @@ export default function Business() {
               </CardHeader>
               <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p className="text-sm">Loading inventory data...</p>
-                ) : (
-                  <div className="space-y-2 sm:space-y-4">
-                    {/* Placeholder for inventory data */}
-                    <p className="text-xs sm:text-sm text-muted-foreground">No low stock items to display.</p>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading inventory data...</span>
                   </div>
+                ) : dashboardData?.lowStockItems && dashboardData.lowStockItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {dashboardData.lowStockItems.slice(0, 5).map((item: any) => (
+                      <div key={item.id} className="flex justify-between items-center border-b pb-2 last:border-0">
+                        <div>
+                          <p className="text-sm font-medium">{item.name || 'Item'}</p>
+                          <p className="text-xs text-muted-foreground">Min: {item.minimumStock || 0}</p>
+                        </div>
+                        <span className="text-sm font-semibold text-orange-500">Low</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs sm:text-sm text-muted-foreground">No low stock items to display.</p>
                 )}
               </CardContent>
             </Card>
             <Card className="col-span-1">
               <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-                <CardTitle className="text-base sm:text-lg">Outstanding Invoices</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Unpaid client invoices</CardDescription>
+                <CardTitle className="text-base sm:text-lg">Outstanding Orders</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Pending purchase orders</CardDescription>
               </CardHeader>
               <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
                 {dashboardLoading ? (
-                  <p className="text-sm">Loading invoice data...</p>
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading order data...</span>
+                  </div>
                 ) : (
-                  <div className="space-y-2 sm:space-y-4">
-                    {/* Placeholder for invoice data */}
-                    <p className="text-xs sm:text-sm text-muted-foreground">No outstanding invoices to display.</p>
+                  <div className="text-center py-4">
+                    <p className="text-3xl font-bold">{metrics.outstandingInvoices}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">orders awaiting fulfillment</p>
                   </div>
                 )}
               </CardContent>
