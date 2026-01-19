@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, date, boolean, timestamp, time, serial } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, date, boolean, timestamp, time, serial, numeric, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -696,3 +696,154 @@ export const insertWorkOrderAuditLogSchema = createInsertSchema(workOrderAuditLo
 
 export type InsertWorkOrderAuditLog = z.infer<typeof insertWorkOrderAuditLogSchema>;
 export type WorkOrderAuditLog = typeof workOrderAuditLogs.$inferSelect;
+
+// Expenses table - track business expenses
+export const expenses = pgTable("expenses", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  date: date("date").notNull(),
+  amount: numeric("amount").notNull(),
+  category: text("category"),
+  description: text("description"),
+  vendorName: text("vendor_name"),
+  vendorId: integer("vendor_id"),
+  status: text("status").notNull().default("pending"),
+  paymentMethod: text("payment_method"),
+  receiptUrl: text("receipt_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertExpenseSchema = createInsertSchema(expenses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type Expense = typeof expenses.$inferSelect;
+
+// Time Entries table - track employee time
+export const timeEntries = pgTable("time_entries", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  userId: integer("user_id").notNull(),
+  projectId: integer("project_id"),
+  workOrderId: integer("work_order_id"),
+  date: date("date").notNull(),
+  hoursWorked: numeric("hours_worked").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("pending"),
+  approvedBy: integer("approved_by"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+export type TimeEntry = typeof timeEntries.$inferSelect;
+
+// Pool Reports table - pool service reports
+export const poolReports = pgTable("pool_reports", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  clientId: integer("client_id").notNull(),
+  technicianId: integer("technician_id"),
+  reportDate: date("report_date").notNull(),
+  poolCondition: text("pool_condition"),
+  chemicalReadings: jsonb("chemical_readings"),
+  servicesPerformed: text("services_performed").array(),
+  recommendations: text("recommendations"),
+  photos: text("photos").array(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertPoolReportSchema = createInsertSchema(poolReports).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPoolReport = z.infer<typeof insertPoolReportSchema>;
+export type PoolReport = typeof poolReports.$inferSelect;
+
+// Licenses table - track business licenses
+export const licenses = pgTable("licenses", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  licenseName: text("license_name").notNull(),
+  licenseNumber: text("license_number"),
+  issuingAuthority: text("issuing_authority"),
+  issueDate: date("issue_date"),
+  expirationDate: date("expiration_date"),
+  status: text("status").notNull().default("active"),
+  documentUrl: text("document_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertLicenseSchema = createInsertSchema(licenses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertLicense = z.infer<typeof insertLicenseSchema>;
+export type License = typeof licenses.$inferSelect;
+
+// Insurance Policies table - track insurance policies
+export const insurancePolicies = pgTable("insurance_policies", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  policyName: text("policy_name").notNull(),
+  policyNumber: text("policy_number"),
+  provider: text("provider"),
+  policyType: text("policy_type"),
+  coverageAmount: numeric("coverage_amount"),
+  premium: numeric("premium"),
+  startDate: date("start_date"),
+  endDate: date("end_date"),
+  status: text("status").notNull().default("active"),
+  documentUrl: text("document_url"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertInsurancePolicySchema = createInsertSchema(insurancePolicies).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInsurancePolicy = z.infer<typeof insertInsurancePolicySchema>;
+export type InsurancePolicy = typeof insurancePolicies.$inferSelect;
+
+// Purchase Orders table - track purchase orders
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  vendorId: integer("vendor_id"),
+  vendorName: text("vendor_name"),
+  orderNumber: text("order_number"),
+  orderDate: date("order_date").notNull(),
+  expectedDeliveryDate: date("expected_delivery_date"),
+  status: text("status").notNull().default("draft"),
+  totalAmount: numeric("total_amount"),
+  items: jsonb("items"),
+  notes: text("notes"),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
