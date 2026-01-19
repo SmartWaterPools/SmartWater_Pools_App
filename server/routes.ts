@@ -68,26 +68,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get recent active/in-progress projects for the "Construction Projects" section
       // Filter to show only active projects (in_progress, planning, on_hold) - not completed or cancelled
-      const recentProjects = allProjects
+      const recentProjectsRaw = allProjects
         .filter(p => ['in_progress', 'planning', 'on_hold'].includes(p.status))
         .sort((a, b) => {
           const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
           const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
           return dateB - dateA;
         })
-        .slice(0, 5)
-        .map(project => ({
-          id: project.id,
-          name: project.name,
-          description: project.description,
-          status: project.status,
-          startDate: project.startDate,
-          estimatedCompletionDate: project.estimatedCompletionDate,
-          percentComplete: project.percentComplete || 0,
-          projectType: project.projectType || 'construction',
-          clientId: project.clientId,
-          assignments: []
-        }));
+        .slice(0, 5);
+      
+      // Include client info for projects
+      const recentProjects = await Promise.all(
+        recentProjectsRaw.map(async (project) => {
+          const clientUser = project.clientId ? await storage.getUser(project.clientId) : null;
+          return {
+            id: project.id,
+            name: project.name,
+            description: project.description,
+            status: project.status,
+            startDate: project.startDate,
+            estimatedCompletionDate: project.estimatedCompletionDate,
+            percentComplete: project.percentComplete || 0,
+            projectType: project.projectType || 'construction',
+            clientId: project.clientId,
+            assignments: [],
+            client: clientUser ? {
+              user: {
+                name: clientUser.name,
+                address: clientUser.address
+              }
+            } : { user: { name: 'Unknown Client', address: '' } }
+          };
+        })
+      );
       
       // Get all repairs and count by status
       const allRepairs = await storage.getRepairs();
@@ -180,25 +193,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).length;
       
       // Get upcoming scheduled maintenances (scoped to org)
-      const upcomingMaintenances = orgMaintenanceData
+      const upcomingMaintenancesRaw = orgMaintenanceData
         .filter(m => m.assignment.status === 'scheduled' && String(m.assignment.date) >= todayStr)
         .sort((a, b) => {
           const dateA = String(a.assignment.date);
           const dateB = String(b.assignment.date);
           return dateA.localeCompare(dateB);
         })
-        .slice(0, 10)
-        .map(m => ({
-          id: m.assignment.id,
-          title: 'Maintenance Visit',
-          description: m.assignment.notes || 'Scheduled pool maintenance',
-          status: m.assignment.status,
-          priority: 'normal',
-          scheduledDate: m.assignment.date,
-          clientId: m.routeStop.clientId,
-          technicianId: m.route.technicianId,
-          category: 'maintenance'
-        }));
+        .slice(0, 10);
+      
+      // Include client and technician info for maintenance
+      const upcomingMaintenances = await Promise.all(
+        upcomingMaintenancesRaw.map(async (m) => {
+          const clientUser = m.routeStop.clientId ? await storage.getUser(m.routeStop.clientId) : null;
+          const technicianUser = m.route.technicianId ? await storage.getUser(m.route.technicianId) : null;
+          
+          return {
+            id: m.assignment.id,
+            title: 'Maintenance Visit',
+            description: m.assignment.notes || 'Scheduled pool maintenance',
+            status: m.assignment.status,
+            priority: 'normal',
+            scheduledDate: m.assignment.date,
+            clientId: m.routeStop.clientId,
+            technicianId: m.route.technicianId,
+            category: 'maintenance',
+            client: clientUser ? {
+              user: {
+                name: clientUser.name,
+                address: clientUser.address
+              }
+            } : { user: { name: 'Unknown Client', address: '' } },
+            technician: technicianUser ? {
+              user: {
+                name: technicianUser.name
+              }
+            } : { user: { name: 'Unassigned' } }
+          };
+        })
+      );
       
       // Build the summary in the expected format
       const summary = {
