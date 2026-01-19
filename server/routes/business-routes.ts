@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { isAuthenticated } from "../auth";
 import { db } from "../db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, gte, desc, sql } from "drizzle-orm";
 import {
   expenses,
   timeEntries,
@@ -17,28 +17,100 @@ const router = Router();
 router.get("/dashboard", isAuthenticated, async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
+    const timeRange = (req.query.timeRange as string) || 'month';
     
-    const expensesList = await db.select().from(expenses).where(eq(expenses.organizationId, organizationId)).limit(5);
-    const timeEntriesList = await db.select().from(timeEntries).where(eq(timeEntries.organizationId, organizationId)).limit(5);
-    const inventoryList = await db.select().from(inventoryItems).limit(10);
+    // Calculate date range based on timeRange parameter
+    const now = new Date();
+    let startDate: Date;
+    
+    switch (timeRange) {
+      case 'day':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        break;
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      case 'month':
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+    }
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    // Fetch expenses within time range
+    const allExpenses = await db.select().from(expenses)
+      .where(eq(expenses.organizationId, organizationId))
+      .orderBy(desc(expenses.date));
+    
+    const filteredExpenses = allExpenses.filter(e => {
+      const expDate = e.date ? new Date(e.date).toISOString().split('T')[0] : '';
+      return expDate >= startDateStr;
+    });
+    
+    const recentExpenses = filteredExpenses.slice(0, 5);
+    const totalExpenses = filteredExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    
+    // Fetch time entries within time range
+    const allTimeEntries = await db.select().from(timeEntries)
+      .where(eq(timeEntries.organizationId, organizationId))
+      .orderBy(desc(timeEntries.date));
+    
+    const filteredTimeEntries = allTimeEntries.filter(te => {
+      const teDate = te.date ? new Date(te.date).toISOString().split('T')[0] : '';
+      return teDate >= startDateStr;
+    });
+    
+    const recentTimeEntries = filteredTimeEntries.slice(0, 5);
+    
+    // Fetch inventory for value calculation
+    const inventoryList = await db.select().from(inventoryItems);
     
     const lowStockItems = inventoryList.filter(item => 
       item.minimumStock && item.minimumStock > 0
     );
     
+    const inventoryValue = inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0) * Number(i.minimumStock || 1), 0);
+    
+    // Fetch purchase orders within time range
+    const allPurchaseOrders = await db.select().from(purchaseOrders)
+      .where(eq(purchaseOrders.organizationId, organizationId))
+      .orderBy(desc(purchaseOrders.orderDate));
+    
+    const filteredPurchaseOrders = allPurchaseOrders.filter(po => {
+      const poDate = po.orderDate ? new Date(po.orderDate).toISOString().split('T')[0] : '';
+      return poDate >= startDateStr;
+    });
+    
+    const recentPurchaseOrders = filteredPurchaseOrders.slice(0, 5);
+    const outstandingOrders = filteredPurchaseOrders.filter(po => 
+      po.status && ['pending', 'approved', 'ordered'].includes(po.status)
+    ).length;
+    
+    // Calculate revenue (placeholder - would come from invoices/payments in real app)
+    // For now, use a simple calculation based on work orders or projects if available
+    const totalRevenue = 0; // Would aggregate from completed invoices/payments
+    const profit = totalRevenue - totalExpenses;
+    const profitMargin = totalRevenue > 0 ? (profit / totalRevenue) * 100 : 0;
+    
     res.json({
       metrics: {
-        totalRevenue: 0,
-        expenses: expensesList.reduce((sum, e) => sum + Number(e.amount || 0), 0),
-        profit: 0,
-        profitMargin: 0,
-        inventoryValue: inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0), 0),
+        totalRevenue,
+        expenses: totalExpenses,
+        profit,
+        profitMargin: Math.round(profitMargin * 10) / 10,
+        inventoryValue,
         lowStockItems: lowStockItems.length,
-        outstandingInvoices: 0
+        outstandingInvoices: outstandingOrders
       },
-      recentExpenses: expensesList,
-      lowStockItems: lowStockItems,
-      recentTimeEntries: timeEntriesList
+      recentExpenses,
+      lowStockItems,
+      recentTimeEntries,
+      recentPurchaseOrders,
+      timeRange
     });
   } catch (error) {
     console.error("Error fetching dashboard:", error);
