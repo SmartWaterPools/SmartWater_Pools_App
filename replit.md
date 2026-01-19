@@ -154,4 +154,11 @@ Preferred communication style: Simple, everyday language.
 - **Frontend Components**:
   - `client/src/pages/Business.tsx` - Business management page with dashboard, expenses, time tracking, vendors, inventory, licenses, insurance tabs
   - Time range filter buttons (1D, 1W, 1M, 1Y) for dashboard metrics
-- **Multi-tenant Security**: All queries filter by organizationId from authenticated user session, never accepting organizationId from request body
+- **Multi-tenant Security**: All queries filter by organizationId from authenticated user session, never accepting organizationId from request body. All PATCH/update routes strip organizationId from request body before database updates to prevent cross-tenant reassignment.
+- **Dashboard Metrics Calculation**:
+  - **Revenue**: Sum of project budgets for organization's clients, filtered by project startDate within selected time range
+  - **Expenses**: Sum from expenses table, SQL-filtered by date within time range
+  - **Profit**: Revenue minus Expenses
+  - **Inventory Value**: Sum of (unitCost × minimumStock) from inventory_items (current stock, not time-filtered)
+  - **Low Stock Items**: Count of items below minimum stock threshold
+  - **Outstanding Invoices**: Count of pending/approved/ordered purchase orders

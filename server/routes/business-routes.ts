@@ -207,8 +207,11 @@ router.patch("/expenses/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Expense not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(expenses)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set({ ...updateData, updatedAt: new Date() })
       .where(and(eq(expenses.id, id), eq(expenses.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
@@ -296,8 +299,11 @@ router.patch("/time-entries/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Time entry not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(timeEntries)
-      .set(req.body)
+      .set(updateData)
       .where(and(eq(timeEntries.id, id), eq(timeEntries.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
@@ -385,8 +391,11 @@ router.patch("/reports/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Report not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(poolReports)
-      .set(req.body)
+      .set(updateData)
       .where(and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
@@ -473,8 +482,11 @@ router.patch("/pool-reports/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Pool report not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(poolReports)
-      .set(req.body)
+      .set(updateData)
       .where(and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
@@ -564,8 +576,11 @@ router.patch("/purchase-orders/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Purchase order not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(purchaseOrders)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set({ ...updateData, updatedAt: new Date() })
       .where(and(eq(purchaseOrders.id, id), eq(purchaseOrders.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
@@ -654,8 +669,11 @@ router.patch("/inventory/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Inventory item not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(inventoryItems)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set({ ...updateData, updatedAt: new Date() })
       .where(and(eq(inventoryItems.id, id), eq(inventoryItems.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
@@ -743,8 +761,11 @@ router.patch("/licenses/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "License not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(licenses)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set({ ...updateData, updatedAt: new Date() })
       .where(and(eq(licenses.id, id), eq(licenses.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
@@ -832,8 +853,11 @@ router.patch("/insurance/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Insurance policy not found" });
     }
     
+    // Strip organizationId from body to prevent cross-tenant reassignment
+    const { organizationId: _, ...updateData } = req.body;
+    
     const result = await db.update(insurancePolicies)
-      .set({ ...req.body, updatedAt: new Date() })
+      .set({ ...updateData, updatedAt: new Date() })
       .where(and(eq(insurancePolicies.id, id), eq(insurancePolicies.organizationId, organizationId)))
       .returning();
     res.json(result[0]);
