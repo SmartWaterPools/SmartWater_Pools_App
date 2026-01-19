@@ -100,26 +100,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ).length;
       
       // Get recent repairs (up to 10, sorted by most recent)
-      const recentRepairs = orgRepairs
+      // Include client and technician info for display
+      const recentRepairsRaw = orgRepairs
         .sort((a, b) => {
           const dateA = a.reportedDate ? new Date(a.reportedDate).getTime() : 0;
           const dateB = b.reportedDate ? new Date(b.reportedDate).getTime() : 0;
           return dateB - dateA;
         })
-        .slice(0, 10)
-        .map(repair => ({
-          id: repair.id,
-          clientId: repair.clientId,
-          technicianId: repair.technicianId,
-          issue: repair.issue,
-          priority: repair.priority,
-          description: repair.description,
-          reportedDate: repair.reportedDate,
-          scheduledDate: repair.scheduledDate,
-          completionDate: repair.completionDate,
-          status: repair.status,
-          notes: repair.notes
-        }));
+        .slice(0, 10);
+      
+      // Fetch client and technician details for repairs
+      const recentRepairs = await Promise.all(
+        recentRepairsRaw.map(async (repair) => {
+          const clientUser = repair.clientId ? await storage.getUser(repair.clientId) : null;
+          const technicianUser = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
+          
+          return {
+            id: repair.id,
+            clientId: repair.clientId,
+            technicianId: repair.technicianId,
+            issue: repair.issue,
+            priority: repair.priority,
+            description: repair.description,
+            reportedDate: repair.reportedDate,
+            scheduledDate: repair.scheduledDate,
+            completionDate: repair.completionDate,
+            status: repair.status,
+            notes: repair.notes,
+            client: clientUser ? {
+              user: {
+                name: clientUser.name,
+                address: clientUser.address
+              }
+            } : null,
+            technician: technicianUser ? {
+              user: {
+                name: technicianUser.name
+              }
+            } : null
+          };
+        })
+      );
       
       // Get maintenance assignments from bazza system - scoped to organization clients
       const now = new Date();
