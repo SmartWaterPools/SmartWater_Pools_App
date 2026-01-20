@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useParams, useLocation } from 'wouter';
+import { useParams, useLocation, Link } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History, MessageSquare } from 'lucide-react';
+import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History, MessageSquare, FileText, DollarSign, Eye } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } from '@/lib/types';
 import { useIsMobile } from '@/hooks/use-mobile';
 import ClientAddressMap from '@/components/maps/ClientAddressMap';
@@ -121,6 +121,27 @@ export default function ClientDetails() {
     },
     enabled: !!id
   });
+
+  // Fetch invoices for this client
+  const { 
+    data: invoicesData,
+    isLoading: isInvoicesLoading
+  } = useQuery({
+    queryKey: ['/api/invoices', 'client', id],
+    queryFn: async () => {
+      const res = await fetch(`/api/invoices?clientId=${id}`);
+      if (!res.ok) throw new Error('Failed to fetch invoices');
+      return res.json();
+    },
+    enabled: !!id
+  });
+
+  // Calculate invoice summary metrics
+  const invoiceSummary = {
+    totalBilled: invoicesData?.reduce((sum: number, inv: any) => sum + (inv.total || 0), 0) || 0,
+    totalPaid: invoicesData?.reduce((sum: number, inv: any) => inv.status === 'paid' ? sum + (inv.total || 0) : sum, 0) || 0,
+    outstanding: invoicesData?.reduce((sum: number, inv: any) => ['sent', 'viewed', 'partial', 'overdue'].includes(inv.status) ? sum + (inv.amountDue || 0) : sum, 0) || 0
+  };
   
   // Process maintenance history to create service history items
   const serviceHistory = maintenanceHistoryData?.map((maintenance: any) => {
@@ -263,6 +284,10 @@ export default function ClientDetails() {
           <TabsTrigger value="communications" className="flex items-center">
             <MessageSquare className="h-4 w-4 mr-1" />
             Communications
+          </TabsTrigger>
+          <TabsTrigger value="invoices" className="flex items-center">
+            <FileText className="h-4 w-4 mr-1" />
+            Invoices
           </TabsTrigger>
         </TabsList>
 
@@ -1218,6 +1243,161 @@ export default function ClientDetails() {
               entityName={client.user.name}
               entityPhone={client.user.phone || undefined}
             />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="invoices">
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-xl font-semibold">Client Invoices</h2>
+                <p className="text-sm text-muted-foreground">
+                  View and manage invoices for this client
+                </p>
+              </div>
+              <Link href={`/invoices/new?clientId=${id}`}>
+                <Button className="flex items-center gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create Invoice
+                </Button>
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Billed</CardTitle>
+                  <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(invoiceSummary.totalBilled / 100)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {invoicesData?.length || 0} total invoices
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(invoiceSummary.totalPaid / 100)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {invoicesData?.filter((inv: any) => inv.status === 'paid').length || 0} paid invoices
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Outstanding Balance</CardTitle>
+                  <Clock className="h-4 w-4 text-orange-500" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-orange-600">
+                    {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(invoiceSummary.outstanding / 100)}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {invoicesData?.filter((inv: any) => ['sent', 'viewed', 'partial', 'overdue'].includes(inv.status)).length || 0} pending invoices
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+
+            <Card className="bg-white">
+              <CardHeader>
+                <CardTitle>Invoice History</CardTitle>
+                <CardDescription>All invoices for this client</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isInvoicesLoading ? (
+                  <div className="space-y-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                ) : invoicesData && invoicesData.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-2 font-medium text-sm">Invoice #</th>
+                          <th className="text-left py-3 px-2 font-medium text-sm">Date</th>
+                          <th className="text-left py-3 px-2 font-medium text-sm">Due Date</th>
+                          <th className="text-right py-3 px-2 font-medium text-sm">Amount</th>
+                          <th className="text-center py-3 px-2 font-medium text-sm">Status</th>
+                          <th className="text-center py-3 px-2 font-medium text-sm">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {invoicesData.map((invoice: any) => {
+                          const statusColors: Record<string, string> = {
+                            draft: "bg-gray-100 text-gray-700",
+                            sent: "bg-blue-100 text-blue-700",
+                            viewed: "bg-purple-100 text-purple-700",
+                            partial: "bg-yellow-100 text-yellow-700",
+                            paid: "bg-green-100 text-green-700",
+                            overdue: "bg-red-100 text-red-700",
+                            cancelled: "bg-gray-100 text-gray-500 line-through"
+                          };
+                          
+                          return (
+                            <tr key={invoice.id} className="border-b hover:bg-gray-50">
+                              <td className="py-3 px-2 text-sm font-medium">{invoice.invoiceNumber}</td>
+                              <td className="py-3 px-2 text-sm">
+                                {new Date(invoice.issueDate).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </td>
+                              <td className="py-3 px-2 text-sm">
+                                {new Date(invoice.dueDate).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric'
+                                })}
+                              </td>
+                              <td className="py-3 px-2 text-sm text-right font-medium">
+                                {new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((invoice.total || 0) / 100)}
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                <Badge className={statusColors[invoice.status] || statusColors.draft}>
+                                  {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                                </Badge>
+                              </td>
+                              <td className="py-3 px-2 text-center">
+                                <Link href={`/invoices/${invoice.id}`}>
+                                  <Button variant="ghost" size="sm">
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                </Link>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <FileText className="h-12 w-12 mx-auto text-gray-200 mb-3" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-1">No invoices yet</h3>
+                    <p className="text-gray-500 mb-4">Create your first invoice for this client</p>
+                    <Link href={`/invoices/new?clientId=${id}`}>
+                      <Button>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Invoice
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
