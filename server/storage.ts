@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql } from "drizzle-orm";
 
@@ -163,6 +163,29 @@ export interface IStorage {
   createServiceTemplate(template: InsertServiceTemplate): Promise<ServiceTemplate>;
   updateServiceTemplate(id: number, data: Partial<ServiceTemplate>): Promise<ServiceTemplate | undefined>;
   deleteServiceTemplate(id: number): Promise<boolean>;
+
+  // Invoice operations
+  getInvoices(organizationId: number): Promise<Invoice[]>;
+  getInvoice(id: number): Promise<Invoice | undefined>;
+  getInvoiceByNumber(invoiceNumber: string, organizationId: number): Promise<Invoice | undefined>;
+  getInvoicesByClient(clientId: number): Promise<Invoice[]>;
+  getInvoicesByStatus(status: string, organizationId: number): Promise<Invoice[]>;
+  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
+  updateInvoice(id: number, data: Partial<Invoice>): Promise<Invoice | undefined>;
+  deleteInvoice(id: number): Promise<boolean>;
+  getNextInvoiceNumber(organizationId: number): Promise<string>;
+
+  // Invoice Item operations
+  getInvoiceItems(invoiceId: number): Promise<InvoiceItem[]>;
+  createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem>;
+  updateInvoiceItem(id: number, data: Partial<InvoiceItem>): Promise<InvoiceItem | undefined>;
+  deleteInvoiceItem(id: number): Promise<boolean>;
+  deleteInvoiceItemsByInvoice(invoiceId: number): Promise<boolean>;
+
+  // Invoice Payment operations
+  getInvoicePayments(invoiceId: number): Promise<InvoicePayment[]>;
+  createInvoicePayment(payment: InsertInvoicePayment): Promise<InvoicePayment>;
+  deleteInvoicePayment(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -976,6 +999,145 @@ export class DatabaseStorage implements IStorage {
   async deleteServiceTemplate(id: number): Promise<boolean> {
     const result = await db.delete(serviceTemplates)
       .where(eq(serviceTemplates.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Invoice operations
+  async getInvoices(organizationId: number): Promise<Invoice[]> {
+    return await db.select()
+      .from(invoices)
+      .where(eq(invoices.organizationId, organizationId))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    const result = await db.select()
+      .from(invoices)
+      .where(eq(invoices.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getInvoiceByNumber(invoiceNumber: string, organizationId: number): Promise<Invoice | undefined> {
+    const result = await db.select()
+      .from(invoices)
+      .where(and(
+        eq(invoices.invoiceNumber, invoiceNumber),
+        eq(invoices.organizationId, organizationId)
+      ))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getInvoicesByClient(clientId: number): Promise<Invoice[]> {
+    return await db.select()
+      .from(invoices)
+      .where(eq(invoices.clientId, clientId))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async getInvoicesByStatus(status: string, organizationId: number): Promise<Invoice[]> {
+    return await db.select()
+      .from(invoices)
+      .where(and(
+        eq(invoices.status, status),
+        eq(invoices.organizationId, organizationId)
+      ))
+      .orderBy(desc(invoices.createdAt));
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const result = await db.insert(invoices).values(invoice).returning();
+    return result[0];
+  }
+
+  async updateInvoice(id: number, data: Partial<Invoice>): Promise<Invoice | undefined> {
+    const result = await db.update(invoices)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(invoices.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteInvoice(id: number): Promise<boolean> {
+    const result = await db.delete(invoices)
+      .where(eq(invoices.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getNextInvoiceNumber(organizationId: number): Promise<string> {
+    const result = await db.select()
+      .from(invoices)
+      .where(eq(invoices.organizationId, organizationId))
+      .orderBy(desc(invoices.invoiceNumber))
+      .limit(1);
+    
+    if (result.length === 0 || !result[0].invoiceNumber) {
+      return 'INV-00001';
+    }
+    
+    const lastNumber = result[0].invoiceNumber;
+    const match = lastNumber.match(/INV-(\d+)/);
+    if (!match) {
+      return 'INV-00001';
+    }
+    
+    const nextNum = parseInt(match[1], 10) + 1;
+    return `INV-${nextNum.toString().padStart(5, '0')}`;
+  }
+
+  // Invoice Item operations
+  async getInvoiceItems(invoiceId: number): Promise<InvoiceItem[]> {
+    return await db.select()
+      .from(invoiceItems)
+      .where(eq(invoiceItems.invoiceId, invoiceId))
+      .orderBy(invoiceItems.sortOrder);
+  }
+
+  async createInvoiceItem(item: InsertInvoiceItem): Promise<InvoiceItem> {
+    const result = await db.insert(invoiceItems).values(item).returning();
+    return result[0];
+  }
+
+  async updateInvoiceItem(id: number, data: Partial<InvoiceItem>): Promise<InvoiceItem | undefined> {
+    const result = await db.update(invoiceItems)
+      .set(data)
+      .where(eq(invoiceItems.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteInvoiceItem(id: number): Promise<boolean> {
+    const result = await db.delete(invoiceItems)
+      .where(eq(invoiceItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deleteInvoiceItemsByInvoice(invoiceId: number): Promise<boolean> {
+    await db.delete(invoiceItems)
+      .where(eq(invoiceItems.invoiceId, invoiceId));
+    return true;
+  }
+
+  // Invoice Payment operations
+  async getInvoicePayments(invoiceId: number): Promise<InvoicePayment[]> {
+    return await db.select()
+      .from(invoicePayments)
+      .where(eq(invoicePayments.invoiceId, invoiceId))
+      .orderBy(desc(invoicePayments.createdAt));
+  }
+
+  async createInvoicePayment(payment: InsertInvoicePayment): Promise<InvoicePayment> {
+    const result = await db.insert(invoicePayments).values(payment).returning();
+    return result[0];
+  }
+
+  async deleteInvoicePayment(id: number): Promise<boolean> {
+    const result = await db.delete(invoicePayments)
+      .where(eq(invoicePayments.id, id))
       .returning();
     return result.length > 0;
   }

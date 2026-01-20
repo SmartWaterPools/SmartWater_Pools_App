@@ -15,6 +15,7 @@ import vendorRoutes from "./routes/vendor-routes";
 import workOrderRoutes from "./routes/work-order-routes";
 import serviceTemplateRoutes from "./routes/service-template-routes";
 import businessRoutes from "./routes/business-routes";
+import invoiceRoutes from "./routes/invoice-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops } from "@shared/schema";
 
@@ -48,6 +49,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount business routes
   app.use('/api/business', businessRoutes);
+
+  // Mount invoice routes
+  app.use('/api/invoices', invoiceRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();
