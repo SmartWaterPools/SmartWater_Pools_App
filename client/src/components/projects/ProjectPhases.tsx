@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle, BarChart2, FileText, Trash2 } from "lucide-react";
+import { Check, ChevronRight, Clock, Edit, Plus, X, AlertTriangle, AlertCircle, BarChart2, FileText, Trash2, ClipboardList } from "lucide-react";
+import { CreateWorkOrderFromProjectDialog } from "./CreateWorkOrderFromProjectDialog";
+import { ProjectWithDetails } from "@/lib/types";
 import { getTemplateByKey, getTemplateOptions, PhaseTemplate } from "@/lib/phaseTemplates";
 import { format } from "date-fns";
 
@@ -147,7 +149,14 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
   const [phaseToDelete, setPhaseToDelete] = useState<ProjectPhase | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [replaceExistingPhases, setReplaceExistingPhases] = useState(false);
+  const [createWorkOrderPhase, setCreateWorkOrderPhase] = useState<ProjectPhase | null>(null);
+  const [showCreateWorkOrderDialog, setShowCreateWorkOrderDialog] = useState(false);
 
+  // Fetch project data for work order dialog
+  const { data: projectData } = useQuery<ProjectWithDetails>({
+    queryKey: ["/api/projects", projectId],
+  });
+  
   // Fetch project phases
   const { data: phases = [], isLoading, isError, error } = useQuery<ProjectPhase[]>({
     queryKey: ["/api/projects", projectId, "phases"],
@@ -740,6 +749,18 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
                           >
                             <Trash2 className="w-4 h-4 mr-1" />
                             Delete
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setCreateWorkOrderPhase(phase);
+                              setShowCreateWorkOrderDialog(true);
+                            }}
+                            className="w-full xs:w-auto"
+                          >
+                            <ClipboardList className="w-4 h-4 mr-1" />
+                            Create Work Order
                           </Button>
                         </div>
                       </div>
@@ -1663,6 +1684,20 @@ export function ProjectPhases({ projectId, currentPhase }: ProjectPhaseProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Create Work Order from Phase Dialog */}
+      <CreateWorkOrderFromProjectDialog
+        open={showCreateWorkOrderDialog}
+        onOpenChange={(open) => {
+          setShowCreateWorkOrderDialog(open);
+          if (!open) setCreateWorkOrderPhase(null);
+        }}
+        project={projectData || null}
+        phase={createWorkOrderPhase}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'work-orders'] });
+        }}
+      />
     </div>
   );
 }

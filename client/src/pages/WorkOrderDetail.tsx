@@ -15,7 +15,10 @@ import {
   Layers,
   Plus,
   GripVertical,
-  History
+  History,
+  FileText,
+  Wrench,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +68,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { WorkOrder, WorkOrderAuditLog } from "@shared/schema";
 import { WORK_ORDER_CATEGORIES, WORK_ORDER_STATUSES, WORK_ORDER_PRIORITIES } from "@shared/schema";
+import { WorkOrderItemsSection } from "@/components/WorkOrderItemsSection";
+import { WorkOrderTimeTracking } from "@/components/WorkOrderTimeTracking";
+import { WorkOrderTeamMembers } from "@/components/WorkOrderTeamMembers";
 
 interface WorkOrderWithDetails extends WorkOrder {
   technician?: {
@@ -82,6 +88,19 @@ interface WorkOrderWithDetails extends WorkOrder {
   projectPhase?: {
     id: number;
     name: string;
+  } | null;
+  workOrderRequest?: {
+    id: number;
+    title: string;
+  } | null;
+  maintenanceAssignment?: {
+    id: number;
+    scheduleDate?: string | null;
+    clientName?: string;
+  } | null;
+  repair?: {
+    id: number;
+    issueDescription: string;
   } | null;
 }
 
@@ -788,6 +807,12 @@ export default function WorkOrderDetail() {
               </CardContent>
             </Card>
           )}
+
+          <WorkOrderItemsSection workOrderId={workOrderId} />
+
+          <WorkOrderTimeTracking workOrderId={workOrderId} />
+
+          <WorkOrderTeamMembers workOrderId={workOrderId} />
         </div>
 
         <div className="space-y-6">
@@ -829,6 +854,63 @@ export default function WorkOrderDetail() {
               )}
             </CardContent>
           </Card>
+
+          {(workOrder.workOrderRequestId || workOrder.maintenanceAssignmentId || workOrder.repairId) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ExternalLink className="h-5 w-5" />
+                  Related Entities
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {workOrder.workOrderRequestId && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Work Order Request</h4>
+                    <Link href={`/work-order-requests?id=${workOrder.workOrderRequestId}`}>
+                      <div className="flex items-center gap-2 text-primary hover:underline cursor-pointer">
+                        <FileText className="h-4 w-4" />
+                        <span>
+                          {workOrder.workOrderRequest?.title || `Request #${workOrder.workOrderRequestId}`}
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
+                )}
+                
+                {workOrder.maintenanceAssignmentId && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Maintenance Assignment</h4>
+                    <Link href={`/maintenance?assignment=${workOrder.maintenanceAssignmentId}`}>
+                      <div className="flex items-center gap-2 text-primary hover:underline cursor-pointer">
+                        <Calendar className="h-4 w-4" />
+                        <span>
+                          {workOrder.maintenanceAssignment?.clientName 
+                            ? `${workOrder.maintenanceAssignment.clientName} - ${new Date(workOrder.maintenanceAssignment.scheduleDate || '').toLocaleDateString()}`
+                            : `Assignment #${workOrder.maintenanceAssignmentId}`
+                          }
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
+                )}
+                
+                {workOrder.repairId && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Repair</h4>
+                    <Link href={`/repairs?id=${workOrder.repairId}`}>
+                      <div className="flex items-center gap-2 text-primary hover:underline cursor-pointer">
+                        <Wrench className="h-4 w-4" />
+                        <span>
+                          {workOrder.repair?.issueDescription || `Repair #${workOrder.repairId}`}
+                        </span>
+                      </div>
+                    </Link>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

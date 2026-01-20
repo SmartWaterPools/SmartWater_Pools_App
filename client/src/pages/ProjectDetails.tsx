@@ -20,6 +20,7 @@ import {
 import { ProjectPhases } from "@/components/projects/ProjectPhases";
 import { ProjectDocuments } from "@/components/projects/ProjectDocuments";
 import { ProjectWorkOrders } from "@/components/projects/ProjectWorkOrders";
+import { CreateWorkOrderFromProjectDialog } from "@/components/projects/CreateWorkOrderFromProjectDialog";
 import { getStatusClasses, ProjectWithDetails } from "@/lib/types";
 import { Calendar, Users, FileText, Settings, Clock, DollarSign, Edit, ArrowLeft, MessageSquare, Mail, Phone, Search, Plus, Trash2, Archive, ClipboardList } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/types";
@@ -47,6 +48,7 @@ export default function ProjectDetails() {
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [createWorkOrderDialogOpen, setCreateWorkOrderDialogOpen] = useState(false);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -373,6 +375,35 @@ export default function ProjectDetails() {
               </CardContent>
             </Card>
           </div>
+          
+          <div className="mt-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle>Quick Actions</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-3">
+                  <Button 
+                    onClick={() => setCreateWorkOrderDialogOpen(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    Create Work Order
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setActiveTab("work-orders")}
+                    className="flex items-center gap-2"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    View Work Orders
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
         
         <TabsContent value="phases">
@@ -693,6 +724,16 @@ export default function ProjectDetails() {
           project={projectData}
         />
       )}
+      
+      {/* Create Work Order from Project Dialog */}
+      <CreateWorkOrderFromProjectDialog
+        open={createWorkOrderDialogOpen}
+        onOpenChange={setCreateWorkOrderDialogOpen}
+        project={projectData}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/projects', projectId, 'work-orders'] });
+        }}
+      />
       
       {/* Archive/Unarchive Project Confirmation Dialog */}
       <Dialog open={archiveDialogOpen} onOpenChange={setArchiveDialogOpen}>

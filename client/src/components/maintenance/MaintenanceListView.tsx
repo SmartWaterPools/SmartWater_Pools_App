@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from "wouter";
 import {
   Table,
   TableBody,
@@ -38,7 +39,9 @@ import {
   ChevronDown,
   AlertTriangle,
   MessageSquare,
-  Navigation
+  Navigation,
+  ClipboardList,
+  ExternalLink
 } from "lucide-react";
 import { apiRequest } from "../../lib/queryClient";
 import { MaintenanceWithDetails, TechnicianWithUser, formatDate, getStatusClasses } from "../../lib/types";
@@ -52,6 +55,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
+import { CreateWorkOrderFromMaintenanceDialog } from "./CreateWorkOrderFromMaintenanceDialog";
+import { WorkOrder } from "@shared/schema";
 
 type MaintenanceListViewProps = {
   maintenances: MaintenanceWithDetails[];
@@ -68,8 +73,26 @@ export function MaintenanceListView({
   isUpdatingStatus,
   selectedMaintenance,
 }: MaintenanceListViewProps) {
+  const [, navigate] = useLocation();
+  
   // State for grouping and pagination
   const [groupBy, setGroupBy] = useState<'date' | 'status' | 'client' | 'technician' | null>(null);
+  
+  // Work Order Dialog State
+  const [workOrderDialogOpen, setWorkOrderDialogOpen] = useState(false);
+  const [selectedMaintenanceForWorkOrder, setSelectedMaintenanceForWorkOrder] = useState<MaintenanceWithDetails | null>(null);
+  
+  // Fetch work orders to check for linked maintenance
+  const { data: workOrders } = useQuery<WorkOrder[]>({
+    queryKey: ["/api/work-orders"],
+    staleTime: 60 * 1000,
+  });
+  
+  // Get work orders linked to a specific maintenance
+  const getLinkedWorkOrders = (maintenanceId: number): WorkOrder[] => {
+    if (!workOrders) return [];
+    return workOrders.filter(wo => wo.maintenanceAssignmentId === maintenanceId);
+  };
   
   // Get technicians for the dropdown
   const { data: technicians = [], isLoading: isTechniciansLoading } = useQuery<TechnicianWithUser[]>({
@@ -283,7 +306,10 @@ export function MaintenanceListView({
             </h3>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {unroutedMaintenances.map((maintenance) => (
+            {unroutedMaintenances.map((maintenance) => {
+              const linkedWorkOrders = getLinkedWorkOrders(maintenance.id);
+              const hasLinkedWorkOrders = linkedWorkOrders.length > 0;
+              return (
               <Card key={maintenance.id} className="overflow-hidden border-amber-200">
                 <CardHeader className="pb-2 bg-amber-50">
                   <div className="flex justify-between items-start">
@@ -294,7 +320,17 @@ export function MaintenanceListView({
                         {maintenance.client?.user?.address || maintenance.client?.client?.address || 'No address'}
                       </CardDescription>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
+                      {hasLinkedWorkOrders && (
+                        <Badge 
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 text-xs"
+                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
+                        >
+                          <ClipboardList className="h-3 w-3 mr-1" />
+                          {linkedWorkOrders.length} WO
+                        </Badge>
+                      )}
                       {maintenance.status && (
                         <Badge 
                           className={getStatusClasses(maintenance.status).bg}
@@ -369,6 +405,25 @@ export function MaintenanceListView({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {hasLinkedWorkOrders ? (
+                        <DropdownMenuItem 
+                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          View Work Order
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setSelectedMaintenanceForWorkOrder(maintenance);
+                            setWorkOrderDialogOpen(true);
+                          }}
+                        >
+                          <ClipboardList className="h-4 w-4 mr-2" />
+                          Create Work Order
+                        </DropdownMenuItem>
+                      )}
                       {onStatusUpdate && (
                         <>
                           <DropdownMenuSeparator />
@@ -428,7 +483,7 @@ export function MaintenanceListView({
                   </DropdownMenu>
                 </CardFooter>
               </Card>
-            ))}
+            );})}
           </div>
         </div>
       )}
@@ -437,7 +492,10 @@ export function MaintenanceListView({
         <div key={groupName} className="space-y-2">
           <h3 className="text-lg font-medium">{groupName}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {groupMaintenance.map((maintenance) => (
+            {groupMaintenance.map((maintenance) => {
+              const linkedWorkOrders = getLinkedWorkOrders(maintenance.id);
+              const hasLinkedWorkOrders = linkedWorkOrders.length > 0;
+              return (
               <Card key={maintenance.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
@@ -448,7 +506,17 @@ export function MaintenanceListView({
                         {maintenance.client?.user?.address || maintenance.client?.client?.address || 'No address'}
                       </CardDescription>
                     </div>
-                    <div>
+                    <div className="flex items-center gap-2">
+                      {hasLinkedWorkOrders && (
+                        <Badge 
+                          variant="outline"
+                          className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 text-xs"
+                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
+                        >
+                          <ClipboardList className="h-3 w-3 mr-1" />
+                          {linkedWorkOrders.length} WO
+                        </Badge>
+                      )}
                       {maintenance.status && (
                         <Badge 
                           className={getStatusClasses(maintenance.status).bg}
@@ -523,6 +591,25 @@ export function MaintenanceListView({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {hasLinkedWorkOrders ? (
+                        <DropdownMenuItem 
+                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          View Work Order
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setSelectedMaintenanceForWorkOrder(maintenance);
+                            setWorkOrderDialogOpen(true);
+                          }}
+                        >
+                          <ClipboardList className="h-4 w-4 mr-2" />
+                          Create Work Order
+                        </DropdownMenuItem>
+                      )}
                       {onStatusUpdate && (
                         <>
                           <DropdownMenuSeparator />
@@ -582,10 +669,17 @@ export function MaintenanceListView({
                   </DropdownMenu>
                 </CardFooter>
               </Card>
-            ))}
+            );
+            })}
           </div>
         </div>
       ))}
+      
+      <CreateWorkOrderFromMaintenanceDialog
+        open={workOrderDialogOpen}
+        onOpenChange={setWorkOrderDialogOpen}
+        maintenance={selectedMaintenanceForWorkOrder}
+      />
     </div>
   );
 }

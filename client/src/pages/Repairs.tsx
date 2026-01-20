@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Link } from "wouter";
 import type { ClientWithUser, RepairWithDetails } from "@/lib/types";
 import { 
   PlusCircle, 
@@ -11,7 +12,9 @@ import {
   MoreHorizontal,
   Calendar,
   User,
-  Mail
+  Mail,
+  ClipboardList,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,7 +35,9 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { RepairRequestForm } from "@/components/repairs/RepairRequestForm";
+import { CreateWorkOrderFromRepairDialog } from "@/components/repairs/CreateWorkOrderFromRepairDialog";
 import { EntityEmailList } from "@/components/communications/EntityEmailList";
 import { 
   getStatusClasses, 
@@ -41,10 +46,12 @@ import {
 } from "@/lib/types";
 import { apiRequest } from "@/lib/queryClient";
 import { Separator } from "@/components/ui/separator";
+import { WorkOrder } from "@shared/schema";
 
 export default function Repairs() {
   const [open, setOpen] = useState(false);
   const [selectedRepair, setSelectedRepair] = useState<RepairWithDetails | null>(null);
+  const [workOrderDialogRepair, setWorkOrderDialogRepair] = useState<RepairWithDetails | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,6 +60,14 @@ export default function Repairs() {
   const { data: repairs, isLoading } = useQuery<RepairWithDetails[]>({
     queryKey: ["/api/repairs"],
   });
+
+  const { data: allWorkOrders } = useQuery<WorkOrder[]>({
+    queryKey: ["/api/work-orders"],
+  });
+
+  const getWorkOrdersForRepair = (repairId: number) => {
+    return allWorkOrders?.filter(wo => wo.repairId === repairId) || [];
+  };
 
   const updateRepairMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number, data: Partial<RepairWithDetails> }) => {
@@ -273,14 +288,33 @@ export default function Repairs() {
                             {formatDate(repair.reportedDate)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-2">
+                            <div className="flex justify-end items-center space-x-2">
+                              {getWorkOrdersForRepair(repair.id).length > 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  <ClipboardList className="h-3 w-3 mr-1" />
+                                  {getWorkOrdersForRepair(repair.id).length}
+                                </Badge>
+                              )}
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-6 w-6 text-primary hover:text-primary/80"
                                 onClick={() => setSelectedRepair(repair)}
+                                title="View Details"
                               >
                                 <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-blue-600 hover:text-blue-900"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setWorkOrderDialogRepair(repair);
+                                }}
+                                title="Create Work Order"
+                              >
+                                <ClipboardList className="h-4 w-4" />
                               </Button>
                               <Button 
                                 variant="ghost" 
@@ -288,13 +322,6 @@ export default function Repairs() {
                                 className="h-6 w-6 text-gray-600 hover:text-gray-900"
                               >
                                 <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-6 w-6 text-gray-600 hover:text-gray-900"
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </div>
                           </td>
@@ -640,6 +667,70 @@ export default function Repairs() {
               <Separator className="my-4" />
               
               <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-gray-500 flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4" />
+                    Linked Work Orders
+                    {getWorkOrdersForRepair(selectedRepair.id).length > 0 && (
+                      <Badge variant="secondary" className="text-xs ml-2">
+                        {getWorkOrdersForRepair(selectedRepair.id).length}
+                      </Badge>
+                    )}
+                  </h3>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedRepair(null);
+                      setWorkOrderDialogRepair(selectedRepair);
+                    }}
+                  >
+                    <PlusCircle className="h-4 w-4 mr-1" />
+                    Create Work Order
+                  </Button>
+                </div>
+                {getWorkOrdersForRepair(selectedRepair.id).length > 0 ? (
+                  <div className="space-y-2">
+                    {getWorkOrdersForRepair(selectedRepair.id).map((workOrder) => (
+                      <div
+                        key={workOrder.id}
+                        className="border rounded-lg p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{workOrder.title}</span>
+                              <Badge 
+                                variant={workOrder.status === 'completed' ? 'default' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {workOrder.status.charAt(0).toUpperCase() + workOrder.status.slice(1).replace('_', ' ')}
+                              </Badge>
+                            </div>
+                            {workOrder.scheduledDate && (
+                              <div className="flex items-center text-xs text-muted-foreground mt-1">
+                                <Calendar className="h-3 w-3 mr-1" />
+                                {formatDate(workOrder.scheduledDate)}
+                              </div>
+                            )}
+                          </div>
+                          <Link href={`/work-orders/${workOrder.id}`}>
+                            <Button variant="ghost" size="sm" className="text-primary">
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No work orders linked to this repair.</p>
+                )}
+              </div>
+              
+              <Separator className="my-4" />
+              
+              <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
                   <Mail className="h-4 w-4" />
                   Related Communications
@@ -654,6 +745,17 @@ export default function Repairs() {
           </DialogContent>
         </Dialog>
       )}
+
+      <CreateWorkOrderFromRepairDialog
+        open={!!workOrderDialogRepair}
+        onOpenChange={(open) => {
+          if (!open) setWorkOrderDialogRepair(null);
+        }}
+        repair={workOrderDialogRepair}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+        }}
+      />
     </div>
   );
 }

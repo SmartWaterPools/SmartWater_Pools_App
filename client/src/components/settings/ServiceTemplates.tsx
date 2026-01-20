@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -39,11 +39,44 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Edit, Plus } from "lucide-react";
+import { Trash, Edit, Plus, Clock, DollarSign, Calendar, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ServiceTemplate } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+
+const TEMPLATE_CATEGORIES = [
+  { value: "weekly_maintenance", label: "Weekly Maintenance" },
+  { value: "biweekly_maintenance", label: "Bi-Weekly Maintenance" },
+  { value: "filter_clean", label: "Filter Clean" },
+  { value: "leak_detection", label: "Leak Detection" },
+  { value: "equipment_repair", label: "Equipment Repair" },
+  { value: "pool_construction", label: "Pool Construction" },
+  { value: "tile_deck", label: "Tile & Deck" },
+  { value: "automation", label: "Automation" },
+] as const;
+
+const PRIORITY_OPTIONS = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "urgent", label: "Urgent" },
+] as const;
+
+const RECURRENCE_OPTIONS = [
+  { value: "one_time", label: "One Time" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Bi-Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "as_needed", label: "As Needed" },
+] as const;
+
+const SERVICE_TYPES = [
+  { value: "maintenance", label: "Maintenance" },
+  { value: "repair", label: "Repair" },
+  { value: "construction", label: "Construction" },
+  { value: "cleaning", label: "Cleaning" },
+] as const;
 
 // Define template item schema
 const templateItemSchema = z.object({
@@ -61,9 +94,43 @@ const serviceTemplateSchema = z.object({
   description: z.string().optional(),
   isDefault: z.boolean().default(false),
   checklistItems: z.array(templateItemSchema).min(1, "At least one checklist item is required"),
+  estimatedDuration: z.number().min(0).optional().nullable(),
+  defaultPriority: z.string().optional().nullable(),
+  defaultLaborRate: z.number().min(0).optional().nullable(),
+  recurrence: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
 });
 
 type ServiceTemplateFormValues = z.infer<typeof serviceTemplateSchema>;
+
+const formatDuration = (minutes: number | null | undefined): string => {
+  if (!minutes) return "";
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins} min`;
+  if (mins === 0) return `${hours} hr`;
+  return `${hours} hr ${mins} min`;
+};
+
+const formatCurrency = (cents: number | null | undefined): string => {
+  if (!cents) return "";
+  return `$${(cents / 100).toFixed(2)}`;
+};
+
+const getCategoryLabel = (category: string | null | undefined): string => {
+  if (!category) return "";
+  const found = TEMPLATE_CATEGORIES.find(c => c.value === category);
+  return found ? found.label : category.replace(/_/g, " ");
+};
+
+const getPriorityBadgeVariant = (priority: string | null | undefined) => {
+  switch (priority) {
+    case "urgent": return "destructive";
+    case "high": return "destructive";
+    case "low": return "secondary";
+    default: return "default";
+  }
+};
 
 export function ServiceTemplates() {
   const [open, setOpen] = useState(false);
@@ -132,7 +199,7 @@ export function ServiceTemplates() {
     resolver: zodResolver(serviceTemplateSchema),
     defaultValues: {
       name: "",
-      type: "pool_service",
+      type: "maintenance",
       description: "",
       isDefault: false,
       checklistItems: [
@@ -140,6 +207,11 @@ export function ServiceTemplates() {
         { id: crypto.randomUUID(), text: "Clean skimmer basket", required: true },
         { id: crypto.randomUUID(), text: "Clean pump basket", required: true },
       ],
+      estimatedDuration: null,
+      defaultPriority: "medium",
+      defaultLaborRate: null,
+      recurrence: null,
+      category: null,
     },
   });
 
@@ -196,6 +268,11 @@ export function ServiceTemplates() {
       checklistItems: parsedItems.length > 0 ? parsedItems : [
         { id: crypto.randomUUID(), text: "", required: true }
       ],
+      estimatedDuration: template.estimatedDuration ?? null,
+      defaultPriority: template.defaultPriority ?? "medium",
+      defaultLaborRate: template.defaultLaborRate ?? null,
+      recurrence: template.recurrence ?? null,
+      category: template.category ?? null,
     });
     setOpen(true);
   };
@@ -237,10 +314,10 @@ export function ServiceTemplates() {
       <CardHeader>
         <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
           <div>
-            <CardTitle>Service Templates</CardTitle>
+            <CardTitle>Work Order Templates</CardTitle>
             <CardDescription className="mt-1">
-              Configure default service templates for different pool types and maintenance services. 
-              These templates will be available in service reports and can be customized for each client.
+              Create job presets with default durations, labor rates, and checklists. 
+              Use these templates to quickly create consistent work orders for common pool service tasks.
             </CardDescription>
           </div>
           <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -279,36 +356,63 @@ export function ServiceTemplates() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Template Type</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="pool_service">Pool Service</SelectItem>
-                            <SelectItem value="hot_tub_service">Hot Tub Service</SelectItem>
-                            <SelectItem value="combined_service">Combined Service</SelectItem>
-                            <SelectItem value="startup_service">Startup Service</SelectItem>
-                            <SelectItem value="closing_service">Closing Service</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          The type of service this template is for
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Service Type</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {SERVICE_TYPES.map((type) => (
+                                <SelectItem key={type.value} value={type.value}>
+                                  {type.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {TEMPLATE_CATEGORIES.map((cat) => (
+                                <SelectItem key={cat.value} value={cat.value}>
+                                  {cat.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <FormField
                     control={form.control}
@@ -323,13 +427,112 @@ export function ServiceTemplates() {
                             {...field}
                           />
                         </FormControl>
-                        <FormDescription>
-                          A detailed description of what this service template is used for
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="estimatedDuration"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estimated Duration (minutes)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="60"
+                              {...field}
+                              value={field.value ?? ""}
+                              onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : null)}
+                            />
+                          </FormControl>
+                          <FormDescription>Default time for this work order</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="defaultLaborRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Labor Rate ($/hr)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              placeholder="75.00"
+                              value={field.value ? (field.value / 100).toFixed(2) : ""}
+                              onChange={(e) => field.onChange(e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null)}
+                            />
+                          </FormControl>
+                          <FormDescription>Hourly rate in dollars</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="defaultPriority"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Default Priority</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || "medium"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select priority" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {PRIORITY_OPTIONS.map((priority) => (
+                                <SelectItem key={priority.value} value={priority.value}>
+                                  {priority.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="recurrence"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Recurrence</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value || ""}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select recurrence" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {RECURRENCE_OPTIONS.map((rec) => (
+                                <SelectItem key={rec.value} value={rec.value}>
+                                  {rec.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
                   <FormField
                     control={form.control}
@@ -439,24 +642,61 @@ export function ServiceTemplates() {
               <Card key={template.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle>{template.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        {template.type.replace("_", " ")}
-                      </CardDescription>
+                    <div className="flex-1">
+                      <CardTitle className="text-lg">{template.name}</CardTitle>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <Badge variant="outline" className="capitalize">
+                          {template.type?.replace(/_/g, " ") || "Service"}
+                        </Badge>
+                        {template.category && (
+                          <Badge variant="secondary">
+                            <Tag className="h-3 w-3 mr-1" />
+                            {getCategoryLabel(template.category)}
+                          </Badge>
+                        )}
+                        {template.defaultPriority && template.defaultPriority !== "medium" && (
+                          <Badge variant={getPriorityBadgeVariant(template.defaultPriority) as "default" | "destructive" | "secondary"}>
+                            {template.defaultPriority}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     {template.isDefault && (
-                      <Badge variant="default" className="ml-2">
+                      <Badge variant="default" className="ml-2 shrink-0">
                         Default
                       </Badge>
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="text-sm">
-                  <p className="text-gray-500 mb-4">{template.description || "No description"}</p>
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Checklist Items:</h4>
-                    <ul className="list-disc pl-5 space-y-1">
+                <CardContent className="text-sm space-y-3">
+                  {template.description && (
+                    <p className="text-gray-500">{template.description}</p>
+                  )}
+                  
+                  <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                    {template.estimatedDuration && (
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3.5 w-3.5" />
+                        <span>{formatDuration(template.estimatedDuration)}</span>
+                      </div>
+                    )}
+                    {template.defaultLaborRate && (
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-3.5 w-3.5" />
+                        <span>{formatCurrency(template.defaultLaborRate)}/hr</span>
+                      </div>
+                    )}
+                    {template.recurrence && (
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span className="capitalize">{template.recurrence.replace(/_/g, " ")}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t">
+                    <h4 className="font-medium text-xs text-muted-foreground">Checklist Items:</h4>
+                    <ul className="list-disc pl-5 space-y-0.5">
                       {parseChecklistItems(template.checklistItems).slice(0, 3).map((item, i) => (
                         <li key={i} className="text-sm text-gray-700">
                           {item.text}
@@ -470,7 +710,7 @@ export function ServiceTemplates() {
                     </ul>
                   </div>
                 </CardContent>
-                <CardFooter className="flex justify-end gap-2 pt-2">
+                <CardFooter className="flex justify-end gap-2 pt-2 border-t bg-muted/30">
                   <Button
                     variant="outline"
                     size="sm"

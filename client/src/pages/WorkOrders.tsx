@@ -55,7 +55,8 @@ import {
   WORK_ORDER_CATEGORIES, 
   WORK_ORDER_STATUSES, 
   WORK_ORDER_PRIORITIES,
-  insertWorkOrderSchema
+  insertWorkOrderSchema,
+  ServiceTemplate
 } from "@shared/schema";
 
 interface TechnicianWithUser {
@@ -107,6 +108,8 @@ const workOrderFormSchema = z.object({
   technicianId: z.number().optional().nullable(),
   projectId: z.number().optional().nullable(),
   projectPhaseId: z.number().optional().nullable(),
+  estimatedDuration: z.number().optional().nullable(),
+  serviceTemplateId: z.number().optional().nullable(),
   checklist: z.array(z.object({
     id: z.string(),
     text: z.string(),
@@ -115,6 +118,30 @@ const workOrderFormSchema = z.object({
 });
 
 type WorkOrderFormValues = z.infer<typeof workOrderFormSchema>;
+
+const parseTemplateChecklistItems = (items: string | null | undefined): ChecklistItem[] => {
+  if (!items) return [];
+  try {
+    const parsed = typeof items === 'string' ? JSON.parse(items) : items;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item: unknown, index: number) => {
+      if (typeof item === 'string') {
+        return { id: `item-${index}`, text: item, completed: false };
+      }
+      if (typeof item === 'object' && item !== null) {
+        const obj = item as Record<string, unknown>;
+        return {
+          id: typeof obj.id === 'string' ? obj.id : `item-${index}`,
+          text: typeof obj.text === 'string' ? obj.text : '',
+          completed: false,
+        };
+      }
+      return { id: `item-${index}`, text: '', completed: false };
+    });
+  } catch {
+    return [];
+  }
+};
 
 interface WorkOrderFormProps {
   onClose: () => void;
@@ -125,6 +152,7 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
   const { toast } = useToast();
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [newItemText, setNewItemText] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   
   const { data: technicians } = useQuery<TechnicianWithUser[]>({
     queryKey: ["/api/technicians-with-users"],
@@ -132,6 +160,10 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
   
   const { data: projects } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+
+  const { data: templates } = useQuery<ServiceTemplate[]>({
+    queryKey: ["/api/service-templates"],
   });
 
   const form = useForm<WorkOrderFormValues>({
@@ -146,9 +178,43 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
       technicianId: null,
       projectId: initialProjectId,
       projectPhaseId: null,
+      estimatedDuration: null,
+      serviceTemplateId: null,
       checklist: [],
     },
   });
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    if (!templateId || templateId === "none") {
+      return;
+    }
+    const template = templates?.find(t => t.id === parseInt(templateId));
+    if (template) {
+      form.setValue("title", template.name);
+      if (template.description) {
+        form.setValue("description", template.description);
+      }
+      if (template.type && WORK_ORDER_CATEGORIES.includes(template.type as typeof WORK_ORDER_CATEGORIES[number])) {
+        form.setValue("category", template.type as typeof WORK_ORDER_CATEGORIES[number]);
+      }
+      if (template.defaultPriority && WORK_ORDER_PRIORITIES.includes(template.defaultPriority as typeof WORK_ORDER_PRIORITIES[number])) {
+        form.setValue("priority", template.defaultPriority as typeof WORK_ORDER_PRIORITIES[number]);
+      }
+      if (template.estimatedDuration) {
+        form.setValue("estimatedDuration", template.estimatedDuration);
+      }
+      form.setValue("serviceTemplateId", template.id);
+      const checklistFromTemplate = parseTemplateChecklistItems(template.checklistItems);
+      if (checklistFromTemplate.length > 0) {
+        setChecklistItems(checklistFromTemplate);
+      }
+      toast({
+        title: "Template Applied",
+        description: `"${template.name}" template has been applied to this work order.`,
+      });
+    }
+  };
 
   const selectedProjectId = form.watch("projectId");
   
@@ -209,6 +275,29 @@ function WorkOrderForm({ onClose, initialProjectId = null }: WorkOrderFormProps)
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {templates && templates.length > 0 && (
+          <div className="bg-muted/50 border rounded-lg p-4 space-y-2">
+            <Label className="text-sm font-medium">Use Work Order Template</Label>
+            <Select value={selectedTemplateId} onValueChange={handleTemplateSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a template to auto-fill fields..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No template</SelectItem>
+                {templates.map((template) => (
+                  <SelectItem key={template.id} value={template.id.toString()}>
+                    {template.name}
+                    {template.category && ` (${template.category.replace(/_/g, " ")})`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Selecting a template will auto-fill title, description, category, priority, and checklist.
+            </p>
+          </div>
+        )}
+
         <FormField
           control={form.control}
           name="title"

@@ -33,6 +33,7 @@ import ProjectDetails from "@/pages/ProjectDetails";
 import VendorDetail from "@/pages/VendorDetail";
 import WorkOrders from "@/pages/WorkOrders";
 import WorkOrderDetail from "@/pages/WorkOrderDetail";
+import WorkOrderRequests from "@/pages/WorkOrderRequests";
 import Invoices from "@/pages/Invoices";
 import InvoiceForm from "@/pages/InvoiceForm";
 import InvoiceDetail from "@/pages/InvoiceDetail";
@@ -91,6 +92,7 @@ function Router() {
       <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} />} />
       <Route path="/work-orders/:id" component={() => <ProtectedRoute component={WorkOrderDetail} />} />
       <Route path="/work-orders" component={() => <ProtectedRoute component={WorkOrders} />} />
+      <Route path="/work-order-requests" component={() => <ProtectedRoute component={WorkOrderRequests} />} />
       <Route path="/technicians" component={() => <ProtectedRoute component={Technicians} />} />
       <Route path="/communications" component={() => <ProtectedRoute component={Communications} />} />
       <Route path="/vendors/:id" component={() => <ProtectedRoute component={VendorDetail} />} />

@@ -10,7 +10,7 @@ const router = Router();
 router.get('/', isAuthenticated, async (req, res) => {
   try {
     const user = req.user as User;
-    const { category, status, technicianId, projectId } = req.query;
+    const { category, status, technicianId, projectId, repairId } = req.query;
     
     let workOrders = await storage.getWorkOrders(user.organizationId);
     
@@ -25,6 +25,9 @@ router.get('/', isAuthenticated, async (req, res) => {
     }
     if (projectId) {
       workOrders = workOrders.filter(wo => wo.projectId === parseInt(projectId as string));
+    }
+    if (repairId) {
+      workOrders = workOrders.filter(wo => wo.repairId === parseInt(repairId as string));
     }
     
     res.json(workOrders);
@@ -69,6 +72,42 @@ router.get('/:id', isAuthenticated, async (req, res) => {
       const phase = phases.find(p => p.id === workOrder.projectPhaseId);
       if (phase) {
         result.projectPhase = { id: phase.id, name: phase.name };
+      }
+    }
+    
+    // Hydrate work order request if linked
+    if (workOrder.workOrderRequestId) {
+      const request = await storage.getWorkOrderRequest(workOrder.workOrderRequestId);
+      if (request) {
+        result.workOrderRequest = { id: request.id, title: request.title };
+      }
+    }
+    
+    // Hydrate maintenance assignment if linked
+    if (workOrder.maintenanceAssignmentId) {
+      const assignment = await storage.getMaintenanceAssignment(workOrder.maintenanceAssignmentId);
+      if (assignment) {
+        // Get client name for display
+        let clientName = `Assignment #${assignment.id}`;
+        if (assignment.clientId) {
+          const client = await storage.getUser(assignment.clientId);
+          if (client) {
+            clientName = client.name;
+          }
+        }
+        result.maintenanceAssignment = { 
+          id: assignment.id, 
+          scheduleDate: assignment.scheduleDate,
+          clientName 
+        };
+      }
+    }
+    
+    // Hydrate repair if linked
+    if (workOrder.repairId) {
+      const repair = await storage.getRepair(workOrder.repairId);
+      if (repair) {
+        result.repair = { id: repair.id, issueDescription: repair.issueDescription };
       }
     }
     
