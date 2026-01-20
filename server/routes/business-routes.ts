@@ -61,7 +61,8 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
         eq(expenses.organizationId, organizationId),
         gte(expenses.date, startDateStr)
       ));
-    const totalExpenses = allExpensesInRange.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    // Divide by 100 to convert cents to dollars
+    const totalExpenses = allExpensesInRange.reduce((sum, e) => sum + Number(e.amount || 0), 0) / 100;
     
     // Fetch time entries within time range using SQL filtering
     const recentTimeEntries = await db.select().from(timeEntries)
@@ -80,7 +81,8 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
       item.minimumStock && item.minimumStock > 0
     );
     
-    const inventoryValue = inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0) * Number(i.minimumStock || 1), 0);
+    // Divide by 100 to convert cents to dollars (unitCost is stored in cents)
+    const inventoryValue = inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0) * Number(i.minimumStock || 1), 0) / 100;
     
     // Fetch purchase orders within time range using SQL filtering
     const recentPurchaseOrders = await db.select().from(purchaseOrders)
@@ -118,9 +120,10 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
         ));
       
       // Sum only active projects (not cancelled or archived)
+      // Divide by 100 to convert cents to dollars (budget is stored in cents)
       totalRevenue = orgProjects
         .filter(p => p.status !== 'cancelled' && p.status !== 'archived')
-        .reduce((sum, p) => sum + Number(p.budget || 0), 0);
+        .reduce((sum, p) => sum + Number(p.budget || 0), 0) / 100;
     }
     
     // Note: totalExpenses already comes from the expenses table filtered by time range above

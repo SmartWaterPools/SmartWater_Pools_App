@@ -399,7 +399,7 @@ export default function Business() {
                           <p className="text-sm font-medium">{expense.description || expense.category || 'Expense'}</p>
                           <p className="text-xs text-muted-foreground">{expense.date ? new Date(expense.date).toLocaleDateString() : 'No date'}</p>
                         </div>
-                        <span className="text-sm font-semibold">{formatCurrency(Number(expense.amount) || 0)}</span>
+                        <span className="text-sm font-semibold">{formatCurrency((Number(expense.amount) || 0) / 100)}</span>
                       </div>
                     ))}
                   </div>
@@ -458,7 +458,7 @@ export default function Business() {
                           <p className="text-sm font-medium">{order.vendorName || 'Order #' + order.id}</p>
                           <p className="text-xs text-muted-foreground">{order.status || 'Pending'}</p>
                         </div>
-                        <span className="text-sm font-semibold">{formatCurrency(Number(order.totalAmount) || 0)}</span>
+                        <span className="text-sm font-semibold">{formatCurrency((Number(order.totalAmount) || 0) / 100)}</span>
                       </div>
                     ))}
                   </div>
