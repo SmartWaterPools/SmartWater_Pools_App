@@ -48,6 +48,38 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Auto-generated invoice numbers, detailed invoices with line items, manual payment recording, Stripe integration for online payments, webhook handling.
 - **Multi-tenant Security**: All queries filter by `organizationId`.
 
+## Work Order System
+- **Purpose**: Comprehensive work order management integrating with maintenance, repairs, and construction modules.
+- **Core Features**:
+  - Work Order Requests: Submitted by techs, office staff, or clients; can spawn multiple work orders for multi-visit jobs
+  - Parts & Labor Tracking: Line items for parts (inventory integration) and labor entries with cost/price calculation
+  - Time Tracking: Clock in/out with break time, automatic duration calculation
+  - Team Assignment: Multiple technicians per work order with roles (Lead Tech, Technician, Helper)
+  - Service Templates: Pre-configured job templates (Weekly Maintenance, Filter Clean, Leak Detection, etc.) with estimated duration, default priority, and labor rates
+
+- **Integration Points**:
+  - Maintenance: Create work orders from Bazza Routes maintenance assignments/stops, auto-populate from service templates
+  - Repairs: Create work orders linked to repair jobs with issue details pre-filled
+  - Projects: Create work orders linked to construction projects and phases
+  - Related Entity Navigation: Work order detail shows clickable links to request, maintenance, repair, and project
+
+- **Database Tables**:
+  - `work_orders`: Core work order entity with status, priority, category
+  - `work_order_requests`: Request tracking with requester type and status
+  - `work_order_items`: Parts and labor line items
+  - `work_order_time_entries`: Clock in/out records per technician
+  - `work_order_team_members`: Team assignments with roles
+
+- **API Endpoints**:
+  - `/api/work-orders` - CRUD for work orders with filtering
+  - `/api/work-orders/:id/items` - Parts/labor line items
+  - `/api/work-orders/:id/time-entries` - Time tracking
+  - `/api/work-orders/:id/team` - Team member management
+  - `/api/work-orders/:id/clock-in|clock-out` - Convenience time tracking
+  - `/api/work-order-requests` - Request management
+
+- **Multi-tenant Security**: All queries filter by `organizationId`.
+
 # External Dependencies
 
 ## Authentication Services
