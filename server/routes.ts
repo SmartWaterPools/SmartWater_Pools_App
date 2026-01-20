@@ -50,6 +50,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount business routes
   app.use('/api/business', businessRoutes);
 
+  // Stripe webhook needs raw body for signature verification
+  const { raw } = await import('express');
+  app.use('/api/invoices/webhook', raw({ type: 'application/json' }));
+
   // Mount invoice routes
   app.use('/api/invoices', invoiceRoutes);
 

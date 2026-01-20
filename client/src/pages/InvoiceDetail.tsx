@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, useSearch } from "wouter";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -188,6 +188,36 @@ export default function InvoiceDetail() {
     },
   });
 
+  const createPaymentLinkMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/invoices/${invoiceId}/create-payment-link`);
+      return response.json();
+    },
+    onSuccess: (data: { url: string }) => {
+      if (data.url) {
+        window.open(data.url, '_blank');
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const searchString = useSearch();
+  
+  useEffect(() => {
+    const params = new URLSearchParams(searchString);
+    const payment = params.get('payment');
+    if (payment === 'success') {
+      toast({ title: "Payment Successful", description: "Thank you! Your payment has been processed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoiceId] });
+      setLocation(`/invoices/${invoiceId}`, { replace: true });
+    } else if (payment === 'cancelled') {
+      toast({ title: "Payment Cancelled", description: "The payment was cancelled." });
+      setLocation(`/invoices/${invoiceId}`, { replace: true });
+    }
+  }, [searchString, invoiceId, toast, queryClient, setLocation]);
+
   const resetPaymentForm = () => {
     setPaymentForm({
       amount: invoice ? (invoice.amountDue / 100).toFixed(2) : "",
@@ -293,6 +323,22 @@ export default function InvoiceDetail() {
                 <Send className="h-4 w-4 mr-2" />
               )}
               Send
+            </Button>
+          )}
+          {invoice.amountDue > 0 && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+            <Button
+              size="sm"
+              variant="default"
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={() => createPaymentLinkMutation.mutate()}
+              disabled={createPaymentLinkMutation.isPending}
+            >
+              {createPaymentLinkMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CreditCard className="h-4 w-4 mr-2" />
+              )}
+              Pay Online
             </Button>
           )}
           <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>

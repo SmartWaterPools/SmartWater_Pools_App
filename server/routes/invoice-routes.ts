@@ -3,8 +3,13 @@ import { storage } from "../storage";
 import { isAuthenticated } from "../auth";
 import { insertInvoiceSchema, insertInvoiceItemSchema, insertInvoicePaymentSchema } from "@shared/schema";
 import { z } from "zod";
+import Stripe from 'stripe';
 
 const router = Router();
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
+  apiVersion: '2023-10-16'
+});
 
 function calculateInvoiceTotals(items: { quantity: string; unitPrice: number }[], taxRate: string = "0", discountPercent: string | null = null, discountAmount: number = 0) {
   const subtotal = items.reduce((sum, item) => {
@@ -55,6 +60,69 @@ router.get("/", isAuthenticated, async (req, res) => {
     console.error("Error fetching invoices:", error);
     res.status(500).json({ error: "Failed to fetch invoices" });
   }
+});
+
+router.post("/webhook", async (req, res) => {
+  const sig = req.headers['stripe-signature'] as string;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  
+  let event: Stripe.Event;
+  
+  try {
+    if (webhookSecret) {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } else {
+      event = req.body;
+    }
+  } catch (err: any) {
+    console.error('Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object as Stripe.Checkout.Session;
+    
+    const invoiceId = session.metadata?.invoiceId;
+    if (!invoiceId) {
+      console.log('No invoice ID in session metadata');
+      return res.json({ received: true });
+    }
+    
+    const invoice = await storage.getInvoice(parseInt(invoiceId));
+    if (!invoice) {
+      console.error(`Invoice ${invoiceId} not found`);
+      return res.json({ received: true });
+    }
+    
+    const paymentData = {
+      invoiceId: invoice.id,
+      organizationId: invoice.organizationId,
+      amount: session.amount_total || invoice.amountDue,
+      paymentMethod: 'stripe',
+      paymentDate: new Date().toISOString().split('T')[0],
+      stripePaymentId: session.payment_intent as string || session.id,
+      stripeChargeId: session.id,
+      notes: 'Paid via Stripe Checkout',
+      recordedBy: null,
+    };
+    
+    await storage.createInvoicePayment(paymentData);
+    
+    const newAmountPaid = (invoice.amountPaid || 0) + (session.amount_total || invoice.amountDue);
+    const newAmountDue = invoice.total - newAmountPaid;
+    const newStatus = newAmountDue <= 0 ? 'paid' : 'partial';
+    
+    await storage.updateInvoice(invoice.id, {
+      amountPaid: newAmountPaid,
+      amountDue: Math.max(0, newAmountDue),
+      status: newStatus,
+      paidDate: newAmountDue <= 0 ? new Date().toISOString().split('T')[0] : undefined,
+    });
+    
+    console.log(`Invoice ${invoiceId} payment recorded via Stripe webhook`);
+  }
+  
+  res.json({ received: true });
 });
 
 router.get("/:id", isAuthenticated, async (req, res) => {
@@ -426,6 +494,60 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error("Error sending invoice:", error);
     res.status(500).json({ error: "Failed to send invoice" });
+  }
+});
+
+router.post("/:id/create-payment-link", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    
+    const invoice = await storage.getInvoice(id);
+    if (!invoice) {
+      return res.status(404).json({ error: "Invoice not found" });
+    }
+    if (invoice.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (invoice.amountDue <= 0) {
+      return res.status(400).json({ error: "Invoice has no balance due" });
+    }
+    
+    const items = await storage.getInvoiceItems(id);
+    
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `Invoice ${invoice.invoiceNumber}`,
+            description: items.map((i: any) => i.description).join(', ').substring(0, 500),
+          },
+          unit_amount: invoice.amountDue,
+        },
+        quantity: 1,
+      }],
+      success_url: `${req.protocol}://${req.get('host')}/invoices/${id}?payment=success`,
+      cancel_url: `${req.protocol}://${req.get('host')}/invoices/${id}?payment=cancelled`,
+      metadata: {
+        invoiceId: id.toString(),
+        organizationId: user.organizationId.toString(),
+      },
+    });
+    
+    await storage.updateInvoice(id, {
+      stripePaymentIntentId: session.payment_intent as string || session.id,
+      stripePaymentUrl: session.url,
+    });
+    
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error("Error creating payment link:", error);
+    res.status(500).json({ error: "Failed to create payment link" });
   }
 });
 
