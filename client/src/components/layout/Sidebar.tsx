@@ -21,7 +21,8 @@ import {
   Truck,
   Cog,
   ShieldCheck,
-  ClipboardList
+  ClipboardList,
+  FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -60,6 +61,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnTechnicians] = useRoute("/technicians");
   const [isOnCommunications] = useRoute("/communications");
   const [isOnBusiness] = useRoute("/business");
+  const [isOnInvoices] = useRoute("/invoices");
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
   const [isOnWorkOrders] = useRoute("/work-orders");
@@ -101,6 +103,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Communications';
       case '/business':
         return 'Business';
+      case '/invoices':
+        return 'Invoices';
       case '/settings':
         return 'Settings';
       case '/admin':
@@ -130,6 +134,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <MessageSquare className="h-4 w-4" />;
       case '/business':
         return <BarChart4 className="h-4 w-4" />;
+      case '/invoices':
+        return <FileText className="h-4 w-4" />;
       case '/settings':
         return <Settings className="h-4 w-4" />;
       case '/admin':
@@ -467,6 +473,40 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 isOnBusiness ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Business
+              </span>
+            )}
+          </div>
+          
+          {/* Invoices */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/invoices")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnInvoices ? "text-primary" : "text-gray-500"
+            )}>
+              <FileText className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnInvoices ? "text-primary" : "text-gray-700"
+              )}>
+                Invoices
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnInvoices ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Invoices
               </span>
             )}
           </div>
@@ -846,6 +886,16 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             <BarChart4 className="h-5 w-5" />
           </div>
           <span className={cn("text-xs mt-0.5", isOnBusiness ? "text-primary font-medium" : "text-gray-500")}>Business</span>
+        </div>
+        
+        <div 
+          onClick={(e) => handleSidebarNavigation(e, "/invoices")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnInvoices ? "text-primary" : "text-gray-500")}>
+            <FileText className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnInvoices ? "text-primary font-medium" : "text-gray-500")}>Invoices</span>
         </div>
         
         <div 
