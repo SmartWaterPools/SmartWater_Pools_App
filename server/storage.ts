@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql } from "drizzle-orm";
 
@@ -186,6 +186,36 @@ export interface IStorage {
   getInvoicePayments(invoiceId: number): Promise<InvoicePayment[]>;
   createInvoicePayment(payment: InsertInvoicePayment): Promise<InvoicePayment>;
   deleteInvoicePayment(id: number): Promise<boolean>;
+
+  // Work Order Request operations
+  getWorkOrderRequests(organizationId?: number): Promise<WorkOrderRequest[]>;
+  getWorkOrderRequest(id: number): Promise<WorkOrderRequest | undefined>;
+  getWorkOrderRequestsByClient(clientId: number): Promise<WorkOrderRequest[]>;
+  getWorkOrderRequestsByStatus(status: string, organizationId?: number): Promise<WorkOrderRequest[]>;
+  createWorkOrderRequest(request: InsertWorkOrderRequest): Promise<WorkOrderRequest>;
+  updateWorkOrderRequest(id: number, data: Partial<WorkOrderRequest>): Promise<WorkOrderRequest | undefined>;
+  deleteWorkOrderRequest(id: number): Promise<boolean>;
+  getWorkOrdersByRequest(requestId: number): Promise<WorkOrder[]>;
+
+  // Work Order Item operations (parts/labor)
+  getWorkOrderItems(workOrderId: number): Promise<WorkOrderItem[]>;
+  createWorkOrderItem(item: InsertWorkOrderItem): Promise<WorkOrderItem>;
+  updateWorkOrderItem(id: number, data: Partial<WorkOrderItem>): Promise<WorkOrderItem | undefined>;
+  deleteWorkOrderItem(id: number): Promise<boolean>;
+  deleteWorkOrderItemsByWorkOrder(workOrderId: number): Promise<boolean>;
+
+  // Work Order Time Entry operations
+  getWorkOrderTimeEntries(workOrderId: number): Promise<WorkOrderTimeEntry[]>;
+  getWorkOrderTimeEntriesByUser(userId: number): Promise<WorkOrderTimeEntry[]>;
+  createWorkOrderTimeEntry(entry: InsertWorkOrderTimeEntry): Promise<WorkOrderTimeEntry>;
+  updateWorkOrderTimeEntry(id: number, data: Partial<WorkOrderTimeEntry>): Promise<WorkOrderTimeEntry | undefined>;
+  deleteWorkOrderTimeEntry(id: number): Promise<boolean>;
+
+  // Work Order Team Member operations
+  getWorkOrderTeamMembers(workOrderId: number): Promise<WorkOrderTeamMember[]>;
+  createWorkOrderTeamMember(member: InsertWorkOrderTeamMember): Promise<WorkOrderTeamMember>;
+  updateWorkOrderTeamMember(id: number, data: Partial<WorkOrderTeamMember>): Promise<WorkOrderTeamMember | undefined>;
+  deleteWorkOrderTeamMember(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1138,6 +1168,174 @@ export class DatabaseStorage implements IStorage {
   async deleteInvoicePayment(id: number): Promise<boolean> {
     const result = await db.delete(invoicePayments)
       .where(eq(invoicePayments.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Work Order Request operations
+  async getWorkOrderRequests(organizationId?: number): Promise<WorkOrderRequest[]> {
+    if (organizationId) {
+      return await db.select()
+        .from(workOrderRequests)
+        .where(eq(workOrderRequests.organizationId, organizationId))
+        .orderBy(desc(workOrderRequests.createdAt));
+    }
+    return await db.select()
+      .from(workOrderRequests)
+      .orderBy(desc(workOrderRequests.createdAt));
+  }
+
+  async getWorkOrderRequest(id: number): Promise<WorkOrderRequest | undefined> {
+    const result = await db.select()
+      .from(workOrderRequests)
+      .where(eq(workOrderRequests.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getWorkOrderRequestsByClient(clientId: number): Promise<WorkOrderRequest[]> {
+    return await db.select()
+      .from(workOrderRequests)
+      .where(eq(workOrderRequests.clientId, clientId))
+      .orderBy(desc(workOrderRequests.createdAt));
+  }
+
+  async getWorkOrderRequestsByStatus(status: string, organizationId?: number): Promise<WorkOrderRequest[]> {
+    if (organizationId) {
+      return await db.select()
+        .from(workOrderRequests)
+        .where(and(
+          eq(workOrderRequests.status, status),
+          eq(workOrderRequests.organizationId, organizationId)
+        ))
+        .orderBy(desc(workOrderRequests.createdAt));
+    }
+    return await db.select()
+      .from(workOrderRequests)
+      .where(eq(workOrderRequests.status, status))
+      .orderBy(desc(workOrderRequests.createdAt));
+  }
+
+  async createWorkOrderRequest(request: InsertWorkOrderRequest): Promise<WorkOrderRequest> {
+    const result = await db.insert(workOrderRequests).values(request).returning();
+    return result[0];
+  }
+
+  async updateWorkOrderRequest(id: number, data: Partial<WorkOrderRequest>): Promise<WorkOrderRequest | undefined> {
+    const result = await db.update(workOrderRequests)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(workOrderRequests.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteWorkOrderRequest(id: number): Promise<boolean> {
+    const result = await db.delete(workOrderRequests)
+      .where(eq(workOrderRequests.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getWorkOrdersByRequest(requestId: number): Promise<WorkOrder[]> {
+    return await db.select()
+      .from(workOrders)
+      .where(eq(workOrders.workOrderRequestId, requestId))
+      .orderBy(desc(workOrders.createdAt));
+  }
+
+  // Work Order Item operations (parts/labor)
+  async getWorkOrderItems(workOrderId: number): Promise<WorkOrderItem[]> {
+    return await db.select()
+      .from(workOrderItems)
+      .where(eq(workOrderItems.workOrderId, workOrderId))
+      .orderBy(workOrderItems.createdAt);
+  }
+
+  async createWorkOrderItem(item: InsertWorkOrderItem): Promise<WorkOrderItem> {
+    const result = await db.insert(workOrderItems).values(item).returning();
+    return result[0];
+  }
+
+  async updateWorkOrderItem(id: number, data: Partial<WorkOrderItem>): Promise<WorkOrderItem | undefined> {
+    const result = await db.update(workOrderItems)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(workOrderItems.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteWorkOrderItem(id: number): Promise<boolean> {
+    const result = await db.delete(workOrderItems)
+      .where(eq(workOrderItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deleteWorkOrderItemsByWorkOrder(workOrderId: number): Promise<boolean> {
+    await db.delete(workOrderItems)
+      .where(eq(workOrderItems.workOrderId, workOrderId));
+    return true;
+  }
+
+  // Work Order Time Entry operations
+  async getWorkOrderTimeEntries(workOrderId: number): Promise<WorkOrderTimeEntry[]> {
+    return await db.select()
+      .from(workOrderTimeEntries)
+      .where(eq(workOrderTimeEntries.workOrderId, workOrderId))
+      .orderBy(desc(workOrderTimeEntries.clockIn));
+  }
+
+  async getWorkOrderTimeEntriesByUser(userId: number): Promise<WorkOrderTimeEntry[]> {
+    return await db.select()
+      .from(workOrderTimeEntries)
+      .where(eq(workOrderTimeEntries.userId, userId))
+      .orderBy(desc(workOrderTimeEntries.clockIn));
+  }
+
+  async createWorkOrderTimeEntry(entry: InsertWorkOrderTimeEntry): Promise<WorkOrderTimeEntry> {
+    const result = await db.insert(workOrderTimeEntries).values(entry).returning();
+    return result[0];
+  }
+
+  async updateWorkOrderTimeEntry(id: number, data: Partial<WorkOrderTimeEntry>): Promise<WorkOrderTimeEntry | undefined> {
+    const result = await db.update(workOrderTimeEntries)
+      .set(data)
+      .where(eq(workOrderTimeEntries.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteWorkOrderTimeEntry(id: number): Promise<boolean> {
+    const result = await db.delete(workOrderTimeEntries)
+      .where(eq(workOrderTimeEntries.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  // Work Order Team Member operations
+  async getWorkOrderTeamMembers(workOrderId: number): Promise<WorkOrderTeamMember[]> {
+    return await db.select()
+      .from(workOrderTeamMembers)
+      .where(eq(workOrderTeamMembers.workOrderId, workOrderId))
+      .orderBy(workOrderTeamMembers.assignedAt);
+  }
+
+  async createWorkOrderTeamMember(member: InsertWorkOrderTeamMember): Promise<WorkOrderTeamMember> {
+    const result = await db.insert(workOrderTeamMembers).values(member).returning();
+    return result[0];
+  }
+
+  async updateWorkOrderTeamMember(id: number, data: Partial<WorkOrderTeamMember>): Promise<WorkOrderTeamMember | undefined> {
+    const result = await db.update(workOrderTeamMembers)
+      .set(data)
+      .where(eq(workOrderTeamMembers.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteWorkOrderTeamMember(id: number): Promise<boolean> {
+    const result = await db.delete(workOrderTeamMembers)
+      .where(eq(workOrderTeamMembers.id, id))
       .returning();
     return result.length > 0;
   }

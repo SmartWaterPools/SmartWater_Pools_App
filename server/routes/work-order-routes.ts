@@ -253,4 +253,285 @@ router.get('/:id/audit-logs', isAuthenticated, async (req, res) => {
   }
 });
 
+// Work Order Items (Parts & Labor) routes
+router.get('/:id/items', isAuthenticated, async (req, res) => {
+  try {
+    const workOrderId = parseInt(req.params.id);
+    const items = await storage.getWorkOrderItems(workOrderId);
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching work order items:', error);
+    res.status(500).json({ error: 'Failed to fetch items' });
+  }
+});
+
+router.post('/:id/items', isAuthenticated, async (req, res) => {
+  try {
+    const workOrderId = parseInt(req.params.id);
+    
+    const item = await storage.createWorkOrderItem({
+      ...req.body,
+      workOrderId
+    });
+    
+    res.status(201).json(item);
+  } catch (error) {
+    console.error('Error creating work order item:', error);
+    res.status(500).json({ error: 'Failed to create item' });
+  }
+});
+
+router.patch('/:id/items/:itemId', isAuthenticated, async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.itemId);
+    const item = await storage.updateWorkOrderItem(itemId, req.body);
+    
+    if (!item) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    res.json(item);
+  } catch (error) {
+    console.error('Error updating work order item:', error);
+    res.status(500).json({ error: 'Failed to update item' });
+  }
+});
+
+router.delete('/:id/items/:itemId', isAuthenticated, async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.itemId);
+    const deleted = await storage.deleteWorkOrderItem(itemId);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting work order item:', error);
+    res.status(500).json({ error: 'Failed to delete item' });
+  }
+});
+
+// Work Order Time Entries routes
+router.get('/:id/time-entries', isAuthenticated, async (req, res) => {
+  try {
+    const workOrderId = parseInt(req.params.id);
+    const entries = await storage.getWorkOrderTimeEntries(workOrderId);
+    
+    // Enrich with user names
+    const enrichedEntries = await Promise.all(entries.map(async (entry) => {
+      const user = await storage.getUser(entry.userId);
+      return {
+        ...entry,
+        userName: user?.name || 'Unknown User',
+      };
+    }));
+    
+    res.json(enrichedEntries);
+  } catch (error) {
+    console.error('Error fetching time entries:', error);
+    res.status(500).json({ error: 'Failed to fetch time entries' });
+  }
+});
+
+router.post('/:id/time-entries', isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as User;
+    const workOrderId = parseInt(req.params.id);
+    
+    const entry = await storage.createWorkOrderTimeEntry({
+      ...req.body,
+      workOrderId,
+      userId: req.body.userId || user.id,
+      clockIn: new Date(req.body.clockIn || new Date())
+    });
+    
+    res.status(201).json(entry);
+  } catch (error) {
+    console.error('Error creating time entry:', error);
+    res.status(500).json({ error: 'Failed to create time entry' });
+  }
+});
+
+router.patch('/:id/time-entries/:entryId', isAuthenticated, async (req, res) => {
+  try {
+    const entryId = parseInt(req.params.entryId);
+    const updateData: Record<string, unknown> = { ...req.body };
+    
+    // Convert string dates to Date objects if present
+    if (updateData.clockIn && typeof updateData.clockIn === 'string') {
+      updateData.clockIn = new Date(updateData.clockIn);
+    }
+    if (updateData.clockOut && typeof updateData.clockOut === 'string') {
+      updateData.clockOut = new Date(updateData.clockOut);
+    }
+    
+    // Calculate duration if clockOut is set
+    if (updateData.clockOut) {
+      const existingEntry = await storage.getWorkOrderTimeEntries(parseInt(req.params.id));
+      const entry = existingEntry.find(e => e.id === entryId);
+      if (entry) {
+        const clockIn = entry.clockIn;
+        const clockOut = updateData.clockOut as Date;
+        const breakMins = (updateData.breakMinutes as number) || entry.breakMinutes || 0;
+        const durationMs = clockOut.getTime() - new Date(clockIn).getTime();
+        updateData.duration = Math.round(durationMs / 60000) - breakMins;
+      }
+    }
+    
+    const entry = await storage.updateWorkOrderTimeEntry(entryId, updateData);
+    
+    if (!entry) {
+      return res.status(404).json({ error: 'Time entry not found' });
+    }
+    
+    res.json(entry);
+  } catch (error) {
+    console.error('Error updating time entry:', error);
+    res.status(500).json({ error: 'Failed to update time entry' });
+  }
+});
+
+router.delete('/:id/time-entries/:entryId', isAuthenticated, async (req, res) => {
+  try {
+    const entryId = parseInt(req.params.entryId);
+    const deleted = await storage.deleteWorkOrderTimeEntry(entryId);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Time entry not found' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting time entry:', error);
+    res.status(500).json({ error: 'Failed to delete time entry' });
+  }
+});
+
+// Work Order Team Members routes
+router.get('/:id/team', isAuthenticated, async (req, res) => {
+  try {
+    const workOrderId = parseInt(req.params.id);
+    const members = await storage.getWorkOrderTeamMembers(workOrderId);
+    
+    // Enrich with user details
+    const enrichedMembers = await Promise.all(members.map(async (member) => {
+      const user = await storage.getUser(member.userId);
+      return {
+        ...member,
+        userName: user?.name || 'Unknown User',
+        userEmail: user?.email,
+        userRole: user?.role,
+      };
+    }));
+    
+    res.json(enrichedMembers);
+  } catch (error) {
+    console.error('Error fetching team members:', error);
+    res.status(500).json({ error: 'Failed to fetch team members' });
+  }
+});
+
+router.post('/:id/team', isAuthenticated, async (req, res) => {
+  try {
+    const workOrderId = parseInt(req.params.id);
+    
+    const member = await storage.createWorkOrderTeamMember({
+      ...req.body,
+      workOrderId
+    });
+    
+    res.status(201).json(member);
+  } catch (error) {
+    console.error('Error adding team member:', error);
+    res.status(500).json({ error: 'Failed to add team member' });
+  }
+});
+
+router.patch('/:id/team/:memberId', isAuthenticated, async (req, res) => {
+  try {
+    const memberId = parseInt(req.params.memberId);
+    const member = await storage.updateWorkOrderTeamMember(memberId, req.body);
+    
+    if (!member) {
+      return res.status(404).json({ error: 'Team member not found' });
+    }
+    
+    res.json(member);
+  } catch (error) {
+    console.error('Error updating team member:', error);
+    res.status(500).json({ error: 'Failed to update team member' });
+  }
+});
+
+router.delete('/:id/team/:memberId', isAuthenticated, async (req, res) => {
+  try {
+    const memberId = parseInt(req.params.memberId);
+    const deleted = await storage.deleteWorkOrderTeamMember(memberId);
+    
+    if (!deleted) {
+      return res.status(404).json({ error: 'Team member not found' });
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error removing team member:', error);
+    res.status(500).json({ error: 'Failed to remove team member' });
+  }
+});
+
+// Clock in/out convenience endpoints
+router.post('/:id/clock-in', isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as User;
+    const workOrderId = parseInt(req.params.id);
+    
+    const entry = await storage.createWorkOrderTimeEntry({
+      workOrderId,
+      userId: user.id,
+      clockIn: new Date(),
+      notes: req.body.notes
+    });
+    
+    res.status(201).json(entry);
+  } catch (error) {
+    console.error('Error clocking in:', error);
+    res.status(500).json({ error: 'Failed to clock in' });
+  }
+});
+
+router.post('/:id/clock-out', isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as User;
+    const workOrderId = parseInt(req.params.id);
+    
+    // Find the open time entry for this user on this work order
+    const entries = await storage.getWorkOrderTimeEntries(workOrderId);
+    const openEntry = entries.find(e => e.userId === user.id && !e.clockOut);
+    
+    if (!openEntry) {
+      return res.status(400).json({ error: 'No open time entry found. Please clock in first.' });
+    }
+    
+    const clockOut = new Date();
+    const clockIn = new Date(openEntry.clockIn);
+    const breakMins = req.body.breakMinutes || 0;
+    const durationMs = clockOut.getTime() - clockIn.getTime();
+    const duration = Math.round(durationMs / 60000) - breakMins;
+    
+    const updatedEntry = await storage.updateWorkOrderTimeEntry(openEntry.id, {
+      clockOut,
+      breakMinutes: breakMins,
+      duration,
+      notes: req.body.notes || openEntry.notes
+    });
+    
+    res.json(updatedEntry);
+  } catch (error) {
+    console.error('Error clocking out:', error);
+    res.status(500).json({ error: 'Failed to clock out' });
+  }
+});
+
 export default router;

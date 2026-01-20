@@ -13,6 +13,7 @@ import emailRoutes from "./routes/email-routes";
 import smsRoutes from "./routes/sms-routes";
 import vendorRoutes from "./routes/vendor-routes";
 import workOrderRoutes from "./routes/work-order-routes";
+import workOrderRequestRoutes from "./routes/work-order-request-routes";
 import serviceTemplateRoutes from "./routes/service-template-routes";
 import businessRoutes from "./routes/business-routes";
 import invoiceRoutes from "./routes/invoice-routes";
@@ -43,6 +44,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount work order routes
   app.use('/api/work-orders', workOrderRoutes);
+
+  // Mount work order request routes
+  app.use('/api/work-order-requests', workOrderRequestRoutes);
 
   // Mount service template routes
   app.use('/api/service-templates', serviceTemplateRoutes);

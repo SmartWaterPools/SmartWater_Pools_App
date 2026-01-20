@@ -580,6 +580,14 @@ export const serviceTemplates = pgTable("service_templates", {
   description: text("description"),
   isDefault: boolean("is_default").default(false),
   checklistItems: text("checklist_items"), // JSON array of checklist items
+  
+  // Work Order Template enhancements
+  estimatedDuration: integer("estimated_duration"), // Default estimated duration in minutes
+  defaultPriority: text("default_priority").default("medium"), // 'low', 'medium', 'high', 'urgent'
+  defaultLaborRate: integer("default_labor_rate"), // Default labor rate in cents per hour
+  recurrence: text("recurrence"), // 'one_time', 'weekly', 'bi_weekly', 'monthly', etc.
+  category: text("category"), // More specific: 'weekly_maintenance', 'filter_clean', 'leak_detection', etc.
+  
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });
@@ -630,6 +638,7 @@ export const workOrders = pgTable("work_orders", {
   projectPhaseId: integer("project_phase_id"), // FK to project_phases (link to specific phase/stage)
   repairId: integer("repair_id"), // FK to repairs
   maintenanceAssignmentId: integer("maintenance_assignment_id"), // FK to bazza_maintenance_assignments
+  workOrderRequestId: integer("work_order_request_id"), // FK to work_order_requests (optional link to parent request)
   
   // Template reference
   serviceTemplateId: integer("service_template_id"), // FK to service_templates
@@ -1013,3 +1022,147 @@ export const insertInvoicePaymentSchema = createInsertSchema(invoicePayments).om
 
 export type InsertInvoicePayment = z.infer<typeof insertInvoicePaymentSchema>;
 export type InvoicePayment = typeof invoicePayments.$inferSelect;
+
+// Work Order Request statuses
+export const WORK_ORDER_REQUEST_STATUSES = ['open', 'in_progress', 'completed', 'cancelled'] as const;
+export type WorkOrderRequestStatus = (typeof WORK_ORDER_REQUEST_STATUSES)[number];
+
+// Requester types for work order requests
+export const REQUESTER_TYPES = ['tech', 'office', 'client'] as const;
+export type RequesterType = (typeof REQUESTER_TYPES)[number];
+
+// Work Order Requests table - job requests that can spawn multiple work orders
+export const workOrderRequests = pgTable("work_order_requests", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  
+  // Request details
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category"), // 'construction', 'cleaning', 'maintenance', 'repair'
+  priority: text("priority").notNull().default("medium"), // 'low', 'medium', 'high', 'urgent'
+  status: text("status").notNull().default("open"), // 'open', 'in_progress', 'completed', 'cancelled'
+  
+  // Requester info
+  requesterType: text("requester_type").notNull(), // 'tech', 'office', 'client'
+  requestedBy: integer("requested_by"), // User ID who submitted the request
+  
+  // Related entities
+  clientId: integer("client_id"), // The client this request is for
+  projectId: integer("project_id"), // Optional: link to a project
+  
+  // Location
+  address: text("address"),
+  addressLat: text("address_lat"),
+  addressLng: text("address_lng"),
+  
+  // Notes and attachments
+  notes: text("notes"),
+  photos: text("photos").array(),
+  
+  // Metadata
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertWorkOrderRequestSchema = createInsertSchema(workOrderRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWorkOrderRequest = z.infer<typeof insertWorkOrderRequestSchema>;
+export type WorkOrderRequest = typeof workOrderRequests.$inferSelect;
+
+// Work Order Items table - parts and labor line items for work orders
+export const workOrderItems = pgTable("work_order_items", {
+  id: serial("id").primaryKey(),
+  workOrderId: integer("work_order_id").notNull(),
+  
+  // Item type
+  itemType: text("item_type").notNull(), // 'part', 'labor', 'material', 'other'
+  
+  // Item details (for parts from inventory)
+  inventoryItemId: integer("inventory_item_id"), // FK to inventory_items (optional)
+  name: text("name").notNull(), // Item name/description
+  description: text("description"),
+  
+  // Quantity and pricing
+  quantity: numeric("quantity").notNull().default("1"),
+  unitCost: integer("unit_cost"), // Cost per unit in cents
+  unitPrice: integer("unit_price"), // Price charged per unit in cents
+  totalCost: integer("total_cost"), // Total cost in cents
+  totalPrice: integer("total_price"), // Total price charged in cents
+  
+  // For labor items
+  laborHours: numeric("labor_hours"), // Hours worked
+  laborRate: integer("labor_rate"), // Hourly rate in cents
+  
+  // Metadata
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertWorkOrderItemSchema = createInsertSchema(workOrderItems).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertWorkOrderItem = z.infer<typeof insertWorkOrderItemSchema>;
+export type WorkOrderItem = typeof workOrderItems.$inferSelect;
+
+// Work Order Time Entries table - clock in/out for time tracking
+export const workOrderTimeEntries = pgTable("work_order_time_entries", {
+  id: serial("id").primaryKey(),
+  workOrderId: integer("work_order_id").notNull(),
+  userId: integer("user_id").notNull(), // The technician/user who clocked in
+  
+  // Time tracking
+  clockIn: timestamp("clock_in").notNull(),
+  clockOut: timestamp("clock_out"),
+  breakMinutes: integer("break_minutes").default(0), // Break time in minutes
+  
+  // Calculated duration (in minutes)
+  duration: integer("duration"),
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Metadata
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertWorkOrderTimeEntrySchema = createInsertSchema(workOrderTimeEntries).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWorkOrderTimeEntry = z.infer<typeof insertWorkOrderTimeEntrySchema>;
+export type WorkOrderTimeEntry = typeof workOrderTimeEntries.$inferSelect;
+
+// Work Order Team Members table - assign multiple technicians to a work order
+export const workOrderTeamMembers = pgTable("work_order_team_members", {
+  id: serial("id").primaryKey(),
+  workOrderId: integer("work_order_id").notNull(),
+  userId: integer("user_id").notNull(), // The team member (technician)
+  
+  // Role on this work order
+  role: text("role").notNull().default("technician"), // 'lead', 'technician', 'helper', 'supervisor'
+  
+  // Assignment status
+  isActive: boolean("is_active").default(true),
+  assignedAt: timestamp("assigned_at").notNull().default(sql`now()`),
+  removedAt: timestamp("removed_at"),
+  
+  // Notes
+  notes: text("notes"),
+});
+
+export const insertWorkOrderTeamMemberSchema = createInsertSchema(workOrderTeamMembers).omit({
+  id: true,
+  assignedAt: true,
+});
+
+export type InsertWorkOrderTeamMember = z.infer<typeof insertWorkOrderTeamMemberSchema>;
+export type WorkOrderTeamMember = typeof workOrderTeamMembers.$inferSelect;
