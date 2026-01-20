@@ -886,3 +886,130 @@ export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit
 
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
 export type InventoryItem = typeof inventoryItems.$inferSelect;
+
+// Invoice statuses
+export const INVOICE_STATUSES = ['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled'] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+// Payment methods
+export const PAYMENT_METHODS = ['cash', 'check', 'credit_card', 'bank_transfer', 'stripe', 'other'] as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+// Invoices table - main invoice records
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  invoiceNumber: text("invoice_number").notNull(),
+  status: text("status").notNull().default("draft"),
+  
+  // Dates
+  issueDate: date("issue_date").notNull(),
+  dueDate: date("due_date").notNull(),
+  paidDate: date("paid_date"),
+  
+  // Amounts (stored in cents)
+  subtotal: integer("subtotal").notNull().default(0),
+  taxRate: numeric("tax_rate").default("0"),
+  taxAmount: integer("tax_amount").default(0),
+  discountAmount: integer("discount_amount").default(0),
+  discountPercent: numeric("discount_percent"),
+  total: integer("total").notNull().default(0),
+  amountPaid: integer("amount_paid").default(0),
+  amountDue: integer("amount_due").notNull().default(0),
+  
+  // Additional info
+  notes: text("notes"),
+  terms: text("terms"),
+  footer: text("footer"),
+  
+  // Related entities
+  projectId: integer("project_id"),
+  repairId: integer("repair_id"),
+  workOrderId: integer("work_order_id"),
+  
+  // Stripe payment
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripePaymentUrl: text("stripe_payment_url"),
+  
+  // Tracking
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertInvoice = z.infer<typeof insertInvoiceSchema>;
+export type Invoice = typeof invoices.$inferSelect;
+
+// Invoice line items table
+export const invoiceItems = pgTable("invoice_items", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull(),
+  
+  // Item details
+  description: text("description").notNull(),
+  quantity: numeric("quantity").notNull().default("1"),
+  unitPrice: integer("unit_price").notNull(),
+  amount: integer("amount").notNull(),
+  
+  // Optional categorization
+  itemType: text("item_type"), // 'service', 'product', 'labor', 'material', 'other'
+  
+  // Related entities for tracking
+  workOrderId: integer("work_order_id"),
+  maintenanceId: integer("maintenance_id"),
+  inventoryItemId: integer("inventory_item_id"),
+  
+  // Ordering
+  sortOrder: integer("sort_order").default(0),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
+export type InvoiceItem = typeof invoiceItems.$inferSelect;
+
+// Invoice payments table - track all payments against invoices
+export const invoicePayments = pgTable("invoice_payments", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").notNull(),
+  organizationId: integer("organization_id"),
+  
+  // Payment details
+  amount: integer("amount").notNull(),
+  paymentMethod: text("payment_method").notNull(),
+  paymentDate: date("payment_date").notNull(),
+  
+  // Reference info
+  referenceNumber: text("reference_number"),
+  checkNumber: text("check_number"),
+  stripePaymentId: text("stripe_payment_id"),
+  stripeChargeId: text("stripe_charge_id"),
+  
+  notes: text("notes"),
+  
+  // Tracking
+  recordedBy: integer("recorded_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertInvoicePaymentSchema = createInsertSchema(invoicePayments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertInvoicePayment = z.infer<typeof insertInvoicePaymentSchema>;
+export type InvoicePayment = typeof invoicePayments.$inferSelect;
