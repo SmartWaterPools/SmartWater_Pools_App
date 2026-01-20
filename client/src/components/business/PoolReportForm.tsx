@@ -105,17 +105,11 @@ export function PoolReportForm({ open, onOpenChange, initialData }: PoolReportFo
       try {
         if (initialData?.name) {
           // Update existing report
-          await apiRequest(`/api/business/pool-reports/${initialData.name}`, {
-            method: "PATCH",
-            body: JSON.stringify(values),
-          });
+          await apiRequest('PATCH', `/api/business/pool-reports/${initialData.name}`, values);
           return { success: true, message: "Pool report updated successfully" };
         } else {
           // Create new report
-          await apiRequest("/api/business/pool-reports", {
-            method: "POST",
-            body: JSON.stringify(values),
-          });
+          await apiRequest('POST', '/api/business/pool-reports', values);
           return { success: true, message: "Pool report created successfully" };
         }
       } finally {

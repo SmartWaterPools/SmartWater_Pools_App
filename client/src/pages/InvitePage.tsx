@@ -82,9 +82,7 @@ const InvitePage = () => {
   const verifyInvitation = async (inviteToken: string) => {
     try {
       setVerifying(true);
-      const response = await apiRequest(`/api/invitations/verify?token=${inviteToken}`, {
-        method: 'GET',
-      });
+      const response = await apiRequest('GET', `/api/invitations/verify?token=${inviteToken}`);
       
       if (response.success && response.invitation) {
         setInvitation(response.invitation);
@@ -113,16 +111,13 @@ const InvitePage = () => {
     try {
       setRegistering(true);
       
-      const response = await apiRequest('/api/auth/register-invitation', {
-        method: 'POST',
-        data: {
-          name: data.name,
-          email: data.email,
-          password: data.password,
-          token: token,
-          organizationId: invitation.organization.id,
-          role: invitation.role,
-        },
+      const response = await apiRequest('POST', '/api/auth/register-invitation', {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        token: token,
+        organizationId: invitation.organization.id,
+        role: invitation.role,
       });
       
       if (response.success) {

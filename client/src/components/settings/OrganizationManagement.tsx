@@ -123,16 +123,10 @@ function OrganizationForm({
     mutationFn: async (values: OrganizationFormValues) => {
       if (organization) {
         // Update existing organization
-        return apiRequest(`/api/organizations/${organization.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(values),
-        });
+        return apiRequest('PATCH', `/api/organizations/${organization.id}`, values);
       } else {
         // Create new organization
-        return apiRequest('/api/organizations', {
-          method: 'POST',
-          body: JSON.stringify(values),
-        });
+        return apiRequest('POST', '/api/organizations', values);
       }
     },
     onSuccess: () => {

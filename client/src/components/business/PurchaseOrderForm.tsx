@@ -171,16 +171,10 @@ export function PurchaseOrderForm({ orderToEdit, onClose }: PurchaseOrderFormPro
 
       if (orderToEdit?.id) {
         // Update existing order
-        return apiRequest(`/api/business/purchase-orders/${orderToEdit.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
+        return apiRequest('PATCH', `/api/business/purchase-orders/${orderToEdit.id}`, data);
       } else {
         // Create new order
-        return apiRequest("/api/business/purchase-orders", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
+        return apiRequest('POST', '/api/business/purchase-orders', data);
       }
     },
     onSuccess: () => {

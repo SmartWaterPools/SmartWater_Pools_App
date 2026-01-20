@@ -131,16 +131,10 @@ export function FinancialReportForm({ reportToEdit, onClose }: FinancialReportFo
 
       if (reportToEdit?.id) {
         // Update existing report
-        return apiRequest(`/api/business/reports/${reportToEdit.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
+        return apiRequest('PATCH', `/api/business/reports/${reportToEdit.id}`, data);
       } else {
         // Create new report
-        return apiRequest("/api/business/reports", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
+        return apiRequest('POST', '/api/business/reports', data);
       }
     },
     onSuccess: () => {

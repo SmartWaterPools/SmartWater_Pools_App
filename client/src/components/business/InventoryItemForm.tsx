@@ -130,16 +130,10 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
 
       if (itemToEdit?.id) {
         // Update existing item
-        return apiRequest(`/api/business/inventory/${itemToEdit.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
+        return apiRequest('PATCH', `/api/business/inventory/${itemToEdit.id}`, data);
       } else {
         // Create new item
-        return apiRequest("/api/business/inventory", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
+        return apiRequest('POST', '/api/business/inventory', data);
       }
     },
     onSuccess: () => {

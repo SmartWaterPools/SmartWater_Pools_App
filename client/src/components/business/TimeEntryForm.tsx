@@ -132,16 +132,10 @@ export function TimeEntryForm({ entryToEdit, onClose }: TimeEntryFormProps) {
     mutationFn: async (values: TimeEntryFormValues) => {
       if (entryToEdit?.id) {
         // Update existing time entry
-        return apiRequest(`/api/business/time-entries/${entryToEdit.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(values),
-        });
+        return apiRequest('PATCH', `/api/business/time-entries/${entryToEdit.id}`, values);
       } else {
         // Create new time entry
-        return apiRequest("/api/business/time-entries", {
-          method: "POST",
-          body: JSON.stringify(values),
-        });
+        return apiRequest('POST', '/api/business/time-entries', values);
       }
     },
     onSuccess: () => {

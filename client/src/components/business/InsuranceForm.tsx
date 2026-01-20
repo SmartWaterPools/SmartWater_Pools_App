@@ -110,16 +110,10 @@ export function InsuranceForm({ onClose, initialData, isEditing = false }: Insur
     mutationFn: async (values: InsuranceFormValues) => {
       if (isEditing && initialData?.id) {
         // Update existing insurance policy
-        return apiRequest(`/api/business/insurance/${initialData.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(values),
-        });
+        return apiRequest('PATCH', `/api/business/insurance/${initialData.id}`, values);
       } else {
         // Create new insurance policy
-        return apiRequest('/api/business/insurance', {
-          method: 'POST',
-          body: JSON.stringify(values),
-        });
+        return apiRequest('POST', '/api/business/insurance', values);
       }
     },
     onSuccess: () => {

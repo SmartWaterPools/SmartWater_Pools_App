@@ -59,9 +59,7 @@ export function InvitationManagement() {
   // Mutation for canceling an invitation
   const cancelMutation = useMutation({
     mutationFn: async (invitationId: number) => {
-      return await apiRequest(`/api/invitations/${invitationId}`, {
-        method: 'DELETE',
-      });
+      return await apiRequest('DELETE', `/api/invitations/${invitationId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invitations"] });

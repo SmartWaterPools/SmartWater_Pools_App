@@ -236,10 +236,7 @@ export default function Maintenance() {
   // Mutation to update maintenance status
   const updateMaintenanceMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return await apiRequest(`/api/maintenances/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status })
-      });
+      return await apiRequest('PATCH', `/api/maintenances/${id}`, { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });

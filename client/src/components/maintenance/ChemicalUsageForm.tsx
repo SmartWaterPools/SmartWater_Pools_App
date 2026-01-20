@@ -88,13 +88,7 @@ export function ChemicalUsageForm({ maintenanceId, onSuccess }: ChemicalUsageFor
   // Create mutation for submitting the form
   const mutation = useMutation({
     mutationFn: async (values: ChemicalUsageFormValues) => {
-      return apiRequest("/api/chemical-usage", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      });
+      return apiRequest('POST', '/api/chemical-usage', values);
     },
     onSuccess: () => {
       toast({

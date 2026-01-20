@@ -145,10 +145,7 @@ export function MaintenanceReportForm({
         notes: formatMaintenanceReport(values)
       };
 
-      return await apiRequest(`/api/maintenances/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updateData)
-      });
+      return await apiRequest('PATCH', `/api/maintenances/${id}`, updateData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });

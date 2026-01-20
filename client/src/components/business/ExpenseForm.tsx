@@ -107,16 +107,10 @@ export function ExpenseForm({ categories, expenseToEdit, onClose }: ExpenseFormP
 
       if (expenseToEdit?.id) {
         // Update existing expense
-        return apiRequest(`/api/business/expenses/${expenseToEdit.id}`, {
-          method: "PATCH",
-          body: JSON.stringify(data),
-        });
+        return apiRequest("PATCH", `/api/business/expenses/${expenseToEdit.id}`, data);
       } else {
         // Create new expense
-        return apiRequest("/api/business/expenses", {
-          method: "POST",
-          body: JSON.stringify(data),
-        });
+        return apiRequest("POST", "/api/business/expenses", data);
       }
     },
     onSuccess: () => {

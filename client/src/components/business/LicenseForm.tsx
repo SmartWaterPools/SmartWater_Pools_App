@@ -104,16 +104,10 @@ export function LicenseForm({ onClose, initialData, isEditing = false }: License
     mutationFn: async (values: LicenseFormValues) => {
       if (isEditing && initialData?.id) {
         // Update existing license
-        return apiRequest(`/api/business/licenses/${initialData.id}`, {
-          method: 'PATCH',
-          body: JSON.stringify(values),
-        });
+        return apiRequest('PATCH', `/api/business/licenses/${initialData.id}`, values);
       } else {
         // Create new license
-        return apiRequest('/api/business/licenses', {
-          method: 'POST',
-          body: JSON.stringify(values),
-        });
+        return apiRequest('POST', '/api/business/licenses', values);
       }
     },
     onSuccess: () => {

@@ -102,9 +102,7 @@ export default function PoolReportsTable({ reports = [], isLoading, onCreateRepo
   // Run report mutation
   const runReportMutation = useMutation({
     mutationFn: async (reportId: number) => {
-      return await apiRequest(`/api/business/pool-reports/${reportId}/run`, {
-        method: "POST"
-      });
+      return await apiRequest('POST', `/api/business/pool-reports/${reportId}/run`);
     },
     onSuccess: () => {
       toast({
@@ -125,9 +123,7 @@ export default function PoolReportsTable({ reports = [], isLoading, onCreateRepo
   // Delete report mutation
   const deleteReportMutation = useMutation({
     mutationFn: async (reportId: number) => {
-      return await apiRequest(`/api/business/pool-reports/${reportId}`, {
-        method: "DELETE"
-      });
+      return await apiRequest('DELETE', `/api/business/pool-reports/${reportId}`);
     },
     onSuccess: () => {
       toast({
@@ -150,9 +146,7 @@ export default function PoolReportsTable({ reports = [], isLoading, onCreateRepo
   // Generate report PDF mutation
   const generatePdfMutation = useMutation({
     mutationFn: async (reportId: number) => {
-      return await apiRequest(`/api/business/pool-reports/${reportId}/pdf`, {
-        method: "GET"
-      });
+      return await apiRequest('GET', `/api/business/pool-reports/${reportId}/pdf`);
     },
     onSuccess: () => {
       toast({

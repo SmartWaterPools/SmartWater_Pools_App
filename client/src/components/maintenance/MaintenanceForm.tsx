@@ -99,10 +99,7 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
   const createMaintenanceMutation = useMutation({
     mutationFn: async (values: MaintenanceSubmitValues) => {
       console.log("Mutation function called with values:", values);
-      return await apiRequest('/api/maintenances', {
-        method: 'POST',
-        body: JSON.stringify(values)
-      });
+      return await apiRequest('POST', '/api/maintenances', values);
     },
     onSuccess: (data) => {
       console.log("Maintenance created successfully:", data);
