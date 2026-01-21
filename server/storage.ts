@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql } from "drizzle-orm";
 
@@ -1350,6 +1350,54 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bazzaMaintenanceAssignments.id, id))
       .limit(1);
     return result[0] || undefined;
+  }
+
+  // Maintenance operations (pool service maintenances)
+  async getMaintenances(): Promise<Maintenance[]> {
+    return db.select().from(maintenances).orderBy(desc(maintenances.scheduleDate));
+  }
+
+  async getMaintenancesByClientIds(clientIds: number[]): Promise<Maintenance[]> {
+    if (clientIds.length === 0) return [];
+    return db.select()
+      .from(maintenances)
+      .where(inArray(maintenances.clientId, clientIds))
+      .orderBy(desc(maintenances.scheduleDate));
+  }
+
+  async getMaintenance(id: number): Promise<Maintenance | undefined> {
+    const result = await db.select()
+      .from(maintenances)
+      .where(eq(maintenances.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getMaintenancesByClientId(clientId: number): Promise<Maintenance[]> {
+    return db.select()
+      .from(maintenances)
+      .where(eq(maintenances.clientId, clientId))
+      .orderBy(desc(maintenances.scheduleDate));
+  }
+
+  async createMaintenance(data: InsertMaintenance): Promise<Maintenance> {
+    const result = await db.insert(maintenances).values(data).returning();
+    return result[0];
+  }
+
+  async updateMaintenance(id: number, data: Partial<InsertMaintenance>): Promise<Maintenance | undefined> {
+    const result = await db.update(maintenances)
+      .set(data)
+      .where(eq(maintenances.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteMaintenance(id: number): Promise<boolean> {
+    const result = await db.delete(maintenances)
+      .where(eq(maintenances.id, id))
+      .returning();
+    return result.length > 0;
   }
 }
 

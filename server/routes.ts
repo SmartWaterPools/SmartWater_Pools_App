@@ -1235,7 +1235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Basic maintenances endpoint (alias for repairs)
+  // Basic maintenances endpoint - returns actual pool service maintenances
   app.get('/api/maintenances', isAuthenticated, async (req, res) => {
     try {
       const user = req.user as User;
@@ -1245,17 +1245,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
       const clientIds = organizationClients.map(c => c.id);
       
-      // Get all repairs and filter by organization's clients
-      const allRepairs = await storage.getRepairs();
-      const organizationRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+      // Get maintenances filtered by organization's clients
+      const organizationMaintenances = await storage.getMaintenancesByClientIds(clientIds);
       
-      // Format repairs as maintenances with proper client details
-      const formattedMaintenances = await Promise.all(organizationRepairs.map(async (repair) => {
-        const client = await storage.getUser(repair.clientId);
-        const technician = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
+      // Format maintenances with proper client and technician details
+      const formattedMaintenances = await Promise.all(organizationMaintenances.map(async (maintenance) => {
+        const client = await storage.getUser(maintenance.clientId);
+        const technician = maintenance.technicianId ? await storage.getUser(maintenance.technicianId) : null;
         
         return {
-          ...repair,
+          ...maintenance,
           // Add client details
           client: client ? {
             id: client.id,
@@ -1286,29 +1285,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const maintenanceId = parseInt(req.params.id);
       const { technicianId } = req.body;
       
-      // Get the maintenance/repair record
-      const repair = await storage.getRepair(maintenanceId);
-      if (!repair) {
+      // Get the maintenance record
+      const maintenance = await storage.getMaintenance(maintenanceId);
+      if (!maintenance) {
         return res.status(404).json({ error: 'Maintenance not found' });
       }
       
       // Verify the user has access (check client belongs to user's organization)
       const user = req.user as User;
-      const client = await storage.getUser(repair.clientId);
+      const client = await storage.getUser(maintenance.clientId);
       if (!client || client.organizationId !== user?.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
       // Update the technician assignment
-      const updatedRepair = await storage.updateRepair(maintenanceId, {
+      const updatedMaintenance = await storage.updateMaintenance(maintenanceId, {
         technicianId: technicianId || null
       });
       
-      if (!updatedRepair) {
+      if (!updatedMaintenance) {
         return res.status(500).json({ error: 'Failed to update technician' });
       }
       
-      res.json(updatedRepair);
+      res.json(updatedMaintenance);
     } catch (error) {
       console.error('Update maintenance technician error:', error);
       res.status(500).json({ error: 'Failed to update technician' });

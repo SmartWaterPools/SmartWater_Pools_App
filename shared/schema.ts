@@ -191,6 +191,42 @@ export const insertProjectDocumentSchema = createInsertSchema(projectDocuments).
   uploadDate: true,
 });
 
+// Maintenances - Recurring pool maintenance jobs
+export const maintenances = pgTable("maintenances", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  technicianId: integer("technician_id").notNull(),
+  scheduleDate: date("schedule_date").notNull(),
+  completionDate: date("completion_date"),
+  type: text("type").notNull(),
+  status: text("status").notNull(),
+  notes: text("notes"),
+  startTime: timestamp("start_time"),
+  endTime: timestamp("end_time"),
+  customerFeedback: integer("customer_feedback"),
+  customerNotes: text("customer_notes"),
+  invoiceAmount: integer("invoice_amount"),
+  laborCost: integer("labor_cost"),
+  totalChemicalCost: integer("total_chemical_cost"),
+  profitAmount: integer("profit_amount"),
+  profitPercentage: integer("profit_percentage"),
+  routeName: text("route_name"),
+  routeOrder: integer("route_order"),
+  serviceTimeMinutes: integer("service_time_minutes"),
+  mileage: integer("mileage"),
+  fuelCost: integer("fuel_cost"),
+  isOnTime: boolean("is_on_time"),
+  issues: text("issues"),
+  serviceEfficiency: integer("service_efficiency"),
+});
+
+export const insertMaintenanceSchema = createInsertSchema(maintenances).omit({
+  id: true,
+});
+
+export type InsertMaintenance = z.infer<typeof insertMaintenanceSchema>;
+export type Maintenance = typeof maintenances.$inferSelect;
+
 // Bazza Routes - Service routes for technicians
 export const bazzaRoutes = pgTable("bazza_routes", {
   id: serial("id").primaryKey(),
