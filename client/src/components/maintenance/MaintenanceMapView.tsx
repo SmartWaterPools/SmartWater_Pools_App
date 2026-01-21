@@ -93,22 +93,35 @@ export function MaintenanceMapView({
 
   // Compute the map bounds based on maintenance locations
   const bounds = useMemo(() => {
-    if (!maintenances?.length || !isLoaded) return null;
+    // Safety check: ensure Google Maps API is fully loaded before using it
+    if (!maintenances?.length || !isLoaded || typeof google === 'undefined' || !google.maps) {
+      return null;
+    }
     
-    const bounds = new google.maps.LatLngBounds();
-    let hasValidCoordinates = false;
+    try {
+      const bounds = new google.maps.LatLngBounds();
+      let hasValidCoordinates = false;
 
-    maintenances.forEach(maintenance => {
-      if (maintenance.client?.client?.latitude && maintenance.client?.client?.longitude) {
-        bounds.extend({
-          lat: maintenance.client.client.latitude,
-          lng: maintenance.client.client.longitude
-        });
-        hasValidCoordinates = true;
-      }
-    });
+      maintenances.forEach(maintenance => {
+        // Check all possible locations for coordinates
+        const lat = maintenance.client?.client?.latitude || 
+                    maintenance.client?.user?.latitude || 
+                    (maintenance.client as any)?.latitude;
+        const lng = maintenance.client?.client?.longitude || 
+                    maintenance.client?.user?.longitude || 
+                    (maintenance.client as any)?.longitude;
+        
+        if (lat && lng) {
+          bounds.extend({ lat, lng });
+          hasValidCoordinates = true;
+        }
+      });
 
-    return hasValidCoordinates ? bounds : null;
+      return hasValidCoordinates ? bounds : null;
+    } catch (error) {
+      console.error("Error computing map bounds:", error);
+      return null;
+    }
   }, [maintenances, isLoaded]);
 
   // Fit map to bounds when markers or map changes
