@@ -154,15 +154,15 @@ export function ServiceTemplates() {
       if (editingTemplate) {
         // Update existing template
         return await apiRequest(
+          "PATCH",
           `/api/service-templates/${editingTemplate.id}`, 
-          "PATCH", 
           values
         );
       } else {
         // Create new template
         return await apiRequest(
+          "POST",
           "/api/service-templates", 
-          "POST", 
           values
         );
       }
@@ -183,7 +183,7 @@ export function ServiceTemplates() {
   // Delete template mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest(`/api/service-templates/${id}`, "DELETE");
+      return await apiRequest("DELETE", `/api/service-templates/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-templates"] });
