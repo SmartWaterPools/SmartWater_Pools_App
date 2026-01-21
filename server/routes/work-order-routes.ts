@@ -12,10 +12,15 @@ router.get('/', isAuthenticated, async (req, res) => {
     const user = req.user as User;
     const { category, status, technicianId, projectId, repairId, includeClient } = req.query;
     
+    console.log('[Work Orders API] User:', user?.id, 'OrgId:', user?.organizationId, 'Category:', category);
+    
     let workOrders = await storage.getWorkOrders(user.organizationId);
+    console.log('[Work Orders API] Found', workOrders.length, 'work orders for org', user.organizationId);
     
     if (category && typeof category === 'string') {
+      const beforeFilter = workOrders.length;
       workOrders = workOrders.filter(wo => wo.category === category);
+      console.log('[Work Orders API] After category filter:', beforeFilter, '->', workOrders.length);
     }
     if (status && typeof status === 'string') {
       workOrders = workOrders.filter(wo => wo.status === status);

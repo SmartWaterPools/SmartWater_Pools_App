@@ -198,16 +198,25 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
 
   // Fetch work orders with category="maintenance" - these are the maintenance items
   // Using category query param ensures server-side filtering and client data hydration
-  const { data: maintenanceWorkOrders, isLoading } = useQuery<any[]>({
+  const { data: maintenanceWorkOrders, isLoading, error: workOrdersError } = useQuery<any[]>({
     queryKey: ["/api/work-orders", { category: "maintenance" }],
     queryFn: async () => {
+      console.log('[Maintenance] Fetching work orders...');
       const response = await fetch("/api/work-orders?category=maintenance", {
         credentials: "include"
       });
+      console.log('[Maintenance] Response status:', response.status);
       if (!response.ok) throw new Error("Failed to fetch maintenance work orders");
-      return response.json();
+      const data = await response.json();
+      console.log('[Maintenance] Received', data?.length || 0, 'work orders:', data);
+      return data;
     }
   });
+  
+  // Log any errors
+  if (workOrdersError) {
+    console.error('[Maintenance] Error fetching work orders:', workOrdersError);
+  }
 
   // Convert work orders to MaintenanceWithDetails format for display in all views
   const allMaintenances: MaintenanceWithDetails[] = (maintenanceWorkOrders || []).map((wo: any) => ({
