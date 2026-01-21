@@ -93,7 +93,7 @@ export default function Maintenance() {
         id: workOrder.id,
         title: workOrder.workOrderTitle || workOrder.title || 'Maintenance',
         description: workOrder.notes || workOrder.description || '',
-        scheduledDate: workOrder.scheduleDate || workOrder.scheduledDate,
+        scheduledDate: workOrder.scheduleDate,
         location: workOrder.client?.user?.address || '',
         clientName: workOrder.client?.user?.name || 'N/A'
       });
@@ -184,13 +184,15 @@ export default function Maintenance() {
   }, [technicians, techniciansLoading, techniciansError]);
 
   // Fetch work orders with category="maintenance" - these are the maintenance items
+  // Using category query param ensures server-side filtering and client data hydration
   const { data: maintenanceWorkOrders, isLoading } = useQuery<any[]>({
-    queryKey: ["/api/work-orders"],
-    select: (data) => {
-      // Filter to only maintenance category work orders
-      const maintenanceOrders = data?.filter((wo: any) => wo.category === "maintenance") || [];
-      console.log("Maintenance work orders:", maintenanceOrders.length);
-      return maintenanceOrders;
+    queryKey: ["/api/work-orders", { category: "maintenance" }],
+    queryFn: async () => {
+      const response = await fetch("/api/work-orders?category=maintenance", {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch maintenance work orders");
+      return response.json();
     }
   });
 
@@ -209,14 +211,22 @@ export default function Maintenance() {
     // Work order specific fields for display
     workOrderId: wo.id,
     workOrderTitle: wo.title,
-    // Create a compatible client object structure
-    client: {
+    // Preserve clientId and use actual client data from the work order's client relationship if available
+    client: wo.client ? {
+      id: wo.client.id || wo.clientId || 0,
+      user: {
+        id: wo.client.user?.id || wo.client.id || wo.clientId || 0,
+        name: wo.client.user?.name || wo.client.companyName || wo.title || 'Maintenance Work Order',
+        email: wo.client.user?.email || '',
+        address: wo.client.user?.address || wo.location || ''
+      }
+    } : {
       id: wo.clientId || 0,
       user: {
         id: wo.clientId || 0,
         name: wo.title || 'Maintenance Work Order',
         email: '',
-        address: wo.location || 'See work order for details'
+        address: wo.location || ''
       }
     }
   } as MaintenanceWithDetails & { workOrderId?: number; workOrderTitle?: string }));

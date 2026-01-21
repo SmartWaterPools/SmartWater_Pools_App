@@ -99,13 +99,18 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
   const createMaintenanceMutation = useMutation({
     mutationFn: async (values: MaintenanceSubmitValues) => {
       console.log("Creating maintenance work order with values:", values);
+      const maintenanceTypeLabel = values.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      const descriptionWithType = values.notes 
+        ? `[Maintenance Type: ${maintenanceTypeLabel}]\n\n${values.notes}`
+        : `[Maintenance Type: ${maintenanceTypeLabel}]`;
       const workOrderData = {
-        title: `${values.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Maintenance`,
-        description: values.notes || '',
+        title: `${maintenanceTypeLabel} Maintenance`,
+        description: descriptionWithType,
         category: 'maintenance',
         priority: 'medium',
         status: 'pending',
         clientId: values.clientId,
+        technicianId: values.technicianId,
         scheduledDate: values.scheduleDate,
       };
       return await apiRequest('POST', '/api/work-orders', workOrderData);
