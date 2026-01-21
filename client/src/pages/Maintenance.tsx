@@ -19,7 +19,8 @@ import {
   FileBarChart2,
   Map,
   ListFilter,
-  List
+  List,
+  RefreshCw
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -77,6 +78,40 @@ export default function Maintenance() {
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
   const [route, setRoute] = useState<BazzaRoute | undefined>(undefined);
+
+  // Check Google Calendar connection status
+  const { data: calendarStatus } = useQuery<{ connected: boolean }>({
+    queryKey: ["/api/google-calendar/connection-status"],
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  // Google Calendar sync mutation
+  const syncToCalendarMutation = useMutation({
+    mutationFn: async (workOrder: any) => {
+      return await apiRequest('POST', '/api/google-calendar/sync-work-order', {
+        id: workOrder.id,
+        title: workOrder.workOrderTitle || workOrder.title || 'Maintenance',
+        description: workOrder.notes || workOrder.description || '',
+        scheduledDate: workOrder.scheduleDate || workOrder.scheduledDate,
+        location: workOrder.client?.user?.address || '',
+        clientName: workOrder.client?.user?.name || 'N/A'
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Synced to Google Calendar",
+        description: "Maintenance event has been added to your Google Calendar.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Sync Failed",
+        description: error.message || "Could not sync to Google Calendar.",
+        variant: "destructive",
+      });
+    }
+  });
 
   // Fetch technicians
   const { 
@@ -377,6 +412,43 @@ export default function Maintenance() {
               <PlusCircle className="h-4 w-4 mr-1" />
               Schedule Maintenance
             </Button>
+            {calendarStatus?.connected && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" className="flex gap-2">
+                    <RefreshCw className="h-4 w-4" />
+                    <span className="hidden sm:inline">Sync Calendar</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      if (allMaintenances.length === 0) {
+                        toast({
+                          title: "No maintenance items",
+                          description: "There are no maintenance work orders to sync.",
+                        });
+                        return;
+                      }
+                      allMaintenances.forEach(m => syncToCalendarMutation.mutate(m));
+                    }}
+                    disabled={syncToCalendarMutation.isPending}
+                  >
+                    {syncToCalendarMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Sync All to Google Calendar
+                      </>
+                    )}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </div>
