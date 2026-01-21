@@ -64,7 +64,6 @@ export default function Maintenance() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const [date, setDate] = useState<Date | undefined>(new Date());
   const [month, setMonth] = useState<Date>(new Date());
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -233,43 +232,6 @@ export default function Maintenance() {
 
   // Filter maintenances based on search and status (includes work orders)
   const filteredMaintenances = allMaintenances?.filter(maintenance => {
-    console.log("Filtering maintenance record:", maintenance.id, maintenance);
-    
-    // If date filter is applied, only show maintenances for that date
-    if (date) {
-      // Parse the date explicitly to ensure proper comparison
-      try {
-        console.log(`Comparing maintenance date "${maintenance.scheduleDate}" with filter date "${format(date, 'yyyy-MM-dd')}"`);
-        
-        // For scheduleDate strings, we need to make sure we're comparing consistently
-        let maintenanceDateForComparison;
-        
-        if (typeof maintenance.scheduleDate === 'string' && maintenance.scheduleDate.length <= 10) {
-          // It's just a date string, convert both to YYYY-MM-DD for comparison
-          const formattedFilterDate = format(date, 'yyyy-MM-dd');
-          console.log(`String comparison: "${maintenance.scheduleDate}" vs "${formattedFilterDate}"`);
-          
-          // Direct string comparison for dates in YYYY-MM-DD format
-          if (maintenance.scheduleDate !== formattedFilterDate) {
-            console.log(`Date filter excluded maintenance #${maintenance.id} - date strings don't match`);
-            return false;
-          }
-        } else {
-          // Parse the schedule date and use date-fns for comparison
-          const scheduleDate = new Date(maintenance.scheduleDate);
-          console.log(`Date object comparison: ${scheduleDate.toISOString()} vs ${date.toISOString()}`);
-          
-          if (!isSameDay(scheduleDate, date)) {
-            console.log(`Date filter excluded maintenance #${maintenance.id} - not same day`);
-            return false;
-          }
-        }
-      } catch (e) {
-        console.error("Error parsing date:", maintenance.scheduleDate, e);
-        return false;
-      }
-    }
-    
     // Apply status filter if not set to "all"
     if (statusFilter !== "all" && maintenance.status !== statusFilter) {
       console.log(`Status filter excluded maintenance #${maintenance.id} - status ${maintenance.status} != ${statusFilter}`);
@@ -335,11 +297,6 @@ export default function Maintenance() {
     setMonth(addMonths(month, 1));
   };
 
-  // Clear date filter
-  const clearDateFilter = () => {
-    setDate(undefined);
-  };
-
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -356,35 +313,6 @@ export default function Maintenance() {
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="flex gap-2">
-                  <CalendarIcon className="h-4 w-4" />
-                  {date ? format(date, "PPP") : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <div className="p-2 flex justify-between items-center border-b">
-                  <span className="text-sm font-medium">Filter by date</span>
-                  {date && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={clearDateFilter}
-                      className="h-8 px-2 text-xs"
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={setDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="flex gap-2">
@@ -517,20 +445,6 @@ export default function Maintenance() {
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
-                {date && (
-                  <Badge variant="outline" className="flex items-center gap-1 px-3 py-1">
-                    <CalendarIcon className="h-3 w-3" />
-                    {format(date, "PPP")}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-4 w-4 ml-2 p-0"
-                      onClick={clearDateFilter}
-                    >
-                      <XCircle className="h-3 w-3" />
-                    </Button>
-                  </Badge>
-                )}
               </div>
               {isLoading ? (
                 <div className="space-y-4">
