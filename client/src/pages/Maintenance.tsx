@@ -178,8 +178,47 @@ export default function Maintenance() {
     }
   });
 
-  // Filter maintenances based on search and status
-  const filteredMaintenances = maintenances?.filter(maintenance => {
+  // Fetch work orders with category="maintenance" to show on calendar
+  const { data: workOrders } = useQuery<any[]>({
+    queryKey: ["/api/work-orders"],
+    select: (data) => {
+      // Filter to only maintenance category work orders
+      return data?.filter((wo: any) => wo.category === "maintenance") || [];
+    }
+  });
+
+  // Convert work orders to MaintenanceWithDetails format for calendar display
+  // Work orders with category="maintenance" will appear on the maintenance calendar
+  const workOrdersAsMaintenances: MaintenanceWithDetails[] = (workOrders || [])
+    .filter((wo: any) => wo.scheduledDate) // Only include work orders with a scheduled date
+    .map((wo: any) => ({
+      id: wo.id, // Use real ID - we'll distinguish by type
+      clientId: wo.clientId || 0,
+      technicianId: wo.technicianId,
+      scheduleDate: wo.scheduledDate, // The API returns scheduledDate in camelCase
+      completionDate: wo.status === 'completed' ? wo.updatedAt : null,
+      type: 'work_order', // Mark as work order type for different display
+      status: wo.status === 'pending' ? 'scheduled' : wo.status,
+      notes: `[Work Order] ${wo.title}${wo.description ? ': ' + wo.description : ''}`,
+      createdAt: wo.createdAt,
+      updatedAt: wo.updatedAt,
+      // Create a compatible client object structure
+      client: {
+        id: wo.clientId || 0,
+        user: {
+          id: wo.clientId || 0,
+          name: wo.title || 'Work Order', // Use title as display name
+          email: '',
+          address: 'See work order for details'
+        }
+      }
+    } as MaintenanceWithDetails));
+
+  // Combine maintenances with work orders for calendar
+  const allMaintenances = [...(maintenances || []), ...workOrdersAsMaintenances];
+
+  // Filter maintenances based on search and status (includes work orders)
+  const filteredMaintenances = allMaintenances?.filter(maintenance => {
     console.log("Filtering maintenance record:", maintenance.id, maintenance);
     
     // If date filter is applied, only show maintenances for that date
@@ -223,8 +262,9 @@ export default function Maintenance() {
       return false;
     }
     
-    // Apply search filter to client name
-    if (searchTerm && !maintenance.client.user.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+    // Apply search filter to client name (with null guards for work orders)
+    const clientName = maintenance.client?.user?.name || maintenance.notes || '';
+    if (searchTerm && !clientName.toLowerCase().includes(searchTerm.toLowerCase())) {
       console.log(`Search filter excluded maintenance #${maintenance.id} - name doesn't match "${searchTerm}"`);
       return false;
     }
@@ -258,15 +298,34 @@ export default function Maintenance() {
     }
   });
 
-  // Update status handler
+  // Update status handler - only works for real maintenances, not work orders
   const handleStatusUpdate = (maintenance: MaintenanceWithDetails, newStatus: string) => {
+    // Check if this is a work order (type = 'work_order')
+    if (maintenance.type === 'work_order') {
+      // For work orders, redirect to the work order detail page instead
+      toast({
+        title: "Work Order",
+        description: "Please update work order status from the Work Orders page.",
+      });
+      navigate(`/work-orders/${maintenance.id}`);
+      return;
+    }
+    
     setSelectedMaintenance(maintenance);
     setIsUpdatingStatus(true);
     updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
   };
 
   // Open maintenance report form - supports both dialog and page navigation
+  // For work orders, redirect to work order detail page instead
   const handleMaintenanceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
+    // Check if this is a work order (type = 'work_order')
+    if (maintenance.type === 'work_order') {
+      // For work orders, redirect to work order detail page
+      navigate(`/work-orders/${maintenance.id}`);
+      return;
+    }
+    
     if (usePage) {
       // Use the maintenance report page
       navigate(`/maintenance-report/${maintenance.id}`);
