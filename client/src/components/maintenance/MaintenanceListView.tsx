@@ -82,9 +82,9 @@ export function MaintenanceListView({
   const [selectedMaintenanceForWorkOrder, setSelectedMaintenanceForWorkOrder] = useState<MaintenanceWithDetails | null>(null);
   
   
-  // Get technicians for the dropdown
+  // Get technicians for the dropdown - use endpoint that returns nested user object
   const { data: technicians = [], isLoading: isTechniciansLoading } = useQuery<TechnicianWithUser[]>({
-    queryKey: ['/api/technicians'],
+    queryKey: ['/api/technicians-with-users'],
     staleTime: 5 * 60 * 1000 // 5 minutes
   });
   
@@ -295,15 +295,25 @@ export function MaintenanceListView({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {unroutedMaintenances.map((maintenance) => {
+              const workOrderTitle = (maintenance as any).workOrderTitle;
+              const hasRealClient = maintenance.client?.user?.name && maintenance.client.user.name !== workOrderTitle;
+              const displayTitle = workOrderTitle || maintenance.client?.user?.name || 'Maintenance';
+              const clientName = hasRealClient ? maintenance.client?.user?.name : null;
+              const clientAddress = maintenance.client?.user?.address || '';
+              const techName = maintenance.technician?.user?.name;
+              
               return (
               <Card key={maintenance.id} className="overflow-hidden border-amber-200">
                 <CardHeader className="pb-2 bg-amber-50">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-base">{maintenance.client?.user?.name}</CardTitle>
+                      <CardTitle className="text-base">{displayTitle}</CardTitle>
+                      {clientName && (
+                        <p className="text-sm text-muted-foreground">{clientName}</p>
+                      )}
                       <CardDescription className="text-xs flex items-center mt-1">
                         <MapPin className="h-3 w-3 mr-1" />
-                        {maintenance.client?.user?.address || maintenance.client?.client?.address || 'No address'}
+                        {clientAddress || 'No address'}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
@@ -461,15 +471,25 @@ export function MaintenanceListView({
           <h3 className="text-lg font-medium">{groupName}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {groupMaintenance.map((maintenance) => {
+              const workOrderTitle = (maintenance as any).workOrderTitle;
+              const hasRealClient = maintenance.client?.user?.name && maintenance.client.user.name !== workOrderTitle;
+              const displayTitle = workOrderTitle || maintenance.client?.user?.name || 'Maintenance';
+              const clientName = hasRealClient ? maintenance.client?.user?.name : null;
+              const clientAddress = maintenance.client?.user?.address || '';
+              const techName = maintenance.technician?.user?.name;
+              
               return (
               <Card key={maintenance.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-base">{maintenance.client?.user?.name}</CardTitle>
+                      <CardTitle className="text-base">{displayTitle}</CardTitle>
+                      {clientName && (
+                        <p className="text-sm text-muted-foreground">{clientName}</p>
+                      )}
                       <CardDescription className="text-xs flex items-center mt-1">
                         <MapPin className="h-3 w-3 mr-1" />
-                        {maintenance.client?.user?.address || maintenance.client?.client?.address || 'No address'}
+                        {clientAddress || 'No address'}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">

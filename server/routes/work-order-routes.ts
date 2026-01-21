@@ -30,12 +30,16 @@ router.get('/', isAuthenticated, async (req, res) => {
       workOrders = workOrders.filter(wo => wo.repairId === parseInt(repairId as string));
     }
     
-    // Hydrate client info for maintenance work orders or when explicitly requested
+    // Hydrate client and technician info for maintenance work orders or when explicitly requested
     if (includeClient === 'true' || category === 'maintenance') {
+      const clients = await storage.getClients();
+      const technicians = await storage.getTechnicians();
+      
       const hydratedWorkOrders = await Promise.all(workOrders.map(async (wo) => {
         const result: Record<string, unknown> = { ...wo };
+        
+        // Hydrate client info
         if (wo.clientId) {
-          const clients = await storage.getClients();
           const clientRecord = clients.find(c => c.userId === wo.clientId || c.id === wo.clientId);
           if (clientRecord) {
             const clientUser = await storage.getUser(clientRecord.userId);
@@ -45,11 +49,30 @@ router.get('/', isAuthenticated, async (req, res) => {
                 id: clientUser.id, 
                 name: clientUser.name, 
                 email: clientUser.email, 
-                address: clientUser.address 
+                address: clientUser.address,
+                phone: clientUser.phone
               } : null
             };
           }
         }
+        
+        // Hydrate technician info
+        if (wo.technicianId) {
+          const technician = technicians.find(t => t.id === wo.technicianId);
+          if (technician) {
+            const techUser = await storage.getUser(technician.userId);
+            result.technician = {
+              id: technician.id,
+              user: techUser ? { 
+                id: techUser.id, 
+                name: techUser.name, 
+                email: techUser.email,
+                phone: techUser.phone
+              } : null
+            };
+          }
+        }
+        
         return result;
       }));
       return res.json(hydratedWorkOrders);
