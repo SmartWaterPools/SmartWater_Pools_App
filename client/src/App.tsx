@@ -86,8 +86,10 @@ function Router() {
       <Route path="/clients/:id/portal" component={() => <ProtectedRoute component={ClientPortal} />} />
       <Route path="/clients/:id" component={() => <ProtectedRoute component={ClientDetails} />} />
       <Route path="/clients" component={() => <ProtectedRoute component={Clients} />} />
-      <Route path="/maintenance/list" component={() => <ProtectedRoute component={() => <MaintenanceList defaultTab="list" />} />} />
-      <Route path="/maintenance/routes" component={() => <ProtectedRoute component={() => <MaintenanceList defaultTab="routes" />} />} />
+      <Route path="/maintenance/calendar" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} />} />
+      <Route path="/maintenance/list" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="list" />} />} />
+      <Route path="/maintenance/map" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="map" />} />} />
+      <Route path="/maintenance/routes" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="routes" />} />} />
       <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} />} />
       <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} />} />
       <Route path="/work-orders/:id" component={() => <ProtectedRoute component={WorkOrderDetail} />} />

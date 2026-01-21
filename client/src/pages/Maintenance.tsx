@@ -60,10 +60,14 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 
-export default function Maintenance() {
+interface MaintenanceProps {
+  defaultTab?: 'calendar' | 'list' | 'map' | 'routes';
+}
+
+export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const [month, setMonth] = useState<Date>(new Date());
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -72,11 +76,21 @@ export default function Maintenance() {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [maintenanceReportOpen, setMaintenanceReportOpen] = useState(false);
   const [selectedReportMaintenance, setSelectedReportMaintenance] = useState<MaintenanceWithDetails | null>(null);
-  const [selectedView, setSelectedView] = useState<string>("calendar");
   const [selectedTechnician, setSelectedTechnician] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
   const [route, setRoute] = useState<BazzaRoute | undefined>(undefined);
+  
+  // Determine initial view based on URL path or defaultTab prop
+  const getInitialView = (): string => {
+    if (location === '/maintenance/map') return 'map';
+    if (location === '/maintenance/list') return 'list';
+    if (location === '/maintenance/routes') return 'routes';
+    if (location === '/maintenance/calendar') return 'calendar';
+    return defaultTab;
+  };
+  
+  const [selectedView, setSelectedView] = useState<string>(getInitialView);
 
   // Check Google Calendar connection status
   const { data: calendarStatus } = useQuery<{ connected: boolean }>({
@@ -394,26 +408,29 @@ export default function Maintenance() {
 
 
       <Tabs 
-        defaultValue="calendar" 
+        value={selectedView}
         className="mb-6"
-        onValueChange={(value) => setSelectedView(value)}
+        onValueChange={(value) => {
+          setSelectedView(value);
+          const urlMap: Record<string, string> = {
+            calendar: '/maintenance/calendar',
+            list: '/maintenance/list',
+            map: '/maintenance/map',
+            routes: '/maintenance/routes'
+          };
+          navigate(urlMap[value] || '/maintenance');
+        }}
       >
         <TabsList className="grid grid-cols-4 w-full md:w-auto">
-          <TabsTrigger value="calendar" className="flex items-center gap-2" onClick={() => setSelectedView("calendar")}>
+          <TabsTrigger value="calendar" className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Calendar</span>
           </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2" onClick={() => {
-            setSelectedView("list");
-            navigate("/maintenance/list");
-          }}>
+          <TabsTrigger value="list" className="flex items-center gap-2">
             <List className="h-4 w-4" />
             <span className="hidden sm:inline">List</span>
           </TabsTrigger>
-          <TabsTrigger value="map" className="flex items-center gap-2" onClick={() => {
-            setSelectedView("map");
-            navigate("/maintenance/map");
-          }}>
+          <TabsTrigger value="map" className="flex items-center gap-2">
             <Map className="h-4 w-4" />
             <span className="hidden sm:inline">Map</span>
           </TabsTrigger>
