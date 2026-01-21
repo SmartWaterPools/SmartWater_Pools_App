@@ -15,6 +15,7 @@ import vendorRoutes from "./routes/vendor-routes";
 import workOrderRoutes from "./routes/work-order-routes";
 import workOrderRequestRoutes from "./routes/work-order-request-routes";
 import serviceTemplateRoutes from "./routes/service-template-routes";
+import googleCalendarRoutes from "./routes/google-calendar-routes";
 import businessRoutes from "./routes/business-routes";
 import invoiceRoutes from "./routes/invoice-routes";
 import { isAuthenticated } from "./auth";
@@ -50,6 +51,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount service template routes
   app.use('/api/service-templates', serviceTemplateRoutes);
+
+  // Mount Google Calendar routes
+  app.use('/api/google-calendar', googleCalendarRoutes);
 
   // Mount business routes
   app.use('/api/business', businessRoutes);

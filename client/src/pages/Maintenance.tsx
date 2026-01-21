@@ -558,13 +558,12 @@ export default function Maintenance() {
           onOpenChange={setOpen} 
           initialDate={new Date()}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
             queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
             setOpen(false);
             toast({
               title: "Maintenance scheduled",
-              description: "The maintenance has been scheduled successfully.",
+              description: "The maintenance work order has been created successfully.",
             });
           }}
         />

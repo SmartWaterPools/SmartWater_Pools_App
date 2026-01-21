@@ -95,20 +95,28 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
     mode: "onChange", // Add this to validate on change
   });
 
-  // Create maintenance mutation
+  // Create maintenance work order mutation
   const createMaintenanceMutation = useMutation({
     mutationFn: async (values: MaintenanceSubmitValues) => {
-      console.log("Mutation function called with values:", values);
-      return await apiRequest('POST', '/api/maintenances', values);
+      console.log("Creating maintenance work order with values:", values);
+      const workOrderData = {
+        title: `${values.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} Maintenance`,
+        description: values.notes || '',
+        category: 'maintenance',
+        priority: 'medium',
+        status: 'pending',
+        clientId: values.clientId,
+        scheduledDate: values.scheduleDate,
+      };
+      return await apiRequest('POST', '/api/work-orders', workOrderData);
     },
     onSuccess: (data) => {
-      console.log("Maintenance created successfully:", data);
-      queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
+      console.log("Maintenance work order created successfully:", data);
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
       toast({
         title: "Maintenance scheduled",
-        description: "The maintenance appointment has been scheduled successfully.",
+        description: "The maintenance work order has been created successfully.",
       });
       form.reset();
       onOpenChange(false);
@@ -116,7 +124,7 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
     onError: (error) => {
       toast({
         title: "Failed to schedule maintenance",
-        description: "There was an error scheduling the maintenance. Please try again.",
+        description: "There was an error creating the maintenance work order. Please try again.",
         variant: "destructive",
       });
     }
