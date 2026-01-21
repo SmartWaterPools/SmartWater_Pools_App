@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth, parseISO } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMonth, parseISO } from "date-fns";
 import { useLocation } from "wouter";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
@@ -19,9 +19,6 @@ import {
   DropdownMenuSeparator
 } from "../../components/ui/dropdown-menu";
 import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Calendar as CalendarIcon, 
   Clock, 
   User, 
   MoreHorizontal,
@@ -36,7 +33,6 @@ import {
 import { MaintenanceWithDetails } from "../../lib/types";
 import { getStatusClasses } from "../../lib/types";
 import { MaintenanceReportForm } from "../../components/maintenance/MaintenanceReportForm";
-import { CreateWorkOrderFromMaintenanceDialog } from "./CreateWorkOrderFromMaintenanceDialog";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -65,10 +61,6 @@ export function MaintenanceCalendar({
   const [serviceReportOpen, setServiceReportOpen] = useState(false);
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [debugMode, setDebugMode] = useState<boolean>(false); // Disable debugging for production
-  
-  // Work Order Dialog State
-  const [workOrderDialogOpen, setWorkOrderDialogOpen] = useState(false);
-  const [selectedMaintenanceForWorkOrder, setSelectedMaintenanceForWorkOrder] = useState<MaintenanceWithDetails | null>(null);
   
   
   // This will run on first render to help diagnose data issues
@@ -497,8 +489,6 @@ export function MaintenanceCalendar({
                 const statusClasses = getStatusClasses(maintenance.status);
                 const isUpdating = isUpdatingStatus && selectedMaintenance?.id === maintenance.id;
                 const hasServiceReport = maintenance.notes && (maintenance.notes.includes("Service Report:") || maintenance.notes.includes("Maintenance Report:"));
-                const linkedWorkOrders = getLinkedWorkOrders(maintenance.id);
-                const hasLinkedWorkOrders = linkedWorkOrders.length > 0;
                 
                 return (
                   <Card 
@@ -508,23 +498,11 @@ export function MaintenanceCalendar({
                     <CardHeader className="pb-2">
                       <CardTitle className="text-lg flex justify-between items-center">
                         <span className="capitalize">{formatMaintenanceType(maintenance.type)}</span>
-                        <div className="flex items-center gap-2">
-                          {hasLinkedWorkOrders && (
-                            <Badge 
-                              variant="outline"
-                              className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100"
-                              onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
-                            >
-                              <ClipboardList className="h-3 w-3 mr-1" />
-                              {linkedWorkOrders.length} Work Order{linkedWorkOrders.length > 1 ? 's' : ''}
-                            </Badge>
-                          )}
-                          <Badge 
-                            className={`${statusClasses.bg} ${statusClasses.text}`}
-                          >
-                            {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
-                          </Badge>
-                        </div>
+                        <Badge 
+                          className={`${statusClasses.bg} ${statusClasses.text}`}
+                        >
+                          {maintenance.status.charAt(0).toUpperCase() + maintenance.status.slice(1).replace('_', ' ')}
+                        </Badge>
                       </CardTitle>
                       <CardDescription>
                         {hasServiceReport ? 
@@ -625,26 +603,13 @@ export function MaintenanceCalendar({
                             
                             <DropdownMenuSeparator />
                             
-                            {hasLinkedWorkOrders ? (
-                              <DropdownMenuItem 
-                                className="cursor-pointer"
-                                onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
-                              >
-                                <ExternalLink className="h-4 w-4 mr-2" />
-                                View Work Order
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem 
-                                className="cursor-pointer"
-                                onClick={() => {
-                                  setSelectedMaintenanceForWorkOrder(maintenance);
-                                  setWorkOrderDialogOpen(true);
-                                }}
-                              >
-                                <ClipboardList className="h-4 w-4 mr-2" />
-                                Create Work Order
-                              </DropdownMenuItem>
-                            )}
+                            <DropdownMenuItem 
+                              className="cursor-pointer"
+                              onClick={() => navigate(`/work-orders/${maintenance.id}`)}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              View Work Order
+                            </DropdownMenuItem>
                             
                             <DropdownMenuSeparator />
                             
@@ -690,13 +655,6 @@ export function MaintenanceCalendar({
         open={serviceReportOpen} 
         onOpenChange={setServiceReportOpen}
         maintenance={selectedServiceMaintenance}
-      />
-      
-      {/* Work Order Creation Dialog */}
-      <CreateWorkOrderFromMaintenanceDialog
-        open={workOrderDialogOpen}
-        onOpenChange={setWorkOrderDialogOpen}
-        maintenance={selectedMaintenanceForWorkOrder}
       />
     </div>
   );
