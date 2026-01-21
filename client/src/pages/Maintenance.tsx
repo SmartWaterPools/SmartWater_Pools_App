@@ -148,74 +148,43 @@ export default function Maintenance() {
     });
   }, [technicians, techniciansLoading, techniciansError]);
 
-  // Fetch maintenances
-  const { data: maintenances, isLoading } = useQuery<MaintenanceWithDetails[]>({
-    queryKey: ["/api/maintenances"],
-    select: (data) => {
-      console.log("Raw maintenance data from API:", data);
-      
-      // Enhanced debugging for March 9, 2025 appointments
-      const march9Records = data.filter(m => {
-        const dateStr = m.scheduleDate || '';
-        if (typeof dateStr === 'string' && dateStr.includes('2025-03-09')) {
-          console.log(`Found March 9 record - ID: ${m.id}, Date: ${dateStr}`);
-          return true;
-        }
-        return false;
-      });
-      
-      if (march9Records.length > 0) {
-        console.log(`Found ${march9Records.length} maintenance records for March 9, 2025:`);
-        march9Records.forEach(m => {
-          console.log(`- ID: ${m.id}, Client: ${m.client?.user?.name}, Status: ${m.status}`);
-          console.log(`  Date value: "${m.scheduleDate}" (${typeof m.scheduleDate})`);
-        });
-      } else {
-        console.log("No March 9, 2025 maintenance records found in API response");
-      }
-      
-      return data;
-    }
-  });
-
-  // Fetch work orders with category="maintenance" to show on calendar
-  const { data: workOrders } = useQuery<any[]>({
+  // Fetch work orders with category="maintenance" - these are the maintenance items
+  const { data: maintenanceWorkOrders, isLoading } = useQuery<any[]>({
     queryKey: ["/api/work-orders"],
     select: (data) => {
       // Filter to only maintenance category work orders
-      return data?.filter((wo: any) => wo.category === "maintenance") || [];
+      const maintenanceOrders = data?.filter((wo: any) => wo.category === "maintenance") || [];
+      console.log("Maintenance work orders:", maintenanceOrders.length);
+      return maintenanceOrders;
     }
   });
 
-  // Convert work orders to MaintenanceWithDetails format for calendar display
-  // Work orders with category="maintenance" will appear on the maintenance calendar
-  const workOrdersAsMaintenances: MaintenanceWithDetails[] = (workOrders || [])
-    .filter((wo: any) => wo.scheduledDate) // Only include work orders with a scheduled date
-    .map((wo: any) => ({
-      id: wo.id, // Use real ID - we'll distinguish by type
-      clientId: wo.clientId || 0,
-      technicianId: wo.technicianId,
-      scheduleDate: wo.scheduledDate, // The API returns scheduledDate in camelCase
-      completionDate: wo.status === 'completed' ? wo.updatedAt : null,
-      type: 'work_order', // Mark as work order type for different display
-      status: wo.status === 'pending' ? 'scheduled' : wo.status,
-      notes: `[Work Order] ${wo.title}${wo.description ? ': ' + wo.description : ''}`,
-      createdAt: wo.createdAt,
-      updatedAt: wo.updatedAt,
-      // Create a compatible client object structure
-      client: {
+  // Convert work orders to MaintenanceWithDetails format for display in all views
+  const allMaintenances: MaintenanceWithDetails[] = (maintenanceWorkOrders || []).map((wo: any) => ({
+    id: wo.id,
+    clientId: wo.clientId || 0,
+    technicianId: wo.technicianId,
+    scheduleDate: wo.scheduledDate || '', // The API returns scheduledDate in camelCase
+    completionDate: wo.status === 'completed' ? wo.completedAt : null,
+    type: wo.priority || 'maintenance', // Use priority or default to maintenance
+    status: wo.status === 'pending' ? 'scheduled' : wo.status,
+    notes: wo.description || '',
+    createdAt: wo.createdAt,
+    updatedAt: wo.updatedAt,
+    // Work order specific fields for display
+    workOrderId: wo.id,
+    workOrderTitle: wo.title,
+    // Create a compatible client object structure
+    client: {
+      id: wo.clientId || 0,
+      user: {
         id: wo.clientId || 0,
-        user: {
-          id: wo.clientId || 0,
-          name: wo.title || 'Work Order', // Use title as display name
-          email: '',
-          address: 'See work order for details'
-        }
+        name: wo.title || 'Maintenance Work Order',
+        email: '',
+        address: wo.location || 'See work order for details'
       }
-    } as MaintenanceWithDetails));
-
-  // Combine maintenances with work orders for calendar
-  const allMaintenances = [...(maintenances || []), ...workOrdersAsMaintenances];
+    }
+  } as MaintenanceWithDetails & { workOrderId?: number; workOrderTitle?: string }));
 
   // Filter maintenances based on search and status (includes work orders)
   const filteredMaintenances = allMaintenances?.filter(maintenance => {
@@ -273,67 +242,43 @@ export default function Maintenance() {
     return true;
   });
 
-  // Mutation to update maintenance status
-  const updateMaintenanceMutation = useMutation({
+  // Mutation to update work order status (maintenance work orders)
+  const updateWorkOrderMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return await apiRequest('PATCH', `/api/maintenances/${id}`, { status });
+      return await apiRequest('PATCH', `/api/work-orders/${id}`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
       toast({
-        title: "Maintenance updated",
-        description: "The maintenance status has been updated successfully.",
+        title: "Status updated",
+        description: "The maintenance work order status has been updated.",
       });
       setIsUpdatingStatus(false);
     },
     onError: (error) => {
       toast({
-        title: "Failed to update maintenance",
-        description: "There was an error updating the maintenance status. Please try again.",
+        title: "Failed to update status",
+        description: "There was an error updating the status. Please try again.",
         variant: "destructive",
       });
       setIsUpdatingStatus(false);
     }
   });
 
-  // Update status handler - only works for real maintenances, not work orders
+  // Update status handler - now updates work orders directly
   const handleStatusUpdate = (maintenance: MaintenanceWithDetails, newStatus: string) => {
-    // Check if this is a work order (type = 'work_order')
-    if (maintenance.type === 'work_order') {
-      // For work orders, redirect to the work order detail page instead
-      toast({
-        title: "Work Order",
-        description: "Please update work order status from the Work Orders page.",
-      });
-      navigate(`/work-orders/${maintenance.id}`);
-      return;
-    }
-    
     setSelectedMaintenance(maintenance);
     setIsUpdatingStatus(true);
-    updateMaintenanceMutation.mutate({ id: maintenance.id, status: newStatus });
+    // Map maintenance status to work order status
+    const workOrderStatus = newStatus === 'scheduled' ? 'pending' : newStatus;
+    updateWorkOrderMutation.mutate({ id: maintenance.id, status: workOrderStatus });
   };
 
-  // Open maintenance report form - supports both dialog and page navigation
-  // For work orders, redirect to work order detail page instead
+  // Open work order details for the maintenance item
   const handleMaintenanceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
-    // Check if this is a work order (type = 'work_order')
-    if (maintenance.type === 'work_order') {
-      // For work orders, redirect to work order detail page
-      navigate(`/work-orders/${maintenance.id}`);
-      return;
-    }
-    
-    if (usePage) {
-      // Use the maintenance report page
-      navigate(`/maintenance-report/${maintenance.id}`);
-    } else {
-      // Use the dialog form
-      setSelectedReportMaintenance(maintenance);
-      setMaintenanceReportOpen(true);
-    }
+    // Navigate to work order detail page
+    navigate(`/work-orders/${maintenance.id}`);
   };
 
   // Month navigation handlers

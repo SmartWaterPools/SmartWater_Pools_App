@@ -56,7 +56,6 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import { CreateWorkOrderFromMaintenanceDialog } from "./CreateWorkOrderFromMaintenanceDialog";
-import { WorkOrder } from "@shared/schema";
 
 type MaintenanceListViewProps = {
   maintenances: MaintenanceWithDetails[];
@@ -82,17 +81,6 @@ export function MaintenanceListView({
   const [workOrderDialogOpen, setWorkOrderDialogOpen] = useState(false);
   const [selectedMaintenanceForWorkOrder, setSelectedMaintenanceForWorkOrder] = useState<MaintenanceWithDetails | null>(null);
   
-  // Fetch work orders to check for linked maintenance
-  const { data: workOrders } = useQuery<WorkOrder[]>({
-    queryKey: ["/api/work-orders"],
-    staleTime: 60 * 1000,
-  });
-  
-  // Get work orders linked to a specific maintenance
-  const getLinkedWorkOrders = (maintenanceId: number): WorkOrder[] => {
-    if (!workOrders) return [];
-    return workOrders.filter(wo => wo.maintenanceAssignmentId === maintenanceId);
-  };
   
   // Get technicians for the dropdown
   const { data: technicians = [], isLoading: isTechniciansLoading } = useQuery<TechnicianWithUser[]>({
@@ -149,15 +137,15 @@ export function MaintenanceListView({
     },
   });
   
-  // Mutation for updating technician assignment
+  // Mutation for updating technician assignment via work order team
   const updateTechnicianMutation = useMutation({
-    mutationFn: async ({ maintenanceId, technicianId }: { maintenanceId: number, technicianId: number | null }) => {
-      const response = await fetch(`/api/maintenances/${maintenanceId}/technician`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ technicianId }),
+    mutationFn: async ({ workOrderId, technicianId }: { workOrderId: number, technicianId: number | null }) => {
+      if (technicianId === null) {
+        return { success: true };
+      }
+      const response = await apiRequest('POST', `/api/work-orders/${workOrderId}/team`, {
+        userId: technicianId,
+        role: 'technician'
       });
       
       if (!response.ok) {
@@ -170,9 +158,9 @@ export function MaintenanceListView({
     onSuccess: () => {
       toast({
         title: 'Technician updated',
-        description: 'Maintenance assignment has been updated successfully.',
+        description: 'Work order team has been updated successfully.',
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/work-orders'] });
     },
     onError: (error) => {
       toast({
@@ -307,8 +295,6 @@ export function MaintenanceListView({
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {unroutedMaintenances.map((maintenance) => {
-              const linkedWorkOrders = getLinkedWorkOrders(maintenance.id);
-              const hasLinkedWorkOrders = linkedWorkOrders.length > 0;
               return (
               <Card key={maintenance.id} className="overflow-hidden border-amber-200">
                 <CardHeader className="pb-2 bg-amber-50">
@@ -321,16 +307,6 @@ export function MaintenanceListView({
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasLinkedWorkOrders && (
-                        <Badge 
-                          variant="outline"
-                          className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 text-xs"
-                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
-                        >
-                          <ClipboardList className="h-3 w-3 mr-1" />
-                          {linkedWorkOrders.length} WO
-                        </Badge>
-                      )}
                       {maintenance.status && (
                         <Badge 
                           className={getStatusClasses(maintenance.status).bg}
@@ -355,7 +331,7 @@ export function MaintenanceListView({
                           onValueChange={(value) => {
                             const techId = value === 'unassigned' ? null : parseInt(value, 10);
                             updateTechnicianMutation.mutate({ 
-                              maintenanceId: maintenance.id, 
+                              workOrderId: maintenance.id, 
                               technicianId: techId 
                             });
                           }}
@@ -393,7 +369,11 @@ export function MaintenanceListView({
                   )}
                 </CardContent>
                 <CardFooter className="pt-2 flex justify-between">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate(`/work-orders/${maintenance.id}`)}
+                  >
                     <FileText className="h-4 w-4 mr-1" />
                     Details
                   </Button>
@@ -406,24 +386,12 @@ export function MaintenanceListView({
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {hasLinkedWorkOrders ? (
-                        <DropdownMenuItem 
-                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          View Work Order
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedMaintenanceForWorkOrder(maintenance);
-                            setWorkOrderDialogOpen(true);
-                          }}
-                        >
-                          <ClipboardList className="h-4 w-4 mr-2" />
-                          Create Work Order
-                        </DropdownMenuItem>
-                      )}
+                      <DropdownMenuItem 
+                        onClick={() => navigate(`/work-orders/${maintenance.id}`)}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        View Work Order Details
+                      </DropdownMenuItem>
                       {onStatusUpdate && (
                         <>
                           <DropdownMenuSeparator />
@@ -493,8 +461,6 @@ export function MaintenanceListView({
           <h3 className="text-lg font-medium">{groupName}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
             {groupMaintenance.map((maintenance) => {
-              const linkedWorkOrders = getLinkedWorkOrders(maintenance.id);
-              const hasLinkedWorkOrders = linkedWorkOrders.length > 0;
               return (
               <Card key={maintenance.id} className="overflow-hidden">
                 <CardHeader className="pb-2">
@@ -507,16 +473,6 @@ export function MaintenanceListView({
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      {hasLinkedWorkOrders && (
-                        <Badge 
-                          variant="outline"
-                          className="bg-blue-50 text-blue-700 border-blue-200 cursor-pointer hover:bg-blue-100 text-xs"
-                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
-                        >
-                          <ClipboardList className="h-3 w-3 mr-1" />
-                          {linkedWorkOrders.length} WO
-                        </Badge>
-                      )}
                       {maintenance.status && (
                         <Badge 
                           className={getStatusClasses(maintenance.status).bg}
@@ -541,7 +497,7 @@ export function MaintenanceListView({
                           onValueChange={(value) => {
                             const techId = value === 'unassigned' ? null : parseInt(value, 10);
                             updateTechnicianMutation.mutate({ 
-                              maintenanceId: maintenance.id, 
+                              workOrderId: maintenance.id, 
                               technicianId: techId 
                             });
                           }}
@@ -579,7 +535,11 @@ export function MaintenanceListView({
                   )}
                 </CardContent>
                 <CardFooter className="pt-2 flex justify-between">
-                  <Button variant="outline" size="sm">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => navigate(`/work-orders/${maintenance.id}`)}
+                  >
                     <FileText className="h-4 w-4 mr-1" />
                     Details
                   </Button>
@@ -592,24 +552,12 @@ export function MaintenanceListView({
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {hasLinkedWorkOrders ? (
-                        <DropdownMenuItem 
-                          onClick={() => navigate(`/work-orders/${linkedWorkOrders[0].id}`)}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          View Work Order
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem 
-                          onClick={() => {
-                            setSelectedMaintenanceForWorkOrder(maintenance);
-                            setWorkOrderDialogOpen(true);
-                          }}
-                        >
-                          <ClipboardList className="h-4 w-4 mr-2" />
-                          Create Work Order
-                        </DropdownMenuItem>
-                      )}
+                      <DropdownMenuItem 
+                        onClick={() => navigate(`/work-orders/${maintenance.id}`)}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        View Work Order Details
+                      </DropdownMenuItem>
                       {onStatusUpdate && (
                         <>
                           <DropdownMenuSeparator />

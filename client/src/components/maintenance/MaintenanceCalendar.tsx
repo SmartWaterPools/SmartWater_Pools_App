@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isSameMonth, parseISO } from "date-fns";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
@@ -38,7 +37,6 @@ import { MaintenanceWithDetails } from "../../lib/types";
 import { getStatusClasses } from "../../lib/types";
 import { MaintenanceReportForm } from "../../components/maintenance/MaintenanceReportForm";
 import { CreateWorkOrderFromMaintenanceDialog } from "./CreateWorkOrderFromMaintenanceDialog";
-import { WorkOrder } from "@shared/schema";
 
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
@@ -55,50 +53,8 @@ export function MaintenanceCalendar({
   isUpdatingStatus = false,
   selectedMaintenance = null
 }: MaintenanceCalendarProps) {
-  // Add a sample maintenance entry for April 7, 2025 if it doesn't already exist
-  const maintenances = [...originalMaintenances];
-  
-  // Check if there's already an April 7, 2025 maintenance
-  const hasApril7Maintenance = maintenances.some(m => {
-    if (!m.scheduleDate) return false;
-    
-    // Check various date formats
-    if (typeof m.scheduleDate === 'string' && (
-      m.scheduleDate === '2025-04-07' || 
-      m.scheduleDate.includes('2025-04-07')
-    )) {
-      return true;
-    }
-    
-    // Check Date objects
-    if (typeof m.scheduleDate === 'object' && m.scheduleDate instanceof Date) {
-      return format(m.scheduleDate, 'yyyy-MM-dd') === '2025-04-07';
-    }
-    
-    return false;
-  });
-  
-  // If no April 7 maintenance exists, add a sample one
-  if (!hasApril7Maintenance) {
-    maintenances.push({
-      id: 'april7-sample',
-      type: 'regular_maintenance',
-      status: 'scheduled',
-      scheduleDate: '2025-04-07',
-      notes: 'Sample maintenance entry',
-      client: {
-        id: 'sample-client',
-        user: {
-          id: 'sample-user',
-          name: 'John Smith',
-          email: 'john@example.com',
-          address: '123 Pool Avenue'
-        }
-      },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
-  }
+  // Use the maintenances directly from props - no sample data
+  const maintenances = originalMaintenances;
   const [, navigate] = useLocation();
   // Initialize state variables
   // Use a consistent approach to generate today's date without timezone issues
@@ -114,18 +70,6 @@ export function MaintenanceCalendar({
   const [workOrderDialogOpen, setWorkOrderDialogOpen] = useState(false);
   const [selectedMaintenanceForWorkOrder, setSelectedMaintenanceForWorkOrder] = useState<MaintenanceWithDetails | null>(null);
   
-  // Fetch work orders to check for linked maintenance
-  const { data: workOrders } = useQuery<WorkOrder[]>({
-    queryKey: ["/api/work-orders"],
-    staleTime: 60 * 1000,
-  });
-  
-  // Get work orders linked to a specific maintenance
-  const getLinkedWorkOrders = (maintenanceId: number | string): WorkOrder[] => {
-    if (!workOrders) return [];
-    const numericId = typeof maintenanceId === 'string' ? parseInt(maintenanceId) : maintenanceId;
-    return workOrders.filter(wo => wo.maintenanceAssignmentId === numericId);
-  };
   
   // This will run on first render to help diagnose data issues
   useEffect(() => {
@@ -323,45 +267,6 @@ export function MaintenanceCalendar({
   // Count maintenances by day for badge display
   const maintenanceCountByDay = maintenances.reduce((acc, m) => {
     try {
-      // DIRECT FIX FOR MARCH 9 DATES
-      // This section special-cases March 9, 2025 dates for guaranteed display
-      if (m.scheduleDate === '2025-03-09') {
-        const march9Key = '2025-03-09';
-        
-        // Initialize counter for March 9 if it doesn't exist
-        if (!acc[march9Key]) {
-          acc[march9Key] = { total: 0, statusCounts: {} };
-        }
-        
-        // Increment the counter
-        acc[march9Key].total += 1;
-        
-        // Track status counts
-        if (!acc[march9Key].statusCounts[m.status]) {
-          acc[march9Key].statusCounts[m.status] = 0;
-        }
-        acc[march9Key].statusCounts[m.status] += 1;
-      }
-      
-      // DIRECT FIX FOR APRIL 7 DATES
-      if (m.scheduleDate === '2025-04-07') {
-        const april7Key = '2025-04-07';
-        
-        // Initialize counter for April 7 if it doesn't exist
-        if (!acc[april7Key]) {
-          acc[april7Key] = { total: 0, statusCounts: {} };
-        }
-        
-        // Increment the counter
-        acc[april7Key].total += 1;
-        
-        // Track status counts
-        if (!acc[april7Key].statusCounts[m.status]) {
-          acc[april7Key].statusCounts[m.status] = 0;
-        }
-        acc[april7Key].statusCounts[m.status] += 1;
-      }
-      
       // First, we normalize the date value
       const dateValue = m.scheduleDate || '';
       
@@ -394,11 +299,6 @@ export function MaintenanceCalendar({
         } catch (parseErr) {
           return acc; // Skip this record if we can't parse the date
         }
-      }
-      
-      // Don't process March 9 or April 7 dates again (we already handled them)
-      if (dayStr === '2025-03-09' || dayStr === '2025-04-07') {
-        return acc;
       }
       
       // Initialize the counter for this day if it doesn't exist
@@ -460,21 +360,6 @@ export function MaintenanceCalendar({
     }
   });
   
-  // BACKWARD COMPATIBILITY: Still add specific dates if they're missing
-  // This ensures dates that were explicitly handled before still work
-  if (!maintenanceCountByDay['2025-03-09']) {
-    maintenanceCountByDay['2025-03-09'] = { 
-      total: 8, 
-      statusCounts: { 'scheduled': 7, 'completed': 1 } 
-    };
-  }
-  
-  if (!maintenanceCountByDay['2025-04-07']) {
-    maintenanceCountByDay['2025-04-07'] = { 
-      total: 1, 
-      statusCounts: { 'scheduled': 1 } 
-    };
-  }
   
   // Format the maintenance type for display
   const formatMaintenanceType = (type: string): string => {
@@ -510,16 +395,10 @@ export function MaintenanceCalendar({
     return "";
   };
 
-  // Handle opening maintenance report form
+  // Handle opening work order details - now redirects to work order page
   const handleServiceReportOpen = (maintenance: MaintenanceWithDetails, usePage = false) => {
-    if (usePage) {
-      // Navigate to standard maintenance report page
-      navigate(`/maintenance-report/${maintenance.id}`);
-    } else {
-      // Use the dialog form
-      setSelectedServiceMaintenance(maintenance);
-      setServiceReportOpen(true);
-    }
+    // Navigate to work order detail page
+    navigate(`/work-orders/${maintenance.id}`);
   };
   
   return (
@@ -683,7 +562,7 @@ export function MaintenanceCalendar({
                               </div>
                             ))}
                             {maintenance.notes.split('\n').length > 3 && (
-                              <div className="text-blue-600 cursor-pointer" onClick={() => navigate(`/maintenance-report/${maintenance.id}`)}>
+                              <div className="text-blue-600 cursor-pointer" onClick={() => navigate(`/work-orders/${maintenance.id}`)}>
                                 View full report...
                               </div>
                             )}
@@ -730,7 +609,7 @@ export function MaintenanceCalendar({
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem 
                               className="cursor-pointer"
-                              onClick={() => navigate(`/maintenance-report/${maintenance.id}`)}
+                              onClick={() => navigate(`/work-orders/${maintenance.id}`)}
                             >
                               <ClipboardList className="h-4 w-4 mr-2" />
                               {hasServiceReport ? "View/Edit Maintenance Report" : "Submit Maintenance Report"}
@@ -738,7 +617,7 @@ export function MaintenanceCalendar({
 
                             <DropdownMenuItem 
                               className="cursor-pointer"
-                              onClick={() => navigate(`/maintenance-report/${maintenance.id}`)}
+                              onClick={() => navigate(`/work-orders/${maintenance.id}`)}
                             >
                               <BarChart2 className="h-4 w-4 mr-2" />
                               Maintenance Report
