@@ -40,7 +40,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { useDrag, useDrop } from 'react-dnd';
+import { useDrag, useDrop, DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 
 // Create context for maintenance assignments
 export const MaintenanceAssignmentsContext = createContext<React.Dispatch<React.SetStateAction<Record<number, boolean>>> | null>(null);
@@ -672,9 +673,10 @@ export default function TechnicianRoutesView({
   };
   
   return (
-    <MaintenanceAssignmentsContext.Provider value={setMaintenanceAssignments}>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-3">
+    <DndProvider backend={HTML5Backend}>
+      <MaintenanceAssignmentsContext.Provider value={setMaintenanceAssignments}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="lg:col-span-3">
           <div className="mb-4">
             <Label htmlFor="technician-select">Technician</Label>
             <Select 
@@ -871,7 +873,8 @@ export default function TechnicianRoutesView({
             </div>
           )}
         </div>
-      </div>
-    </MaintenanceAssignmentsContext.Provider>
+        </div>
+      </MaintenanceAssignmentsContext.Provider>
+    </DndProvider>
   );
 }
