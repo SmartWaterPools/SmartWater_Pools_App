@@ -18,6 +18,7 @@ import serviceTemplateRoutes from "./routes/service-template-routes";
 import googleCalendarRoutes from "./routes/google-calendar-routes";
 import businessRoutes from "./routes/business-routes";
 import invoiceRoutes from "./routes/invoice-routes";
+import vendorInvoiceRoutes from "./routes/vendor-invoice-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops } from "@shared/schema";
 
@@ -42,6 +43,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount vendor routes
   app.use('/api/vendors', vendorRoutes);
+
+  // Mount vendor invoice routes
+  app.use('/api/vendor-invoices', vendorInvoiceRoutes);
 
   // Mount work order routes
   app.use('/api/work-orders', workOrderRoutes);

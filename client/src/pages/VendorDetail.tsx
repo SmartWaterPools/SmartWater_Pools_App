@@ -20,6 +20,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { VendorForm } from '@/components/business/VendorForm';
+import { VendorInvoices } from '@/components/business/VendorInvoices';
 import { EntityEmailList } from '@/components/communications/EntityEmailList';
 import { EntitySMSList } from '@/components/communications/EntitySMSList';
 
@@ -191,6 +192,10 @@ export default function VendorDetail() {
             <MessageSquare className="h-4 w-4 mr-2" />
             Communications
           </TabsTrigger>
+          <TabsTrigger value="invoices" data-testid="tab-invoices">
+            <FileText className="h-4 w-4 mr-2" />
+            Invoices
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -359,6 +364,10 @@ export default function VendorDetail() {
               entityPhone={vendor.phone || undefined}
             />
           </div>
+        </TabsContent>
+
+        <TabsContent value="invoices">
+          <VendorInvoices vendorId={parseInt(id!)} vendorEmail={vendor?.email || undefined} />
         </TabsContent>
       </Tabs>
 

@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql } from "drizzle-orm";
 
@@ -219,6 +219,43 @@ export interface IStorage {
 
   // Bazza Maintenance Assignment operations
   getMaintenanceAssignment(id: number): Promise<BazzaMaintenanceAssignment | undefined>;
+
+  // Email Attachment operations
+  getEmailAttachments(emailId: number): Promise<EmailAttachment[]>;
+  getEmailAttachment(id: number): Promise<EmailAttachment | undefined>;
+  getEmailAttachmentsByOrganization(organizationId: number): Promise<EmailAttachment[]>;
+  createEmailAttachment(attachment: InsertEmailAttachment): Promise<EmailAttachment>;
+  updateEmailAttachment(id: number, data: Partial<EmailAttachment>): Promise<EmailAttachment | undefined>;
+  deleteEmailAttachment(id: number): Promise<boolean>;
+
+  // Vendor Invoice operations
+  getVendorInvoices(organizationId: number): Promise<VendorInvoice[]>;
+  getVendorInvoice(id: number): Promise<VendorInvoice | undefined>;
+  getVendorInvoicesByVendor(vendorId: number): Promise<VendorInvoice[]>;
+  getVendorInvoicesByStatus(status: string, organizationId: number): Promise<VendorInvoice[]>;
+  createVendorInvoice(invoice: InsertVendorInvoice): Promise<VendorInvoice>;
+  updateVendorInvoice(id: number, data: Partial<VendorInvoice>): Promise<VendorInvoice | undefined>;
+  deleteVendorInvoice(id: number): Promise<boolean>;
+
+  // Vendor Invoice Item operations
+  getVendorInvoiceItems(vendorInvoiceId: number): Promise<VendorInvoiceItem[]>;
+  createVendorInvoiceItem(item: InsertVendorInvoiceItem): Promise<VendorInvoiceItem>;
+  updateVendorInvoiceItem(id: number, data: Partial<VendorInvoiceItem>): Promise<VendorInvoiceItem | undefined>;
+  deleteVendorInvoiceItem(id: number): Promise<boolean>;
+  deleteVendorInvoiceItemsByInvoice(vendorInvoiceId: number): Promise<boolean>;
+
+  // Expense operations
+  getExpenses(organizationId: number): Promise<Expense[]>;
+  getExpense(id: number): Promise<Expense | undefined>;
+  createExpense(expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: number, data: Partial<Expense>): Promise<Expense | undefined>;
+  deleteExpense(id: number): Promise<boolean>;
+
+  // Inventory Item operations (for vendor invoice integration)
+  getInventoryItem(id: number): Promise<InventoryItem | undefined>;
+  getInventoryItemsByOrganizationId(organizationId: number): Promise<InventoryItem[]>;
+  createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1398,6 +1435,143 @@ export class DatabaseStorage implements IStorage {
       .where(eq(maintenances.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  // Email Attachment operations
+  async getEmailAttachments(emailId: number): Promise<EmailAttachment[]> {
+    return db.select().from(emailAttachments).where(eq(emailAttachments.emailId, emailId));
+  }
+
+  async getEmailAttachment(id: number): Promise<EmailAttachment | undefined> {
+    const result = await db.select().from(emailAttachments).where(eq(emailAttachments.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getEmailAttachmentsByOrganization(organizationId: number): Promise<EmailAttachment[]> {
+    return db.select().from(emailAttachments).where(eq(emailAttachments.organizationId, organizationId));
+  }
+
+  async createEmailAttachment(attachment: InsertEmailAttachment): Promise<EmailAttachment> {
+    const result = await db.insert(emailAttachments).values(attachment).returning();
+    return result[0];
+  }
+
+  async updateEmailAttachment(id: number, data: Partial<EmailAttachment>): Promise<EmailAttachment | undefined> {
+    const result = await db.update(emailAttachments).set(data).where(eq(emailAttachments.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteEmailAttachment(id: number): Promise<boolean> {
+    const result = await db.delete(emailAttachments).where(eq(emailAttachments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Vendor Invoice operations
+  async getVendorInvoices(organizationId: number): Promise<VendorInvoice[]> {
+    return db.select().from(vendorInvoices).where(eq(vendorInvoices.organizationId, organizationId)).orderBy(desc(vendorInvoices.invoiceDate));
+  }
+
+  async getVendorInvoice(id: number): Promise<VendorInvoice | undefined> {
+    const result = await db.select().from(vendorInvoices).where(eq(vendorInvoices.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getVendorInvoicesByVendor(vendorId: number): Promise<VendorInvoice[]> {
+    return db.select().from(vendorInvoices).where(eq(vendorInvoices.vendorId, vendorId)).orderBy(desc(vendorInvoices.invoiceDate));
+  }
+
+  async getVendorInvoicesByStatus(status: string, organizationId: number): Promise<VendorInvoice[]> {
+    return db.select().from(vendorInvoices).where(
+      and(
+        eq(vendorInvoices.status, status),
+        eq(vendorInvoices.organizationId, organizationId)
+      )
+    ).orderBy(desc(vendorInvoices.invoiceDate));
+  }
+
+  async createVendorInvoice(invoice: InsertVendorInvoice): Promise<VendorInvoice> {
+    const result = await db.insert(vendorInvoices).values(invoice).returning();
+    return result[0];
+  }
+
+  async updateVendorInvoice(id: number, data: Partial<VendorInvoice>): Promise<VendorInvoice | undefined> {
+    const result = await db.update(vendorInvoices).set(data).where(eq(vendorInvoices.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteVendorInvoice(id: number): Promise<boolean> {
+    const result = await db.delete(vendorInvoices).where(eq(vendorInvoices.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Vendor Invoice Item operations
+  async getVendorInvoiceItems(vendorInvoiceId: number): Promise<VendorInvoiceItem[]> {
+    return db.select().from(vendorInvoiceItems).where(eq(vendorInvoiceItems.vendorInvoiceId, vendorInvoiceId));
+  }
+
+  async createVendorInvoiceItem(item: InsertVendorInvoiceItem): Promise<VendorInvoiceItem> {
+    const result = await db.insert(vendorInvoiceItems).values(item).returning();
+    return result[0];
+  }
+
+  async updateVendorInvoiceItem(id: number, data: Partial<VendorInvoiceItem>): Promise<VendorInvoiceItem | undefined> {
+    const result = await db.update(vendorInvoiceItems).set(data).where(eq(vendorInvoiceItems.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteVendorInvoiceItem(id: number): Promise<boolean> {
+    const result = await db.delete(vendorInvoiceItems).where(eq(vendorInvoiceItems.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async deleteVendorInvoiceItemsByInvoice(vendorInvoiceId: number): Promise<boolean> {
+    const result = await db.delete(vendorInvoiceItems).where(eq(vendorInvoiceItems.vendorInvoiceId, vendorInvoiceId)).returning();
+    return result.length >= 0;
+  }
+
+  // Expense operations
+  async getExpenses(organizationId: number): Promise<Expense[]> {
+    return db.select().from(expenses).where(eq(expenses.organizationId, organizationId)).orderBy(desc(expenses.date));
+  }
+
+  async getExpense(id: number): Promise<Expense | undefined> {
+    const result = await db.select().from(expenses).where(eq(expenses.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async createExpense(expense: InsertExpense): Promise<Expense> {
+    const result = await db.insert(expenses).values(expense).returning();
+    return result[0];
+  }
+
+  async updateExpense(id: number, data: Partial<Expense>): Promise<Expense | undefined> {
+    const result = await db.update(expenses).set(data).where(eq(expenses.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteExpense(id: number): Promise<boolean> {
+    const result = await db.delete(expenses).where(eq(expenses.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Inventory Item operations
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    const result = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getInventoryItemsByOrganizationId(organizationId: number): Promise<InventoryItem[]> {
+    return db.select().from(inventoryItems).where(eq(inventoryItems.organizationId, organizationId));
+  }
+
+  async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    const result = await db.insert(inventoryItems).values(item).returning();
+    return result[0];
+  }
+
+  async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    const result = await db.update(inventoryItems).set(data).where(eq(inventoryItems.id, id)).returning();
+    return result[0] || undefined;
   }
 }
 

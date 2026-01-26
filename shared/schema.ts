@@ -1202,3 +1202,126 @@ export const insertWorkOrderTeamMemberSchema = createInsertSchema(workOrderTeamM
 
 export type InsertWorkOrderTeamMember = z.infer<typeof insertWorkOrderTeamMemberSchema>;
 export type WorkOrderTeamMember = typeof workOrderTeamMembers.$inferSelect;
+
+// Email Attachments table - store attachments from synced emails
+export const emailAttachments = pgTable("email_attachments", {
+  id: serial("id").primaryKey(),
+  emailId: integer("email_id").notNull(), // FK to emails
+  organizationId: integer("organization_id"),
+  
+  // Attachment metadata
+  filename: text("filename").notNull(),
+  originalName: text("original_name").notNull(),
+  mimeType: text("mime_type").notNull(),
+  size: integer("size").notNull(), // File size in bytes
+  
+  // Storage
+  url: text("url").notNull(), // Path to stored file
+  externalAttachmentId: text("external_attachment_id"), // Gmail/Outlook attachment ID for fetching
+  
+  // Status tracking
+  isDownloaded: boolean("is_downloaded").default(false),
+  isParsed: boolean("is_parsed").default(false),
+  parsedAt: timestamp("parsed_at"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertEmailAttachmentSchema = createInsertSchema(emailAttachments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEmailAttachment = z.infer<typeof insertEmailAttachmentSchema>;
+export type EmailAttachment = typeof emailAttachments.$inferSelect;
+
+// Vendor Invoice statuses
+export const VENDOR_INVOICE_STATUSES = ['pending', 'parsed', 'reviewed', 'processed', 'error'] as const;
+export type VendorInvoiceStatus = (typeof VENDOR_INVOICE_STATUSES)[number];
+
+// Vendor Invoices table - invoices received from vendors/distributors
+export const vendorInvoices = pgTable("vendor_invoices", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  vendorId: integer("vendor_id").notNull(), // FK to vendors
+  emailId: integer("email_id"), // FK to emails (optional - if imported from email)
+  attachmentId: integer("attachment_id"), // FK to email_attachments
+  
+  // Invoice details
+  invoiceNumber: text("invoice_number"),
+  invoiceDate: date("invoice_date"),
+  dueDate: date("due_date"),
+  
+  // Amounts (stored in cents)
+  subtotal: integer("subtotal"),
+  taxAmount: integer("tax_amount"),
+  shippingAmount: integer("shipping_amount"),
+  totalAmount: integer("total_amount"),
+  
+  // PDF storage
+  pdfUrl: text("pdf_url"), // Path to stored PDF
+  
+  // Parsing status
+  status: text("status").notNull().default("pending"), // pending, parsed, reviewed, processed, error
+  rawText: text("raw_text"), // Raw extracted text from PDF
+  parseConfidence: integer("parse_confidence"), // 0-100 confidence score
+  parseErrors: text("parse_errors"), // Any errors during parsing
+  
+  // Processing tracking
+  expenseId: integer("expense_id"), // FK to expenses (if processed to expense)
+  inventoryProcessed: boolean("inventory_processed").default(false),
+  expenseProcessed: boolean("expense_processed").default(false),
+  
+  // User review
+  reviewedBy: integer("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertVendorInvoiceSchema = createInsertSchema(vendorInvoices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertVendorInvoice = z.infer<typeof insertVendorInvoiceSchema>;
+export type VendorInvoice = typeof vendorInvoices.$inferSelect;
+
+// Vendor Invoice Items table - line items extracted from vendor invoices
+export const vendorInvoiceItems = pgTable("vendor_invoice_items", {
+  id: serial("id").primaryKey(),
+  vendorInvoiceId: integer("vendor_invoice_id").notNull(), // FK to vendor_invoices
+  
+  // Extracted item details
+  description: text("description").notNull(),
+  sku: text("sku"), // Product SKU if found
+  quantity: numeric("quantity").notNull().default("1"),
+  unitPrice: integer("unit_price"), // Price per unit in cents
+  totalPrice: integer("total_price"), // Total line item price in cents
+  
+  // Matching to inventory
+  inventoryItemId: integer("inventory_item_id"), // FK to inventory_items (matched or created)
+  matchConfidence: integer("match_confidence"), // 0-100 match confidence
+  isNewItem: boolean("is_new_item").default(false), // If this is a new inventory item
+  
+  // Processing status
+  addedToInventory: boolean("added_to_inventory").default(false),
+  inventoryQuantityAdded: numeric("inventory_quantity_added"),
+  
+  // Category for expense allocation
+  expenseCategory: text("expense_category"),
+  
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertVendorInvoiceItemSchema = createInsertSchema(vendorInvoiceItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertVendorInvoiceItem = z.infer<typeof insertVendorInvoiceItemSchema>;
+export type VendorInvoiceItem = typeof vendorInvoiceItems.$inferSelect;
