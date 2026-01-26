@@ -46,8 +46,21 @@ import {
   Search,
   Download,
   Image,
-  File as FileIcon
+  File as FileIcon,
+  Hash,
+  Clock,
+  Receipt,
+  CheckCircle2,
+  AlertCircle,
+  XCircle,
+  Edit2,
+  ExternalLink,
+  Loader2,
+  ShoppingCart,
+  Percent
 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 
 interface VendorInvoice {
   id: number;
@@ -96,6 +109,23 @@ interface EmailToAnalyze {
   hasAttachments: boolean;
 }
 
+interface VendorInvoiceItem {
+  id: number;
+  vendorInvoiceId: number;
+  description: string;
+  sku: string | null;
+  quantity: string;
+  unitPrice: number | null;
+  totalPrice: number | null;
+  inventoryItemId: number | null;
+  matchConfidence: number | null;
+  isNewItem: boolean;
+  addedToInventory: boolean;
+  inventoryQuantityAdded: string | null;
+  expenseCategory: string | null;
+  sortOrder: number;
+}
+
 interface VendorInvoicesProps {
   vendorId: number;
   vendorEmail?: string;
@@ -125,12 +155,36 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   } | null>(null);
   const [selectedDocumentType, setSelectedDocumentType] = useState('invoice');
   const [showEmailToAnalyzeDialog, setShowEmailToAnalyzeDialog] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValues, setEditValues] = useState<{
+    invoiceNumber: string;
+    invoiceDate: string;
+    dueDate: string;
+    totalAmount: string;
+    subtotal: string;
+    taxAmount: string;
+    documentType: string;
+  } | null>(null);
   
   useEffect(() => {
     if (emailToAnalyze) {
       setShowEmailToAnalyzeDialog(true);
     }
   }, [emailToAnalyze]);
+
+  useEffect(() => {
+    if (selectedInvoice && isEditing) {
+      setEditValues({
+        invoiceNumber: selectedInvoice.invoiceNumber || '',
+        invoiceDate: selectedInvoice.invoiceDate || '',
+        dueDate: selectedInvoice.dueDate || '',
+        totalAmount: selectedInvoice.totalAmount ? (selectedInvoice.totalAmount / 100).toFixed(2) : '',
+        subtotal: selectedInvoice.subtotal ? (selectedInvoice.subtotal / 100).toFixed(2) : '',
+        taxAmount: selectedInvoice.taxAmount ? (selectedInvoice.taxAmount / 100).toFixed(2) : '',
+        documentType: selectedInvoice.documentType || 'invoice',
+      });
+    }
+  }, [selectedInvoice, isEditing]);
   
   const [newInvoice, setNewInvoice] = useState({
     invoiceNumber: '',
@@ -175,6 +229,17 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     },
     enabled: activeTab === 'search' && searchQuery.length > 0,
     staleTime: 30000,
+  });
+
+  const { data: invoiceItems, isLoading: itemsLoading } = useQuery<VendorInvoiceItem[]>({
+    queryKey: ['/api/vendor-invoices', selectedInvoice?.id, 'items'],
+    queryFn: async () => {
+      if (!selectedInvoice?.id) return [];
+      const res = await fetch(`/api/vendor-invoices/${selectedInvoice.id}/items`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedInvoice?.id && showDetailDialog,
   });
 
   useEffect(() => {
@@ -282,13 +347,39 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     },
   });
 
+  const updateInvoiceMutation = useMutation({
+    mutationFn: async ({ invoiceId, data }: { invoiceId: number; data: typeof editValues }) => {
+      if (!data) throw new Error('No data to update');
+      return apiRequest('PATCH', `/api/vendor-invoices/${invoiceId}`, {
+        invoiceNumber: data.invoiceNumber || null,
+        invoiceDate: data.invoiceDate || null,
+        dueDate: data.dueDate || null,
+        totalAmount: data.totalAmount ? Math.round(parseFloat(data.totalAmount) * 100) : null,
+        subtotal: data.subtotal ? Math.round(parseFloat(data.subtotal) * 100) : null,
+        taxAmount: data.taxAmount ? Math.round(parseFloat(data.taxAmount) * 100) : null,
+        documentType: data.documentType,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Document Updated', description: 'The document has been updated successfully.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      setIsEditing(false);
+      setEditValues(null);
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: `Failed to update document: ${error.message}`, variant: 'destructive' });
+    },
+  });
+
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
       case 'paid':
+      case 'processed':
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'overdue':
+      case 'failed':
         return 'bg-red-100 text-red-800';
       case 'processing':
         return 'bg-blue-100 text-blue-800';
@@ -729,67 +820,354 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         </DialogContent>
       </Dialog>
 
-      <Dialog open={showDetailDialog} onOpenChange={setShowDetailDialog}>
-        <DialogContent className="max-w-md">
+      <Dialog open={showDetailDialog} onOpenChange={(open) => {
+        setShowDetailDialog(open);
+        if (!open) {
+          setIsEditing(false);
+          setEditValues(null);
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Document Details</DialogTitle>
-            <DialogDescription>
-              {selectedInvoice?.invoiceNumber || `Document #${selectedInvoice?.id}`}
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  {selectedInvoice?.invoiceNumber || `Document #${selectedInvoice?.id}`}
+                </DialogTitle>
+                <DialogDescription className="flex items-center gap-2 mt-1">
+                  {selectedInvoice && (
+                    <>
+                      <Badge className={getDocumentTypeBadgeColor(selectedInvoice.documentType)}>
+                        {getDocumentTypeLabel(selectedInvoice.documentType)}
+                      </Badge>
+                      <Badge className={getStatusBadgeVariant(selectedInvoice.status)}>
+                        {selectedInvoice.status === 'processed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                        {selectedInvoice.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
+                        {selectedInvoice.status === 'failed' && <XCircle className="h-3 w-3 mr-1" />}
+                        {selectedInvoice.status}
+                      </Badge>
+                    </>
+                  )}
+                </DialogDescription>
+              </div>
+              {selectedInvoice && !isEditing && (
+                <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                  <Edit2 className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+              )}
+            </div>
           </DialogHeader>
+          
           {selectedInvoice && (
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Document Type</p>
-                  <Badge variant="outline" className={getDocumentTypeBadgeColor(selectedInvoice.documentType)}>
-                    {getDocumentTypeLabel(selectedInvoice.documentType)}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge variant="outline" className={getStatusBadgeVariant(selectedInvoice.status)}>
-                    {selectedInvoice.status}
-                  </Badge>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Document Number</p>
-                  <p className="font-medium">{selectedInvoice.invoiceNumber || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Due Date</p>
-                  <p className="font-medium">{formatDate(selectedInvoice.dueDate)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Document Date</p>
-                  <p className="font-medium">{formatDate(selectedInvoice.invoiceDate)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="font-medium text-lg">{formatCurrency(selectedInvoice.totalAmount)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Subtotal</p>
-                  <p className="font-medium">{formatCurrency(selectedInvoice.subtotal)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Tax</p>
-                  <p className="font-medium">{formatCurrency(selectedInvoice.taxAmount)}</p>
-                </div>
-                {selectedInvoice.parseConfidence !== null && (
-                  <div>
-                    <p className="text-sm text-muted-foreground">Confidence</p>
-                    <p className="font-medium">{(selectedInvoice.parseConfidence * 100).toFixed(0)}%</p>
+            <div className="space-y-6">
+              {selectedInvoice.parseConfidence !== null && (
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium flex items-center gap-2">
+                      {selectedInvoice.parseConfidence >= 0.7 ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      ) : selectedInvoice.parseConfidence >= 0.4 ? (
+                        <AlertCircle className="h-4 w-4 text-yellow-600" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      )}
+                      Parsing Confidence
+                    </span>
+                    <span className="text-sm font-bold">
+                      {(selectedInvoice.parseConfidence * 100).toFixed(0)}%
+                    </span>
                   </div>
+                  <Progress 
+                    value={selectedInvoice.parseConfidence * 100} 
+                    className="h-2"
+                  />
+                  {selectedInvoice.parseConfidence < 0.7 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Low confidence parsing. Review fields for accuracy.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {selectedInvoice.pdfUrl && (
+                <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
+                  <FileText className="h-5 w-5 text-red-500" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium">Original Document</p>
+                    <p className="text-xs text-muted-foreground">PDF attachment available</p>
+                  </div>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={selectedInvoice.pdfUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-4 w-4 mr-1" />
+                      View PDF
+                    </a>
+                  </Button>
+                </div>
+              )}
+
+              <Separator />
+
+              {isEditing && editValues ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Document Type</Label>
+                    <Select value={editValues.documentType} onValueChange={(v) => setEditValues({ ...editValues, documentType: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DOCUMENT_TYPES.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Hash className="h-4 w-4" />
+                      Document Number
+                    </Label>
+                    <Input 
+                      value={editValues.invoiceNumber} 
+                      onChange={(e) => setEditValues({ ...editValues, invoiceNumber: e.target.value })}
+                      placeholder="Enter document number"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Document Date
+                      </Label>
+                      <Input 
+                        type="date"
+                        value={editValues.invoiceDate} 
+                        onChange={(e) => setEditValues({ ...editValues, invoiceDate: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Clock className="h-4 w-4" />
+                        Due Date
+                      </Label>
+                      <Input 
+                        type="date"
+                        value={editValues.dueDate} 
+                        onChange={(e) => setEditValues({ ...editValues, dueDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        Subtotal
+                      </Label>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        value={editValues.subtotal} 
+                        onChange={(e) => setEditValues({ ...editValues, subtotal: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Percent className="h-4 w-4" />
+                        Tax
+                      </Label>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        value={editValues.taxAmount} 
+                        onChange={(e) => setEditValues({ ...editValues, taxAmount: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Receipt className="h-4 w-4" />
+                        Total
+                      </Label>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        value={editValues.totalAmount} 
+                        onChange={(e) => setEditValues({ ...editValues, totalAmount: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setIsEditing(false);
+                        setEditValues(null);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={() => updateInvoiceMutation.mutate({ invoiceId: selectedInvoice.id, data: editValues })}
+                      disabled={updateInvoiceMutation.isPending}
+                    >
+                      {updateInvoiceMutation.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {selectedInvoice.invoiceNumber && (
+                      <div className="flex items-start gap-3">
+                        <Hash className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Document Number</p>
+                          <p className="font-medium">{selectedInvoice.invoiceNumber}</p>
+                        </div>
+                      </div>
+                    )}
+                    {selectedInvoice.invoiceDate && (
+                      <div className="flex items-start gap-3">
+                        <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Document Date</p>
+                          <p className="font-medium">{formatDate(selectedInvoice.invoiceDate)}</p>
+                        </div>
+                      </div>
+                    )}
+                    {selectedInvoice.dueDate && (
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Due Date</p>
+                          <p className="font-medium">{formatDate(selectedInvoice.dueDate)}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {(selectedInvoice.totalAmount || selectedInvoice.subtotal || selectedInvoice.taxAmount) && (
+                    <>
+                      <Separator />
+                      <div className="bg-muted/30 rounded-lg p-4">
+                        <div className="space-y-2">
+                          {selectedInvoice.subtotal && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Subtotal</span>
+                              <span>{formatCurrency(selectedInvoice.subtotal)}</span>
+                            </div>
+                          )}
+                          {selectedInvoice.taxAmount && (
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Tax</span>
+                              <span>{formatCurrency(selectedInvoice.taxAmount)}</span>
+                            </div>
+                          )}
+                          {selectedInvoice.totalAmount && (
+                            <>
+                              <Separator />
+                              <div className="flex justify-between font-bold text-lg">
+                                <span>Total</span>
+                                <span className="text-primary">{formatCurrency(selectedInvoice.totalAmount)}</span>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {!selectedInvoice.invoiceNumber && !selectedInvoice.invoiceDate && !selectedInvoice.dueDate && 
+                   !selectedInvoice.totalAmount && !selectedInvoice.subtotal && !selectedInvoice.taxAmount && (
+                    <div className="text-center py-6 text-muted-foreground">
+                      <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No data has been parsed from this document yet.</p>
+                      <p className="text-xs mt-1">Click "Re-parse" to try again or "Edit" to add manually.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {invoiceItems && invoiceItems.length > 0 && (
+                <>
+                  <Separator />
+                  <div>
+                    <h4 className="font-medium mb-3 flex items-center gap-2">
+                      <ShoppingCart className="h-4 w-4" />
+                      Line Items ({invoiceItems.length})
+                    </h4>
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Description</TableHead>
+                            <TableHead className="w-20 text-right">Qty</TableHead>
+                            <TableHead className="w-24 text-right">Unit Price</TableHead>
+                            <TableHead className="w-24 text-right">Total</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {invoiceItems.map((item) => (
+                            <TableRow key={item.id}>
+                              <TableCell>
+                                <div>
+                                  <p className="font-medium">{item.description}</p>
+                                  {item.sku && (
+                                    <p className="text-xs text-muted-foreground">SKU: {item.sku}</p>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right">{item.quantity}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                              <TableCell className="text-right font-medium">{formatCurrency(item.totalPrice)}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {itemsLoading && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">Loading items...</span>
+                </div>
+              )}
+
+              <Separator />
+
+              <div className="flex flex-wrap gap-2">
+                {selectedInvoice.pdfUrl && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => parsePdfMutation.mutate(selectedInvoice.id)}
+                    disabled={parsePdfMutation.isPending}
+                  >
+                    {parsePdfMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    Re-parse Document
+                  </Button>
                 )}
-              </div>
-              <div className="flex gap-2 pt-4">
+                
                 {!selectedInvoice.expenseProcessed && (
                   <Button 
                     variant="outline" 
@@ -797,10 +1175,21 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     onClick={() => processToExpenseMutation.mutate(selectedInvoice.id)}
                     disabled={processToExpenseMutation.isPending}
                   >
-                    <DollarSign className="h-4 w-4 mr-2" />
+                    {processToExpenseMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <DollarSign className="h-4 w-4 mr-2" />
+                    )}
                     Process to Expense
                   </Button>
                 )}
+                {selectedInvoice.expenseProcessed && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Expense Created
+                  </Badge>
+                )}
+                
                 {!selectedInvoice.inventoryProcessed && (
                   <Button 
                     variant="outline" 
@@ -808,13 +1197,24 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     onClick={() => processToInventoryMutation.mutate(selectedInvoice.id)}
                     disabled={processToInventoryMutation.isPending}
                   >
-                    <Package className="h-4 w-4 mr-2" />
+                    {processToInventoryMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Package className="h-4 w-4 mr-2" />
+                    )}
                     Process to Inventory
                   </Button>
+                )}
+                {selectedInvoice.inventoryProcessed && (
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Inventory Updated
+                  </Badge>
                 )}
               </div>
             </div>
           )}
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDetailDialog(false)}>
               Close
