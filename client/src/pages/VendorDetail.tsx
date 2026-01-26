@@ -38,11 +38,37 @@ interface Vendor {
   organizationId: number;
 }
 
+interface EmailForDocuments {
+  id: number;
+  externalId: string;
+  threadId: string | null;
+  subject: string | null;
+  fromEmail: string;
+  fromName: string | null;
+  receivedAt: string | null;
+  hasAttachments: boolean;
+}
+
 export default function VendorDetail() {
   const { id } = useParams<{ id: string }>();
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState('overview');
   const [showEditForm, setShowEditForm] = useState(false);
+  const [emailForDocuments, setEmailForDocuments] = useState<EmailForDocuments | null>(null);
+  
+  const handleSendToDocuments = (email: any) => {
+    setEmailForDocuments({
+      id: email.id,
+      externalId: email.externalId,
+      threadId: email.threadId,
+      subject: email.subject,
+      fromEmail: email.fromEmail,
+      fromName: email.fromName,
+      receivedAt: email.receivedAt,
+      hasAttachments: email.hasAttachments,
+    });
+    setActiveTab('invoices');
+  };
 
   const { 
     data: vendor, 
@@ -356,6 +382,7 @@ export default function VendorDetail() {
               entityType="vendor" 
               entityId={parseInt(id!)} 
               entityName={vendor.name}
+              onSendToDocuments={handleSendToDocuments}
             />
             <EntitySMSList 
               entityType="vendor" 
@@ -367,7 +394,12 @@ export default function VendorDetail() {
         </TabsContent>
 
         <TabsContent value="invoices">
-          <VendorInvoices vendorId={parseInt(id!)} vendorEmail={vendor?.email || undefined} />
+          <VendorInvoices 
+            vendorId={parseInt(id!)} 
+            vendorEmail={vendor?.email || undefined}
+            emailToAnalyze={emailForDocuments}
+            onEmailAnalyzed={() => setEmailForDocuments(null)}
+          />
         </TabsContent>
       </Tabs>
 

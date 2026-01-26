@@ -85,9 +85,22 @@ interface TransientEmail {
   attachments?: EmailAttachment[];
 }
 
+interface EmailToAnalyze {
+  id: number;
+  externalId: string;
+  threadId: string | null;
+  subject: string | null;
+  fromEmail: string;
+  fromName: string | null;
+  receivedAt: string | null;
+  hasAttachments: boolean;
+}
+
 interface VendorInvoicesProps {
   vendorId: number;
   vendorEmail?: string;
+  emailToAnalyze?: EmailToAnalyze | null;
+  onEmailAnalyzed?: () => void;
 }
 
 const DOCUMENT_TYPES = [
@@ -98,7 +111,7 @@ const DOCUMENT_TYPES = [
   { value: 'other', label: 'Other' },
 ];
 
-export function VendorInvoices({ vendorId, vendorEmail }: VendorInvoicesProps) {
+export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailAnalyzed }: VendorInvoicesProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('search');
@@ -111,6 +124,13 @@ export function VendorInvoices({ vendorId, vendorEmail }: VendorInvoicesProps) {
     attachment: EmailAttachment;
   } | null>(null);
   const [selectedDocumentType, setSelectedDocumentType] = useState('invoice');
+  const [showEmailToAnalyzeDialog, setShowEmailToAnalyzeDialog] = useState(false);
+  
+  useEffect(() => {
+    if (emailToAnalyze) {
+      setShowEmailToAnalyzeDialog(true);
+    }
+  }, [emailToAnalyze]);
   
   const [newInvoice, setNewInvoice] = useState({
     invoiceNumber: '',
@@ -852,6 +872,75 @@ export function VendorInvoices({ vendorId, vendorEmail }: VendorInvoicesProps) {
               disabled={importAttachmentMutation.isPending}
             >
               {importAttachmentMutation.isPending ? 'Importing...' : 'Import Document'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog 
+        open={showEmailToAnalyzeDialog && !!emailToAnalyze} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowEmailToAnalyzeDialog(false);
+            onEmailAnalyzed?.();
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Analyze Email Attachments</DialogTitle>
+            <DialogDescription>
+              This email has attachments that can be analyzed. Search for this email to view and import its attachments.
+            </DialogDescription>
+          </DialogHeader>
+          {emailToAnalyze && (
+            <div className="space-y-4 py-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <Mail className="h-5 w-5 text-primary" />
+                  <span className="font-medium">{emailToAnalyze.subject || '(No subject)'}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  From: {emailToAnalyze.fromName || emailToAnalyze.fromEmail}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {emailToAnalyze.receivedAt ? new Date(emailToAnalyze.receivedAt).toLocaleDateString() : 'Unknown date'}
+                </p>
+                {emailToAnalyze.hasAttachments && (
+                  <Badge variant="secondary" className="mt-2">
+                    <Paperclip className="h-3 w-3 mr-1" />
+                    Has Attachments
+                  </Badge>
+                )}
+              </div>
+              
+              <p className="text-sm">
+                Click "Search for Email" to find this email and its attachments. You can then select which attachments to import as documents.
+              </p>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowEmailToAnalyzeDialog(false);
+                onEmailAnalyzed?.();
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (emailToAnalyze) {
+                  setSearchQuery(`from:${emailToAnalyze.fromEmail} subject:${emailToAnalyze.subject || ''}`);
+                  setActiveTab('search');
+                  setShowEmailToAnalyzeDialog(false);
+                  onEmailAnalyzed?.();
+                }
+              }}
+            >
+              <Search className="h-4 w-4 mr-2" />
+              Search for Email
             </Button>
           </DialogFooter>
         </DialogContent>

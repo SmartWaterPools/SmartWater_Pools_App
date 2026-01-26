@@ -3,8 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Mail, Paperclip, Star, RefreshCw, ExternalLink } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Mail, Paperclip, Star, RefreshCw, ExternalLink, FileText } from "lucide-react";
 import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "wouter";
@@ -45,9 +45,10 @@ interface EntityEmailListProps {
   entityType: 'project' | 'repair' | 'client' | 'vendor';
   entityId: number;
   entityName: string;
+  onSendToDocuments?: (email: Email) => void;
 }
 
-export function EntityEmailList({ entityType, entityId, entityName }: EntityEmailListProps) {
+export function EntityEmailList({ entityType, entityId, entityName, onSendToDocuments }: EntityEmailListProps) {
   const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
   
   const endpointMap = {
@@ -234,6 +235,20 @@ export function EntityEmailList({ entityType, entityId, entityName }: EntityEmai
                   )}
                 </div>
               </div>
+              {onSendToDocuments && selectedEmail.hasAttachments && (
+                <DialogFooter className="border-t pt-4">
+                  <Button
+                    onClick={() => {
+                      onSendToDocuments(selectedEmail);
+                      setSelectedEmail(null);
+                    }}
+                    className="w-full sm:w-auto"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Send to Document Analyzer
+                  </Button>
+                </DialogFooter>
+              )}
             </>
           )}
         </DialogContent>
