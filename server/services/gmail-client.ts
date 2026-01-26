@@ -227,3 +227,32 @@ export async function isGmailConnected(userTokens?: UserTokens): Promise<boolean
     return false;
   }
 }
+
+export async function downloadGmailAttachment(
+  messageId: string,
+  attachmentId: string,
+  userTokens?: UserTokens
+): Promise<Buffer | null> {
+  try {
+    const gmail = await getGmailClient(userTokens);
+    
+    const response = await gmail.users.messages.attachments.get({
+      userId: 'me',
+      messageId,
+      id: attachmentId,
+    });
+    
+    if (!response.data.data) {
+      console.error('No attachment data returned');
+      return null;
+    }
+    
+    const base64Data = response.data.data.replace(/-/g, '+').replace(/_/g, '/');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    return buffer;
+  } catch (error) {
+    console.error('Failed to download Gmail attachment:', error);
+    return null;
+  }
+}
