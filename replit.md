@@ -80,6 +80,31 @@ Preferred communication style: Simple, everyday language.
 
 - **Multi-tenant Security**: All queries filter by `organizationId`.
 
+## Vendor Invoice Management System
+- **Purpose**: Automated invoice processing from vendor emails with PDF parsing and routing to inventory/expenses.
+- **Core Features**:
+  - Email Import: Import PDF attachments from vendor emails, validates sender matches vendor email
+  - PDF Parsing: Extract invoice number, dates, amounts, and line items using pdf-parse library
+  - Inventory Routing: Map parsed line items to inventory (match by SKU or create new items)
+  - Expense Routing: Create expense records from invoice totals with vendor linkage
+  - Status Tracking: Track parsing confidence, review status, and processing flags
+
+- **Database Tables**:
+  - `email_attachments`: Store email attachment metadata and download status
+  - `vendor_invoices`: Invoice records linked to vendors, emails, and attachments
+  - `vendor_invoice_items`: Parsed line items with product/financial data
+
+- **API Endpoints**:
+  - `/api/vendor-invoices` - CRUD for vendor invoices
+  - `/api/vendor-invoices/:id/parse-pdf` - Trigger PDF parsing
+  - `/api/vendor-invoices/:id/process-to-expense` - Route to expense system
+  - `/api/vendor-invoices/:id/process-to-inventory` - Route items to inventory
+  - `/api/vendor-invoices/import-from-email` - Import from email attachment
+  - `/api/vendor-invoices/from-vendor-emails/:vendorId` - Fetch vendor emails
+
+- **Data Storage**: Monetary amounts stored in cents (integers) for precision; UI converts dollars to cents before POST and divides by 100 for display.
+- **Multi-tenant Security**: All queries filter by `organizationId`.
+
 # External Dependencies
 
 ## Authentication Services
