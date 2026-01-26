@@ -431,10 +431,10 @@ router.get("/from-vendor-emails/:vendorId", isAuthenticated, async (req, res) =>
 router.post("/import-from-email", isAuthenticated, async (req, res) => {
   try {
     const user = req.user as any;
-    const { emailId, vendorId, attachmentData } = req.body;
+    const { emailId, vendorId, attachmentData, documentType, emailData } = req.body;
     
-    if (!emailId || !vendorId) {
-      return res.status(400).json({ error: "emailId and vendorId are required" });
+    if (!vendorId) {
+      return res.status(400).json({ error: "vendorId is required" });
     }
     
     const vendor = await storage.getVendor(vendorId);
@@ -445,22 +445,47 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
     
-    const email = await storage.getEmail(emailId);
-    if (!email) {
-      return res.status(404).json({ error: "Email not found" });
-    }
+    let savedEmailId: number | undefined = emailId;
     
-    if (vendor.email && email.fromEmail.toLowerCase() !== vendor.email.toLowerCase()) {
-      return res.status(400).json({ 
-        error: "Email sender does not match vendor email",
-        details: `Email is from ${email.fromEmail}, but vendor email is ${vendor.email}`
-      });
+    if (emailData && !emailId) {
+      let existingEmail = await storage.getEmailByExternalId(user.id, emailData.externalId);
+      
+      if (existingEmail) {
+        savedEmailId = existingEmail.id;
+      } else {
+        const savedEmail = await storage.createEmail({
+          providerId: user.id,
+          organizationId: user.organizationId,
+          externalId: emailData.externalId,
+          threadId: emailData.threadId || null,
+          subject: emailData.subject || null,
+          fromEmail: emailData.fromEmail,
+          fromName: emailData.fromName || null,
+          toEmails: null,
+          ccEmails: null,
+          bccEmails: null,
+          bodyText: null,
+          bodyHtml: null,
+          receivedAt: emailData.receivedAt ? new Date(emailData.receivedAt) : null,
+          isRead: true,
+          isStarred: false,
+          hasAttachments: true,
+          labels: null,
+          isSent: false,
+        });
+        savedEmailId = savedEmail.id;
+      }
+    } else if (emailId) {
+      const email = await storage.getEmail(emailId);
+      if (!email) {
+        return res.status(404).json({ error: "Email not found" });
+      }
     }
     
     let attachmentId: number | undefined;
-    if (attachmentData) {
+    if (attachmentData && savedEmailId) {
       const attachment = await storage.createEmailAttachment({
-        emailId,
+        emailId: savedEmailId,
         organizationId: user.organizationId,
         filename: attachmentData.filename || `attachment_${Date.now()}`,
         originalName: attachmentData.originalName || attachmentData.filename || 'unknown',
@@ -476,10 +501,11 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
     const invoiceData = insertVendorInvoiceSchema.parse({
       organizationId: user.organizationId,
       vendorId,
-      emailId,
-      attachmentId,
+      emailId: savedEmailId || null,
+      attachmentId: attachmentId || null,
       status: "pending",
       pdfUrl: attachmentData?.url || null,
+      documentType: documentType || "invoice",
     });
     
     const invoice = await storage.createVendorInvoice(invoiceData);

@@ -1261,6 +1261,9 @@ export const vendorInvoices = pgTable("vendor_invoices", {
   // PDF storage
   pdfUrl: text("pdf_url"), // Path to stored PDF
   
+  // Document type categorization
+  documentType: text("document_type").default("invoice"), // invoice, plan_drawing, quote_estimate, receipt, other
+  
   // Parsing status
   status: text("status").notNull().default("pending"), // pending, parsed, reviewed, processed, error
   rawText: text("raw_text"), // Raw extracted text from PDF

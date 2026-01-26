@@ -13,6 +13,14 @@ interface SyncResult {
   hasMore: boolean;
 }
 
+// Attachment info for transient emails
+export interface TransientEmailAttachment {
+  filename: string;
+  mimeType: string;
+  size: number;
+  attachmentId: string;
+}
+
 // Transient email structure (not saved to database)
 export interface TransientEmail {
   externalId: string;
@@ -31,6 +39,7 @@ export interface TransientEmail {
   isDraft: boolean;
   isSent: boolean;
   hasAttachments: boolean;
+  attachments: TransientEmailAttachment[];
   labels: string[] | null;
   receivedAt: string | null;
 }
@@ -125,6 +134,25 @@ export async function fetchGmailEmailsTransient(
         const fromEmailAddress = extractEmailAddress(parsed.fromEmail);
         const isSent = fromEmailAddress === profileEmail;
 
+        const attachments: TransientEmailAttachment[] = [];
+        const extractAttachments = (parts: any[] | undefined) => {
+          if (!parts) return;
+          for (const part of parts) {
+            if (part.filename && part.filename.length > 0 && part.body?.attachmentId) {
+              attachments.push({
+                filename: part.filename,
+                mimeType: part.mimeType || 'application/octet-stream',
+                size: parseInt(part.body.size) || 0,
+                attachmentId: part.body.attachmentId,
+              });
+            }
+            if (part.parts) {
+              extractAttachments(part.parts);
+            }
+          }
+        };
+        extractAttachments(fullMessage.data.payload?.parts);
+
         const transientEmail: TransientEmail = {
           externalId: parsed.externalId,
           threadId: parsed.threadId,
@@ -141,7 +169,8 @@ export async function fetchGmailEmailsTransient(
           isStarred: parsed.isStarred,
           isDraft: parsed.labels?.includes('DRAFT') || false,
           isSent,
-          hasAttachments: parsed.hasAttachments,
+          hasAttachments: parsed.hasAttachments || attachments.length > 0,
+          attachments,
           labels: parsed.labels,
           receivedAt: parsed.receivedAt?.toISOString() || null
         };
