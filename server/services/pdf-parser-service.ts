@@ -1,5 +1,12 @@
 import * as pdfParseModule from 'pdf-parse';
+import Tesseract from 'tesseract.js';
+
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+
+const MIN_TEXT_LENGTH_FOR_PARSING = 50;
+const MAX_OCR_PAGES = 5;
+const OCR_TIMEOUT_MS = 60000;
+const MAX_PDF_SIZE_FOR_OCR = 10 * 1024 * 1024;
 
 export interface ParsedLineItem {
   description: string;
@@ -50,13 +57,40 @@ class PDFParserService {
     let confidenceScore = 0;
     let fieldsFound = 0;
     const totalFields = 7;
+    let usedOcr = false;
 
     try {
       const data = await pdfParse(pdfBuffer);
       rawText = data.text;
+      
+      const cleanedText = rawText.replace(/\s+/g, ' ').trim();
+      
+      if (cleanedText.length < MIN_TEXT_LENGTH_FOR_PARSING) {
+        console.log(`PDF text extraction returned minimal content (${cleanedText.length} chars), attempting OCR...`);
+        try {
+          const ocrText = await this.performOcr(pdfBuffer);
+          if (ocrText && ocrText.trim().length > 0) {
+            rawText = ocrText;
+            usedOcr = true;
+            console.log(`OCR completed, extracted ${rawText.length} characters`);
+          } else {
+            console.log('OCR returned no usable text');
+          }
+        } catch (ocrError) {
+          console.error('OCR failed for minimal-text PDF:', ocrError);
+        }
+      }
     } catch (error) {
-      console.error('Error parsing PDF:', error);
-      return this.createEmptyResult(rawText, 0);
+      console.error('Error parsing PDF with text extraction:', error);
+      console.log('Attempting OCR fallback...');
+      try {
+        rawText = await this.performOcr(pdfBuffer);
+        usedOcr = true;
+        console.log(`OCR fallback completed, extracted ${rawText.length} characters`);
+      } catch (ocrError) {
+        console.error('OCR fallback also failed:', ocrError);
+        return this.createEmptyResult(rawText, 0);
+      }
     }
 
     const invoiceNumber = this.extractInvoiceNumber(rawText);
@@ -76,6 +110,10 @@ class PDFParserService {
     if (lineItems.length > 0) fieldsFound += 2;
 
     confidenceScore = Math.round((fieldsFound / (totalFields + 2)) * 100);
+    
+    if (usedOcr && confidenceScore > 0) {
+      confidenceScore = Math.max(confidenceScore - 10, 1);
+    }
 
     return {
       invoiceNumber,
@@ -89,6 +127,74 @@ class PDFParserService {
       rawText,
       confidence: confidenceScore,
     };
+  }
+  
+  private async performOcr(pdfBuffer: Buffer): Promise<string> {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('OCR timeout exceeded')), OCR_TIMEOUT_MS);
+    });
+    
+    const ocrPromise = this.performOcrInternal(pdfBuffer);
+    
+    return Promise.race([ocrPromise, timeoutPromise]);
+  }
+  
+  private async performOcrInternal(pdfBuffer: Buffer): Promise<string> {
+    if (pdfBuffer.length > MAX_PDF_SIZE_FOR_OCR) {
+      console.log(`PDF too large for OCR (${Math.round(pdfBuffer.length / 1024 / 1024)}MB > ${MAX_PDF_SIZE_FOR_OCR / 1024 / 1024}MB limit)`);
+      throw new Error('PDF file too large for OCR processing');
+    }
+    
+    let pdfToImg: any;
+    
+    try {
+      pdfToImg = await import('pdf-to-img');
+    } catch (importError) {
+      console.error('Failed to load pdf-to-img library:', importError);
+      throw new Error('OCR dependencies not available - pdf-to-img library failed to load');
+    }
+    
+    try {
+      const pages: Buffer[] = [];
+      
+      const document = await pdfToImg.pdf(pdfBuffer, { scale: 2.0 });
+      
+      let pageCount = 0;
+      for await (const image of document) {
+        pages.push(image);
+        pageCount++;
+        if (pageCount >= MAX_OCR_PAGES) {
+          console.log(`Reached max OCR page limit (${MAX_OCR_PAGES}), stopping extraction`);
+          break;
+        }
+      }
+      
+      if (pages.length === 0) {
+        console.log('No pages extracted from PDF for OCR');
+        return '';
+      }
+      
+      console.log(`Extracted ${pages.length} page(s) from PDF, running OCR...`);
+      
+      const textParts: string[] = [];
+      
+      for (let i = 0; i < pages.length; i++) {
+        console.log(`Running OCR on page ${i + 1}/${pages.length}...`);
+        try {
+          const result = await Tesseract.recognize(pages[i], 'eng');
+          if (result.data.text) {
+            textParts.push(result.data.text);
+          }
+        } catch (pageError) {
+          console.error(`OCR failed on page ${i + 1}:`, pageError);
+        }
+      }
+      
+      return textParts.join('\n\n');
+    } catch (error) {
+      console.error('OCR processing failed:', error);
+      throw error;
+    }
   }
 
   private extractInvoiceNumber(text: string): string | null {

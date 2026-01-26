@@ -85,9 +85,16 @@ Preferred communication style: Simple, everyday language.
 - **Core Features**:
   - Email Import: Import PDF attachments from vendor emails, validates sender matches vendor email
   - PDF Parsing: Extract invoice number, dates, amounts, and line items using pdf-parse library
+  - OCR Fallback: Automatic OCR using Tesseract.js for image-based PDFs when text extraction fails
+    - Triggers when extracted text is minimal (< 50 chars)
+    - Uses pdf-to-img for PDF-to-image conversion
+    - Limits: max 5 pages, 60s timeout, 10MB file size
+    - Slightly reduces confidence score for OCR results
   - Inventory Routing: Map parsed line items to inventory (match by SKU or create new items)
   - Expense Routing: Create expense records from invoice totals with vendor linkage
   - Status Tracking: Track parsing confidence, review status, and processing flags
+    - "processed" status for high confidence (>= 50%)
+    - "needs_review" status for low confidence (< 50%)
 
 - **Database Tables**:
   - `email_attachments`: Store email attachment metadata and download status
