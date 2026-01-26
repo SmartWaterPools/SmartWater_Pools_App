@@ -380,6 +380,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         return 'bg-green-100 text-green-800';
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
+      case 'needs_review':
+        return 'bg-orange-100 text-orange-800';
       case 'overdue':
       case 'failed':
         return 'bg-red-100 text-red-800';
@@ -846,8 +848,9 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       <Badge className={getStatusBadgeVariant(selectedInvoice.status)}>
                         {selectedInvoice.status === 'processed' && <CheckCircle2 className="h-3 w-3 mr-1" />}
                         {selectedInvoice.status === 'pending' && <Clock className="h-3 w-3 mr-1" />}
+                        {selectedInvoice.status === 'needs_review' && <AlertCircle className="h-3 w-3 mr-1" />}
                         {selectedInvoice.status === 'failed' && <XCircle className="h-3 w-3 mr-1" />}
-                        {selectedInvoice.status}
+                        {selectedInvoice.status === 'needs_review' ? 'Needs Review' : selectedInvoice.status}
                       </Badge>
                     </>
                   )}

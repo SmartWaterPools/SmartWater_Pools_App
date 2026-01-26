@@ -264,6 +264,9 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       });
     }
     
+    // Set status based on parsing confidence
+    const parseStatus = parsed.confidence >= 50 ? 'processed' : 'needs_review';
+    
     const updatedInvoice = await storage.updateVendorInvoice(id, {
       invoiceNumber: parsed.invoiceNumber,
       invoiceDate: parsed.invoiceDate,
@@ -274,7 +277,7 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       totalAmount: parsed.totalAmount ? Math.round(parsed.totalAmount * 100) : null,
       rawText: parsed.rawText,
       parseConfidence: parsed.confidence / 100,
-      status: "processed",
+      status: parseStatus,
     });
     
     const items = await storage.getVendorInvoiceItems(id);
@@ -568,8 +571,13 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
           const parsedData = await pdfParserService.parseInvoice(pdfBuffer);
           console.log(`PDF parsed with confidence: ${parsedData.confidence}%`);
           
+          // Set status based on parsing confidence
+          // High confidence (>= 50%): processed
+          // Low confidence (< 50%): needs_review so user knows to check manually
+          const parseStatus = parsedData.confidence >= 50 ? 'processed' : 'needs_review';
+          
           const updateData: any = {
-            status: 'processed',
+            status: parseStatus,
             parseConfidence: parsedData.confidence / 100,
           };
           
