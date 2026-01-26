@@ -142,7 +142,7 @@ class PDFParserService {
   private async performOcrInternal(pdfBuffer: Buffer): Promise<string> {
     if (pdfBuffer.length > MAX_PDF_SIZE_FOR_OCR) {
       console.log(`PDF too large for OCR (${Math.round(pdfBuffer.length / 1024 / 1024)}MB > ${MAX_PDF_SIZE_FOR_OCR / 1024 / 1024}MB limit)`);
-      throw new Error('PDF file too large for OCR processing');
+      return ''; // Return empty string instead of throwing - graceful degradation
     }
     
     let pdfToImg: any;
@@ -151,7 +151,7 @@ class PDFParserService {
       pdfToImg = await import('pdf-to-img');
     } catch (importError) {
       console.error('Failed to load pdf-to-img library:', importError);
-      throw new Error('OCR dependencies not available - pdf-to-img library failed to load');
+      return ''; // Return empty string instead of throwing - OCR not available, graceful degradation
     }
     
     try {

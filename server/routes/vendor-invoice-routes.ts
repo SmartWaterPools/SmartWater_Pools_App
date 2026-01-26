@@ -291,12 +291,13 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
     console.error("Error parsing vendor invoice:", error);
     
     const id = parseInt(req.params.id);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     await storage.updateVendorInvoice(id, {
       status: "failed",
-      parseErrors: error instanceof Error ? error.message : "Unknown error",
+      parseErrors: errorMessage,
     });
     
-    res.status(500).json({ error: "Failed to parse invoice" });
+    res.status(500).json({ error: `Failed to parse document: ${errorMessage}` });
   }
 });
 
