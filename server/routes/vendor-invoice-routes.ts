@@ -20,6 +20,27 @@ router.get("/", isAuthenticated, async (req, res) => {
   }
 });
 
+router.get("/by-vendor/:vendorId", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const vendorId = parseInt(req.params.vendorId);
+    
+    const vendor = await storage.getVendor(vendorId);
+    if (!vendor) {
+      return res.status(404).json({ error: "Vendor not found" });
+    }
+    if (vendor.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    const invoices = await storage.getVendorInvoicesByVendor(vendorId);
+    res.json(invoices);
+  } catch (error) {
+    console.error("Error fetching vendor invoices:", error);
+    res.status(500).json({ error: "Failed to fetch vendor invoices" });
+  }
+});
+
 router.get("/:id", isAuthenticated, async (req, res) => {
   try {
     const user = req.user as any;
@@ -54,27 +75,6 @@ router.get("/:id/items", isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error("Error fetching vendor invoice items:", error);
     res.status(500).json({ error: "Failed to fetch vendor invoice items" });
-  }
-});
-
-router.get("/by-vendor/:vendorId", isAuthenticated, async (req, res) => {
-  try {
-    const user = req.user as any;
-    const vendorId = parseInt(req.params.vendorId);
-    
-    const vendor = await storage.getVendor(vendorId);
-    if (!vendor) {
-      return res.status(404).json({ error: "Vendor not found" });
-    }
-    if (vendor.organizationId !== user.organizationId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-    
-    const invoices = await storage.getVendorInvoicesByVendor(vendorId);
-    res.json(invoices);
-  } catch (error) {
-    console.error("Error fetching vendor invoices:", error);
-    res.status(500).json({ error: "Failed to fetch vendor invoices" });
   }
 });
 
