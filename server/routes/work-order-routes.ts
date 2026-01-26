@@ -37,26 +37,24 @@ router.get('/', isAuthenticated, async (req, res) => {
     
     // Hydrate client and technician info for maintenance work orders or when explicitly requested
     if (includeClient === 'true' || category === 'maintenance') {
-      const clients = await storage.getClients();
       const technicians = await storage.getTechnicians();
       
       const hydratedWorkOrders = await Promise.all(workOrders.map(async (wo) => {
         const result: Record<string, unknown> = { ...wo };
         
-        // Hydrate client info
+        // Hydrate client info - work_orders.client_id references user.id directly
         if (wo.clientId) {
-          const clientRecord = clients.find(c => c.userId === wo.clientId || c.id === wo.clientId);
-          if (clientRecord) {
-            const clientUser = await storage.getUser(clientRecord.userId);
+          const clientUser = await storage.getUser(wo.clientId);
+          if (clientUser) {
             result.client = {
-              id: clientRecord.id,
-              user: clientUser ? { 
+              id: clientUser.id,
+              user: { 
                 id: clientUser.id, 
                 name: clientUser.name, 
                 email: clientUser.email, 
                 address: clientUser.address,
                 phone: clientUser.phone
-              } : null
+              }
             };
           }
         }
@@ -140,18 +138,10 @@ router.get('/:id', isAuthenticated, async (req, res) => {
     if (workOrder.maintenanceAssignmentId) {
       const assignment = await storage.getMaintenanceAssignment(workOrder.maintenanceAssignmentId);
       if (assignment) {
-        // Get client name for display
-        let clientName = `Assignment #${assignment.id}`;
-        if (assignment.clientId) {
-          const client = await storage.getUser(assignment.clientId);
-          if (client) {
-            clientName = client.name;
-          }
-        }
         result.maintenanceAssignment = { 
           id: assignment.id, 
-          scheduleDate: assignment.scheduleDate,
-          clientName 
+          date: assignment.date,
+          status: assignment.status
         };
       }
     }
@@ -160,7 +150,7 @@ router.get('/:id', isAuthenticated, async (req, res) => {
     if (workOrder.repairId) {
       const repair = await storage.getRepair(workOrder.repairId);
       if (repair) {
-        result.repair = { id: repair.id, issueDescription: repair.issueDescription };
+        result.repair = { id: repair.id, issue: repair.issue, description: repair.description };
       }
     }
     
