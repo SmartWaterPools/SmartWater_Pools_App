@@ -77,6 +77,8 @@ interface VendorInvoice {
   inventoryProcessed: boolean;
   expenseProcessed: boolean;
   documentType: string | null;
+  attachmentId: number | null;
+  emailId: number | null;
 }
 
 interface EmailAttachment {
@@ -891,19 +893,23 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                 </div>
               )}
 
-              {selectedInvoice.pdfUrl && (
+              {(selectedInvoice.pdfUrl || selectedInvoice.attachmentId) && (
                 <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg">
                   <FileText className="h-5 w-5 text-red-500" />
                   <div className="flex-1">
                     <p className="text-sm font-medium">Original Document</p>
-                    <p className="text-xs text-muted-foreground">PDF attachment available</p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedInvoice.pdfUrl ? 'PDF file available' : 'Email attachment available'}
+                    </p>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <a href={selectedInvoice.pdfUrl} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      View PDF
-                    </a>
-                  </Button>
+                  {selectedInvoice.pdfUrl && (
+                    <Button variant="outline" size="sm" asChild>
+                      <a href={selectedInvoice.pdfUrl} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        View PDF
+                      </a>
+                    </Button>
+                  )}
                 </div>
               )}
 
@@ -1152,7 +1158,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
               <Separator />
 
               <div className="flex flex-wrap gap-2">
-                {selectedInvoice.pdfUrl && (
+                {(selectedInvoice.pdfUrl || selectedInvoice.attachmentId) && (
                   <Button 
                     variant="outline" 
                     size="sm"

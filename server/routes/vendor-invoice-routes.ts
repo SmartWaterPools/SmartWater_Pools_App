@@ -4,6 +4,7 @@ import { isAuthenticated } from "../auth";
 import { insertVendorInvoiceSchema, insertVendorInvoiceItemSchema, insertEmailAttachmentSchema, insertExpenseSchema } from "@shared/schema";
 import { z } from "zod";
 import { pdfParserService, ParsedInvoice } from "../services/pdf-parser-service";
+import { downloadGmailAttachment, UserTokens } from "../services/gmail-client";
 import path from "path";
 import fs from "fs/promises";
 
@@ -208,12 +209,44 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
     
-    if (!invoice.pdfUrl) {
-      return res.status(400).json({ error: "No PDF file associated with this invoice" });
+    let pdfBuffer: Buffer | null = null;
+    
+    if (invoice.pdfUrl) {
+      try {
+        const pdfPath = path.join(process.cwd(), invoice.pdfUrl);
+        pdfBuffer = await fs.readFile(pdfPath);
+      } catch (fileError) {
+        console.log('PDF file not found locally, checking for email attachment...');
+      }
     }
     
-    const pdfPath = path.join(process.cwd(), invoice.pdfUrl);
-    const pdfBuffer = await fs.readFile(pdfPath);
+    if (!pdfBuffer && invoice.attachmentId) {
+      const attachment = await storage.getEmailAttachment(invoice.attachmentId);
+      if (attachment && attachment.externalAttachmentId && invoice.emailId) {
+        const email = await storage.getEmail(invoice.emailId);
+        if (email && email.externalId) {
+          const userTokens: UserTokens = {
+            userId: user.id,
+            gmailAccessToken: user.gmailAccessToken,
+            gmailRefreshToken: user.gmailRefreshToken,
+            gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+            gmailConnectedEmail: user.gmailConnectedEmail,
+          };
+          
+          console.log(`Re-downloading attachment from Gmail for invoice ${id}...`);
+          pdfBuffer = await downloadGmailAttachment(
+            email.externalId,
+            attachment.externalAttachmentId,
+            userTokens
+          );
+        }
+      }
+    }
+    
+    if (!pdfBuffer) {
+      return res.status(400).json({ error: "No PDF file or email attachment found for this document" });
+    }
+    
     const parsed = await pdfParserService.parseInvoice(pdfBuffer);
     
     await storage.deleteVendorInvoiceItemsByInvoice(id);
@@ -225,8 +258,8 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
         description: item.description,
         sku: item.sku,
         quantity: String(item.quantity),
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
+        unitPrice: item.unitPrice ? Math.round(item.unitPrice * 100) : null,
+        totalPrice: item.totalPrice ? Math.round(item.totalPrice * 100) : null,
         sortOrder: i,
       });
     }
@@ -235,13 +268,13 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       invoiceNumber: parsed.invoiceNumber,
       invoiceDate: parsed.invoiceDate,
       dueDate: parsed.dueDate,
-      subtotal: parsed.subtotal,
-      taxAmount: parsed.taxAmount,
-      shippingAmount: parsed.shippingAmount,
-      totalAmount: parsed.totalAmount,
+      subtotal: parsed.subtotal ? Math.round(parsed.subtotal * 100) : null,
+      taxAmount: parsed.taxAmount ? Math.round(parsed.taxAmount * 100) : null,
+      shippingAmount: parsed.shippingAmount ? Math.round(parsed.shippingAmount * 100) : null,
+      totalAmount: parsed.totalAmount ? Math.round(parsed.totalAmount * 100) : null,
       rawText: parsed.rawText,
-      parseConfidence: parsed.confidence,
-      status: "parsed",
+      parseConfidence: parsed.confidence / 100,
+      status: "processed",
     });
     
     const items = await storage.getVendorInvoiceItems(id);
@@ -256,7 +289,7 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
     
     const id = parseInt(req.params.id);
     await storage.updateVendorInvoice(id, {
-      status: "error",
+      status: "failed",
       parseErrors: error instanceof Error ? error.message : "Unknown error",
     });
     
@@ -509,6 +542,70 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
     });
     
     const invoice = await storage.createVendorInvoice(invoiceData);
+    
+    if (attachmentData?.externalId && emailData?.externalId && 
+        (attachmentData.mimeType === 'application/pdf' || attachmentData.filename?.toLowerCase().endsWith('.pdf'))) {
+      try {
+        console.log(`Auto-parsing PDF attachment for invoice ${invoice.id}...`);
+        
+        const userTokens: UserTokens = {
+          userId: user.id,
+          gmailAccessToken: user.gmailAccessToken,
+          gmailRefreshToken: user.gmailRefreshToken,
+          gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+          gmailConnectedEmail: user.gmailConnectedEmail,
+        };
+        
+        const pdfBuffer = await downloadGmailAttachment(
+          emailData.externalId,
+          attachmentData.externalId,
+          userTokens
+        );
+        
+        if (pdfBuffer) {
+          console.log(`Downloaded PDF attachment (${pdfBuffer.length} bytes), parsing...`);
+          
+          const parsedData = await pdfParserService.parseInvoice(pdfBuffer);
+          console.log(`PDF parsed with confidence: ${parsedData.confidence}%`);
+          
+          const updateData: any = {
+            status: 'processed',
+            parseConfidence: parsedData.confidence / 100,
+          };
+          
+          if (parsedData.invoiceNumber) updateData.invoiceNumber = parsedData.invoiceNumber;
+          if (parsedData.invoiceDate) updateData.invoiceDate = parsedData.invoiceDate;
+          if (parsedData.dueDate) updateData.dueDate = parsedData.dueDate;
+          if (parsedData.subtotal !== null) updateData.subtotal = Math.round(parsedData.subtotal * 100);
+          if (parsedData.taxAmount !== null) updateData.taxAmount = Math.round(parsedData.taxAmount * 100);
+          if (parsedData.totalAmount !== null) updateData.totalAmount = Math.round(parsedData.totalAmount * 100);
+          
+          await storage.updateVendorInvoice(invoice.id, updateData);
+          
+          if (parsedData.lineItems && parsedData.lineItems.length > 0) {
+            for (let i = 0; i < parsedData.lineItems.length; i++) {
+              const item = parsedData.lineItems[i];
+              await storage.createVendorInvoiceItem({
+                vendorInvoiceId: invoice.id,
+                description: item.description,
+                sku: item.sku,
+                quantity: String(item.quantity),
+                unitPrice: item.unitPrice ? Math.round(item.unitPrice * 100) : null,
+                totalPrice: item.totalPrice ? Math.round(item.totalPrice * 100) : null,
+                sortOrder: i,
+              });
+            }
+          }
+          
+          const updatedInvoice = await storage.getVendorInvoice(invoice.id);
+          return res.status(201).json(updatedInvoice);
+        } else {
+          console.log('Failed to download PDF attachment');
+        }
+      } catch (parseError) {
+        console.error('Auto-parse failed:', parseError);
+      }
+    }
     
     res.status(201).json(invoice);
   } catch (error) {
