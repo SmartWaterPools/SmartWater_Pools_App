@@ -197,12 +197,29 @@ class PDFParserService {
       return '';
     }
     
-    let pdfToImg: any;
+    let pdfFn: (buffer: Buffer, options?: any) => AsyncIterable<Buffer>;
     
     try {
       console.log('[PDFParser] Loading pdf-to-img library...');
-      pdfToImg = await import('pdf-to-img');
-      console.log('[PDFParser] pdf-to-img library loaded successfully');
+      const pdfToImgModule = await import('pdf-to-img');
+      
+      // Handle multiple possible export shapes:
+      // 1. Named export: { pdf: function }
+      // 2. Default export that is the function directly
+      // 3. Default export that contains { pdf: function }
+      if (typeof pdfToImgModule.pdf === 'function') {
+        pdfFn = pdfToImgModule.pdf;
+        console.log('[PDFParser] Using named export pdf function');
+      } else if (typeof pdfToImgModule.default === 'function') {
+        pdfFn = pdfToImgModule.default;
+        console.log('[PDFParser] Using default export as pdf function');
+      } else if (pdfToImgModule.default && typeof pdfToImgModule.default.pdf === 'function') {
+        pdfFn = pdfToImgModule.default.pdf;
+        console.log('[PDFParser] Using default.pdf export');
+      } else {
+        console.error('[PDFParser] Could not find pdf function in pdf-to-img module:', Object.keys(pdfToImgModule));
+        return '';
+      }
     } catch (importError) {
       console.error('[PDFParser] Failed to load pdf-to-img library:', importError);
       return '';
@@ -211,8 +228,8 @@ class PDFParserService {
     try {
       const pages: Buffer[] = [];
       
-      console.log('[PDFParser] Converting PDF to images...');
-      const document = await pdfToImg.pdf(pdfBuffer, { scale: 2.0 });
+      console.log('[PDFParser] Converting PDF to images with buffer size:', pdfBuffer.length);
+      const document = await pdfFn(pdfBuffer, { scale: 2.0 });
       
       let pageCount = 0;
       for await (const image of document) {

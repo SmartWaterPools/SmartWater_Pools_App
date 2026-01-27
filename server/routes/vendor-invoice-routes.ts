@@ -263,9 +263,16 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
     
     const parsed = await pdfParserService.parseInvoice(pdfBuffer, invoice.vendorId);
     
-    await storage.deleteVendorInvoiceItemsByInvoice(id);
-    
     console.log(`[Parse] Parsed result: confidence=${parsed.confidence}%, invoiceNumber=${parsed.invoiceNumber}, rawTextLength=${parsed.rawText?.length || 0}`);
+    
+    // Check if this is likely a scanned/image-based PDF with failed text extraction
+    let parseError: string | null = null;
+    if (!parsed.rawText || parsed.rawText.length < 50) {
+      console.log('[Parse] WARNING: Very little or no text extracted from PDF - likely a scanned/image-based document');
+      parseError = 'Limited text extracted from PDF. This may be a scanned document. Try using a higher quality scan or text-based PDF.';
+    }
+    
+    await storage.deleteVendorInvoiceItemsByInvoice(id);
     
     for (let i = 0; i < parsed.lineItems.length; i++) {
       const item = parsed.lineItems[i];
@@ -296,6 +303,7 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       rawText: parsed.rawText,
       parseConfidence: parsed.confidence,
       status: parseStatus,
+      parseErrors: parseError,
     });
     
     console.log(`[Parse] Invoice ${id} updated successfully with status: ${parseStatus}`);
@@ -595,10 +603,17 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
         );
         
         if (pdfBuffer) {
-          console.log(`Downloaded PDF attachment (${pdfBuffer.length} bytes), parsing...`);
+          console.log(`[Import] Downloaded PDF attachment (${pdfBuffer.length} bytes), parsing...`);
           
           const parsedData = await pdfParserService.parseInvoice(pdfBuffer, vendorId);
-          console.log(`PDF parsed with confidence: ${parsedData.confidence}%`);
+          console.log(`[Import] PDF parsed with confidence: ${parsedData.confidence}%, rawText length: ${parsedData.rawText?.length || 0}`);
+          
+          // Log if text extraction failed (likely image-based PDF)
+          let parseErrorMsg: string | null = null;
+          if (!parsedData.rawText || parsedData.rawText.length < 50) {
+            console.log('[Import] WARNING: No text extracted from PDF - may be a scanned/image-based document');
+            parseErrorMsg = 'Limited text extracted from PDF. This may be a scanned document. Try using a higher quality scan or text-based PDF.';
+          }
           
           // Set status based on parsing confidence
           // High confidence (>= 50%): processed
@@ -609,6 +624,7 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
             status: parseStatus,
             parseConfidence: parsedData.confidence,
             rawText: parsedData.rawText,
+            parseErrors: parseErrorMsg,
           };
           
           if (parsedData.invoiceNumber) updateData.invoiceNumber = parsedData.invoiceNumber;

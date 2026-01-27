@@ -1134,6 +1134,9 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">No data has been parsed from this document yet.</p>
                       <p className="text-xs mt-1">Click "Re-parse" to try again or "Edit" to add manually.</p>
+                      {selectedInvoice.parseErrors && (
+                        <p className="text-xs mt-2 text-amber-600">{selectedInvoice.parseErrors}</p>
+                      )}
                     </div>
                   )}
                 </div>
