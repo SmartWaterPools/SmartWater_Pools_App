@@ -276,7 +276,7 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       shippingAmount: parsed.shippingAmount ? Math.round(parsed.shippingAmount * 100) : null,
       totalAmount: parsed.totalAmount ? Math.round(parsed.totalAmount * 100) : null,
       rawText: parsed.rawText,
-      parseConfidence: parsed.confidence / 100,
+      parseConfidence: parsed.confidence,
       status: parseStatus,
     });
     
