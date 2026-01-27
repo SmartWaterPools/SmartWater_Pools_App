@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql } from "drizzle-orm";
 
@@ -256,6 +256,14 @@ export interface IStorage {
   getInventoryItemsByOrganizationId(organizationId: number): Promise<InventoryItem[]>;
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
+
+  // Vendor Parsing Template operations
+  getVendorParsingTemplates(vendorId: number): Promise<VendorParsingTemplate[]>;
+  getVendorParsingTemplate(id: number): Promise<VendorParsingTemplate | undefined>;
+  getActiveVendorParsingTemplate(vendorId: number): Promise<VendorParsingTemplate | undefined>;
+  createVendorParsingTemplate(template: InsertVendorParsingTemplate): Promise<VendorParsingTemplate>;
+  updateVendorParsingTemplate(id: number, data: Partial<VendorParsingTemplate>): Promise<VendorParsingTemplate | undefined>;
+  deleteVendorParsingTemplate(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1572,6 +1580,39 @@ export class DatabaseStorage implements IStorage {
   async updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
     const result = await db.update(inventoryItems).set(data).where(eq(inventoryItems.id, id)).returning();
     return result[0] || undefined;
+  }
+
+  // Vendor Parsing Template operations
+  async getVendorParsingTemplates(vendorId: number): Promise<VendorParsingTemplate[]> {
+    return db.select().from(vendorParsingTemplates).where(eq(vendorParsingTemplates.vendorId, vendorId)).orderBy(desc(vendorParsingTemplates.createdAt));
+  }
+
+  async getVendorParsingTemplate(id: number): Promise<VendorParsingTemplate | undefined> {
+    const result = await db.select().from(vendorParsingTemplates).where(eq(vendorParsingTemplates.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getActiveVendorParsingTemplate(vendorId: number): Promise<VendorParsingTemplate | undefined> {
+    const result = await db.select().from(vendorParsingTemplates)
+      .where(and(eq(vendorParsingTemplates.vendorId, vendorId), eq(vendorParsingTemplates.isActive, true)))
+      .orderBy(desc(vendorParsingTemplates.timesUsed))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async createVendorParsingTemplate(template: InsertVendorParsingTemplate): Promise<VendorParsingTemplate> {
+    const result = await db.insert(vendorParsingTemplates).values(template).returning();
+    return result[0];
+  }
+
+  async updateVendorParsingTemplate(id: number, data: Partial<VendorParsingTemplate>): Promise<VendorParsingTemplate | undefined> {
+    const result = await db.update(vendorParsingTemplates).set({ ...data, updatedAt: new Date() }).where(eq(vendorParsingTemplates.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteVendorParsingTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(vendorParsingTemplates).where(eq(vendorParsingTemplates.id, id)).returning();
+    return result.length > 0;
   }
 }
 

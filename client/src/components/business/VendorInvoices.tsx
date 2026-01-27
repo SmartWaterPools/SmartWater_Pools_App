@@ -57,7 +57,10 @@ import {
   ExternalLink,
   Loader2,
   ShoppingCart,
-  Percent
+  Percent,
+  FileCode,
+  Layers,
+  Copy
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -79,6 +82,9 @@ interface VendorInvoice {
   documentType: string | null;
   attachmentId: number | null;
   emailId: number | null;
+  rawText: string | null;
+  parseErrors: string | null;
+  shippingAmount: number | null;
 }
 
 interface EmailAttachment {
@@ -158,6 +164,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   const [selectedDocumentType, setSelectedDocumentType] = useState('invoice');
   const [showEmailToAnalyzeDialog, setShowEmailToAnalyzeDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [detailTab, setDetailTab] = useState<'details' | 'rawtext' | 'fields'>('details');
   const [editValues, setEditValues] = useState<{
     invoiceNumber: string;
     invoiceDate: string;
@@ -829,6 +836,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         if (!open) {
           setIsEditing(false);
           setEditValues(null);
+          setDetailTab('details');
         }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -866,14 +874,14 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
           </DialogHeader>
           
           {selectedInvoice && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {selectedInvoice.parseConfidence !== null && (
                 <div className="p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium flex items-center gap-2">
-                      {selectedInvoice.parseConfidence >= 0.7 ? (
+                      {selectedInvoice.parseConfidence >= 70 ? (
                         <CheckCircle2 className="h-4 w-4 text-green-600" />
-                      ) : selectedInvoice.parseConfidence >= 0.4 ? (
+                      ) : selectedInvoice.parseConfidence >= 40 ? (
                         <AlertCircle className="h-4 w-4 text-yellow-600" />
                       ) : (
                         <XCircle className="h-4 w-4 text-red-600" />
@@ -881,14 +889,14 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       Parsing Confidence
                     </span>
                     <span className="text-sm font-bold">
-                      {(selectedInvoice.parseConfidence * 100).toFixed(0)}%
+                      {selectedInvoice.parseConfidence}%
                     </span>
                   </div>
                   <Progress 
-                    value={selectedInvoice.parseConfidence * 100} 
+                    value={selectedInvoice.parseConfidence} 
                     className="h-2"
                   />
-                  {selectedInvoice.parseConfidence < 0.7 && (
+                  {selectedInvoice.parseConfidence < 70 && (
                     <p className="text-xs text-muted-foreground mt-2">
                       Low confidence parsing. Review fields for accuracy.
                     </p>
@@ -916,7 +924,23 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                 </div>
               )}
 
-              <Separator />
+              <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as 'details' | 'rawtext' | 'fields')}>
+                <TabsList className="w-full grid grid-cols-3">
+                  <TabsTrigger value="details" className="flex items-center gap-1">
+                    <Layers className="h-3 w-3" />
+                    Details
+                  </TabsTrigger>
+                  <TabsTrigger value="rawtext" className="flex items-center gap-1">
+                    <FileCode className="h-3 w-3" />
+                    Raw Text
+                  </TabsTrigger>
+                  <TabsTrigger value="fields" className="flex items-center gap-1">
+                    <Package className="h-3 w-3" />
+                    Field Mapping
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="details" className="space-y-4 mt-4">
 
               {isEditing && editValues ? (
                 <div className="space-y-4">
@@ -1157,6 +1181,120 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                   <span className="ml-2 text-sm text-muted-foreground">Loading items...</span>
                 </div>
               )}
+                </TabsContent>
+
+                <TabsContent value="rawtext" className="mt-4">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <FileCode className="h-4 w-4" />
+                        Extracted Text
+                      </h4>
+                      {selectedInvoice.rawText && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedInvoice.rawText || '');
+                            toast({ title: 'Copied', description: 'Raw text copied to clipboard' });
+                          }}
+                        >
+                          <Copy className="h-3 w-3 mr-1" />
+                          Copy
+                        </Button>
+                      )}
+                    </div>
+                    {selectedInvoice.rawText ? (
+                      <ScrollArea className="h-64 w-full rounded-md border bg-muted/30 p-3">
+                        <pre className="text-xs whitespace-pre-wrap font-mono">{selectedInvoice.rawText}</pre>
+                      </ScrollArea>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                        <FileCode className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No text has been extracted yet.</p>
+                        <p className="text-xs mt-1">Click "Re-parse Document" to extract text from the PDF.</p>
+                      </div>
+                    )}
+                    {selectedInvoice.parseErrors && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm font-medium text-red-800 flex items-center gap-2">
+                          <XCircle className="h-4 w-4" />
+                          Parsing Errors
+                        </p>
+                        <p className="text-xs text-red-700 mt-1">{selectedInvoice.parseErrors}</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="fields" className="mt-4">
+                  <div className="space-y-4">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <Layers className="h-4 w-4" />
+                      Field Mappings for Expense & Inventory
+                    </h4>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="border rounded-lg p-4 bg-purple-50/50">
+                        <h5 className="font-medium text-sm mb-3 flex items-center gap-2 text-purple-800">
+                          <DollarSign className="h-4 w-4" />
+                          Expense Fields
+                        </h5>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Date:</span>
+                            <span className="font-medium">{selectedInvoice.invoiceDate || '-'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Amount:</span>
+                            <span className="font-medium">{formatCurrency(selectedInvoice.totalAmount)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Category:</span>
+                            <span className="font-medium">Chemicals & Supplies</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Description:</span>
+                            <span className="font-medium text-xs">Invoice {selectedInvoice.invoiceNumber || 'N/A'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border rounded-lg p-4 bg-teal-50/50">
+                        <h5 className="font-medium text-sm mb-3 flex items-center gap-2 text-teal-800">
+                          <Package className="h-4 w-4" />
+                          Inventory Fields
+                        </h5>
+                        {invoiceItems && invoiceItems.length > 0 ? (
+                          <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
+                            {invoiceItems.map((item, idx) => (
+                              <div key={idx} className="border-b pb-2 last:border-b-0">
+                                <p className="font-medium truncate">{item.description}</p>
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>SKU: {item.sku || '-'}</span>
+                                  <span>Qty: {item.quantity}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No line items parsed</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg">
+                      <p className="font-medium mb-1">How Field Mapping Works:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li><strong>Process to Expense:</strong> Creates an expense record using invoice date, total amount, and vendor info</li>
+                        <li><strong>Process to Inventory:</strong> Matches line items by SKU or creates new inventory items with quantity and pricing</li>
+                      </ul>
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <Separator />
 

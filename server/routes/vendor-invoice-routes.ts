@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth";
-import { insertVendorInvoiceSchema, insertVendorInvoiceItemSchema, insertEmailAttachmentSchema, insertExpenseSchema } from "@shared/schema";
+import { insertVendorInvoiceSchema, insertVendorInvoiceItemSchema, insertEmailAttachmentSchema, insertExpenseSchema, insertVendorParsingTemplateSchema } from "@shared/schema";
 import { z } from "zod";
 import { pdfParserService, ParsedInvoice } from "../services/pdf-parser-service";
 import { downloadGmailAttachment, UserTokens } from "../services/gmail-client";
@@ -623,6 +623,78 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
     }
     console.error("Error importing invoice from email:", error);
     res.status(500).json({ error: "Failed to import invoice from email" });
+  }
+});
+
+// Vendor Parsing Template routes
+router.get("/parsing-templates/:vendorId", isAuthenticated, async (req, res) => {
+  try {
+    const vendorId = parseInt(req.params.vendorId);
+    const templates = await storage.getVendorParsingTemplates(vendorId);
+    res.json(templates);
+  } catch (error) {
+    console.error("Error fetching parsing templates:", error);
+    res.status(500).json({ error: "Failed to fetch parsing templates" });
+  }
+});
+
+router.get("/parsing-template/:id", isAuthenticated, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const template = await storage.getVendorParsingTemplate(id);
+    if (!template) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    res.json(template);
+  } catch (error) {
+    console.error("Error fetching parsing template:", error);
+    res.status(500).json({ error: "Failed to fetch parsing template" });
+  }
+});
+
+router.post("/parsing-templates", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const validated = insertVendorParsingTemplateSchema.parse({
+      ...req.body,
+      organizationId: user.organizationId,
+    });
+    const template = await storage.createVendorParsingTemplate(validated);
+    res.status(201).json(template);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid template data", details: error.errors });
+    }
+    console.error("Error creating parsing template:", error);
+    res.status(500).json({ error: "Failed to create parsing template" });
+  }
+});
+
+router.patch("/parsing-template/:id", isAuthenticated, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const template = await storage.updateVendorParsingTemplate(id, req.body);
+    if (!template) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    res.json(template);
+  } catch (error) {
+    console.error("Error updating parsing template:", error);
+    res.status(500).json({ error: "Failed to update parsing template" });
+  }
+});
+
+router.delete("/parsing-template/:id", isAuthenticated, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const deleted = await storage.deleteVendorParsingTemplate(id);
+    if (!deleted) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting parsing template:", error);
+    res.status(500).json({ error: "Failed to delete parsing template" });
   }
 });
 

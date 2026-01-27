@@ -1328,3 +1328,55 @@ export const insertVendorInvoiceItemSchema = createInsertSchema(vendorInvoiceIte
 
 export type InsertVendorInvoiceItem = z.infer<typeof insertVendorInvoiceItemSchema>;
 export type VendorInvoiceItem = typeof vendorInvoiceItems.$inferSelect;
+
+// Vendor Parsing Templates - stores parsing patterns for each vendor's invoices
+export const vendorParsingTemplates = pgTable("vendor_parsing_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").references(() => organizations.id),
+  vendorId: integer("vendor_id").references(() => vendors.id).notNull(),
+  
+  // Template name and description
+  name: text("name").notNull(),
+  isActive: boolean("is_active").default(true),
+  
+  // Parsing patterns - regex patterns for extracting fields
+  invoiceNumberPattern: text("invoice_number_pattern"),
+  invoiceDatePattern: text("invoice_date_pattern"),
+  dueDatePattern: text("due_date_pattern"),
+  subtotalPattern: text("subtotal_pattern"),
+  taxPattern: text("tax_pattern"),
+  shippingPattern: text("shipping_pattern"),
+  totalPattern: text("total_pattern"),
+  
+  // Line item extraction settings
+  lineItemStartMarker: text("line_item_start_marker"),
+  lineItemEndMarker: text("line_item_end_marker"),
+  lineItemPattern: text("line_item_pattern"),
+  
+  // Field positions - for structured PDFs with consistent layout
+  fieldPositions: text("field_positions"), // JSON containing coordinates/positions
+  
+  // Default expense category for this vendor
+  defaultExpenseCategory: text("default_expense_category"),
+  
+  // Sample data for testing
+  sampleRawText: text("sample_raw_text"),
+  
+  // Usage stats
+  timesUsed: integer("times_used").default(0),
+  lastUsedAt: timestamp("last_used_at"),
+  
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertVendorParsingTemplateSchema = createInsertSchema(vendorParsingTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  timesUsed: true,
+  lastUsedAt: true,
+});
+
+export type InsertVendorParsingTemplate = z.infer<typeof insertVendorParsingTemplateSchema>;
+export type VendorParsingTemplate = typeof vendorParsingTemplates.$inferSelect;
