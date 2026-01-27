@@ -196,6 +196,71 @@ router.delete("/items/:itemId", isAuthenticated, async (req, res) => {
   }
 });
 
+router.get("/:id/pdf", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    
+    console.log(`[PDF] Fetching PDF for invoice ${id}`);
+    
+    const invoice = await storage.getVendorInvoice(id);
+    if (!invoice) {
+      return res.status(404).json({ error: "Vendor invoice not found" });
+    }
+    if (invoice.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    let pdfBuffer: Buffer | null = null;
+    
+    if (invoice.pdfUrl) {
+      try {
+        const pdfPath = path.join(process.cwd(), invoice.pdfUrl);
+        console.log(`[PDF] Reading local PDF from: ${pdfPath}`);
+        pdfBuffer = await fs.readFile(pdfPath);
+        console.log(`[PDF] Local PDF read: ${pdfBuffer.length} bytes`);
+      } catch (fileError) {
+        console.log('[PDF] Local file not found, checking Gmail attachment...');
+      }
+    }
+    
+    if (!pdfBuffer && invoice.attachmentId && invoice.emailId) {
+      console.log(`[PDF] Downloading from Gmail attachment ${invoice.attachmentId}`);
+      const attachment = await storage.getEmailAttachment(invoice.attachmentId);
+      const email = await storage.getEmail(invoice.emailId);
+      
+      if (attachment?.externalAttachmentId && email?.externalId) {
+        const userTokens: UserTokens = {
+          userId: user.id,
+          gmailAccessToken: user.gmailAccessToken,
+          gmailRefreshToken: user.gmailRefreshToken,
+          gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+          gmailConnectedEmail: user.gmailConnectedEmail,
+        };
+        
+        pdfBuffer = await downloadGmailAttachment(
+          email.externalId,
+          attachment.externalAttachmentId,
+          userTokens
+        );
+        console.log(`[PDF] Gmail download result: ${pdfBuffer ? pdfBuffer.length + ' bytes' : 'null'}`);
+      }
+    }
+    
+    if (!pdfBuffer) {
+      console.log('[PDF] No PDF available');
+      return res.status(404).json({ error: "PDF not available" });
+    }
+    
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error fetching PDF:", error);
+    res.status(500).json({ error: "Failed to fetch PDF" });
+  }
+});
+
 router.post("/:id/parse", isAuthenticated, async (req, res) => {
   try {
     const user = req.user as any;
@@ -654,14 +719,25 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
           const updatedInvoice = await storage.getVendorInvoice(invoice.id);
           return res.status(201).json(updatedInvoice);
         } else {
-          console.log('Failed to download PDF attachment');
+          console.log('[Import] Failed to download PDF attachment from Gmail');
+          await storage.updateVendorInvoice(invoice.id, {
+            status: 'needs_review',
+            parseErrors: 'Failed to download PDF from email. Please try re-parsing or contact support if the issue persists.',
+          });
         }
       } catch (parseError) {
-        console.error('Auto-parse failed:', parseError);
+        console.error('[Import] Auto-parse failed:', parseError);
+        await storage.updateVendorInvoice(invoice.id, {
+          status: 'needs_review',
+          parseErrors: `Parsing error: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`,
+        });
       }
+    } else {
+      console.log(`[Import] Skipping auto-parse: isPdfAttachment=${isPdfAttachment}, hasExternalIds=${hasExternalIds}`);
     }
     
-    res.status(201).json(invoice);
+    const updatedInvoice = await storage.getVendorInvoice(invoice.id);
+    res.status(201).json(updatedInvoice);
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: "Invalid invoice data", details: error.errors });

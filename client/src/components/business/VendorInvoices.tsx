@@ -1192,8 +1192,17 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                 </TabsContent>
 
                 <TabsContent value="visual" className="mt-4">
+                  {selectedInvoice.parseErrors && (
+                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <p className="text-sm font-medium text-amber-800 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        Parsing Issue
+                      </p>
+                      <p className="text-xs text-amber-700 mt-1">{selectedInvoice.parseErrors}</p>
+                    </div>
+                  )}
                   <PdfFieldSelector
-                    pdfUrl={selectedInvoice.pdfUrl}
+                    pdfUrl={selectedInvoice.pdfUrl || (selectedInvoice.attachmentId ? `/api/vendor-invoices/${selectedInvoice.id}/pdf` : null)}
                     rawText={selectedInvoice.rawText}
                     vendorId={selectedInvoice.vendorId}
                     invoiceId={selectedInvoice.id}
