@@ -68,6 +68,8 @@ class PDFParserService {
   ];
 
   async parseInvoice(pdfBuffer: Buffer, vendorId?: number): Promise<ParsedInvoice> {
+    console.log(`[PDFParser] Starting parseInvoice, buffer size: ${pdfBuffer.length} bytes, vendorId: ${vendorId}`);
+    
     let rawText = '';
     let confidenceScore = 0;
     let fieldsFound = 0;
@@ -80,21 +82,25 @@ class PDFParserService {
         const template = await storage.getActiveVendorParsingTemplate(vendorId);
         if (template) {
           vendorTemplate = template;
-          console.log(`Using vendor-specific parsing template for vendor ${vendorId}`);
+          console.log(`[PDFParser] Using vendor-specific parsing template for vendor ${vendorId}`);
           
           await storage.updateVendorParsingTemplate(template.id, {
             timesUsed: (template.timesUsed || 0) + 1,
             lastUsedAt: new Date()
           });
+        } else {
+          console.log(`[PDFParser] No active template found for vendor ${vendorId}`);
         }
       } catch (err) {
-        console.error('Error loading vendor template:', err);
+        console.error('[PDFParser] Error loading vendor template:', err);
       }
     }
 
     try {
+      console.log('[PDFParser] Attempting pdf-parse text extraction...');
       const data = await pdfParse(pdfBuffer);
       rawText = data.text;
+      console.log(`[PDFParser] Text extraction completed, got ${rawText.length} chars`);
       
       const cleanedText = rawText.replace(/\s+/g, ' ').trim();
       
@@ -465,6 +471,24 @@ class PDFParserService {
     }
 
     return { subtotal, taxAmount, shippingAmount, totalAmount };
+  }
+
+  private normalizeDate(dateStr: string): string {
+    if (!dateStr) return dateStr;
+    
+    const trimmed = dateStr.trim();
+    
+    const mmddyyyy = trimmed.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (mmddyyyy) {
+      return `${mmddyyyy[1].padStart(2, '0')}/${mmddyyyy[2].padStart(2, '0')}/${mmddyyyy[3]}`;
+    }
+    
+    const yyyymmdd = trimmed.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (yyyymmdd) {
+      return `${yyyymmdd[2].padStart(2, '0')}/${yyyymmdd[3].padStart(2, '0')}/${yyyymmdd[1]}`;
+    }
+    
+    return trimmed;
   }
 }
 

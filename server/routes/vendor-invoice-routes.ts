@@ -201,6 +201,8 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
     const user = req.user as any;
     const id = parseInt(req.params.id);
     
+    console.log(`[Parse] Starting parse for invoice ${id}`);
+    
     const invoice = await storage.getVendorInvoice(id);
     if (!invoice) {
       return res.status(404).json({ error: "Vendor invoice not found" });
@@ -209,21 +211,30 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       return res.status(403).json({ error: "Access denied" });
     }
     
+    console.log(`[Parse] Invoice found: attachmentId=${invoice.attachmentId}, emailId=${invoice.emailId}, pdfUrl=${invoice.pdfUrl}`);
+    
     let pdfBuffer: Buffer | null = null;
     
     if (invoice.pdfUrl) {
       try {
         const pdfPath = path.join(process.cwd(), invoice.pdfUrl);
+        console.log(`[Parse] Trying to read local PDF from: ${pdfPath}`);
         pdfBuffer = await fs.readFile(pdfPath);
+        console.log(`[Parse] Local PDF read successfully, ${pdfBuffer.length} bytes`);
       } catch (fileError) {
-        console.log('PDF file not found locally, checking for email attachment...');
+        console.log('[Parse] PDF file not found locally, checking for email attachment...', fileError);
       }
     }
     
     if (!pdfBuffer && invoice.attachmentId) {
+      console.log(`[Parse] Looking up attachment ID ${invoice.attachmentId}`);
       const attachment = await storage.getEmailAttachment(invoice.attachmentId);
+      console.log(`[Parse] Attachment found:`, attachment ? { id: attachment.id, externalAttachmentId: attachment.externalAttachmentId } : 'null');
+      
       if (attachment && attachment.externalAttachmentId && invoice.emailId) {
         const email = await storage.getEmail(invoice.emailId);
+        console.log(`[Parse] Email found:`, email ? { id: email.id, externalId: email.externalId } : 'null');
+        
         if (email && email.externalId) {
           const userTokens: UserTokens = {
             userId: user.id,
@@ -233,17 +244,20 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
             gmailConnectedEmail: user.gmailConnectedEmail,
           };
           
-          console.log(`Re-downloading attachment from Gmail for invoice ${id}...`);
+          console.log(`[Parse] Re-downloading attachment from Gmail for invoice ${id}...`);
+          console.log(`[Parse] Using messageId=${email.externalId}, attachmentId=${attachment.externalAttachmentId}`);
           pdfBuffer = await downloadGmailAttachment(
             email.externalId,
             attachment.externalAttachmentId,
             userTokens
           );
+          console.log(`[Parse] Gmail download result: ${pdfBuffer ? pdfBuffer.length + ' bytes' : 'null'}`);
         }
       }
     }
     
     if (!pdfBuffer) {
+      console.log('[Parse] No PDF buffer obtained from any source');
       return res.status(400).json({ error: "No PDF file or email attachment found for this document" });
     }
     
@@ -547,10 +561,18 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
     
     const invoice = await storage.createVendorInvoice(invoiceData);
     
-    if (attachmentData?.externalId && emailData?.externalId && 
-        (attachmentData.mimeType === 'application/pdf' || attachmentData.filename?.toLowerCase().endsWith('.pdf'))) {
+    console.log(`[Import] Created invoice ${invoice.id}, checking for auto-parse...`);
+    console.log(`[Import] attachmentData: ${JSON.stringify(attachmentData ? { externalId: attachmentData.externalId, mimeType: attachmentData.mimeType, filename: attachmentData.filename } : null)}`);
+    console.log(`[Import] emailData: ${JSON.stringify(emailData ? { externalId: emailData.externalId } : null)}`);
+    
+    const isPdfAttachment = attachmentData?.mimeType === 'application/pdf' || attachmentData?.filename?.toLowerCase().endsWith('.pdf');
+    const hasExternalIds = attachmentData?.externalId && emailData?.externalId;
+    
+    console.log(`[Import] isPdfAttachment: ${isPdfAttachment}, hasExternalIds: ${hasExternalIds}`);
+    
+    if (hasExternalIds && isPdfAttachment) {
       try {
-        console.log(`Auto-parsing PDF attachment for invoice ${invoice.id}...`);
+        console.log(`[Import] Auto-parsing PDF attachment for invoice ${invoice.id}...`);
         
         const userTokens: UserTokens = {
           userId: user.id,
@@ -580,14 +602,15 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
           const updateData: any = {
             status: parseStatus,
             parseConfidence: parsedData.confidence,
+            rawText: parsedData.rawText,
           };
           
           if (parsedData.invoiceNumber) updateData.invoiceNumber = parsedData.invoiceNumber;
           if (parsedData.invoiceDate) updateData.invoiceDate = parsedData.invoiceDate;
           if (parsedData.dueDate) updateData.dueDate = parsedData.dueDate;
-          if (parsedData.subtotal !== null) updateData.subtotal = Math.round(parsedData.subtotal * 100);
-          if (parsedData.taxAmount !== null) updateData.taxAmount = Math.round(parsedData.taxAmount * 100);
-          if (parsedData.totalAmount !== null) updateData.totalAmount = Math.round(parsedData.totalAmount * 100);
+          if (parsedData.subtotal !== null) updateData.subtotal = parsedData.subtotal;
+          if (parsedData.taxAmount !== null) updateData.taxAmount = parsedData.taxAmount;
+          if (parsedData.totalAmount !== null) updateData.totalAmount = parsedData.totalAmount;
           
           await storage.updateVendorInvoice(invoice.id, updateData);
           
@@ -599,8 +622,8 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
                 description: item.description,
                 sku: item.sku,
                 quantity: String(item.quantity),
-                unitPrice: item.unitPrice ? Math.round(item.unitPrice * 100) : null,
-                totalPrice: item.totalPrice ? Math.round(item.totalPrice * 100) : null,
+                unitPrice: item.unitPrice,
+                totalPrice: item.totalPrice,
                 sortOrder: i,
               });
             }
