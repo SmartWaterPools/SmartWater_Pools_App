@@ -99,35 +99,36 @@ class PDFParserService {
     try {
       console.log('[PDFParser] Attempting pdf-parse text extraction...');
       const data = await pdfParse(pdfBuffer);
-      rawText = data.text;
+      rawText = data.text || '';
       console.log(`[PDFParser] Text extraction completed, got ${rawText.length} chars`);
+      console.log(`[PDFParser] First 200 chars: ${rawText.substring(0, 200).replace(/\n/g, '\\n')}`);
       
       const cleanedText = rawText.replace(/\s+/g, ' ').trim();
       
       if (cleanedText.length < MIN_TEXT_LENGTH_FOR_PARSING) {
-        console.log(`PDF text extraction returned minimal content (${cleanedText.length} chars), attempting OCR...`);
+        console.log(`[PDFParser] Minimal content (${cleanedText.length} chars < ${MIN_TEXT_LENGTH_FOR_PARSING}), attempting OCR...`);
         try {
           const ocrText = await this.performOcr(pdfBuffer);
           if (ocrText && ocrText.trim().length > 0) {
             rawText = ocrText;
             usedOcr = true;
-            console.log(`OCR completed, extracted ${rawText.length} characters`);
+            console.log(`[PDFParser] OCR completed, extracted ${rawText.length} characters`);
           } else {
-            console.log('OCR returned no usable text');
+            console.log('[PDFParser] OCR returned no usable text');
           }
         } catch (ocrError) {
-          console.error('OCR failed for minimal-text PDF:', ocrError);
+          console.error('[PDFParser] OCR failed for minimal-text PDF:', ocrError);
         }
       }
     } catch (error) {
-      console.error('Error parsing PDF with text extraction:', error);
-      console.log('Attempting OCR fallback...');
+      console.error('[PDFParser] Error parsing PDF with text extraction:', error);
+      console.log('[PDFParser] Attempting OCR fallback...');
       try {
         rawText = await this.performOcr(pdfBuffer);
         usedOcr = true;
-        console.log(`OCR fallback completed, extracted ${rawText.length} characters`);
+        console.log(`[PDFParser] OCR fallback completed, extracted ${rawText.length} characters`);
       } catch (ocrError) {
-        console.error('OCR fallback also failed:', ocrError);
+        console.error('[PDFParser] OCR fallback also failed:', ocrError);
         return this.createEmptyResult(rawText, 0);
       }
     }
@@ -189,59 +190,70 @@ class PDFParserService {
   }
   
   private async performOcrInternal(pdfBuffer: Buffer): Promise<string> {
+    console.log('[PDFParser] performOcrInternal called with buffer size:', pdfBuffer.length);
+    
     if (pdfBuffer.length > MAX_PDF_SIZE_FOR_OCR) {
-      console.log(`PDF too large for OCR (${Math.round(pdfBuffer.length / 1024 / 1024)}MB > ${MAX_PDF_SIZE_FOR_OCR / 1024 / 1024}MB limit)`);
-      return ''; // Return empty string instead of throwing - graceful degradation
+      console.log(`[PDFParser] PDF too large for OCR (${Math.round(pdfBuffer.length / 1024 / 1024)}MB > ${MAX_PDF_SIZE_FOR_OCR / 1024 / 1024}MB limit)`);
+      return '';
     }
     
     let pdfToImg: any;
     
     try {
+      console.log('[PDFParser] Loading pdf-to-img library...');
       pdfToImg = await import('pdf-to-img');
+      console.log('[PDFParser] pdf-to-img library loaded successfully');
     } catch (importError) {
-      console.error('Failed to load pdf-to-img library:', importError);
-      return ''; // Return empty string instead of throwing - OCR not available, graceful degradation
+      console.error('[PDFParser] Failed to load pdf-to-img library:', importError);
+      return '';
     }
     
     try {
       const pages: Buffer[] = [];
       
+      console.log('[PDFParser] Converting PDF to images...');
       const document = await pdfToImg.pdf(pdfBuffer, { scale: 2.0 });
       
       let pageCount = 0;
       for await (const image of document) {
         pages.push(image);
         pageCount++;
+        console.log(`[PDFParser] Extracted page ${pageCount}`);
         if (pageCount >= MAX_OCR_PAGES) {
-          console.log(`Reached max OCR page limit (${MAX_OCR_PAGES}), stopping extraction`);
+          console.log(`[PDFParser] Reached max OCR page limit (${MAX_OCR_PAGES}), stopping extraction`);
           break;
         }
       }
       
       if (pages.length === 0) {
-        console.log('No pages extracted from PDF for OCR');
+        console.log('[PDFParser] No pages extracted from PDF for OCR');
         return '';
       }
       
-      console.log(`Extracted ${pages.length} page(s) from PDF, running OCR...`);
+      console.log(`[PDFParser] Extracted ${pages.length} page(s) from PDF, running OCR...`);
       
       const textParts: string[] = [];
       
       for (let i = 0; i < pages.length; i++) {
-        console.log(`Running OCR on page ${i + 1}/${pages.length}...`);
+        console.log(`[PDFParser] Running OCR on page ${i + 1}/${pages.length}...`);
         try {
           const result = await Tesseract.recognize(pages[i], 'eng');
           if (result.data.text) {
+            console.log(`[PDFParser] OCR page ${i + 1} extracted ${result.data.text.length} chars`);
             textParts.push(result.data.text);
+          } else {
+            console.log(`[PDFParser] OCR page ${i + 1} returned empty text`);
           }
         } catch (pageError) {
-          console.error(`OCR failed on page ${i + 1}:`, pageError);
+          console.error(`[PDFParser] OCR failed on page ${i + 1}:`, pageError);
         }
       }
       
-      return textParts.join('\n\n');
+      const totalText = textParts.join('\n\n');
+      console.log(`[PDFParser] OCR complete, total text length: ${totalText.length}`);
+      return totalText;
     } catch (error) {
-      console.error('OCR processing failed:', error);
+      console.error('[PDFParser] OCR processing failed:', error);
       throw error;
     }
   }

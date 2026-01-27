@@ -265,6 +265,8 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
     
     await storage.deleteVendorInvoiceItemsByInvoice(id);
     
+    console.log(`[Parse] Parsed result: confidence=${parsed.confidence}%, invoiceNumber=${parsed.invoiceNumber}, rawTextLength=${parsed.rawText?.length || 0}`);
+    
     for (let i = 0; i < parsed.lineItems.length; i++) {
       const item = parsed.lineItems[i];
       await storage.createVendorInvoiceItem({
@@ -272,8 +274,8 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
         description: item.description,
         sku: item.sku,
         quantity: String(item.quantity),
-        unitPrice: item.unitPrice ? Math.round(item.unitPrice * 100) : null,
-        totalPrice: item.totalPrice ? Math.round(item.totalPrice * 100) : null,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
         sortOrder: i,
       });
     }
@@ -281,18 +283,22 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
     // Set status based on parsing confidence
     const parseStatus = parsed.confidence >= 50 ? 'processed' : 'needs_review';
     
+    console.log(`[Parse] Saving parsed data: subtotal=${parsed.subtotal}, tax=${parsed.taxAmount}, total=${parsed.totalAmount}`);
+    
     const updatedInvoice = await storage.updateVendorInvoice(id, {
       invoiceNumber: parsed.invoiceNumber,
       invoiceDate: parsed.invoiceDate,
       dueDate: parsed.dueDate,
-      subtotal: parsed.subtotal ? Math.round(parsed.subtotal * 100) : null,
-      taxAmount: parsed.taxAmount ? Math.round(parsed.taxAmount * 100) : null,
-      shippingAmount: parsed.shippingAmount ? Math.round(parsed.shippingAmount * 100) : null,
-      totalAmount: parsed.totalAmount ? Math.round(parsed.totalAmount * 100) : null,
+      subtotal: parsed.subtotal,
+      taxAmount: parsed.taxAmount,
+      shippingAmount: parsed.shippingAmount,
+      totalAmount: parsed.totalAmount,
       rawText: parsed.rawText,
       parseConfidence: parsed.confidence,
       status: parseStatus,
     });
+    
+    console.log(`[Parse] Invoice ${id} updated successfully with status: ${parseStatus}`);
     
     const items = await storage.getVendorInvoiceItems(id);
     
