@@ -64,6 +64,7 @@ import {
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import PdfFieldSelector from './PdfFieldSelector';
 
 interface VendorInvoice {
   id: number;
@@ -164,7 +165,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   const [selectedDocumentType, setSelectedDocumentType] = useState('invoice');
   const [showEmailToAnalyzeDialog, setShowEmailToAnalyzeDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [detailTab, setDetailTab] = useState<'details' | 'rawtext' | 'fields'>('details');
+  const [detailTab, setDetailTab] = useState<'details' | 'rawtext' | 'fields' | 'visual'>('details');
   const [editValues, setEditValues] = useState<{
     invoiceNumber: string;
     invoiceDate: string;
@@ -924,11 +925,15 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                 </div>
               )}
 
-              <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as 'details' | 'rawtext' | 'fields')}>
-                <TabsList className="w-full grid grid-cols-3">
+              <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as 'details' | 'rawtext' | 'fields' | 'visual')}>
+                <TabsList className="w-full grid grid-cols-4">
                   <TabsTrigger value="details" className="flex items-center gap-1">
                     <Layers className="h-3 w-3" />
                     Details
+                  </TabsTrigger>
+                  <TabsTrigger value="visual" className="flex items-center gap-1">
+                    <Image className="h-3 w-3" />
+                    Visual
                   </TabsTrigger>
                   <TabsTrigger value="rawtext" className="flex items-center gap-1">
                     <FileCode className="h-3 w-3" />
@@ -936,7 +941,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                   </TabsTrigger>
                   <TabsTrigger value="fields" className="flex items-center gap-1">
                     <Package className="h-3 w-3" />
-                    Field Mapping
+                    Mapping
                   </TabsTrigger>
                 </TabsList>
 
@@ -1181,6 +1186,22 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                   <span className="ml-2 text-sm text-muted-foreground">Loading items...</span>
                 </div>
               )}
+                </TabsContent>
+
+                <TabsContent value="visual" className="mt-4">
+                  <PdfFieldSelector
+                    pdfUrl={selectedInvoice.pdfUrl}
+                    rawText={selectedInvoice.rawText}
+                    vendorId={selectedInvoice.vendorId}
+                    invoiceId={selectedInvoice.id}
+                    onFieldsSelected={(fields) => {
+                      toast({
+                        title: 'Fields Mapped',
+                        description: `${fields.length} field(s) have been mapped and saved as a template.`
+                      });
+                      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices', selectedInvoice.id] });
+                    }}
+                  />
                 </TabsContent>
 
                 <TabsContent value="rawtext" className="mt-4">

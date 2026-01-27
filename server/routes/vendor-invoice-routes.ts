@@ -247,7 +247,7 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       return res.status(400).json({ error: "No PDF file or email attachment found for this document" });
     }
     
-    const parsed = await pdfParserService.parseInvoice(pdfBuffer);
+    const parsed = await pdfParserService.parseInvoice(pdfBuffer, invoice.vendorId);
     
     await storage.deleteVendorInvoiceItemsByInvoice(id);
     
@@ -569,7 +569,7 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
         if (pdfBuffer) {
           console.log(`Downloaded PDF attachment (${pdfBuffer.length} bytes), parsing...`);
           
-          const parsedData = await pdfParserService.parseInvoice(pdfBuffer);
+          const parsedData = await pdfParserService.parseInvoice(pdfBuffer, vendorId);
           console.log(`PDF parsed with confidence: ${parsedData.confidence}%`);
           
           // Set status based on parsing confidence
@@ -579,7 +579,7 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
           
           const updateData: any = {
             status: parseStatus,
-            parseConfidence: parsedData.confidence / 100,
+            parseConfidence: parsedData.confidence,
           };
           
           if (parsedData.invoiceNumber) updateData.invoiceNumber = parsedData.invoiceNumber;

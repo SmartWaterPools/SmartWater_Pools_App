@@ -1,7 +1,22 @@
 import * as pdfParseModule from 'pdf-parse';
 import Tesseract from 'tesseract.js';
+import { storage } from '../storage';
 
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+
+interface VendorTemplate {
+  invoiceNumberPattern: string | null;
+  invoiceDatePattern: string | null;
+  dueDatePattern: string | null;
+  subtotalPattern: string | null;
+  taxPattern: string | null;
+  shippingPattern: string | null;
+  totalPattern: string | null;
+  lineItemStartMarker: string | null;
+  lineItemEndMarker: string | null;
+  lineItemPattern: string | null;
+  fieldPositions: string | null;
+}
 
 const MIN_TEXT_LENGTH_FOR_PARSING = 50;
 const MAX_OCR_PAGES = 5;
@@ -52,12 +67,30 @@ class PDFParserService {
     /([\d,]+\.?\d*)\s*(?:USD|dollars?)/i,
   ];
 
-  async parseInvoice(pdfBuffer: Buffer): Promise<ParsedInvoice> {
+  async parseInvoice(pdfBuffer: Buffer, vendorId?: number): Promise<ParsedInvoice> {
     let rawText = '';
     let confidenceScore = 0;
     let fieldsFound = 0;
     const totalFields = 7;
     let usedOcr = false;
+    let vendorTemplate: VendorTemplate | null = null;
+
+    if (vendorId) {
+      try {
+        const template = await storage.getActiveVendorParsingTemplate(vendorId);
+        if (template) {
+          vendorTemplate = template;
+          console.log(`Using vendor-specific parsing template for vendor ${vendorId}`);
+          
+          await storage.updateVendorParsingTemplate(template.id, {
+            timesUsed: (template.timesUsed || 0) + 1,
+            lastUsedAt: new Date()
+          });
+        }
+      } catch (err) {
+        console.error('Error loading vendor template:', err);
+      }
+    }
 
     try {
       const data = await pdfParse(pdfBuffer);
@@ -93,14 +126,20 @@ class PDFParserService {
       }
     }
 
-    const invoiceNumber = this.extractInvoiceNumber(rawText);
+    const invoiceNumber = vendorTemplate?.invoiceNumberPattern 
+      ? this.extractWithCustomPattern(rawText, vendorTemplate.invoiceNumberPattern) 
+      : this.extractInvoiceNumber(rawText);
     if (invoiceNumber) fieldsFound++;
 
-    const { invoiceDate, dueDate } = this.extractDates(rawText);
+    const { invoiceDate, dueDate } = vendorTemplate?.invoiceDatePattern
+      ? this.extractDatesWithTemplate(rawText, vendorTemplate)
+      : this.extractDates(rawText);
     if (invoiceDate) fieldsFound++;
     if (dueDate) fieldsFound++;
 
-    const { subtotal, taxAmount, shippingAmount, totalAmount } = this.extractAmounts(rawText);
+    const { subtotal, taxAmount, shippingAmount, totalAmount } = vendorTemplate?.totalPattern
+      ? this.extractAmountsWithTemplate(rawText, vendorTemplate)
+      : this.extractAmounts(rawText);
     if (subtotal) fieldsFound++;
     if (taxAmount) fieldsFound++;
     if (shippingAmount) fieldsFound++;
@@ -110,6 +149,10 @@ class PDFParserService {
     if (lineItems.length > 0) fieldsFound += 2;
 
     confidenceScore = Math.round((fieldsFound / (totalFields + 2)) * 100);
+    
+    if (vendorTemplate) {
+      confidenceScore = Math.min(confidenceScore + 15, 100);
+    }
     
     if (usedOcr && confidenceScore > 0) {
       confidenceScore = Math.max(confidenceScore - 10, 1);
@@ -341,6 +384,87 @@ class PDFParserService {
       rawText,
       confidence,
     };
+  }
+
+  private extractWithCustomPattern(text: string, patternStr: string): string | null {
+    try {
+      const pattern = new RegExp(patternStr, 'i');
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+      if (match && match[0]) {
+        return match[0].trim();
+      }
+    } catch (err) {
+      console.error('Invalid custom pattern:', patternStr, err);
+    }
+    return null;
+  }
+
+  private extractDatesWithTemplate(text: string, template: VendorTemplate): { invoiceDate: string | null; dueDate: string | null } {
+    let invoiceDate: string | null = null;
+    let dueDate: string | null = null;
+
+    if (template.invoiceDatePattern) {
+      invoiceDate = this.extractWithCustomPattern(text, template.invoiceDatePattern);
+      if (invoiceDate) {
+        invoiceDate = this.normalizeDate(invoiceDate);
+      }
+    }
+
+    if (template.dueDatePattern) {
+      dueDate = this.extractWithCustomPattern(text, template.dueDatePattern);
+      if (dueDate) {
+        dueDate = this.normalizeDate(dueDate);
+      }
+    }
+
+    if (!invoiceDate || !dueDate) {
+      const fallback = this.extractDates(text);
+      invoiceDate = invoiceDate || fallback.invoiceDate;
+      dueDate = dueDate || fallback.dueDate;
+    }
+
+    return { invoiceDate, dueDate };
+  }
+
+  private extractAmountsWithTemplate(text: string, template: VendorTemplate): { 
+    subtotal: number | null; 
+    taxAmount: number | null; 
+    shippingAmount: number | null; 
+    totalAmount: number | null 
+  } {
+    let subtotal: number | null = null;
+    let taxAmount: number | null = null;
+    let shippingAmount: number | null = null;
+    let totalAmount: number | null = null;
+
+    if (template.subtotalPattern) {
+      const val = this.extractWithCustomPattern(text, template.subtotalPattern);
+      if (val) subtotal = this.parseAmount(val);
+    }
+
+    if (template.taxPattern) {
+      const val = this.extractWithCustomPattern(text, template.taxPattern);
+      if (val) taxAmount = this.parseAmount(val);
+    }
+
+    if (template.shippingPattern) {
+      const val = this.extractWithCustomPattern(text, template.shippingPattern);
+      if (val) shippingAmount = this.parseAmount(val);
+    }
+
+    if (template.totalPattern) {
+      const val = this.extractWithCustomPattern(text, template.totalPattern);
+      if (val) totalAmount = this.parseAmount(val);
+    }
+
+    if (!subtotal && !taxAmount && !totalAmount) {
+      return this.extractAmounts(text);
+    }
+
+    return { subtotal, taxAmount, shippingAmount, totalAmount };
   }
 }
 
