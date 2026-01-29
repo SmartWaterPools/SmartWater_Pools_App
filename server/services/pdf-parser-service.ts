@@ -2,6 +2,9 @@ import * as pdfParseModule from 'pdf-parse';
 import Tesseract from 'tesseract.js';
 import OpenAI from 'openai';
 import { storage } from '../storage';
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
 
 const openai = new OpenAI({
   apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
@@ -529,7 +532,14 @@ class PDFParserService {
   async parseWithAI(pdfBuffer: Buffer): Promise<ParsedInvoice> {
     console.log('[PDFParser] Starting AI-powered parsing with OpenAI Vision...');
     
+    // Write buffer to temp file since pdf-to-img requires a file path
+    const tempDir = os.tmpdir();
+    const tempFilePath = path.join(tempDir, `pdf-ai-parse-${Date.now()}.pdf`);
+    
     try {
+      await fs.writeFile(tempFilePath, pdfBuffer);
+      console.log(`[PDFParser] Wrote PDF to temp file: ${tempFilePath}`);
+      
       const pdfToImgModule = await import('pdf-to-img') as any;
       let pdfFn: any;
       
@@ -544,7 +554,7 @@ class PDFParserService {
       }
       
       const pages: string[] = [];
-      const document = await pdfFn(pdfBuffer, { scale: 1.5 });
+      const document = await pdfFn(tempFilePath, { scale: 1.5 });
       
       let pageCount = 0;
       for await (const image of document) {
@@ -639,9 +649,24 @@ Rules:
       };
       
       console.log(`[PDFParser] AI parsing complete. Found ${result.lineItems.length} line items, confidence: ${result.confidence}%`);
+      
+      // Clean up temp file
+      try {
+        await fs.unlink(tempFilePath);
+        console.log(`[PDFParser] Cleaned up temp file: ${tempFilePath}`);
+      } catch (cleanupErr) {
+        console.warn(`[PDFParser] Failed to clean up temp file: ${tempFilePath}`);
+      }
+      
       return result;
       
     } catch (error) {
+      // Clean up temp file on error too
+      try {
+        await fs.unlink(tempFilePath);
+      } catch (cleanupErr) {
+        // Ignore cleanup errors
+      }
       console.error('[PDFParser] AI parsing failed:', error);
       throw error;
     }
