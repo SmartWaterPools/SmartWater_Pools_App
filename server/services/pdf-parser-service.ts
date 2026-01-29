@@ -1,4 +1,7 @@
 import * as pdfParseModule from 'pdf-parse';
+import { promises as fs } from 'fs';
+import os from 'os';
+import path from 'path';
 import Tesseract from 'tesseract.js';
 import OpenAI from 'openai';
 import { storage } from '../storage';
@@ -203,50 +206,8 @@ class PDFParserService {
       return '';
     }
     
-    let pdfFn: any;
-    
     try {
-      console.log('[PDFParser] Loading pdf-to-img library...');
-      const pdfToImgModule = await import('pdf-to-img') as any;
-      
-      // Handle multiple possible export shapes:
-      // 1. Named export: { pdf: function }
-      // 2. Default export that is the function directly
-      // 3. Default export that contains { pdf: function }
-      if (typeof pdfToImgModule.pdf === 'function') {
-        pdfFn = pdfToImgModule.pdf;
-        console.log('[PDFParser] Using named export pdf function');
-      } else if (typeof pdfToImgModule.default === 'function') {
-        pdfFn = pdfToImgModule.default;
-        console.log('[PDFParser] Using default export as pdf function');
-      } else if (pdfToImgModule.default && typeof pdfToImgModule.default.pdf === 'function') {
-        pdfFn = pdfToImgModule.default.pdf;
-        console.log('[PDFParser] Using default.pdf export');
-      } else {
-        console.error('[PDFParser] Could not find pdf function in pdf-to-img module:', Object.keys(pdfToImgModule));
-        return '';
-      }
-    } catch (importError) {
-      console.error('[PDFParser] Failed to load pdf-to-img library:', importError);
-      return '';
-    }
-    
-    try {
-      const pages: Buffer[] = [];
-      
-      console.log('[PDFParser] Converting PDF to images with buffer size:', pdfBuffer.length);
-      const document = await pdfFn(pdfBuffer, { scale: 2.0 });
-      
-      let pageCount = 0;
-      for await (const image of document) {
-        pages.push(image);
-        pageCount++;
-        console.log(`[PDFParser] Extracted page ${pageCount}`);
-        if (pageCount >= MAX_OCR_PAGES) {
-          console.log(`[PDFParser] Reached max OCR page limit (${MAX_OCR_PAGES}), stopping extraction`);
-          break;
-        }
-      }
+      const pages = await this.renderPdfPages(pdfBuffer, { scale: 2.0, maxPages: MAX_OCR_PAGES });
       
       if (pages.length === 0) {
         console.log('[PDFParser] No pages extracted from PDF for OCR');
@@ -279,6 +240,82 @@ class PDFParserService {
       console.error('[PDFParser] OCR processing failed:', error);
       throw error;
     }
+  }
+
+  private async renderPdfPages(
+    pdfBuffer: Buffer,
+    options: { scale: number; maxPages: number }
+  ): Promise<Buffer[]> {
+    let pdfFn: (input: Buffer | string, options?: any) => AsyncIterable<Buffer>;
+
+    try {
+      console.log('[PDFParser] Loading pdf-to-img library...');
+      const pdfToImgModule = await import('pdf-to-img') as any;
+
+      // Handle multiple possible export shapes:
+      // 1. Named export: { pdf: function }
+      // 2. Default export that is the function directly
+      // 3. Default export that contains { pdf: function }
+      if (typeof pdfToImgModule.pdf === 'function') {
+        pdfFn = pdfToImgModule.pdf;
+        console.log('[PDFParser] Using named export pdf function');
+      } else if (typeof pdfToImgModule.default === 'function') {
+        pdfFn = pdfToImgModule.default;
+        console.log('[PDFParser] Using default export as pdf function');
+      } else if (pdfToImgModule.default && typeof pdfToImgModule.default.pdf === 'function') {
+        pdfFn = pdfToImgModule.default.pdf;
+        console.log('[PDFParser] Using default.pdf export');
+      } else {
+        console.error('[PDFParser] Could not find pdf function in pdf-to-img module:', Object.keys(pdfToImgModule));
+        return [];
+      }
+    } catch (importError) {
+      console.error('[PDFParser] Failed to load pdf-to-img library:', importError);
+      return [];
+    }
+
+    const pages: Buffer[] = [];
+    const { scale, maxPages } = options;
+
+    const collectPages = async (document: AsyncIterable<Buffer>) => {
+      let pageCount = 0;
+      for await (const image of document) {
+        pages.push(image);
+        pageCount++;
+        console.log(`[PDFParser] Extracted page ${pageCount}`);
+        if (pageCount >= maxPages) {
+          console.log(`[PDFParser] Reached max page limit (${maxPages}), stopping extraction`);
+          break;
+        }
+      }
+    };
+
+    try {
+      console.log('[PDFParser] Converting PDF to images with buffer size:', pdfBuffer.length);
+      const document = await pdfFn(pdfBuffer, { scale });
+      await collectPages(document);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('String') || !message.includes('Path')) {
+        console.error('[PDFParser] PDF-to-image conversion failed:', error);
+        return [];
+      }
+
+      const tempPath = path.join(os.tmpdir(), `invoice-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
+      try {
+        await fs.writeFile(tempPath, pdfBuffer);
+        console.log('[PDFParser] Retrying PDF conversion using temp file:', tempPath);
+        const document = await pdfFn(tempPath, { scale });
+        await collectPages(document);
+      } catch (retryError) {
+        console.error('[PDFParser] PDF-to-image conversion failed with temp file:', retryError);
+        return [];
+      } finally {
+        await fs.unlink(tempPath).catch(() => undefined);
+      }
+    }
+
+    return pages;
   }
 
   private extractInvoiceNumber(text: string): string | null {
@@ -530,36 +567,21 @@ class PDFParserService {
     console.log('[PDFParser] Starting AI-powered parsing with OpenAI Vision...');
     
     try {
-      const pdfToImgModule = await import('pdf-to-img') as any;
-      let pdfFn: any;
-      
-      if (typeof pdfToImgModule.pdf === 'function') {
-        pdfFn = pdfToImgModule.pdf;
-      } else if (typeof pdfToImgModule.default === 'function') {
-        pdfFn = pdfToImgModule.default;
-      } else if (pdfToImgModule.default && typeof pdfToImgModule.default.pdf === 'function') {
-        pdfFn = pdfToImgModule.default.pdf;
-      } else {
-        throw new Error('Could not load pdf-to-img library');
+      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        throw new Error('AI_INTEGRATIONS_OPENAI_API_KEY is not configured');
       }
+
+      const pages = await this.renderPdfPages(pdfBuffer, { scale: 1.5, maxPages: 3 });
+      const pageImages = pages.map((image, index) => {
+        console.log(`[PDFParser] Converted page ${index + 1} to image`);
+        return image.toString('base64');
+      });
       
-      const pages: string[] = [];
-      const document = await pdfFn(pdfBuffer, { scale: 1.5 });
-      
-      let pageCount = 0;
-      for await (const image of document) {
-        const base64 = (image as Buffer).toString('base64');
-        pages.push(base64);
-        pageCount++;
-        console.log(`[PDFParser] Converted page ${pageCount} to image`);
-        if (pageCount >= 3) break;
-      }
-      
-      if (pages.length === 0) {
+      if (pageImages.length === 0) {
         throw new Error('No pages extracted from PDF');
       }
       
-      const imageContent = pages.map((base64, idx) => ({
+      const imageContent = pageImages.map((base64) => ({
         type: 'image_url' as const,
         image_url: {
           url: `data:image/png;base64,${base64}`,
