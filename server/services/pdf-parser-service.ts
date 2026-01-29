@@ -572,14 +572,15 @@ class PDFParserService {
       }
 
       const pages = await this.renderPdfPages(pdfBuffer, { scale: 1.5, maxPages: 3 });
+      if (pages.length === 0) {
+        console.warn('[PDFParser] No pages rendered for Vision, falling back to text-only AI parsing.');
+        return await this.parseWithAITextFallback(pdfBuffer);
+      }
+
       const pageImages = pages.map((image, index) => {
         console.log(`[PDFParser] Converted page ${index + 1} to image`);
         return image.toString('base64');
       });
-      
-      if (pageImages.length === 0) {
-        throw new Error('No pages extracted from PDF');
-      }
       
       const imageContent = pageImages.map((base64) => ({
         type: 'image_url' as const,
@@ -667,6 +668,83 @@ Rules:
       console.error('[PDFParser] AI parsing failed:', error);
       throw error;
     }
+  }
+
+  private async parseWithAITextFallback(pdfBuffer: Buffer): Promise<ParsedInvoice> {
+    console.log('[PDFParser] Starting text-only AI parsing fallback...');
+
+    const data = await pdfParse(pdfBuffer);
+    const extractedText = (data.text || '').trim();
+
+    if (!extractedText) {
+      throw new Error('No text extracted for AI fallback.');
+    }
+
+    const systemPrompt = `You are an expert invoice/document parser. Analyze the provided text and extract the following information. Return a valid JSON object with these exact fields:
+
+{
+  "invoiceNumber": "string or null - the invoice/order number",
+  "invoiceDate": "string or null - the invoice date in MM/DD/YYYY format",
+  "dueDate": "string or null - the due date in MM/DD/YYYY format",
+  "subtotal": "number or null - subtotal amount before tax (in dollars, not cents)",
+  "taxAmount": "number or null - tax amount (in dollars, not cents)",
+  "shippingAmount": "number or null - shipping amount (in dollars, not cents)",
+  "totalAmount": "number or null - total amount including tax (in dollars, not cents)",
+  "vendorName": "string or null - the vendor/supplier name",
+  "lineItems": [
+    {
+      "description": "string - item description",
+      "sku": "string or null - product SKU/code",
+      "quantity": "number - quantity",
+      "unitPrice": "number - unit price in dollars",
+      "totalPrice": "number - line item total in dollars"
+    }
+  ]
+}
+
+Rules:
+- Extract all visible line items from the invoice
+- Convert all amounts to numbers (remove $ signs, commas)
+- If a field is not visible or unclear, use null
+- Dates should be in MM/DD/YYYY format
+- Return ONLY valid JSON, no markdown or explanation`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `Invoice text:\n\n${extractedText.substring(0, 12000)}`
+        }
+      ],
+      max_tokens: 2048,
+      response_format: { type: 'json_object' }
+    });
+
+    const content = response.choices[0]?.message?.content || '{}';
+    console.log('[PDFParser] AI text-only response:', content.substring(0, 500));
+
+    const parsed = JSON.parse(content);
+
+    return {
+      invoiceNumber: parsed.invoiceNumber || null,
+      invoiceDate: parsed.invoiceDate || null,
+      dueDate: parsed.dueDate || null,
+      subtotal: typeof parsed.subtotal === 'number' ? parsed.subtotal : null,
+      taxAmount: typeof parsed.taxAmount === 'number' ? parsed.taxAmount : null,
+      shippingAmount: typeof parsed.shippingAmount === 'number' ? parsed.shippingAmount : null,
+      totalAmount: typeof parsed.totalAmount === 'number' ? parsed.totalAmount : null,
+      lineItems: Array.isArray(parsed.lineItems) ? parsed.lineItems.map((item: any) => ({
+        description: item.description || '',
+        sku: item.sku || null,
+        quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+        unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+        totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice : 0
+      })) : [],
+      rawText: `AI-extracted from text. Vendor: ${parsed.vendorName || 'Unknown'}`,
+      confidence: 70
+    };
   }
 }
 

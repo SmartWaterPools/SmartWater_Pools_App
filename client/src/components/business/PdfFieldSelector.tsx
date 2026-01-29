@@ -239,16 +239,64 @@ export default function PdfFieldSelector({
     }
   };
 
-  const handleMouseUp = () => {
-    if (!isSelecting || !selectionStart || !selectionEnd) {
+  const getTouchPoint = (touch: React.Touch | Touch) => {
+    if (!canvasRef.current) return null;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const x = (touch.clientX - rect.left) / zoom;
+    const y = (touch.clientY - rect.top) / zoom;
+    return { x, y };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    const point = getTouchPoint(touch);
+    if (!point) return;
+    e.preventDefault();
+    setIsSelecting(true);
+    setSelectionStart(point);
+    setSelectionEnd(point);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isSelecting) return;
+    const touch = e.touches[0];
+    if (!touch) return;
+    const point = getTouchPoint(touch);
+    if (!point) return;
+    e.preventDefault();
+    setSelectionEnd(point);
+    const context = canvasRef.current?.getContext('2d');
+    if (context && pdfDoc) {
+      renderPage().then(() => {
+        if (!selectionStart || !context) return;
+        const minX = Math.min(selectionStart.x, point.x);
+        const minY = Math.min(selectionStart.y, point.y);
+        const width = Math.abs(point.x - selectionStart.x);
+        const height = Math.abs(point.y - selectionStart.y);
+        context.globalAlpha = 0.3;
+        context.fillStyle = '#3B82F6';
+        context.fillRect(minX * zoom, minY * zoom, width * zoom, height * zoom);
+        context.globalAlpha = 1;
+        context.strokeStyle = '#3B82F6';
+        context.lineWidth = 2;
+        context.setLineDash([5, 5]);
+        context.strokeRect(minX * zoom, minY * zoom, width * zoom, height * zoom);
+        context.setLineDash([]);
+      });
+    }
+  };
+
+  const finalizeSelection = (endPoint?: { x: number; y: number } | null) => {
+    if (!isSelecting || !selectionStart || !endPoint) {
       setIsSelecting(false);
       return;
     }
     
-    const minX = Math.min(selectionStart.x, selectionEnd.x);
-    const minY = Math.min(selectionStart.y, selectionEnd.y);
-    const width = Math.abs(selectionEnd.x - selectionStart.x);
-    const height = Math.abs(selectionEnd.y - selectionStart.y);
+    const minX = Math.min(selectionStart.x, endPoint.x);
+    const minY = Math.min(selectionStart.y, endPoint.y);
+    const width = Math.abs(endPoint.x - selectionStart.x);
+    const height = Math.abs(endPoint.y - selectionStart.y);
     
     if (width < 10 || height < 10) {
       setIsSelecting(false);
@@ -279,6 +327,21 @@ export default function PdfFieldSelector({
       title: 'Field Selected',
       description: `"${selectedText.substring(0, 30)}${selectedText.length > 30 ? '...' : ''}" mapped to ${FIELD_TYPES.find(f => f.value === selectedFieldType)?.label}`,
     });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!isSelecting || !selectionStart) {
+      setIsSelecting(false);
+      return;
+    }
+    const touch = e.changedTouches[0];
+    const point = touch ? getTouchPoint(touch) : selectionEnd;
+    e.preventDefault();
+    finalizeSelection(point);
+  };
+
+  const handleMouseUp = () => {
+    finalizeSelection(selectionEnd);
   };
 
   const extractTextFromRegion = (x: number, y: number, width: number, height: number): string => {
@@ -471,6 +534,11 @@ export default function PdfFieldSelector({
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+              onTouchCancel={handleTouchEnd}
+              style={{ touchAction: 'none' }}
             />
           </div>
         </ScrollArea>
