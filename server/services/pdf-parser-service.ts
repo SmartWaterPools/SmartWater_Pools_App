@@ -1,6 +1,12 @@
 import * as pdfParseModule from 'pdf-parse';
 import Tesseract from 'tesseract.js';
+import OpenAI from 'openai';
 import { storage } from '../storage';
+
+const openai = new OpenAI({
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+});
 
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
 
@@ -197,11 +203,11 @@ class PDFParserService {
       return '';
     }
     
-    let pdfFn: (buffer: Buffer, options?: any) => AsyncIterable<Buffer>;
+    let pdfFn: any;
     
     try {
       console.log('[PDFParser] Loading pdf-to-img library...');
-      const pdfToImgModule = await import('pdf-to-img');
+      const pdfToImgModule = await import('pdf-to-img') as any;
       
       // Handle multiple possible export shapes:
       // 1. Named export: { pdf: function }
@@ -289,7 +295,7 @@ class PDFParserService {
     const dates: string[] = [];
     
     for (const pattern of this.datePatterns) {
-      const matches = text.matchAll(new RegExp(pattern, 'g'));
+      const matches = Array.from(text.matchAll(new RegExp(pattern, 'g')));
       for (const match of matches) {
         if (match[1]) {
           dates.push(match[1].trim());
@@ -518,6 +524,127 @@ class PDFParserService {
     }
     
     return trimmed;
+  }
+
+  async parseWithAI(pdfBuffer: Buffer): Promise<ParsedInvoice> {
+    console.log('[PDFParser] Starting AI-powered parsing with OpenAI Vision...');
+    
+    try {
+      const pdfToImgModule = await import('pdf-to-img') as any;
+      let pdfFn: any;
+      
+      if (typeof pdfToImgModule.pdf === 'function') {
+        pdfFn = pdfToImgModule.pdf;
+      } else if (typeof pdfToImgModule.default === 'function') {
+        pdfFn = pdfToImgModule.default;
+      } else if (pdfToImgModule.default && typeof pdfToImgModule.default.pdf === 'function') {
+        pdfFn = pdfToImgModule.default.pdf;
+      } else {
+        throw new Error('Could not load pdf-to-img library');
+      }
+      
+      const pages: string[] = [];
+      const document = await pdfFn(pdfBuffer, { scale: 1.5 });
+      
+      let pageCount = 0;
+      for await (const image of document) {
+        const base64 = (image as Buffer).toString('base64');
+        pages.push(base64);
+        pageCount++;
+        console.log(`[PDFParser] Converted page ${pageCount} to image`);
+        if (pageCount >= 3) break;
+      }
+      
+      if (pages.length === 0) {
+        throw new Error('No pages extracted from PDF');
+      }
+      
+      const imageContent = pages.map((base64, idx) => ({
+        type: 'image_url' as const,
+        image_url: {
+          url: `data:image/png;base64,${base64}`,
+          detail: 'high' as const
+        }
+      }));
+      
+      const systemPrompt = `You are an expert invoice/document parser. Analyze the provided document image(s) and extract the following information. Return a valid JSON object with these exact fields:
+
+{
+  "invoiceNumber": "string or null - the invoice/order number",
+  "invoiceDate": "string or null - the invoice date in MM/DD/YYYY format",
+  "dueDate": "string or null - the due date in MM/DD/YYYY format",
+  "subtotal": "number or null - subtotal amount before tax (in dollars, not cents)",
+  "taxAmount": "number or null - tax amount (in dollars, not cents)",
+  "shippingAmount": "number or null - shipping amount (in dollars, not cents)",
+  "totalAmount": "number or null - total amount including tax (in dollars, not cents)",
+  "vendorName": "string or null - the vendor/supplier name",
+  "lineItems": [
+    {
+      "description": "string - item description",
+      "sku": "string or null - product SKU/code",
+      "quantity": "number - quantity",
+      "unitPrice": "number - unit price in dollars",
+      "totalPrice": "number - line item total in dollars"
+    }
+  ]
+}
+
+Rules:
+- Extract all visible line items from the invoice
+- Convert all amounts to numbers (remove $ signs, commas)
+- If a field is not visible or unclear, use null
+- Dates should be in MM/DD/YYYY format
+- Return ONLY valid JSON, no markdown or explanation`;
+
+      console.log('[PDFParser] Sending images to OpenAI Vision...');
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: 'Please analyze this invoice document and extract all relevant data:' },
+              ...imageContent
+            ]
+          }
+        ],
+        max_tokens: 4096,
+        response_format: { type: 'json_object' }
+      });
+      
+      const content = response.choices[0]?.message?.content || '{}';
+      console.log('[PDFParser] OpenAI Vision response:', content.substring(0, 500));
+      
+      const parsed = JSON.parse(content);
+      
+      const result: ParsedInvoice = {
+        invoiceNumber: parsed.invoiceNumber || null,
+        invoiceDate: parsed.invoiceDate || null,
+        dueDate: parsed.dueDate || null,
+        subtotal: typeof parsed.subtotal === 'number' ? parsed.subtotal : null,
+        taxAmount: typeof parsed.taxAmount === 'number' ? parsed.taxAmount : null,
+        shippingAmount: typeof parsed.shippingAmount === 'number' ? parsed.shippingAmount : null,
+        totalAmount: typeof parsed.totalAmount === 'number' ? parsed.totalAmount : null,
+        lineItems: Array.isArray(parsed.lineItems) ? parsed.lineItems.map((item: any) => ({
+          description: item.description || '',
+          sku: item.sku || null,
+          quantity: typeof item.quantity === 'number' ? item.quantity : 1,
+          unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+          totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice : 0
+        })) : [],
+        rawText: `AI-extracted from document. Vendor: ${parsed.vendorName || 'Unknown'}`,
+        confidence: 85
+      };
+      
+      console.log(`[PDFParser] AI parsing complete. Found ${result.lineItems.length} line items, confidence: ${result.confidence}%`);
+      return result;
+      
+    } catch (error) {
+      console.error('[PDFParser] AI parsing failed:', error);
+      throw error;
+    }
   }
 }
 

@@ -60,7 +60,8 @@ import {
   Percent,
   FileCode,
   Layers,
-  Copy
+  Copy,
+  Sparkles
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -328,6 +329,19 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     },
     onError: (error) => {
       toast({ title: 'Error', description: `Failed to parse PDF: ${error.message}`, variant: 'destructive' });
+    },
+  });
+
+  const parseWithAIMutation = useMutation({
+    mutationFn: async (invoiceId: number) => {
+      return apiRequest('POST', `/api/vendor-invoices/${invoiceId}/parse-with-ai`);
+    },
+    onSuccess: () => {
+      toast({ title: 'AI Extraction Complete', description: 'Document fields have been extracted successfully.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+    },
+    onError: (error) => {
+      toast({ title: 'AI Extraction Failed', description: `${error.message}`, variant: 'destructive' });
     },
   });
 
@@ -1201,6 +1215,36 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       <p className="text-xs text-amber-700 mt-1">{selectedInvoice.parseErrors}</p>
                     </div>
                   )}
+                  
+                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        <div>
+                          <p className="text-sm font-medium text-purple-800">AI-Powered Extraction</p>
+                          <p className="text-xs text-purple-600">Let AI automatically extract all fields from this document</p>
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => parseWithAIMutation.mutate(selectedInvoice.id)}
+                        disabled={parseWithAIMutation.isPending}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        {parseWithAIMutation.isPending ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Extracting...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Auto-Extract with AI
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                  
                   <PdfFieldSelector
                     pdfUrl={selectedInvoice.pdfUrl || (selectedInvoice.attachmentId ? `/api/vendor-invoices/${selectedInvoice.id}/pdf` : null)}
                     rawText={selectedInvoice.rawText}

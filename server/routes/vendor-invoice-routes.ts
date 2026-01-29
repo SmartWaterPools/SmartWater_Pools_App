@@ -394,6 +394,119 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
   }
 });
 
+router.post("/:id/parse-with-ai", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const id = parseInt(req.params.id);
+    
+    console.log(`[AI Parse] Starting AI-powered parse for invoice ${id}`);
+    
+    const invoice = await storage.getVendorInvoice(id);
+    if (!invoice) {
+      return res.status(404).json({ error: "Vendor invoice not found" });
+    }
+    if (invoice.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    
+    let pdfBuffer: Buffer | null = null;
+    
+    if (invoice.pdfUrl) {
+      try {
+        const pdfPath = path.join(process.cwd(), invoice.pdfUrl);
+        pdfBuffer = await fs.readFile(pdfPath);
+        console.log(`[AI Parse] Local PDF read: ${pdfBuffer.length} bytes`);
+      } catch (fileError) {
+        console.log('[AI Parse] PDF file not found locally');
+      }
+    }
+    
+    if (!pdfBuffer && invoice.attachmentId) {
+      const attachment = await storage.getEmailAttachment(invoice.attachmentId);
+      
+      if (attachment && attachment.externalAttachmentId && invoice.emailId) {
+        const email = await storage.getEmail(invoice.emailId);
+        
+        if (email && email.externalId) {
+          const userTokens: UserTokens = {
+            userId: user.id,
+            gmailAccessToken: user.gmailAccessToken,
+            gmailRefreshToken: user.gmailRefreshToken,
+            gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+            gmailConnectedEmail: user.gmailConnectedEmail,
+          };
+          
+          console.log(`[AI Parse] Downloading attachment from Gmail...`);
+          pdfBuffer = await downloadGmailAttachment(
+            email.externalId,
+            attachment.externalAttachmentId,
+            userTokens
+          );
+          console.log(`[AI Parse] Gmail download: ${pdfBuffer ? pdfBuffer.length + ' bytes' : 'null'}`);
+        }
+      }
+    }
+    
+    if (!pdfBuffer) {
+      return res.status(400).json({ error: "No PDF file or email attachment found for this document" });
+    }
+    
+    const parsed = await pdfParserService.parseWithAI(pdfBuffer);
+    
+    console.log(`[AI Parse] Result: confidence=${parsed.confidence}%, invoiceNumber=${parsed.invoiceNumber}, lineItems=${parsed.lineItems.length}`);
+    
+    await storage.deleteVendorInvoiceItemsByInvoice(id);
+    
+    for (let i = 0; i < parsed.lineItems.length; i++) {
+      const item = parsed.lineItems[i];
+      await storage.createVendorInvoiceItem({
+        vendorInvoiceId: id,
+        description: item.description,
+        sku: item.sku,
+        quantity: String(item.quantity),
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+        sortOrder: i,
+      });
+    }
+    
+    const updatedInvoice = await storage.updateVendorInvoice(id, {
+      invoiceNumber: parsed.invoiceNumber,
+      invoiceDate: parsed.invoiceDate,
+      dueDate: parsed.dueDate,
+      subtotal: parsed.subtotal,
+      taxAmount: parsed.taxAmount,
+      shippingAmount: parsed.shippingAmount,
+      totalAmount: parsed.totalAmount,
+      rawText: parsed.rawText,
+      parseConfidence: parsed.confidence,
+      status: 'processed',
+      parseErrors: null,
+    });
+    
+    console.log(`[AI Parse] Invoice ${id} updated successfully`);
+    
+    const items = await storage.getVendorInvoiceItems(id);
+    
+    res.json({
+      invoice: updatedInvoice,
+      items,
+      parsed,
+    });
+  } catch (error) {
+    console.error("Error with AI parsing:", error);
+    
+    const id = parseInt(req.params.id);
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    await storage.updateVendorInvoice(id, {
+      status: "needs_review",
+      parseErrors: `AI parsing failed: ${errorMessage}`,
+    });
+    
+    res.status(500).json({ error: `AI parsing failed: ${errorMessage}` });
+  }
+});
+
 router.post("/:id/process-to-expense", isAuthenticated, async (req, res) => {
   try {
     const user = req.user as any;
