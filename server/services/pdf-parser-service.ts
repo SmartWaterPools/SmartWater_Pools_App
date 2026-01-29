@@ -531,30 +531,17 @@ class PDFParserService {
 
   async parseWithAI(pdfBuffer: Buffer): Promise<ParsedInvoice> {
     console.log('[PDFParser] Starting AI-powered parsing with OpenAI Vision...');
-    
-    // Write buffer to temp file since pdf-to-img requires a file path
-    const tempDir = os.tmpdir();
-    const tempFilePath = path.join(tempDir, `pdf-ai-parse-${Date.now()}.pdf`);
+    console.log(`[PDFParser] PDF buffer size: ${pdfBuffer.length} bytes`);
     
     try {
-      await fs.writeFile(tempFilePath, pdfBuffer);
-      console.log(`[PDFParser] Wrote PDF to temp file: ${tempFilePath}`);
+      // Import pdf-to-img - it accepts Buffer directly according to docs
+      const { pdf: pdfToImg } = await import('pdf-to-img');
       
-      const pdfToImgModule = await import('pdf-to-img') as any;
-      let pdfFn: any;
-      
-      if (typeof pdfToImgModule.pdf === 'function') {
-        pdfFn = pdfToImgModule.pdf;
-      } else if (typeof pdfToImgModule.default === 'function') {
-        pdfFn = pdfToImgModule.default;
-      } else if (pdfToImgModule.default && typeof pdfToImgModule.default.pdf === 'function') {
-        pdfFn = pdfToImgModule.default.pdf;
-      } else {
-        throw new Error('Could not load pdf-to-img library');
-      }
+      console.log('[PDFParser] pdf-to-img module loaded successfully');
       
       const pages: string[] = [];
-      const document = await pdfFn(tempFilePath, { scale: 1.5 });
+      // Pass the buffer directly - pdf-to-img v5 accepts Buffer
+      const document = await pdfToImg(pdfBuffer, { scale: 1.5 });
       
       let pageCount = 0;
       for await (const image of document) {
@@ -650,23 +637,9 @@ Rules:
       
       console.log(`[PDFParser] AI parsing complete. Found ${result.lineItems.length} line items, confidence: ${result.confidence}%`);
       
-      // Clean up temp file
-      try {
-        await fs.unlink(tempFilePath);
-        console.log(`[PDFParser] Cleaned up temp file: ${tempFilePath}`);
-      } catch (cleanupErr) {
-        console.warn(`[PDFParser] Failed to clean up temp file: ${tempFilePath}`);
-      }
-      
       return result;
       
     } catch (error) {
-      // Clean up temp file on error too
-      try {
-        await fs.unlink(tempFilePath);
-      } catch (cleanupErr) {
-        // Ignore cleanup errors
-      }
       console.error('[PDFParser] AI parsing failed:', error);
       throw error;
     }
