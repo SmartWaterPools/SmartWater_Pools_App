@@ -77,6 +77,7 @@ class PDFParserService {
     
     const pages: Buffer[] = [];
     let document: any;
+    let tempFilePath: string | null = null;
     
     // Try with Buffer first
     try {
@@ -88,31 +89,35 @@ class PDFParserService {
       
       // Fallback: write to temp file
       const tempDir = os.tmpdir();
-      const tempFilePath = path.join(tempDir, `pdf-render-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
+      tempFilePath = path.join(tempDir, `pdf-render-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
       
-      try {
-        await fs.writeFile(tempFilePath, pdfBuffer);
-        console.log(`[PDFParser] Wrote PDF to temp file: ${tempFilePath}`);
-        document = await pdfFn(tempFilePath, { scale });
-      } finally {
-        // Clean up temp file
+      await fs.writeFile(tempFilePath, pdfBuffer);
+      console.log(`[PDFParser] Wrote PDF to temp file: ${tempFilePath}`);
+      document = await pdfFn(tempFilePath, { scale });
+    }
+    
+    // Iterate through pages BEFORE cleaning up temp file
+    // The async iterator needs the file to still exist
+    try {
+      let pageCount = 0;
+      for await (const image of document) {
+        pages.push(image as Buffer);
+        pageCount++;
+        console.log(`[PDFParser] Rendered page ${pageCount}`);
+        if (pageCount >= maxPages) {
+          console.log(`[PDFParser] Reached max page limit (${maxPages})`);
+          break;
+        }
+      }
+    } finally {
+      // Clean up temp file AFTER iteration is complete
+      if (tempFilePath) {
         try {
           await fs.unlink(tempFilePath);
           console.log(`[PDFParser] Cleaned up temp file: ${tempFilePath}`);
         } catch (cleanupErr) {
           console.warn(`[PDFParser] Failed to clean up temp file: ${tempFilePath}`);
         }
-      }
-    }
-    
-    let pageCount = 0;
-    for await (const image of document) {
-      pages.push(image as Buffer);
-      pageCount++;
-      console.log(`[PDFParser] Rendered page ${pageCount}`);
-      if (pageCount >= maxPages) {
-        console.log(`[PDFParser] Reached max page limit (${maxPages})`);
-        break;
       }
     }
     
