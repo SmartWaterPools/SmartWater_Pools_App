@@ -290,29 +290,23 @@ class PDFParserService {
       }
     };
 
+    const tempPath = path.join(os.tmpdir(), `invoice-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
     try {
-      console.log('[PDFParser] Converting PDF to images with buffer size:', pdfBuffer.length);
-      const document = await pdfFn(pdfBuffer, { scale });
+      await fs.writeFile(tempPath, pdfBuffer);
+      console.log('[PDFParser] Converting PDF to images from temp file:', tempPath);
+      const document = await pdfFn(tempPath, { scale });
       await collectPages(document);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (!message.includes('String') || !message.includes('Path')) {
-        console.error('[PDFParser] PDF-to-image conversion failed:', error);
-        return [];
-      }
-
-      const tempPath = path.join(os.tmpdir(), `invoice-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
+      console.error('[PDFParser] PDF-to-image conversion failed with temp file, retrying with buffer:', error);
       try {
-        await fs.writeFile(tempPath, pdfBuffer);
-        console.log('[PDFParser] Retrying PDF conversion using temp file:', tempPath);
-        const document = await pdfFn(tempPath, { scale });
+        const document = await pdfFn(pdfBuffer, { scale });
         await collectPages(document);
       } catch (retryError) {
-        console.error('[PDFParser] PDF-to-image conversion failed with temp file:', retryError);
+        console.error('[PDFParser] PDF-to-image conversion failed with buffer:', retryError);
         return [];
-      } finally {
-        await fs.unlink(tempPath).catch(() => undefined);
       }
+    } finally {
+      await fs.unlink(tempPath).catch(() => undefined);
     }
 
     return pages;
