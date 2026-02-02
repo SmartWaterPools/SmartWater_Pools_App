@@ -56,8 +56,8 @@ export interface ParsedInvoice {
 class PDFParserService {
   /**
    * Shared helper to render PDF pages to images using pdf-to-img.
-   * Converts buffer to data URL (pdf-to-img v5 doesn't accept raw Buffer).
-   * Falls back to temp file if data URL approach fails.
+   * Uses temp file approach for reliable cross-platform support.
+   * pdf-to-img v5 accepts Buffer, data URL, or file path - temp file is most reliable.
    */
   private async renderPdfPages(pdfBuffer: Buffer, maxPages: number = 5, scale: number = 2.0): Promise<Buffer[]> {
     console.log(`[PDFParser] renderPdfPages called: buffer=${pdfBuffer.length} bytes, maxPages=${maxPages}, scale=${scale}`);
@@ -78,63 +78,40 @@ class PDFParserService {
     
     const pages: Buffer[] = [];
     let document: any;
-    let tempFilePath: string | null = null;
     
-    // pdf-to-img v5 accepts: file path strings OR data URL strings (NOT Buffer)
-    // Convert Buffer to data URL for reliable cross-platform support
-    const base64Data = pdfBuffer.toString('base64');
-    const dataUrl = `data:application/pdf;base64,${base64Data}`;
-    console.log(`[PDFParser] Converted buffer to data URL (${dataUrl.length} chars)`);
+    // Use temp file approach - most reliable for pdf-to-img v5
+    const tempDir = os.tmpdir();
+    const tempFilePath = path.join(tempDir, `pdf-render-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
     
     try {
-      document = await pdfFn(dataUrl, { scale });
-      console.log('[PDFParser] Data URL input accepted successfully');
-    } catch (dataUrlError: any) {
-      console.log(`[PDFParser] Data URL input failed: ${dataUrlError.message}`);
-      console.log('[PDFParser] Falling back to temp file approach...');
-      
-      // Fallback: write to temp file
-      const tempDir = os.tmpdir();
-      tempFilePath = path.join(tempDir, `pdf-render-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
-      
       await fs.writeFile(tempFilePath, pdfBuffer);
-      console.log(`[PDFParser] Wrote PDF to temp file: ${tempFilePath}`);
+      console.log(`[PDFParser] Wrote PDF to temp file: ${tempFilePath} (${pdfBuffer.length} bytes)`);
       
-      try {
-        document = await pdfFn(tempFilePath, { scale });
-        console.log('[PDFParser] Temp file approach succeeded');
-      } catch (tempFileError: any) {
-        console.error(`[PDFParser] Temp file approach also failed: ${tempFileError.message}`);
-        // Clean up temp file before throwing
-        try {
-          await fs.unlink(tempFilePath);
-        } catch (e) {}
-        throw new Error(`PDF rendering failed: ${tempFileError.message}`);
-      }
-    }
-    
-    // Iterate through pages BEFORE cleaning up temp file
-    // The async iterator needs the file to still exist
-    try {
+      document = await pdfFn(tempFilePath, { scale });
+      console.log(`[PDFParser] PDF loaded successfully, ${document.length} pages`);
+      
+      // Iterate through pages BEFORE cleaning up temp file
       let pageCount = 0;
       for await (const image of document) {
         pages.push(image as Buffer);
         pageCount++;
-        console.log(`[PDFParser] Rendered page ${pageCount}`);
+        console.log(`[PDFParser] Rendered page ${pageCount} (${(image as Buffer).length} bytes)`);
         if (pageCount >= maxPages) {
           console.log(`[PDFParser] Reached max page limit (${maxPages})`);
           break;
         }
       }
+    } catch (error: any) {
+      console.error(`[PDFParser] PDF rendering failed: ${error.message}`);
+      console.error(`[PDFParser] Full error:`, error);
+      throw new Error(`PDF rendering failed: ${error.message}`);
     } finally {
       // Clean up temp file AFTER iteration is complete
-      if (tempFilePath) {
-        try {
-          await fs.unlink(tempFilePath);
-          console.log(`[PDFParser] Cleaned up temp file: ${tempFilePath}`);
-        } catch (cleanupErr) {
-          console.warn(`[PDFParser] Failed to clean up temp file: ${tempFilePath}`);
-        }
+      try {
+        await fs.unlink(tempFilePath);
+        console.log(`[PDFParser] Cleaned up temp file: ${tempFilePath}`);
+      } catch (cleanupErr) {
+        console.warn(`[PDFParser] Failed to clean up temp file: ${tempFilePath}`);
       }
     }
     
