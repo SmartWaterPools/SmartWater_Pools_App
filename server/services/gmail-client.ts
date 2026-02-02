@@ -232,27 +232,24 @@ export async function downloadGmailAttachment(
   messageId: string,
   attachmentId: string,
   userTokens?: UserTokens
-): Promise<Buffer | null> {
-  try {
-    const gmail = await getGmailClient(userTokens);
-    
-    const response = await gmail.users.messages.attachments.get({
-      userId: 'me',
-      messageId,
-      id: attachmentId,
-    });
-    
-    if (!response.data.data) {
-      console.error('No attachment data returned');
-      return null;
-    }
-    
-    const base64Data = response.data.data.replace(/-/g, '+').replace(/_/g, '/');
-    const buffer = Buffer.from(base64Data, 'base64');
-    
-    return buffer;
-  } catch (error) {
-    console.error('Failed to download Gmail attachment:', error);
-    return null;
+): Promise<Buffer> {
+  console.log(`[Gmail] Downloading attachment: messageId=${messageId}, attachmentId=${attachmentId.substring(0, 30)}...`);
+  
+  const gmail = await getGmailClient(userTokens);
+  
+  const response = await gmail.users.messages.attachments.get({
+    userId: 'me',
+    messageId,
+    id: attachmentId,
+  });
+  
+  if (!response.data.data) {
+    throw new Error('Gmail API returned empty attachment data');
   }
+  
+  const base64Data = response.data.data.replace(/-/g, '+').replace(/_/g, '/');
+  const buffer = Buffer.from(base64Data, 'base64');
+  
+  console.log(`[Gmail] Downloaded attachment: ${buffer.length} bytes`);
+  return buffer;
 }

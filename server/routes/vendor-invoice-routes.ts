@@ -238,18 +238,23 @@ router.get("/:id/pdf", isAuthenticated, async (req, res) => {
           gmailConnectedEmail: user.gmailConnectedEmail,
         };
         
-        pdfBuffer = await downloadGmailAttachment(
-          email.externalId,
-          attachment.externalAttachmentId,
-          userTokens
-        );
-        console.log(`[PDF] Gmail download result: ${pdfBuffer ? pdfBuffer.length + ' bytes' : 'null'}`);
+        try {
+          pdfBuffer = await downloadGmailAttachment(
+            email.externalId,
+            attachment.externalAttachmentId,
+            userTokens
+          );
+          console.log(`[PDF] Gmail download result: ${pdfBuffer.length} bytes`);
+        } catch (downloadError: any) {
+          console.error('[PDF] Gmail download failed:', downloadError.message);
+          return res.status(400).json({ error: `Failed to download PDF from Gmail: ${downloadError.message}` });
+        }
       }
     }
     
     if (!pdfBuffer) {
       console.log('[PDF] No PDF available');
-      return res.status(404).json({ error: "PDF not available" });
+      return res.status(404).json({ error: "PDF not available - no local file or email attachment found" });
     }
     
     res.setHeader('Content-Type', 'application/pdf');
@@ -311,12 +316,18 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
           
           console.log(`[Parse] Re-downloading attachment from Gmail for invoice ${id}...`);
           console.log(`[Parse] Using messageId=${email.externalId}, attachmentId=${attachment.externalAttachmentId}`);
-          pdfBuffer = await downloadGmailAttachment(
-            email.externalId,
-            attachment.externalAttachmentId,
-            userTokens
-          );
-          console.log(`[Parse] Gmail download result: ${pdfBuffer ? pdfBuffer.length + ' bytes' : 'null'}`);
+          
+          try {
+            pdfBuffer = await downloadGmailAttachment(
+              email.externalId,
+              attachment.externalAttachmentId,
+              userTokens
+            );
+            console.log(`[Parse] Gmail download result: ${pdfBuffer.length} bytes`);
+          } catch (downloadError: any) {
+            console.error('[Parse] Gmail download failed:', downloadError.message);
+            return res.status(400).json({ error: `Failed to download PDF from Gmail: ${downloadError.message}` });
+          }
         }
       }
     }
@@ -423,9 +434,11 @@ router.post("/:id/parse-with-ai", isAuthenticated, async (req, res) => {
     
     if (!pdfBuffer && invoice.attachmentId) {
       const attachment = await storage.getEmailAttachment(invoice.attachmentId);
+      console.log(`[AI Parse] Attachment lookup: id=${invoice.attachmentId}, found=${!!attachment}, externalId=${attachment?.externalAttachmentId?.substring(0, 20)}...`);
       
       if (attachment && attachment.externalAttachmentId && invoice.emailId) {
         const email = await storage.getEmail(invoice.emailId);
+        console.log(`[AI Parse] Email lookup: id=${invoice.emailId}, found=${!!email}, externalId=${email?.externalId}`);
         
         if (email && email.externalId) {
           const userTokens: UserTokens = {
@@ -437,18 +450,36 @@ router.post("/:id/parse-with-ai", isAuthenticated, async (req, res) => {
           };
           
           console.log(`[AI Parse] Downloading attachment from Gmail...`);
-          pdfBuffer = await downloadGmailAttachment(
-            email.externalId,
-            attachment.externalAttachmentId,
-            userTokens
-          );
-          console.log(`[AI Parse] Gmail download: ${pdfBuffer ? pdfBuffer.length + ' bytes' : 'null'}`);
+          console.log(`[AI Parse] User tokens: accessToken=${userTokens.gmailAccessToken ? 'present' : 'missing'}, refreshToken=${userTokens.gmailRefreshToken ? 'present' : 'missing'}`);
+          
+          try {
+            pdfBuffer = await downloadGmailAttachment(
+              email.externalId,
+              attachment.externalAttachmentId,
+              userTokens
+            );
+            console.log(`[AI Parse] Gmail download success: ${pdfBuffer.length} bytes`);
+          } catch (downloadError: any) {
+            console.error(`[AI Parse] Gmail download failed:`, downloadError.message);
+            return res.status(400).json({ 
+              error: `Failed to download PDF from Gmail: ${downloadError.message}` 
+            });
+          }
+        } else {
+          console.log('[AI Parse] Email not found or missing externalId');
         }
+      } else {
+        console.log(`[AI Parse] Missing attachment data: attachment=${!!attachment}, externalAttachmentId=${!!attachment?.externalAttachmentId}, emailId=${invoice.emailId}`);
       }
     }
     
     if (!pdfBuffer) {
-      return res.status(400).json({ error: "No PDF file or email attachment found for this document" });
+      const reason = !invoice.pdfUrl && !invoice.attachmentId 
+        ? "No PDF file or email attachment linked to this document"
+        : !invoice.attachmentId 
+          ? "Local PDF file not found" 
+          : "Could not retrieve email attachment";
+      return res.status(400).json({ error: reason });
     }
     
     const parsed = await pdfParserService.parseWithAI(pdfBuffer);
@@ -774,11 +805,23 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
           gmailConnectedEmail: user.gmailConnectedEmail,
         };
         
-        const pdfBuffer = await downloadGmailAttachment(
-          emailData.externalId,
-          attachmentData.externalId,
-          userTokens
-        );
+        let pdfBuffer: Buffer | null = null;
+        let downloadErrorMsg: string | null = null;
+        try {
+          pdfBuffer = await downloadGmailAttachment(
+            emailData.externalId,
+            attachmentData.externalId,
+            userTokens
+          );
+        } catch (downloadError: any) {
+          console.error('[Import] Failed to download PDF attachment:', downloadError.message);
+          downloadErrorMsg = `Failed to download PDF from Gmail: ${downloadError.message}`;
+          // Store the error in the invoice record
+          await storage.updateVendorInvoice(invoice.id, {
+            parseErrors: downloadErrorMsg,
+            status: 'needs_review',
+          });
+        }
         
         if (pdfBuffer) {
           console.log(`[Import] Downloaded PDF attachment (${pdfBuffer.length} bytes), parsing...`);
