@@ -56,7 +56,8 @@ export interface ParsedInvoice {
 class PDFParserService {
   /**
    * Shared helper to render PDF pages to images using pdf-to-img.
-   * Tries Buffer input first, falls back to temp file if rejected.
+   * Converts buffer to data URL (pdf-to-img v5 doesn't accept raw Buffer).
+   * Falls back to temp file if data URL approach fails.
    */
   private async renderPdfPages(pdfBuffer: Buffer, maxPages: number = 5, scale: number = 2.0): Promise<Buffer[]> {
     console.log(`[PDFParser] renderPdfPages called: buffer=${pdfBuffer.length} bytes, maxPages=${maxPages}, scale=${scale}`);
@@ -585,7 +586,7 @@ class PDFParserService {
     }
     
     try {
-      // Use shared renderPdfPages helper (tries Buffer first, falls back to temp file)
+      // Use shared renderPdfPages helper (uses data URL, falls back to temp file)
       const pageBuffers = await this.renderPdfPages(pdfBuffer, 3, 1.5);
       
       if (pageBuffers.length === 0) {
