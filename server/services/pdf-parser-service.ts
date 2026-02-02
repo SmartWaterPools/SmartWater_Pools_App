@@ -554,35 +554,25 @@ class PDFParserService {
   }
 
   async parseWithAI(pdfBuffer: Buffer): Promise<ParsedInvoice> {
-    console.log('[PDFParser] Starting AI-powered parsing with OpenAI Vision...');
+    console.log('[PDFParser] Starting AI-powered parsing...');
     console.log(`[PDFParser] PDF buffer size: ${pdfBuffer.length} bytes`);
     
-    // Check for OpenAI API key
     if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
       throw new Error('OpenAI API key not configured. AI extraction is unavailable.');
     }
     
+    // STEP 1: Try to extract text from PDF first (fast, cheap, reliable)
+    let extractedText = '';
     try {
-      // Use shared renderPdfPages helper (uses data URL, falls back to temp file)
-      const pageBuffers = await this.renderPdfPages(pdfBuffer, 3, 1.5);
-      
-      if (pageBuffers.length === 0) {
-        throw new Error('No pages extracted from PDF');
-      }
-      
-      // Convert page buffers to base64 strings
-      const pages: string[] = pageBuffers.map(buf => buf.toString('base64'));
-      console.log(`[PDFParser] Converted ${pages.length} pages to base64 for AI processing`);
-      
-      const imageContent = pages.map((base64, idx) => ({
-        type: 'image_url' as const,
-        image_url: {
-          url: `data:image/png;base64,${base64}`,
-          detail: 'high' as const
-        }
-      }));
-      
-      const systemPrompt = `You are an expert invoice/document parser. Analyze the provided document image(s) and extract the following information. Return a valid JSON object with these exact fields:
+      console.log('[PDFParser] Extracting text from PDF...');
+      const data = await pdfParse(pdfBuffer);
+      extractedText = data.text || '';
+      console.log(`[PDFParser] Extracted ${extractedText.length} chars of text`);
+    } catch (textError) {
+      console.log('[PDFParser] Text extraction failed, will try Vision API');
+    }
+    
+    const systemPrompt = `You are an expert invoice/document parser. Extract the following information and return a valid JSON object:
 
 {
   "invoiceNumber": "string or null - the invoice/order number",
@@ -605,32 +595,69 @@ class PDFParserService {
 }
 
 Rules:
-- Extract all visible line items from the invoice
+- Extract ALL visible line items from the invoice
 - Convert all amounts to numbers (remove $ signs, commas)
 - If a field is not visible or unclear, use null
 - Dates should be in MM/DD/YYYY format
 - Return ONLY valid JSON, no markdown or explanation`;
 
-      console.log('[PDFParser] Sending images to OpenAI Vision...');
+    try {
+      let response;
       
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: 'Please analyze this invoice document and extract all relevant data:' },
-              ...imageContent
-            ]
+      // STEP 2: If we have text, use text-based GPT-4 (faster, cheaper, more reliable)
+      if (extractedText.length >= 100) {
+        console.log('[PDFParser] Using text-based GPT-4 parsing (fast path)...');
+        
+        response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Parse this invoice text and extract all data:\n\n${extractedText.substring(0, 15000)}` }
+          ],
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        });
+        
+        console.log('[PDFParser] Text-based parsing complete');
+      } else {
+        // STEP 3: Fall back to Vision API only for scanned/image PDFs
+        console.log('[PDFParser] No text available, falling back to Vision API...');
+        
+        const pageBuffers = await this.renderPdfPages(pdfBuffer, 3, 1.5);
+        
+        if (pageBuffers.length === 0) {
+          throw new Error('No pages could be rendered from PDF');
+        }
+        
+        const imageContent = pageBuffers.map(buf => ({
+          type: 'image_url' as const,
+          image_url: {
+            url: `data:image/png;base64,${buf.toString('base64')}`,
+            detail: 'high' as const
           }
-        ],
-        max_tokens: 4096,
-        response_format: { type: 'json_object' }
-      });
+        }));
+        
+        response = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: 'Please analyze this invoice document and extract all relevant data:' },
+                ...imageContent
+              ]
+            }
+          ],
+          max_tokens: 4096,
+          response_format: { type: 'json_object' }
+        });
+        
+        console.log('[PDFParser] Vision API parsing complete');
+      }
       
       const content = response.choices[0]?.message?.content || '{}';
-      console.log('[PDFParser] OpenAI Vision response:', content.substring(0, 500));
+      console.log('[PDFParser] AI response:', content.substring(0, 500));
       
       const parsed = JSON.parse(content);
       
@@ -649,17 +676,16 @@ Rules:
           unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
           totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice : 0
         })) : [],
-        rawText: `AI-extracted from document. Vendor: ${parsed.vendorName || 'Unknown'}`,
+        rawText: extractedText || `AI-extracted. Vendor: ${parsed.vendorName || 'Unknown'}`,
         confidence: 85
       };
       
-      console.log(`[PDFParser] AI parsing complete. Found ${result.lineItems.length} line items, confidence: ${result.confidence}%`);
-      
+      console.log(`[PDFParser] AI parsing complete. Found ${result.lineItems.length} line items`);
       return result;
       
-    } catch (error) {
-      console.error('[PDFParser] AI parsing failed:', error);
-      throw error;
+    } catch (error: any) {
+      console.error('[PDFParser] AI parsing failed:', error.message);
+      throw new Error(`AI parsing failed: ${error.message}`);
     }
   }
 }
