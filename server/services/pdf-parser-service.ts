@@ -79,12 +79,17 @@ class PDFParserService {
     let document: any;
     let tempFilePath: string | null = null;
     
-    // Try with Buffer first
+    // pdf-to-img v5 accepts: file path strings OR data URL strings (NOT Buffer)
+    // Convert Buffer to data URL for reliable cross-platform support
+    const base64Data = pdfBuffer.toString('base64');
+    const dataUrl = `data:application/pdf;base64,${base64Data}`;
+    console.log(`[PDFParser] Converted buffer to data URL (${dataUrl.length} chars)`);
+    
     try {
-      console.log('[PDFParser] Attempting pdf-to-img with Buffer input...');
-      document = await pdfFn(pdfBuffer, { scale });
-    } catch (bufferError: any) {
-      console.log(`[PDFParser] Buffer input rejected: ${bufferError.message}`);
+      document = await pdfFn(dataUrl, { scale });
+      console.log('[PDFParser] Data URL input accepted successfully');
+    } catch (dataUrlError: any) {
+      console.log(`[PDFParser] Data URL input failed: ${dataUrlError.message}`);
       console.log('[PDFParser] Falling back to temp file approach...');
       
       // Fallback: write to temp file
@@ -93,7 +98,18 @@ class PDFParserService {
       
       await fs.writeFile(tempFilePath, pdfBuffer);
       console.log(`[PDFParser] Wrote PDF to temp file: ${tempFilePath}`);
-      document = await pdfFn(tempFilePath, { scale });
+      
+      try {
+        document = await pdfFn(tempFilePath, { scale });
+        console.log('[PDFParser] Temp file approach succeeded');
+      } catch (tempFileError: any) {
+        console.error(`[PDFParser] Temp file approach also failed: ${tempFileError.message}`);
+        // Clean up temp file before throwing
+        try {
+          await fs.unlink(tempFilePath);
+        } catch (e) {}
+        throw new Error(`PDF rendering failed: ${tempFileError.message}`);
+      }
     }
     
     // Iterate through pages BEFORE cleaning up temp file
