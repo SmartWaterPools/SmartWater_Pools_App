@@ -247,9 +247,22 @@ export async function downloadGmailAttachment(
     throw new Error('Gmail API returned empty attachment data');
   }
   
-  const base64Data = response.data.data.replace(/-/g, '+').replace(/_/g, '/');
+  // Gmail returns base64url encoding - convert to standard base64
+  let base64Data = response.data.data.replace(/-/g, '+').replace(/_/g, '/');
+  
+  // Add padding if needed (base64 must be multiple of 4)
+  const paddingNeeded = (4 - (base64Data.length % 4)) % 4;
+  base64Data += '='.repeat(paddingNeeded);
+  
   const buffer = Buffer.from(base64Data, 'base64');
   
   console.log(`[Gmail] Downloaded attachment: ${buffer.length} bytes`);
+  
+  // Validate that we got a proper PDF
+  const header = buffer.slice(0, 5).toString('ascii');
+  if (!header.startsWith('%PDF')) {
+    console.error(`[Gmail] WARNING: Attachment doesn't appear to be a valid PDF. Header: ${header}`);
+  }
+  
   return buffer;
 }

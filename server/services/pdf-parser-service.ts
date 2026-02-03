@@ -1,4 +1,4 @@
-import * as pdfParseModule from 'pdf-parse';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
 import Tesseract from 'tesseract.js';
 import OpenAI from 'openai';
 import { storage } from '../storage';
@@ -14,7 +14,58 @@ const openai = new OpenAI({
   apiKey: OPENAI_API_KEY,
 });
 
-const pdfParse = (pdfParseModule as any).default || pdfParseModule;
+// Use pdfjs-dist directly (legacy build for Node.js compatibility)
+async function pdfParse(buffer: Buffer): Promise<{ text: string; numpages?: number; info?: any }> {
+  try {
+    console.log('[PDFParser] Loading PDF with pdfjs-dist legacy, buffer size:', buffer.length);
+    
+    // Validate PDF buffer starts with PDF magic bytes
+    const pdfHeader = buffer.slice(0, 5).toString('ascii');
+    if (!pdfHeader.startsWith('%PDF')) {
+      console.error('[PDFParser] Invalid PDF: buffer does not start with %PDF, got:', pdfHeader);
+      throw new Error('Invalid PDF format - buffer does not start with %PDF');
+    }
+    
+    const data = new Uint8Array(buffer);
+    const loadingTask = pdfjsLib.getDocument({ 
+      data,
+      verbosity: 0, // Suppress warnings
+      useSystemFonts: true, // Use system fonts for better text extraction
+      standardFontDataUrl: 'node_modules/pdfjs-dist/standard_fonts/',
+    });
+    const pdf = await loadingTask.promise;
+    
+    console.log('[PDFParser] PDF loaded, pages:', pdf.numPages);
+    
+    let fullText = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      // Join items with proper spacing - handle both str and hasEOL
+      const pageText = textContent.items
+        .map((item: any) => {
+          const text = item.str || '';
+          // Add newline if item indicates end of line
+          return item.hasEOL ? text + '\n' : text + ' ';
+        })
+        .join('');
+      fullText += pageText + '\n';
+    }
+    
+    console.log('[PDFParser] Text extraction complete:', fullText.length, 'chars');
+    console.log('[PDFParser] First 300 chars:', fullText.substring(0, 300).replace(/\n/g, '\\n'));
+    
+    return { 
+      text: fullText, 
+      numpages: pdf.numPages
+    };
+  } catch (error: any) {
+    console.error('[PDFParser] pdfjs-dist extraction failed:', error.message);
+    throw error;
+  }
+}
+
+console.log('[PDFParser] Using pdfjs-dist legacy build for text extraction');
 
 interface VendorTemplate {
   invoiceNumberPattern: string | null;
