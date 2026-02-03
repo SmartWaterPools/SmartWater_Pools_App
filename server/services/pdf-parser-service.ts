@@ -620,40 +620,12 @@ Rules:
         
         console.log('[PDFParser] Text-based parsing complete');
       } else {
-        // STEP 3: Fall back to Vision API only for scanned/image PDFs
-        console.log('[PDFParser] No text available, falling back to Vision API...');
+        // STEP 3: Scanned PDF with no text - cannot use AI extraction currently
+        // The pdf-to-img library has compatibility issues, so for now we skip Vision API
+        console.log('[PDFParser] No text available in PDF - this appears to be a scanned document');
+        console.log('[PDFParser] Scanned PDFs without selectable text cannot be processed with AI extraction');
         
-        const pageBuffers = await this.renderPdfPages(pdfBuffer, 3, 1.5);
-        
-        if (pageBuffers.length === 0) {
-          throw new Error('No pages could be rendered from PDF');
-        }
-        
-        const imageContent = pageBuffers.map(buf => ({
-          type: 'image_url' as const,
-          image_url: {
-            url: `data:image/png;base64,${buf.toString('base64')}`,
-            detail: 'high' as const
-          }
-        }));
-        
-        response = await openai.chat.completions.create({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: 'Please analyze this invoice document and extract all relevant data:' },
-                ...imageContent
-              ]
-            }
-          ],
-          max_tokens: 4096,
-          response_format: { type: 'json_object' }
-        });
-        
-        console.log('[PDFParser] Vision API parsing complete');
+        throw new Error('This document appears to be a scanned PDF without selectable text. AI extraction works best with text-based PDFs. Please try using the manual field mapping tool in the Visual tab, or re-scan the document with OCR enabled.');
       }
       
       const content = response.choices[0]?.message?.content || '{}';
