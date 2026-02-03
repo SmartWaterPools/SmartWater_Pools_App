@@ -1,5 +1,5 @@
 import * as pdfParseModule from 'pdf-parse';
-import Tesseract from 'tesseract.js';
+import { createWorker } from 'tesseract.js';
 import OpenAI from 'openai';
 import { storage } from '../storage';
 import * as fs from 'fs/promises';
@@ -31,6 +31,8 @@ const MIN_TEXT_LENGTH_FOR_PARSING = 50;
 const MAX_OCR_PAGES = 5;
 const OCR_TIMEOUT_MS = 60000;
 const MAX_PDF_SIZE_FOR_OCR = 10 * 1024 * 1024;
+const OCR_LANGUAGE = process.env.TESSERACT_LANG || 'eng';
+const DEFAULT_TESSDATA_PATH = 'https://tessdata.projectnaptha.com/4.0.0';
 
 export interface ParsedLineItem {
   description: string;
@@ -283,20 +285,25 @@ class PDFParserService {
       console.log(`[PDFParser] Extracted ${pages.length} page(s) from PDF, running OCR...`);
       
       const textParts: string[] = [];
+      const worker = await this.createTesseractWorker();
       
-      for (let i = 0; i < pages.length; i++) {
-        console.log(`[PDFParser] Running OCR on page ${i + 1}/${pages.length}...`);
-        try {
-          const result = await Tesseract.recognize(pages[i], 'eng');
-          if (result.data.text) {
-            console.log(`[PDFParser] OCR page ${i + 1} extracted ${result.data.text.length} chars`);
-            textParts.push(result.data.text);
-          } else {
-            console.log(`[PDFParser] OCR page ${i + 1} returned empty text`);
+      try {
+        for (let i = 0; i < pages.length; i++) {
+          console.log(`[PDFParser] Running OCR on page ${i + 1}/${pages.length}...`);
+          try {
+            const result = await worker.recognize(pages[i]);
+            if (result.data.text) {
+              console.log(`[PDFParser] OCR page ${i + 1} extracted ${result.data.text.length} chars`);
+              textParts.push(result.data.text);
+            } else {
+              console.log(`[PDFParser] OCR page ${i + 1} returned empty text`);
+            }
+          } catch (pageError) {
+            console.error(`[PDFParser] OCR failed on page ${i + 1}:`, pageError);
           }
-        } catch (pageError) {
-          console.error(`[PDFParser] OCR failed on page ${i + 1}:`, pageError);
         }
+      } finally {
+        await worker.terminate();
       }
       
       const totalText = textParts.join('\n\n');
@@ -305,6 +312,39 @@ class PDFParserService {
     } catch (error) {
       console.error('[PDFParser] OCR processing failed:', error);
       throw error;
+    }
+  }
+
+  private async createTesseractWorker() {
+    const options: {
+      logger: (message: any) => void;
+      langPath?: string;
+      workerPath?: string;
+      corePath?: string;
+      cachePath?: string;
+    } = {
+      logger: (message: any) => {
+        if (message?.status) {
+          console.log(`[PDFParser] OCR ${message.status}: ${Math.round((message.progress || 0) * 100)}%`);
+        }
+      },
+      langPath: process.env.TESSERACT_LANG_PATH || DEFAULT_TESSDATA_PATH,
+      workerPath: process.env.TESSERACT_WORKER_PATH,
+      corePath: process.env.TESSERACT_CORE_PATH,
+      cachePath: process.env.TESSERACT_CACHE_PATH,
+    };
+
+    try {
+      const worker = await createWorker(options);
+      await worker.load();
+      await worker.loadLanguage(OCR_LANGUAGE);
+      await worker.initialize(OCR_LANGUAGE);
+      return worker;
+    } catch (error) {
+      console.error('[PDFParser] Failed to initialize Tesseract worker:', error);
+      throw new Error(
+        'OCR initialization failed. Ensure Tesseract.js can access language data (set TESSERACT_LANG_PATH or allow downloads) and try again.'
+      );
     }
   }
 
