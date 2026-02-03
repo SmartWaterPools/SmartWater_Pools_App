@@ -7,8 +7,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.openai,
 });
 
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
@@ -557,7 +556,7 @@ class PDFParserService {
     console.log('[PDFParser] Starting AI-powered parsing...');
     console.log(`[PDFParser] PDF buffer size: ${pdfBuffer.length} bytes`);
     
-    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    if (!process.env.openai) {
       throw new Error('OpenAI API key not configured. AI extraction is unavailable.');
     }
     
