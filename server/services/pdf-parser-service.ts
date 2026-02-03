@@ -623,33 +623,52 @@ Rules:
         
         console.log('[PDFParser] Text-based parsing complete');
       } else {
-        // STEP 3: Scanned PDF with no text - try OCR extraction first
-        console.log('[PDFParser] Minimal text in PDF - attempting OCR extraction...');
+        // STEP 3: Scanned PDF with no text - use GPT-4 Vision to read the PDF images directly
+        console.log('[PDFParser] Minimal text in PDF - using GPT-4 Vision to read PDF images...');
         
         try {
-          const ocrText = await this.performOcr(pdfBuffer);
-          if (ocrText && ocrText.trim().length >= 50) {
-            console.log(`[PDFParser] OCR extracted ${ocrText.length} chars, sending to GPT-4...`);
-            extractedText = ocrText;
-            
-            response = await openai.chat.completions.create({
-              model: 'gpt-4o',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: `Parse this invoice text (extracted via OCR) and extract all data:\n\n${extractedText.substring(0, 15000)}` }
-              ],
-              max_tokens: 4096,
-              response_format: { type: 'json_object' }
-            });
-            
-            console.log('[PDFParser] OCR + AI parsing complete');
-          } else {
-            console.log('[PDFParser] OCR returned insufficient text');
-            throw new Error('OCR extraction failed to produce usable text');
+          // Render PDF pages to images
+          const pages = await this.renderPdfPages(pdfBuffer, 3, 2.0); // Max 3 pages for Vision API
+          
+          if (pages.length === 0) {
+            throw new Error('Could not render PDF pages to images');
           }
-        } catch (ocrError: any) {
-          console.error('[PDFParser] OCR extraction failed:', ocrError.message);
-          throw new Error('This document appears to be a scanned PDF. OCR extraction failed. Please try re-scanning the document with better quality or use manual data entry.');
+          
+          console.log(`[PDFParser] Rendered ${pages.length} pages for Vision API`);
+          
+          // Convert images to base64 for GPT-4 Vision
+          const imageMessages: any[] = pages.map((pageBuffer, index) => ({
+            type: 'image_url',
+            image_url: {
+              url: `data:image/png;base64,${pageBuffer.toString('base64')}`,
+              detail: 'high'
+            }
+          }));
+          
+          console.log('[PDFParser] Sending images to GPT-4 Vision...');
+          
+          response = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { 
+                role: 'user', 
+                content: [
+                  { type: 'text', text: 'Parse this invoice image and extract all data. This is a scanned PDF invoice.' },
+                  ...imageMessages
+                ]
+              }
+            ],
+            max_tokens: 4096,
+            response_format: { type: 'json_object' }
+          });
+          
+          console.log('[PDFParser] Vision API parsing complete');
+          extractedText = 'Extracted via GPT-4 Vision';
+          
+        } catch (visionError: any) {
+          console.error('[PDFParser] Vision API failed:', visionError.message);
+          throw new Error(`Vision API failed to process scanned PDF: ${visionError.message}`);
         }
       }
       
