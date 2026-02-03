@@ -620,12 +620,34 @@ Rules:
         
         console.log('[PDFParser] Text-based parsing complete');
       } else {
-        // STEP 3: Scanned PDF with no text - cannot use AI extraction currently
-        // The pdf-to-img library has compatibility issues, so for now we skip Vision API
-        console.log('[PDFParser] No text available in PDF - this appears to be a scanned document');
-        console.log('[PDFParser] Scanned PDFs without selectable text cannot be processed with AI extraction');
+        // STEP 3: Scanned PDF with no text - try OCR extraction first
+        console.log('[PDFParser] Minimal text in PDF - attempting OCR extraction...');
         
-        throw new Error('This document appears to be a scanned PDF without selectable text. AI extraction works best with text-based PDFs. Please try using the manual field mapping tool in the Visual tab, or re-scan the document with OCR enabled.');
+        try {
+          const ocrText = await this.performOcr(pdfBuffer);
+          if (ocrText && ocrText.trim().length >= 50) {
+            console.log(`[PDFParser] OCR extracted ${ocrText.length} chars, sending to GPT-4...`);
+            extractedText = ocrText;
+            
+            response = await openai.chat.completions.create({
+              model: 'gpt-4o',
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: `Parse this invoice text (extracted via OCR) and extract all data:\n\n${extractedText.substring(0, 15000)}` }
+              ],
+              max_tokens: 4096,
+              response_format: { type: 'json_object' }
+            });
+            
+            console.log('[PDFParser] OCR + AI parsing complete');
+          } else {
+            console.log('[PDFParser] OCR returned insufficient text');
+            throw new Error('OCR extraction failed to produce usable text');
+          }
+        } catch (ocrError: any) {
+          console.error('[PDFParser] OCR extraction failed:', ocrError.message);
+          throw new Error('This document appears to be a scanned PDF. OCR extraction failed. Please try re-scanning the document with better quality or use manual data entry.');
+        }
       }
       
       const content = response.choices[0]?.message?.content || '{}';
