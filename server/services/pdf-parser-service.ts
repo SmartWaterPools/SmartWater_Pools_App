@@ -6,8 +6,12 @@ import * as fs from 'fs/promises';
 import * as os from 'os';
 import * as path from 'path';
 
+const OPENAI_API_KEY = process.env.openai;
+
+console.log('[PDFParser] OpenAI API Key configured:', OPENAI_API_KEY ? `YES (${OPENAI_API_KEY.length} chars, starts with ${OPENAI_API_KEY.substring(0, 7)}...)` : 'NO - AI parsing will fail!');
+
 const openai = new OpenAI({
-  apiKey: process.env.openai,
+  apiKey: OPENAI_API_KEY,
 });
 
 const pdfParse = (pdfParseModule as any).default || pdfParseModule;
@@ -556,7 +560,7 @@ class PDFParserService {
     console.log('[PDFParser] Starting AI-powered parsing...');
     console.log(`[PDFParser] PDF buffer size: ${pdfBuffer.length} bytes`);
     
-    if (!process.env.openai) {
+    if (!OPENAI_API_KEY) {
       throw new Error('OpenAI API key not configured. AI extraction is unavailable.');
     }
     

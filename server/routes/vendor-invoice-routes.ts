@@ -337,9 +337,27 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
       return res.status(400).json({ error: "No PDF file or email attachment found for this document" });
     }
     
-    const parsed = await pdfParserService.parseInvoice(pdfBuffer, invoice.vendorId);
+    // STEP 1: Try regex-based parsing first (fast, free)
+    let parsed = await pdfParserService.parseInvoice(pdfBuffer, invoice.vendorId);
+    console.log(`[Parse] Regex parsing result: confidence=${parsed.confidence}%, invoiceNumber=${parsed.invoiceNumber}, rawTextLength=${parsed.rawText?.length || 0}`);
     
-    console.log(`[Parse] Parsed result: confidence=${parsed.confidence}%, invoiceNumber=${parsed.invoiceNumber}, rawTextLength=${parsed.rawText?.length || 0}`);
+    // STEP 2: If regex parsing has low confidence (<50%), automatically try AI parsing
+    if (parsed.confidence < 50 && process.env.openai) {
+      console.log(`[Parse] Low confidence (${parsed.confidence}%), attempting AI fallback...`);
+      try {
+        const aiParsed = await pdfParserService.parseWithAI(pdfBuffer);
+        console.log(`[Parse] AI parsing result: confidence=${aiParsed.confidence}%, lineItems=${aiParsed.lineItems.length}`);
+        
+        // Use AI result if it's better than regex result
+        if (aiParsed.confidence > parsed.confidence || aiParsed.lineItems.length > parsed.lineItems.length) {
+          console.log('[Parse] AI parsing produced better results, using AI data');
+          parsed = aiParsed;
+        }
+      } catch (aiError: any) {
+        console.error('[Parse] AI parsing fallback failed:', aiError.message);
+        // Continue with regex results if AI fails
+      }
+    }
     
     // Check if this is likely a scanned/image-based PDF with failed text extraction
     let parseError: string | null = null;
@@ -826,8 +844,27 @@ router.post("/import-from-email", isAuthenticated, async (req, res) => {
         if (pdfBuffer) {
           console.log(`[Import] Downloaded PDF attachment (${pdfBuffer.length} bytes), parsing...`);
           
-          const parsedData = await pdfParserService.parseInvoice(pdfBuffer, vendorId);
-          console.log(`[Import] PDF parsed with confidence: ${parsedData.confidence}%, rawText length: ${parsedData.rawText?.length || 0}`);
+          // STEP 1: Try regex-based parsing first (fast, free)
+          let parsedData = await pdfParserService.parseInvoice(pdfBuffer, vendorId);
+          console.log(`[Import] Regex parsing result: confidence=${parsedData.confidence}%, rawText length: ${parsedData.rawText?.length || 0}`);
+          
+          // STEP 2: If regex parsing has low confidence (<50%), automatically try AI parsing
+          if (parsedData.confidence < 50 && process.env.openai) {
+            console.log(`[Import] Low confidence (${parsedData.confidence}%), attempting AI fallback...`);
+            try {
+              const aiParsedData = await pdfParserService.parseWithAI(pdfBuffer);
+              console.log(`[Import] AI parsing result: confidence=${aiParsedData.confidence}%, lineItems=${aiParsedData.lineItems.length}`);
+              
+              // Use AI result if it's better than regex result
+              if (aiParsedData.confidence > parsedData.confidence || aiParsedData.lineItems.length > parsedData.lineItems.length) {
+                console.log('[Import] AI parsing produced better results, using AI data');
+                parsedData = aiParsedData;
+              }
+            } catch (aiError: any) {
+              console.error('[Import] AI parsing fallback failed:', aiError.message);
+              // Continue with regex results if AI fails
+            }
+          }
           
           // Log if text extraction failed (likely image-based PDF)
           let parseErrorMsg: string | null = null;
