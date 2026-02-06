@@ -498,7 +498,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   return (
     <>
       <Card>
-        <CardHeader>
+        <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
               <CardTitle className="flex items-center gap-2">
@@ -513,14 +513,14 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-3 sm:p-6 pt-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="search" className="flex items-center gap-2">
+            <TabsList className="grid w-full grid-cols-2 h-auto">
+              <TabsTrigger value="search" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2">
                 <Mail className="h-4 w-4" />
                 Search Emails
               </TabsTrigger>
-              <TabsTrigger value="documents" className="flex items-center gap-2">
+              <TabsTrigger value="documents" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm py-2">
                 <FileText className="h-4 w-4" />
                 Imported Documents
                 {invoices && invoices.length > 0 && (
@@ -572,7 +572,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     {emailResults.emails.map((email) => (
                       <div
                         key={email.externalId}
-                        className="p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                        className="p-3 sm:p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
@@ -662,7 +662,85 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                   <p className="text-sm mt-2">Search for vendor emails to import documents.</p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="sm:hidden space-y-2">
+                  {invoices.map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="rounded-lg border bg-card hover:bg-muted/50 transition-colors cursor-pointer p-3"
+                      onClick={() => handleViewDetails(invoice)}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Badge variant="outline" className={`${getDocumentTypeBadgeColor(invoice.documentType)} text-xs`}>
+                            {getDocumentTypeLabel(invoice.documentType)}
+                          </Badge>
+                          <span className="font-medium text-sm truncate">
+                            {invoice.invoiceNumber || `DOC-${invoice.id}`}
+                          </span>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleViewDetails(invoice); }}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            {(invoice.pdfUrl || invoice.attachmentId) && (
+                              <DropdownMenuItem
+                                onClick={(e) => { e.stopPropagation(); parsePdfMutation.mutate(invoice.id); }}
+                                disabled={parsePdfMutation.isPending}
+                              >
+                                <RefreshCw className="h-4 w-4 mr-2" />
+                                Parse PDF
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); processToExpenseMutation.mutate(invoice.id); }}
+                              disabled={invoice.expenseProcessed || processToExpenseMutation.isPending}
+                            >
+                              <DollarSign className="h-4 w-4 mr-2" />
+                              Process to Expense
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => { e.stopPropagation(); processToInventoryMutation.mutate(invoice.id); }}
+                              disabled={invoice.inventoryProcessed || processToInventoryMutation.isPending}
+                            >
+                              <Package className="h-4 w-4 mr-2" />
+                              Process to Inventory
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className="font-medium text-sm">
+                          {formatCurrency(invoice.totalAmount)}
+                        </span>
+                        <Badge variant="outline" className={`${getStatusBadgeVariant(invoice.status)} text-xs`}>
+                          {invoice.status}
+                        </Badge>
+                        {invoice.expenseProcessed && (
+                          <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
+                            <DollarSign className="h-3 w-3 mr-1" />
+                            Expense
+                          </Badge>
+                        )}
+                        {invoice.inventoryProcessed && (
+                          <Badge variant="outline" className="bg-teal-100 text-teal-800 text-xs">
+                            <Package className="h-3 w-3 mr-1" />
+                            Inventory
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="hidden sm:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -760,6 +838,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     </TableBody>
                   </Table>
                 </div>
+                </>
               )}
             </TabsContent>
           </Tabs>
