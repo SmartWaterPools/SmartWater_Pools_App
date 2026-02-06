@@ -57,7 +57,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
       title: "",
       description: "",
       documentType: "",
-      fileUrl: ""
+      url: ""
     }
   });
   
@@ -71,15 +71,11 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   const { data: documents = [], isLoading } = useQuery<DocumentData[]>({
     queryKey: [queryEndpoint],
     queryFn: async () => {
-      try {
-        console.log("Fetching documents from:", queryEndpoint);
-        const data = await apiRequest<DocumentData[]>(queryEndpoint);
-        console.log("Documents fetched successfully:", data);
-        return data || [];
-      } catch (error) {
-        console.error("Error fetching documents:", error);
-        return [];
-      }
+      const response = await fetch(queryEndpoint, {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error("Failed to fetch documents");
+      return response.json();
     },
     enabled: !!projectId
   });
@@ -89,8 +85,8 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
     mutationFn: async (values: z.infer<typeof documentSchema>) => {
       if (!selectedDocument) return null;
       return apiRequest(
-        `/api/documents/${selectedDocument.id}`,
         "PATCH",
+        `/api/documents/${selectedDocument.id}`,
         values
       );
     },
@@ -115,8 +111,8 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
       return apiRequest(
-        `/api/documents/${documentId}`,
-        "DELETE"
+        "DELETE",
+        `/api/documents/${documentId}`
       );
     },
     onSuccess: () => {
@@ -149,7 +145,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
       title: doc.title,
       description: doc.description || "",
       documentType: doc.documentType,
-      fileUrl: doc.fileUrl
+      url: doc.url
     });
     setIsEditDialogOpen(true);
   }
@@ -163,7 +159,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   // Function to handle document preview
   function handlePreview(doc: DocumentData) {
     setSelectedDocument(doc);
-    setPreviewUrl(doc.fileUrl);
+    setPreviewUrl(doc.url);
     setIsPreviewDialogOpen(true);
   }
   
@@ -187,7 +183,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
   
   // Function to get icon based on file type
   function getFileIcon(doc: DocumentData) {
-    const url = doc.fileUrl.toLowerCase();
+    const url = doc.url.toLowerCase();
     
     if (isImageFile(url)) {
       return <FileImage className="h-6 w-6 text-primary" />;
@@ -274,20 +270,20 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
               <div key={doc.id} className="flex items-start p-4 border rounded-lg hover:bg-accent/5">
                 {/* Document icon - clickable for preview if image or PDF */}
                 <div 
-                  className={`mr-4 p-2 bg-muted rounded ${(isImageFile(doc.fileUrl) || isPdfFile(doc.fileUrl)) ? 'cursor-pointer' : ''}`}
-                  onClick={() => (isImageFile(doc.fileUrl) || isPdfFile(doc.fileUrl)) && handlePreview(doc)}
+                  className={`mr-4 p-2 bg-muted rounded ${(isImageFile(doc.url) || isPdfFile(doc.url)) ? 'cursor-pointer' : ''}`}
+                  onClick={() => (isImageFile(doc.url) || isPdfFile(doc.url)) && handlePreview(doc)}
                 >
                   {getFileIcon(doc)}
                 </div>
                 
                 {/* Display thumbnail for images */}
-                {isImageFile(doc.fileUrl) && (
+                {isImageFile(doc.url) && (
                   <div 
                     className="mr-3 cursor-pointer" 
                     onClick={() => handlePreview(doc)}
                   >
                     <img 
-                      src={doc.fileUrl} 
+                      src={doc.url} 
                       alt={doc.title} 
                       className="h-16 w-16 object-cover rounded border"
                     />
@@ -309,7 +305,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                 </div>
                 <div className="flex space-x-1 ml-2">
                   {/* Preview button for images and PDFs */}
-                  {(isImageFile(doc.fileUrl) || isPdfFile(doc.fileUrl)) && (
+                  {(isImageFile(doc.url) || isPdfFile(doc.url)) && (
                     <Button 
                       variant="ghost" 
                       size="icon"
@@ -319,7 +315,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
                     </Button>
                   )}
                   <Button variant="ghost" size="icon" asChild>
-                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={doc.url} target="_blank" rel="noopener noreferrer">
                       <Download className="h-4 w-4" />
                     </a>
                   </Button>
@@ -431,7 +427,7 @@ export function DocumentList({ projectId, phaseId, documentType }: DocumentListP
               
               <FormField
                 control={form.control}
-                name="fileUrl"
+                name="url"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>File URL</FormLabel>

@@ -5,7 +5,7 @@ export const documentSchema = z.object({
   title: z.string().min(1, { message: "Document title is required" }),
   description: z.string().nullable().optional(),
   documentType: z.string(),
-  fileUrl: z.string().min(1, { message: "File URL is required" }),
+  url: z.string().min(1, { message: "File URL is required" }),
   isPublic: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
 });
@@ -14,6 +14,10 @@ export const documentSchema = z.object({
 export const documentApiSchema = documentSchema.extend({
   id: z.number(),
   projectId: z.number(),
+  filename: z.string(),
+  originalName: z.string(),
+  mimeType: z.string(),
+  size: z.number(),
   phaseId: z.number().nullable(),
   phaseName: z.string().nullable().optional(),
   uploadDate: z.string().or(z.date()),

@@ -35,36 +35,26 @@ export function DocumentUpload({ projectId, phaseId, onUploadComplete }: Documen
     mutationFn: async (file: File) => {
       setUploading(true);
       
-      let fileUrl;
-      if (fileDataUrl) {
-        // In a production app, we'd upload to a storage service
-        // For now, use the data URL as the file URL (works for images)
-        fileUrl = fileDataUrl;
-      } else {
-        // For non-image files we can't preview, create a link with filename
-        fileUrl = `/documents/${Date.now()}_${file.name}`;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("title", documentName || file.name);
+      formData.append("description", documentDescription);
+      formData.append("documentType", documentType);
+      if (phaseId) formData.append("phaseId", String(phaseId));
+      
+      const response = await fetch(`/api/projects/${projectId}/documents`, {
+        method: "POST",
+        body: formData,
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to upload document");
       }
       
-      // Create document in the database
-      const requestBody = {
-        title: documentName || file.name,
-        description: documentDescription,
-        documentType: documentType,
-        fileUrl: fileUrl,
-        phaseId: phaseId || null,
-        uploadedBy: 1, // Using default admin user ID as a temporary solution
-        // Let the server handle the upload date with defaultNow()
-        tags: [],
-        isPublic: true // Set to true for visibility
-      };
-      
-      const response = await apiRequest(
-        `/api/projects/${projectId}/documents`,
-        "POST",
-        requestBody
-      );
-      
-      return { fileUrl, response };
+      const result = await response.json();
+      return { fileUrl: result.url, response: result };
     },
     onSuccess: (data) => {
       toast({

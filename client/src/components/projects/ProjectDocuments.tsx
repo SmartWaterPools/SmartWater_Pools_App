@@ -94,7 +94,9 @@ export function ProjectDocuments({ projectId, projectPhases = [] }: ProjectDocum
   const { data: documents = [], isLoading, refetch } = useQuery<ProjectDocument[]>({
     queryKey: [`/api/projects/${projectId}/documents`],
     queryFn: async () => {
-      const response = await fetch(`/api/projects/${projectId}/documents`);
+      const response = await fetch(`/api/projects/${projectId}/documents`, {
+        credentials: "include"
+      });
       if (!response.ok) throw new Error("Failed to fetch documents");
       return response.json();
     }
@@ -115,7 +117,8 @@ export function ProjectDocuments({ projectId, projectPhases = [] }: ProjectDocum
 
       const response = await fetch(`/api/projects/${projectId}/documents`, {
         method: "POST",
-        body: formData
+        body: formData,
+        credentials: "include"
       });
 
       if (!response.ok) {
@@ -146,7 +149,7 @@ export function ProjectDocuments({ projectId, projectPhases = [] }: ProjectDocum
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (data: { id: number; updates: Partial<ProjectDocument> }) => {
-      return apiRequest(`/api/documents/${data.id}`, "PATCH", data.updates);
+      return apiRequest("PATCH", `/api/documents/${data.id}`, data.updates);
     },
     onSuccess: () => {
       toast({
@@ -169,7 +172,7 @@ export function ProjectDocuments({ projectId, projectPhases = [] }: ProjectDocum
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (documentId: number) => {
-      return apiRequest(`/api/documents/${documentId}`, "DELETE");
+      return apiRequest("DELETE", `/api/documents/${documentId}`);
     },
     onSuccess: () => {
       toast({
