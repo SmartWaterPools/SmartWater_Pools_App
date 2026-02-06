@@ -602,7 +602,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                               {email.attachments.map((attachment, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex items-center justify-between p-2 bg-muted/50 rounded-md"
+                                  className="flex flex-wrap items-center justify-between gap-2 p-2 bg-muted/50 rounded-md"
                                 >
                                   <div className="flex items-center gap-2 min-w-0">
                                     {getAttachmentIcon(attachment.mimeType)}
@@ -666,11 +666,11 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       <TableRow>
                         <TableHead>Type</TableHead>
                         <TableHead>Invoice #</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Due Date</TableHead>
+                        <TableHead className="hidden sm:table-cell">Date</TableHead>
+                        <TableHead className="hidden lg:table-cell">Due Date</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead>Status</TableHead>
-                        <TableHead>Processed</TableHead>
+                        <TableHead className="hidden md:table-cell">Processed</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -689,8 +689,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                           <TableCell className="font-medium">
                             {invoice.invoiceNumber || `DOC-${invoice.id}`}
                           </TableCell>
-                          <TableCell>{formatDate(invoice.invoiceDate)}</TableCell>
-                          <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{formatDate(invoice.invoiceDate)}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{formatDate(invoice.dueDate)}</TableCell>
                           <TableCell className="text-right font-medium">
                             {formatCurrency(invoice.totalAmount)}
                           </TableCell>
@@ -699,7 +699,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                               {invoice.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>
+                          <TableCell className="hidden md:table-cell">
                             <div className="flex gap-1">
                               {invoice.expenseProcessed && (
                                 <Badge variant="outline" className="bg-purple-100 text-purple-800 text-xs">
@@ -854,9 +854,9 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
           setDetailTab('details');
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto sm:w-auto">
           <DialogHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <DialogTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
@@ -940,7 +940,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
               )}
 
               <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as 'details' | 'rawtext' | 'fields' | 'visual')}>
-                <TabsList className="w-full grid grid-cols-4">
+                <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4">
                   <TabsTrigger value="details" className="flex items-center gap-1">
                     <Layers className="h-3 w-3" />
                     Details
@@ -1217,7 +1217,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                   )}
                   
                   <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <Sparkles className="h-5 w-5 text-purple-600" />
                         <div>

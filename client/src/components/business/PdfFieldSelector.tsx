@@ -150,6 +150,30 @@ export default function PdfFieldSelector({
     renderPage();
   }, [renderPage]);
 
+  useEffect(() => {
+    if (!pdfDoc || !containerRef.current) return;
+    
+    const fitToContainer = async () => {
+      try {
+        const page = await pdfDoc.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        const containerWidth = containerRef.current?.clientWidth;
+        if (!containerWidth || containerWidth < 10) return;
+        const availableWidth = containerWidth - 32;
+        const fitZoom = Math.min(1, availableWidth / viewport.width);
+        setZoom(Math.max(0.4, Math.round(fitZoom * 100) / 100));
+      } catch (err) {
+        console.error('Error calculating fit zoom:', err);
+      }
+    };
+    
+    fitToContainer();
+    
+    const handleResize = () => fitToContainer();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [pdfDoc]);
+
   const drawSelections = (context: CanvasRenderingContext2D, viewport: any) => {
     fieldSelections
       .filter(s => s.pageNumber === currentPage)
@@ -287,6 +311,58 @@ export default function PdfFieldSelector({
     });
   };
 
+  const getTouchPos = (e: React.TouchEvent<HTMLCanvasElement>): { x: number; y: number } | null => {
+    if (!canvasRef.current || e.touches.length === 0) return null;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+    return {
+      x: (touch.clientX - rect.left) / zoom,
+      y: (touch.clientY - rect.top) / zoom,
+    };
+  };
+
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    const pos = getTouchPos(e);
+    if (!pos) return;
+    setIsSelecting(true);
+    setSelectionStart(pos);
+    setSelectionEnd(pos);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    if (!isSelecting || !canvasRef.current) return;
+    const pos = getTouchPos(e);
+    if (!pos) return;
+    setSelectionEnd(pos);
+
+    const context = canvasRef.current.getContext('2d');
+    if (context && pdfDoc && selectionStart) {
+      renderPage().then(() => {
+        if (!selectionStart || !context) return;
+        const minX = Math.min(selectionStart.x, pos.x);
+        const minY = Math.min(selectionStart.y, pos.y);
+        const width = Math.abs(pos.x - selectionStart.x);
+        const height = Math.abs(pos.y - selectionStart.y);
+        context.globalAlpha = 0.3;
+        context.fillStyle = '#3B82F6';
+        context.fillRect(minX * zoom, minY * zoom, width * zoom, height * zoom);
+        context.globalAlpha = 1;
+        context.strokeStyle = '#3B82F6';
+        context.lineWidth = 2;
+        context.setLineDash([5, 5]);
+        context.strokeRect(minX * zoom, minY * zoom, width * zoom, height * zoom);
+        context.setLineDash([]);
+      });
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    handleMouseUp();
+  };
+
   const extractTextFromRegion = (x: number, y: number, width: number, height: number): string => {
     if (!textContent) return '';
     
@@ -411,75 +487,83 @@ export default function PdfFieldSelector({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-2">
-          <MousePointer2 className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Select field type:</span>
+      <div className="flex flex-col gap-2 p-3 bg-muted/30 rounded-lg">
+        <div className="flex flex-wrap items-center gap-2">
+          <MousePointer2 className="h-4 w-4 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium shrink-0">Field type:</span>
+          <Select value={selectedFieldType} onValueChange={setSelectedFieldType}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {FIELD_TYPES.map(type => (
+                <SelectItem key={type.value} value={type.value}>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded ${type.color}`} />
+                    {type.label}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Select value={selectedFieldType} onValueChange={setSelectedFieldType}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FIELD_TYPES.map(type => (
-              <SelectItem key={type.value} value={type.value}>
-                <div className="flex items-center gap-2">
-                  <div className={`w-3 h-3 rounded ${type.color}`} />
-                  {type.label}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         
-        <div className="flex items-center gap-1 ml-auto">
-          <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="text-sm w-16 text-center">{Math.round(zoom * 100)}%</span>
-          <Button variant="outline" size="icon" onClick={() => setZoom(z => Math.min(2, z + 0.25))}>
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-        </div>
-
-        {totalPages > 1 && (
+        <div className="flex flex-wrap items-center gap-2 justify-between">
           <div className="flex items-center gap-1">
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.max(0.3, z - 0.1))}>
+              <ZoomOut className="h-4 w-4" />
             </Button>
-            <span className="text-sm w-20 text-center">Page {currentPage}/{totalPages}</span>
-            <Button 
-              variant="outline" 
-              size="icon" 
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-            >
-              <ChevronRight className="h-4 w-4" />
+            <span className="text-sm w-14 text-center">{Math.round(zoom * 100)}%</span>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setZoom(z => Math.min(2, z + 0.1))}>
+              <ZoomIn className="h-4 w-4" />
             </Button>
           </div>
-        )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm w-20 text-center">Page {currentPage}/{totalPages}</span>
+              <Button 
+                variant="outline" 
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="text-xs text-muted-foreground bg-blue-50 p-2 rounded border border-blue-200">
+      <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-2 rounded border border-blue-200 dark:border-blue-800">
         <Eye className="h-3 w-3 inline mr-1" />
-        Click and drag on the PDF to highlight fields. Select the field type first, then draw a box around the value.
+        <span className="hidden sm:inline">Click and drag on the PDF to highlight fields. Select the field type first, then draw a box around the value.</span>
+        <span className="sm:hidden">Tap and drag on the PDF to select fields. Choose the field type above first.</span>
       </div>
 
       <div ref={containerRef} className="border rounded-lg overflow-hidden bg-gray-100">
-        <ScrollArea className="h-[400px]">
+        <ScrollArea className="h-[300px] sm:h-[400px]">
           <div className="p-4 flex justify-center">
             <canvas
               ref={canvasRef}
-              className="shadow-lg cursor-crosshair"
+              className="shadow-lg cursor-crosshair touch-none"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
             />
           </div>
         </ScrollArea>
@@ -515,7 +599,7 @@ export default function PdfFieldSelector({
         </div>
       )}
 
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex flex-col sm:flex-row justify-end gap-2 pt-2">
         <Button 
           variant="outline" 
           onClick={() => setFieldSelections([])}
