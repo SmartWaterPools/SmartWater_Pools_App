@@ -244,8 +244,9 @@ class PDFParserService {
           } else {
             console.log('[PDFParser] OCR returned no usable text');
           }
-        } catch (ocrError) {
-          console.error('[PDFParser] OCR failed for minimal-text PDF:', ocrError);
+        } catch (ocrError: any) {
+          console.error(`[PDFParser] OCR failed for minimal-text PDF: ${ocrError.message || ocrError}`);
+          console.log('[PDFParser] Will continue with available text and fall back to AI if confidence is low');
         }
       }
     } catch (error) {
@@ -255,8 +256,8 @@ class PDFParserService {
         rawText = await this.performOcr(pdfBuffer);
         usedOcr = true;
         console.log(`[PDFParser] OCR fallback completed, extracted ${rawText.length} characters`);
-      } catch (ocrError) {
-        console.error('[PDFParser] OCR fallback also failed:', ocrError);
+      } catch (ocrError: any) {
+        console.error(`[PDFParser] OCR fallback also failed: ${ocrError.message || ocrError}`);
         return this.createEmptyResult(rawText, 0);
       }
     }
@@ -325,41 +326,63 @@ class PDFParserService {
       return '';
     }
     
+    let pages: Buffer[] = [];
+    
     try {
-      // Use shared renderPdfPages helper
-      const pages = await this.renderPdfPages(pdfBuffer, MAX_OCR_PAGES, 2.0);
+      pages = await this.renderPdfPages(pdfBuffer, MAX_OCR_PAGES, 2.0);
+    } catch (renderError: any) {
+      console.error(`[PDFParser] PDF-to-image rendering failed: ${renderError.message}`);
+      console.log('[PDFParser] Attempting direct Tesseract OCR on PDF buffer as fallback...');
       
-      if (pages.length === 0) {
-        console.log('[PDFParser] No pages extracted from PDF for OCR');
-        return '';
-      }
-      
-      console.log(`[PDFParser] Extracted ${pages.length} page(s) from PDF, running OCR...`);
-      
-      const textParts: string[] = [];
-      
-      for (let i = 0; i < pages.length; i++) {
-        console.log(`[PDFParser] Running OCR on page ${i + 1}/${pages.length}...`);
+      try {
+        const tempDir = os.tmpdir();
+        const tempPdfPath = path.join(tempDir, `ocr-fallback-${Date.now()}.pdf`);
+        await fs.writeFile(tempPdfPath, pdfBuffer);
+        
         try {
-          const result = await Tesseract.recognize(pages[i], 'eng');
-          if (result.data.text) {
-            console.log(`[PDFParser] OCR page ${i + 1} extracted ${result.data.text.length} chars`);
-            textParts.push(result.data.text);
-          } else {
-            console.log(`[PDFParser] OCR page ${i + 1} returned empty text`);
+          const result = await Tesseract.recognize(tempPdfPath, 'eng');
+          if (result.data.text && result.data.text.trim().length > 10) {
+            console.log(`[PDFParser] Direct Tesseract OCR succeeded: ${result.data.text.length} chars`);
+            return result.data.text;
           }
-        } catch (pageError) {
-          console.error(`[PDFParser] OCR failed on page ${i + 1}:`, pageError);
+          console.log('[PDFParser] Direct Tesseract OCR returned insufficient text');
+        } finally {
+          try { await fs.unlink(tempPdfPath); } catch {} 
         }
+      } catch (directOcrError: any) {
+        console.error(`[PDFParser] Direct Tesseract OCR also failed: ${directOcrError.message}`);
       }
       
-      const totalText = textParts.join('\n\n');
-      console.log(`[PDFParser] OCR complete, total text length: ${totalText.length}`);
-      return totalText;
-    } catch (error) {
-      console.error('[PDFParser] OCR processing failed:', error);
-      throw error;
+      return '';
     }
+    
+    if (pages.length === 0) {
+      console.log('[PDFParser] No pages extracted from PDF for OCR');
+      return '';
+    }
+    
+    console.log(`[PDFParser] Extracted ${pages.length} page(s) from PDF, running OCR...`);
+    
+    const textParts: string[] = [];
+    
+    for (let i = 0; i < pages.length; i++) {
+      console.log(`[PDFParser] Running OCR on page ${i + 1}/${pages.length}...`);
+      try {
+        const result = await Tesseract.recognize(pages[i], 'eng');
+        if (result.data.text) {
+          console.log(`[PDFParser] OCR page ${i + 1} extracted ${result.data.text.length} chars`);
+          textParts.push(result.data.text);
+        } else {
+          console.log(`[PDFParser] OCR page ${i + 1} returned empty text`);
+        }
+      } catch (pageError: any) {
+        console.error(`[PDFParser] OCR failed on page ${i + 1}: ${pageError.message}`);
+      }
+    }
+    
+    const totalText = textParts.join('\n\n');
+    console.log(`[PDFParser] OCR complete, total text length: ${totalText.length}`);
+    return totalText;
   }
 
   private extractInvoiceNumber(text: string): string | null {
@@ -732,16 +755,16 @@ Rules:
         invoiceNumber: parsed.invoiceNumber || null,
         invoiceDate: parsed.invoiceDate || null,
         dueDate: parsed.dueDate || null,
-        subtotal: typeof parsed.subtotal === 'number' ? parsed.subtotal : null,
-        taxAmount: typeof parsed.taxAmount === 'number' ? parsed.taxAmount : null,
-        shippingAmount: typeof parsed.shippingAmount === 'number' ? parsed.shippingAmount : null,
-        totalAmount: typeof parsed.totalAmount === 'number' ? parsed.totalAmount : null,
+        subtotal: typeof parsed.subtotal === 'number' ? Math.round(parsed.subtotal * 100) : null,
+        taxAmount: typeof parsed.taxAmount === 'number' ? Math.round(parsed.taxAmount * 100) : null,
+        shippingAmount: typeof parsed.shippingAmount === 'number' ? Math.round(parsed.shippingAmount * 100) : null,
+        totalAmount: typeof parsed.totalAmount === 'number' ? Math.round(parsed.totalAmount * 100) : null,
         lineItems: Array.isArray(parsed.lineItems) ? parsed.lineItems.map((item: any) => ({
           description: item.description || '',
           sku: item.sku || null,
           quantity: typeof item.quantity === 'number' ? item.quantity : 1,
-          unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
-          totalPrice: typeof item.totalPrice === 'number' ? item.totalPrice : 0
+          unitPrice: typeof item.unitPrice === 'number' ? Math.round(item.unitPrice * 100) : 0,
+          totalPrice: typeof item.totalPrice === 'number' ? Math.round(item.totalPrice * 100) : 0
         })) : [],
         rawText: extractedText || `AI-extracted. Vendor: ${parsed.vendorName || 'Unknown'}`,
         confidence: 85

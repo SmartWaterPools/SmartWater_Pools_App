@@ -727,7 +727,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                                   <Eye className="h-4 w-4 mr-2" />
                                   View Details
                                 </DropdownMenuItem>
-                                {invoice.pdfUrl && (
+                                {(invoice.pdfUrl || invoice.attachmentId) && (
                                   <DropdownMenuItem 
                                     onClick={(e) => { e.stopPropagation(); parsePdfMutation.mutate(invoice.id); }}
                                     disabled={parsePdfMutation.isPending}
@@ -928,9 +928,9 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       {selectedInvoice.pdfUrl ? 'PDF file available' : 'Email attachment available'}
                     </p>
                   </div>
-                  {selectedInvoice.pdfUrl && (
+                  {(selectedInvoice.pdfUrl || selectedInvoice.attachmentId) && (
                     <Button variant="outline" size="sm" asChild>
-                      <a href={selectedInvoice.pdfUrl} target="_blank" rel="noopener noreferrer">
+                      <a href={`/api/vendor-invoices/${selectedInvoice.id}/pdf`} target="_blank" rel="noopener noreferrer">
                         <ExternalLink className="h-4 w-4 mr-1" />
                         View PDF
                       </a>

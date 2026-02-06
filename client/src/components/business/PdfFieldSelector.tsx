@@ -96,7 +96,13 @@ export default function PdfFieldSelector({
           import.meta.url
         ).toString();
         
-        const loadingTask = pdfjsLib.getDocument(pdfUrl);
+        const response = await fetch(pdfUrl, { credentials: 'include' });
+        if (!response.ok) {
+          throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdf = await loadingTask.promise;
         
         setPdfDoc(pdf);
@@ -302,22 +308,25 @@ export default function PdfFieldSelector({
   };
 
   const createPatternFromText = (text: string, fieldType: string): string => {
-    const escaped = escapeRegex(text.trim());
-    
     switch (fieldType) {
       case 'invoice_number':
-        return `(?:invoice|inv|order|po)\\s*[#:]?\\s*(${escaped}|[A-Z0-9-]+)`;
+        return `(?:invoice|inv|order|po|ref|confirmation)\\s*[#:.\\-]?\\s*([A-Z0-9][A-Z0-9\\-]{1,20})`;
       case 'invoice_date':
+        return `(?:invoice\\s*date|date\\s*of\\s*invoice|issued?\\s*(?:on|date)?)\\s*[:\\-]?\\s*(\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{2,4}|[A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4})`;
       case 'due_date':
-        return `(?:date|dated|due)\\s*:?\\s*(${escaped}|\\d{1,2}[/-]\\d{1,2}[/-]\\d{2,4})`;
+        return `(?:due\\s*date|payment\\s*due|pay\\s*by|net\\s*\\d+)\\s*[:\\-]?\\s*(\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{2,4}|[A-Za-z]+\\s+\\d{1,2},?\\s+\\d{4})`;
       case 'subtotal':
-        return `(?:subtotal|sub\\s*total)\\s*:?\\s*\\$?\\s*(${escaped}|[\\d,]+\\.?\\d*)`;
+        return `(?:subtotal|sub[\\s\\-]?total)\\s*[:\\-]?\\s*\\$?\\s*([\\d,]+\\.\\d{2})`;
       case 'tax':
-        return `(?:tax|sales\\s*tax|vat)\\s*:?\\s*\\$?\\s*(${escaped}|[\\d,]+\\.?\\d*)`;
+        return `(?:tax|sales\\s*tax|vat|gst|hst)\\s*[:\\-]?\\s*\\$?\\s*([\\d,]+\\.\\d{2})`;
       case 'total':
-        return `(?:total|amount\\s*due|grand\\s*total|balance)\\s*:?\\s*\\$?\\s*(${escaped}|[\\d,]+\\.?\\d*)`;
+        return `(?:total\\s*(?:amount|due)?|grand\\s*total|amount\\s*due|balance\\s*due|total\\s*charged)\\s*[:\\-]?\\s*\\$?\\s*([\\d,]+\\.\\d{2})`;
+      case 'line_item':
+        return `(.+?)\\s+(\\d+)\\s+\\$?([\\d,]+\\.\\d{2})\\s+\\$?([\\d,]+\\.\\d{2})`;
+      case 'vendor_name':
+        return `(.+)`;
       default:
-        return escaped;
+        return `(.+)`;
     }
   };
 
