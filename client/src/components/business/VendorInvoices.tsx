@@ -61,7 +61,8 @@ import {
   FileCode,
   Layers,
   Copy,
-  Sparkles
+  Sparkles,
+  MousePointer2
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -167,6 +168,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   const [showEmailToAnalyzeDialog, setShowEmailToAnalyzeDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [detailTab, setDetailTab] = useState<'details' | 'rawtext' | 'fields' | 'visual'>('details');
+  const [showTemplateMapping, setShowTemplateMapping] = useState(false);
   const [editValues, setEditValues] = useState<{
     invoiceNumber: string;
     invoiceDate: string;
@@ -852,9 +854,10 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
           setIsEditing(false);
           setEditValues(null);
           setDetailTab('details');
+          setShowTemplateMapping(false);
         }
       }}>
-        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto sm:w-auto">
+        <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
           <DialogHeader>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
@@ -940,21 +943,21 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
               )}
 
               <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as 'details' | 'rawtext' | 'fields' | 'visual')}>
-                <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4">
-                  <TabsTrigger value="details" className="flex items-center gap-1">
-                    <Layers className="h-3 w-3" />
+                <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto">
+                  <TabsTrigger value="details" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
+                    <Layers className="h-3 w-3 shrink-0" />
                     Details
                   </TabsTrigger>
-                  <TabsTrigger value="visual" className="flex items-center gap-1">
-                    <Image className="h-3 w-3" />
+                  <TabsTrigger value="visual" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
+                    <Image className="h-3 w-3 shrink-0" />
                     Visual
                   </TabsTrigger>
-                  <TabsTrigger value="rawtext" className="flex items-center gap-1">
-                    <FileCode className="h-3 w-3" />
+                  <TabsTrigger value="rawtext" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
+                    <FileCode className="h-3 w-3 shrink-0" />
                     Raw Text
                   </TabsTrigger>
-                  <TabsTrigger value="fields" className="flex items-center gap-1">
-                    <Package className="h-3 w-3" />
+                  <TabsTrigger value="fields" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
+                    <Package className="h-3 w-3 shrink-0" />
                     Mapping
                   </TabsTrigger>
                 </TabsList>
@@ -989,7 +992,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       placeholder="Enter document number"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <Calendar className="h-4 w-4" />
@@ -1013,7 +1016,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
                         <DollarSign className="h-4 w-4" />
@@ -1081,7 +1084,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {selectedInvoice.invoiceNumber && (
                       <div className="flex items-start gap-3">
                         <Hash className="h-4 w-4 mt-0.5 text-muted-foreground" />
@@ -1216,11 +1219,11 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     </div>
                   )}
                   
-                  <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-purple-600" />
-                        <div>
+                  <div className="mb-4 p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start gap-2">
+                        <Sparkles className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
                           <p className="text-sm font-medium text-purple-800">AI-Powered Extraction</p>
                           <p className="text-xs text-purple-600">Let AI automatically extract all fields from this document</p>
                         </div>
@@ -1245,19 +1248,52 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     </div>
                   </div>
                   
-                  <PdfFieldSelector
-                    pdfUrl={selectedInvoice.pdfUrl || (selectedInvoice.attachmentId ? `/api/vendor-invoices/${selectedInvoice.id}/pdf` : null)}
-                    rawText={selectedInvoice.rawText}
-                    vendorId={selectedInvoice.vendorId}
-                    invoiceId={selectedInvoice.id}
-                    onFieldsSelected={(fields) => {
-                      toast({
-                        title: 'Fields Mapped',
-                        description: `${fields.length} field(s) have been mapped and saved as a template.`
-                      });
-                      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices', selectedInvoice.id] });
-                    }}
-                  />
+                  <div className="mt-4 border-t pt-4">
+                    {!showTemplateMapping ? (
+                      <div className="flex flex-col items-center gap-2 py-4 text-center">
+                        <MousePointer2 className="h-6 w-6 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">
+                          Create reusable templates by mapping fields on the PDF
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowTemplateMapping(true)}
+                        >
+                          <Layers className="h-4 w-4 mr-2" />
+                          Enable Template Mapping
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium">Template Mapping</h4>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowTemplateMapping(false)}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Close
+                          </Button>
+                        </div>
+                        <PdfFieldSelector
+                          pdfUrl={selectedInvoice.pdfUrl || (selectedInvoice.attachmentId ? `/api/vendor-invoices/${selectedInvoice.id}/pdf` : null)}
+                          rawText={selectedInvoice.rawText}
+                          vendorId={selectedInvoice.vendorId}
+                          invoiceId={selectedInvoice.id}
+                          onFieldsSelected={(fields) => {
+                            toast({
+                              title: 'Fields Mapped',
+                              description: `${fields.length} field(s) have been mapped and saved as a template.`
+                            });
+                            setShowTemplateMapping(false);
+                            queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices', selectedInvoice.id] });
+                          }}
+                        />
+                      </>
+                    )}
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="rawtext" className="mt-4">
