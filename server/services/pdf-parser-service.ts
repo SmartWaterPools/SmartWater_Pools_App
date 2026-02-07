@@ -79,6 +79,7 @@ interface VendorTemplate {
   lineItemEndMarker: string | null;
   lineItemPattern: string | null;
   fieldPositions: string | null;
+  poNumberPattern: string | null;
 }
 
 const MIN_TEXT_LENGTH_FOR_PARSING = 50;
@@ -96,6 +97,7 @@ export interface ParsedLineItem {
 
 export interface ParsedInvoice {
   invoiceNumber: string | null;
+  poNumber: string | null;
   invoiceDate: string | null;
   dueDate: string | null;
   subtotal: number | null;
@@ -179,7 +181,12 @@ class PDFParserService {
     /inv[#-]?\s*([A-Z0-9-]+)/i,
     /invoice\s*number\s*:?\s*([A-Z0-9-]+)/i,
     /order\s*#?\s*:?\s*([A-Z0-9-]+)/i,
-    /po\s*#?\s*:?\s*([A-Z0-9-]+)/i,
+  ];
+
+  private poNumberPatterns = [
+    /(?:purchase\s*order|p\.?o\.?)\s*#?\s*:?\s*([A-Z0-9-]+)/i,
+    /po\s*#\s*:?\s*([A-Z0-9-]+)/i,
+    /po\s*number\s*:?\s*([A-Z0-9-]+)/i,
   ];
 
   private datePatterns = [
@@ -201,7 +208,7 @@ class PDFParserService {
     let rawText = '';
     let confidenceScore = 0;
     let fieldsFound = 0;
-    const totalFields = 7;
+    const totalFields = 8;
     let usedOcr = false;
     let vendorTemplate: VendorTemplate | null = null;
 
@@ -267,6 +274,11 @@ class PDFParserService {
       : this.extractInvoiceNumber(rawText);
     if (invoiceNumber) fieldsFound++;
 
+    const poNumber = vendorTemplate?.poNumberPattern
+      ? this.extractWithCustomPattern(rawText, vendorTemplate.poNumberPattern)
+      : this.extractPoNumber(rawText);
+    if (poNumber) fieldsFound++;
+
     const { invoiceDate, dueDate } = vendorTemplate?.invoiceDatePattern
       ? this.extractDatesWithTemplate(rawText, vendorTemplate)
       : this.extractDates(rawText);
@@ -296,6 +308,7 @@ class PDFParserService {
 
     return {
       invoiceNumber,
+      poNumber,
       invoiceDate,
       dueDate,
       subtotal,
@@ -387,6 +400,16 @@ class PDFParserService {
 
   private extractInvoiceNumber(text: string): string | null {
     for (const pattern of this.invoiceNumberPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+    return null;
+  }
+
+  private extractPoNumber(text: string): string | null {
+    for (const pattern of this.poNumberPatterns) {
       const match = text.match(pattern);
       if (match && match[1]) {
         return match[1].trim();
@@ -519,6 +542,7 @@ class PDFParserService {
   private createEmptyResult(rawText: string, confidence: number): ParsedInvoice {
     return {
       invoiceNumber: null,
+      poNumber: null,
       invoiceDate: null,
       dueDate: null,
       subtotal: null,
@@ -653,6 +677,7 @@ class PDFParserService {
 
 {
   "invoiceNumber": "string or null - the invoice/order number",
+  "poNumber": "string or null - the purchase order number (PO#)",
   "invoiceDate": "string or null - the invoice date in MM/DD/YYYY format",
   "dueDate": "string or null - the due date in MM/DD/YYYY format",
   "subtotal": "number or null - subtotal amount before tax (in dollars, not cents)",
@@ -753,6 +778,7 @@ Rules:
       
       const result: ParsedInvoice = {
         invoiceNumber: parsed.invoiceNumber || null,
+        poNumber: parsed.poNumber || null,
         invoiceDate: parsed.invoiceDate || null,
         dueDate: parsed.dueDate || null,
         subtotal: typeof parsed.subtotal === 'number' ? Math.round(parsed.subtotal * 100) : null,

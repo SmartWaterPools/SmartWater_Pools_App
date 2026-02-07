@@ -75,6 +75,7 @@ interface VendorInvoice {
   invoiceNumber: string | null;
   invoiceDate: string | null;
   dueDate: string | null;
+  poNumber: string | null;
   subtotal: number | null;
   taxAmount: number | null;
   totalAmount: number | null;
@@ -177,6 +178,18 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     startOffset: number;
     endOffset: number;
   }>>([]);
+  const [stagedLineItem, setStagedLineItem] = useState<{
+    description?: string;
+    quantity?: string;
+    unitPrice?: string;
+    totalPrice?: string;
+  }>({});
+  const [taggedLineItems, setTaggedLineItems] = useState<Array<{
+    description: string;
+    quantity: string;
+    unitPrice: string;
+    totalPrice: string;
+  }>>([]);
   const [showFieldPopover, setShowFieldPopover] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [currentSelection, setCurrentSelection] = useState<{ text: string; start: number; end: number } | null>(null);
@@ -185,6 +198,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     invoiceNumber: string;
     invoiceDate: string;
     dueDate: string;
+    poNumber: string;
     totalAmount: string;
     subtotal: string;
     taxAmount: string;
@@ -194,6 +208,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     invoiceNumber: string;
     invoiceDate: string;
     dueDate: string;
+    poNumber: string;
     totalAmount: string;
     subtotal: string;
     taxAmount: string;
@@ -211,6 +226,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         invoiceNumber: selectedInvoice.invoiceNumber || '',
         invoiceDate: selectedInvoice.invoiceDate || '',
         dueDate: selectedInvoice.dueDate || '',
+        poNumber: selectedInvoice.poNumber || '',
         totalAmount: selectedInvoice.totalAmount ? (selectedInvoice.totalAmount / 100).toFixed(2) : '',
         subtotal: selectedInvoice.subtotal ? (selectedInvoice.subtotal / 100).toFixed(2) : '',
         taxAmount: selectedInvoice.taxAmount ? (selectedInvoice.taxAmount / 100).toFixed(2) : '',
@@ -225,6 +241,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         invoiceNumber: selectedInvoice.invoiceNumber || '',
         invoiceDate: selectedInvoice.invoiceDate || '',
         dueDate: selectedInvoice.dueDate || '',
+        poNumber: selectedInvoice.poNumber || '',
         totalAmount: selectedInvoice.totalAmount ? (selectedInvoice.totalAmount / 100).toFixed(2) : '',
         subtotal: selectedInvoice.subtotal ? (selectedInvoice.subtotal / 100).toFixed(2) : '',
         taxAmount: selectedInvoice.taxAmount ? (selectedInvoice.taxAmount / 100).toFixed(2) : '',
@@ -232,6 +249,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
       setTextFieldTags([]);
       setShowFieldPopover(false);
       setCurrentSelection(null);
+      setStagedLineItem({});
+      setTaggedLineItems([]);
     }
   }, [selectedInvoice]);
   
@@ -422,6 +441,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         invoiceNumber: data.invoiceNumber || null,
         invoiceDate: data.invoiceDate || null,
         dueDate: data.dueDate || null,
+        poNumber: data.poNumber || null,
         totalAmount: data.totalAmount ? Math.round(parseFloat(data.totalAmount) * 100) : null,
         subtotal: data.subtotal ? Math.round(parseFloat(data.subtotal) * 100) : null,
         taxAmount: data.taxAmount ? Math.round(parseFloat(data.taxAmount) * 100) : null,
@@ -472,13 +492,37 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     },
   });
 
+  const addLineItemMutation = useMutation({
+    mutationFn: async ({ invoiceId, item }: { invoiceId: number; item: { description: string; quantity: string; unitPrice: string; totalPrice: string } }) => {
+      return apiRequest('POST', `/api/vendor-invoices/${invoiceId}/items`, {
+        vendorInvoiceId: invoiceId,
+        description: item.description,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice ? Math.round(parseFloat(item.unitPrice.replace(/[$,]/g, '')) * 100) : null,
+        totalPrice: item.totalPrice ? Math.round(parseFloat(item.totalPrice.replace(/[$,]/g, '')) * 100) : null,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: 'Line Item Added' });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices', selectedInvoice?.id, 'items'] });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: `Failed to add line item: ${error.message}`, variant: 'destructive' });
+    },
+  });
+
   const FIELD_TAG_TYPES = [
     { value: 'invoice_number', label: 'Invoice #', color: 'bg-blue-200 text-blue-800' },
     { value: 'invoice_date', label: 'Date', color: 'bg-green-200 text-green-800' },
     { value: 'due_date', label: 'Due Date', color: 'bg-yellow-200 text-yellow-800' },
+    { value: 'po_number', label: 'PO #', color: 'bg-cyan-200 text-cyan-800' },
     { value: 'subtotal', label: 'Subtotal', color: 'bg-purple-200 text-purple-800' },
     { value: 'tax', label: 'Tax', color: 'bg-orange-200 text-orange-800' },
     { value: 'total', label: 'Total', color: 'bg-red-200 text-red-800' },
+    { value: 'line_item_desc', label: 'Item Desc', color: 'bg-teal-200 text-teal-800' },
+    { value: 'line_item_qty', label: 'Item Qty', color: 'bg-indigo-200 text-indigo-800' },
+    { value: 'line_item_unit_price', label: 'Unit Price', color: 'bg-pink-200 text-pink-800' },
+    { value: 'line_item_total', label: 'Item Total', color: 'bg-amber-200 text-amber-800' },
   ];
 
   const handleTextSelection = () => {
@@ -516,7 +560,19 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
       startOffset: currentSelection.start,
       endOffset: currentSelection.end,
     };
-    setTextFieldTags(prev => [...prev.filter(t => t.fieldType !== fieldType), newTag]);
+    if (fieldType.startsWith('line_item_')) {
+      setTextFieldTags(prev => [...prev, newTag]);
+      setStagedLineItem(prev => {
+        const updated = { ...prev };
+        if (fieldType === 'line_item_desc') updated.description = currentSelection.text;
+        if (fieldType === 'line_item_qty') updated.quantity = currentSelection.text;
+        if (fieldType === 'line_item_unit_price') updated.unitPrice = currentSelection.text;
+        if (fieldType === 'line_item_total') updated.totalPrice = currentSelection.text;
+        return updated;
+      });
+    } else {
+      setTextFieldTags(prev => [...prev.filter(t => t.fieldType !== fieldType), newTag]);
+    }
     setShowFieldPopover(false);
     window.getSelection()?.removeAllRanges();
   };
@@ -531,6 +587,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         case 'due_date': updates.dueDate = tag.text; break;
         case 'subtotal': updates.subtotal = tag.text; break;
         case 'tax': updates.taxAmount = tag.text; break;
+        case 'po_number': updates.poNumber = tag.text; break;
         case 'total': updates.totalAmount = tag.text; break;
       }
     }
@@ -540,6 +597,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
         invoiceNumber: updates.invoiceNumber || selectedInvoice.invoiceNumber || '',
         invoiceDate: updates.invoiceDate || selectedInvoice.invoiceDate || '',
         dueDate: updates.dueDate || selectedInvoice.dueDate || '',
+        poNumber: updates.poNumber || selectedInvoice.poNumber || '',
         totalAmount: updates.totalAmount || (selectedInvoice.totalAmount ? (selectedInvoice.totalAmount / 100).toFixed(2) : ''),
         subtotal: updates.subtotal || (selectedInvoice.subtotal ? (selectedInvoice.subtotal / 100).toFixed(2) : ''),
         taxAmount: updates.taxAmount || (selectedInvoice.taxAmount ? (selectedInvoice.taxAmount / 100).toFixed(2) : ''),
@@ -1119,6 +1177,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
           setTextFieldTags([]);
           setShowFieldPopover(false);
           setCurrentSelection(null);
+          setStagedLineItem({});
+          setTaggedLineItems([]);
         }
       }}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
@@ -1252,6 +1312,17 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       placeholder="Enter document number"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      <Hash className="h-4 w-4" />
+                      PO #
+                    </Label>
+                    <Input 
+                      value={editValues.poNumber} 
+                      onChange={(e) => setEditValues({ ...editValues, poNumber: e.target.value })}
+                      placeholder="Enter purchase order number"
+                    />
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
@@ -1354,6 +1425,15 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                         </div>
                       </div>
                     )}
+                    {selectedInvoice.poNumber && (
+                      <div className="flex items-start gap-3">
+                        <Hash className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">PO #</p>
+                          <p className="font-medium">{selectedInvoice.poNumber}</p>
+                        </div>
+                      </div>
+                    )}
                     {selectedInvoice.invoiceDate && (
                       <div className="flex items-start gap-3">
                         <Calendar className="h-4 w-4 mt-0.5 text-muted-foreground" />
@@ -1405,7 +1485,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     </>
                   )}
 
-                  {!selectedInvoice.invoiceNumber && !selectedInvoice.invoiceDate && !selectedInvoice.dueDate && 
+                  {!selectedInvoice.invoiceNumber && !selectedInvoice.poNumber && !selectedInvoice.invoiceDate && !selectedInvoice.dueDate && 
                    !selectedInvoice.totalAmount && !selectedInvoice.subtotal && !selectedInvoice.taxAmount && (
                     <div className="text-center py-6 text-muted-foreground">
                       <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -1572,6 +1652,15 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                                 value={analyzeEditValues.invoiceNumber}
                                 onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, invoiceNumber: e.target.value })}
                                 placeholder="Invoice number"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">PO #</Label>
+                              <Input
+                                value={analyzeEditValues.poNumber}
+                                onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, poNumber: e.target.value })}
+                                placeholder="Purchase order number"
                                 className="h-8 text-sm"
                               />
                             </div>
@@ -1757,6 +1846,83 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {(stagedLineItem.description || stagedLineItem.quantity || stagedLineItem.unitPrice || stagedLineItem.totalPrice) && (
+                      <div className="p-3 border rounded-lg bg-teal-50/50 space-y-2">
+                        <h5 className="text-sm font-medium flex items-center gap-2 text-teal-800">
+                          <ShoppingCart className="h-3 w-3" />
+                          Building Line Item
+                        </h5>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>
+                            <span className="text-muted-foreground">Description:</span>
+                            <p className="font-medium">{stagedLineItem.description || '-'}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Quantity:</span>
+                            <p className="font-medium">{stagedLineItem.quantity || '-'}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Unit Price:</span>
+                            <p className="font-medium">{stagedLineItem.unitPrice || '-'}</p>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Total:</span>
+                            <p className="font-medium">{stagedLineItem.totalPrice || '-'}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-xs"
+                            onClick={() => setStagedLineItem({})}
+                          >
+                            Clear
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="text-xs"
+                            disabled={!stagedLineItem.description || addLineItemMutation.isPending}
+                            onClick={() => {
+                              if (selectedInvoice && stagedLineItem.description) {
+                                addLineItemMutation.mutate({
+                                  invoiceId: selectedInvoice.id,
+                                  item: {
+                                    description: stagedLineItem.description,
+                                    quantity: stagedLineItem.quantity || '1',
+                                    unitPrice: stagedLineItem.unitPrice || '',
+                                    totalPrice: stagedLineItem.totalPrice || '',
+                                  },
+                                });
+                                setTaggedLineItems(prev => [...prev, {
+                                  description: stagedLineItem.description!,
+                                  quantity: stagedLineItem.quantity || '1',
+                                  unitPrice: stagedLineItem.unitPrice || '',
+                                  totalPrice: stagedLineItem.totalPrice || '',
+                                }]);
+                                setStagedLineItem({});
+                                setTextFieldTags(prev => prev.filter(t => !t.fieldType.startsWith('line_item_')));
+                              }
+                            }}
+                          >
+                            {addLineItemMutation.isPending ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Adding...</> : 'Add Line Item'}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {taggedLineItems.length > 0 && (
+                      <div className="p-3 border rounded-lg bg-teal-50/30 space-y-2">
+                        <h5 className="text-sm font-medium">Tagged Line Items ({taggedLineItems.length})</h5>
+                        {taggedLineItems.map((item, idx) => (
+                          <div key={idx} className="text-xs border-b pb-1 last:border-0">
+                            <span className="font-medium">{item.description}</span>
+                            <span className="text-muted-foreground ml-2">Qty: {item.quantity} | {item.totalPrice}</span>
+                          </div>
+                        ))}
                       </div>
                     )}
 

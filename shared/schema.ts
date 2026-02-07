@@ -1251,6 +1251,7 @@ export const vendorInvoices = pgTable("vendor_invoices", {
   invoiceNumber: text("invoice_number"),
   invoiceDate: date("invoice_date"),
   dueDate: date("due_date"),
+  poNumber: text("po_number"),
   
   // Amounts (stored in cents)
   subtotal: integer("subtotal"),

@@ -388,6 +388,7 @@ router.post("/:id/parse", isAuthenticated, async (req, res) => {
     
     const updatedInvoice = await storage.updateVendorInvoice(id, {
       invoiceNumber: parsed.invoiceNumber,
+      poNumber: parsed.poNumber,
       invoiceDate: parsed.invoiceDate,
       dueDate: parsed.dueDate,
       subtotal: parsed.subtotal,
@@ -521,6 +522,7 @@ router.post("/:id/parse-with-ai", isAuthenticated, async (req, res) => {
     
     const updatedInvoice = await storage.updateVendorInvoice(id, {
       invoiceNumber: parsed.invoiceNumber,
+      poNumber: parsed.poNumber,
       invoiceDate: parsed.invoiceDate,
       dueDate: parsed.dueDate,
       subtotal: parsed.subtotal,
