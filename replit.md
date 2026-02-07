@@ -84,7 +84,7 @@ Preferred communication style: Simple, everyday language.
 - **Purpose**: Automated invoice processing from vendor emails with PDF parsing and routing to inventory/expenses.
 - **Core Features**:
   - Email Import: Import PDF attachments from vendor emails, validates sender matches vendor email
-  - PDF Parsing: Extract invoice number, dates, amounts, and line items using pdf-parse library
+  - PDF Parsing: Extract invoice number, PO number, dates, amounts, and line items using pdf-parse library
   - OCR Fallback: Automatic OCR using Tesseract.js for image-based PDFs when text extraction fails
     - Triggers when extracted text is minimal (< 50 chars)
     - Uses pdf-to-img for PDF-to-image conversion
@@ -93,7 +93,8 @@ Preferred communication style: Simple, everyday language.
   - Inventory Routing: Map parsed line items to inventory (match by SKU or create new items)
   - Expense Routing: Create expense records from invoice totals with vendor linkage
   - AI-Powered Extraction: OpenAI-based document field extraction with auto-population of mapped fields
-  - Interactive Raw Text: Highlight/select text and tag as field types (Invoice #, Date, Total, etc.) to populate document data
+  - Interactive Raw Text: Highlight/select text and tag as field types (Invoice #, PO #, Date, Total, etc.) to populate document data
+  - Line Item Tagging: Select text in raw view and tag as Item Description, Quantity, Unit Price, or Item Total to build and save line items
   - Template Management: Save, browse, apply, and delete parsing templates per vendor for reusable field mapping
   - Status Tracking: Track parsing confidence, review status, and processing flags
     - "processed" status for high confidence (>= 50%)
