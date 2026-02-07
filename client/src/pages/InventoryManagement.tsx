@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { 
   Package2, 
@@ -11,13 +11,10 @@ import {
   PlusCircle, 
   Loader2, 
   AlertCircle,
-  Clipboard,
-  ClipboardCheck,
   BarChart
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { InventoryItemForm } from "@/components/business/InventoryItemForm";
 
-// Tab components
 import ItemsTab from "../components/inventory/ItemsTab";
 import WarehousesTab from "../components/inventory/WarehousesTab";
 import VehiclesTab from "../components/inventory/VehiclesTab";
@@ -26,25 +23,32 @@ import ReportsTab from "../components/inventory/ReportsTab";
 
 export default function InventoryManagement() {
   const [activeTab, setActiveTab] = useState("items");
-  const { toast } = useToast();
+  const [showItemForm, setShowItemForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
+  const [showAddWarehouse, setShowAddWarehouse] = useState(false);
+  const [showAddVehicle, setShowAddVehicle] = useState(false);
+  const [showAddTransfer, setShowAddTransfer] = useState(false);
   
-  // Queries for inventory summary data
   const { data: inventorySummary, isLoading: loadingInventory } = useQuery({
     queryKey: ['/api/inventory/summary'],
     retry: 1,
     enabled: true
   });
-  
-  // Placeholder for unavailable components
-  const PlaceholderTab = ({ title }: { title: string }) => (
-    <div className="flex flex-col items-center justify-center h-64 bg-muted/30 rounded-lg p-8">
-      <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-      <h3 className="text-lg font-semibold text-center">{title} Feature Coming Soon</h3>
-      <p className="text-muted-foreground text-center mt-2">
-        This functionality is currently under development and will be available soon.
-      </p>
-    </div>
-  );
+
+  function handleNewItem() {
+    setEditingItem(null);
+    setShowItemForm(true);
+  }
+
+  function handleEditItem(item: any) {
+    setEditingItem(item);
+    setShowItemForm(true);
+  }
+
+  function handleCloseItemForm() {
+    setShowItemForm(false);
+    setEditingItem(null);
+  }
   
   return (
     <div className="container py-4 space-y-6">
@@ -55,7 +59,6 @@ export default function InventoryManagement() {
         </p>
       </div>
       
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -143,7 +146,6 @@ export default function InventoryManagement() {
         </Card>
       </div>
       
-      {/* Main Tabs */}
       <Tabs defaultValue="items" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="flex justify-between items-center">
           <TabsList>
@@ -169,67 +171,62 @@ export default function InventoryManagement() {
             </TabsTrigger>
           </TabsList>
           
-          {/* Action buttons based on active tab */}
           <div className="flex gap-2">
             {activeTab === "items" && (
-              <Button size="sm" className="flex items-center gap-2">
+              <Button size="sm" className="flex items-center gap-2" onClick={handleNewItem}>
                 <PlusCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">New Item</span>
               </Button>
             )}
             {activeTab === "warehouses" && (
-              <Button size="sm" className="flex items-center gap-2">
+              <Button size="sm" className="flex items-center gap-2" onClick={() => setShowAddWarehouse(true)}>
                 <PlusCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">New Warehouse</span>
               </Button>
             )}
             {activeTab === "vehicles" && (
-              <Button size="sm" className="flex items-center gap-2">
+              <Button size="sm" className="flex items-center gap-2" onClick={() => setShowAddVehicle(true)}>
                 <PlusCircle className="h-4 w-4" />
                 <span className="hidden sm:inline">New Vehicle</span>
               </Button>
             )}
             {activeTab === "transfers" && (
-              <>
-                <Button size="sm" className="flex items-center gap-2">
-                  <PlusCircle className="h-4 w-4" />
-                  <span className="hidden sm:inline">New Transfer</span>
-                </Button>
-                <Button size="sm" variant="outline" className="flex items-center gap-2">
-                  <ClipboardCheck className="h-4 w-4" />
-                  <span className="hidden sm:inline">Approve</span>
-                </Button>
-              </>
-            )}
-            {activeTab === "reports" && (
-              <Button size="sm" variant="outline" className="flex items-center gap-2">
-                <Clipboard className="h-4 w-4" />
-                <span className="hidden sm:inline">Export</span>
+              <Button size="sm" className="flex items-center gap-2" onClick={() => setShowAddTransfer(true)}>
+                <PlusCircle className="h-4 w-4" />
+                <span className="hidden sm:inline">New Transfer</span>
               </Button>
             )}
           </div>
         </div>
         
         <TabsContent value="items" className="p-0 mt-4">
-          <ItemsTab />
+          <ItemsTab onAddItem={handleNewItem} onEditItem={handleEditItem} />
         </TabsContent>
         
         <TabsContent value="warehouses" className="p-0 mt-4">
-          <WarehousesTab />
+          <WarehousesTab showAddDialog={showAddWarehouse} onAddDialogClose={() => setShowAddWarehouse(false)} />
         </TabsContent>
         
         <TabsContent value="vehicles" className="p-0 mt-4">
-          <VehiclesTab />
+          <VehiclesTab showAddDialog={showAddVehicle} onAddDialogClose={() => setShowAddVehicle(false)} />
         </TabsContent>
         
         <TabsContent value="transfers" className="p-0 mt-4">
-          <TransfersTab />
+          <TransfersTab showAddDialog={showAddTransfer} onAddDialogClose={() => setShowAddTransfer(false)} />
         </TabsContent>
         
         <TabsContent value="reports" className="p-0 mt-4">
           <ReportsTab />
         </TabsContent>
       </Tabs>
+
+      {showItemForm && (
+        <InventoryItemForm
+          itemToEdit={editingItem}
+          onClose={handleCloseItemForm}
+          apiBasePath="/api/inventory/items"
+        />
+      )}
     </div>
   );
 }

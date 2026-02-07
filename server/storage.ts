@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc, lte, sql } from "drizzle-orm";
+import { eq, and, inArray, desc, lte, sql, gte } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -76,15 +76,60 @@ export interface IStorage {
   getSubscriptionPlan?(planId: number): Promise<any>;
   getInventoryItemsByOrganizationId?(organizationId: number): Promise<any[]>;
   getAllInventoryItems?(): Promise<any[]>;
-  getAllWarehouses?(): Promise<any[]>;
-  getAllTechnicianVehicles?(): Promise<any[]>;
-  getLowStockItems?(): Promise<any[]>;
-  getInventoryTransfersByStatus?(status: string): Promise<any[]>;
+  getAllWarehouses(): Promise<any[]>;
+  getAllTechnicianVehicles(): Promise<any[]>;
+  getLowStockItems(): Promise<any[]>;
+  getInventoryTransfersByStatus(status: string): Promise<any[]>;
   getInventoryItem?(id: number): Promise<any>;
   getBazzaRoutesByTechnicianId?(technicianId: number): Promise<any[]>;
   getAllBazzaRoutes?(): Promise<any[]>;
   getPaymentRecordsByOrganizationId?(organizationId: number): Promise<any[]>;
   getFleetmaticsConfigByOrganizationId?(organizationId: number): Promise<any>;
+
+  // Warehouse operations
+  getWarehousesByOrganizationId(organizationId: number): Promise<any[]>;
+  getWarehouse(id: number): Promise<any | undefined>;
+  createWarehouse(data: any): Promise<any>;
+  updateWarehouse(id: number, data: any): Promise<any | undefined>;
+  deleteWarehouse(id: number): Promise<boolean>;
+
+  // Technician Vehicle operations
+  getTechnicianVehiclesByOrganizationId(organizationId: number): Promise<any[]>;
+  getTechnicianVehicle(id: number): Promise<any | undefined>;
+  getTechnicianVehiclesByTechnicianId(technicianId: number): Promise<any[]>;
+  createTechnicianVehicle(data: any): Promise<any>;
+  updateTechnicianVehicle(id: number, data: any): Promise<any | undefined>;
+  deleteTechnicianVehicle(id: number): Promise<boolean>;
+
+  // Warehouse Inventory operations
+  getWarehouseInventoryByWarehouseId(warehouseId: number): Promise<any[]>;
+  getWarehouseInventory(id: number): Promise<any | undefined>;
+  createWarehouseInventory(data: any): Promise<any>;
+  updateWarehouseInventory(id: number, data: any): Promise<any | undefined>;
+
+  // Vehicle Inventory operations
+  getVehicleInventoryByVehicleId(vehicleId: number): Promise<any[]>;
+  getVehicleInventory(id: number): Promise<any | undefined>;
+  createVehicleInventory(data: any): Promise<any>;
+  updateVehicleInventory(id: number, data: any): Promise<any | undefined>;
+
+  // Inventory Transfer operations
+  getInventoryTransfersByOrganizationId(organizationId: number): Promise<any[]>;
+  getInventoryTransfer(id: number): Promise<any | undefined>;
+  createInventoryTransfer(data: any): Promise<any>;
+  updateInventoryTransfer(id: number, data: any): Promise<any | undefined>;
+  completeInventoryTransfer(id: number, userId: number): Promise<any>;
+  getInventoryTransfersByStatusAndOrganization(status: string, organizationId: number): Promise<any[]>;
+  getInventoryTransfersByDateAndOrganization(startDate: Date, endDate: Date, organizationId: number): Promise<any[]>;
+
+  // Inventory Transfer Item operations
+  getInventoryTransferItemsByTransferId(transferId: number): Promise<any[]>;
+  createInventoryTransferItem(data: any): Promise<any>;
+
+  // Inventory Adjustment operations
+  getInventoryAdjustmentsByOrganizationId(organizationId: number): Promise<any[]>;
+  createInventoryAdjustment(data: any): Promise<any>;
+  getInventoryAdjustmentsByDateAndOrganization(startDate: Date, endDate: Date, organizationId: number): Promise<any[]>;
 
   // Communication Provider operations
   getCommunicationProviders(organizationId: number): Promise<CommunicationProvider[]>;
@@ -257,6 +302,7 @@ export interface IStorage {
   getInventoryItemsByOrganizationId(organizationId: number): Promise<InventoryItem[]>;
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryItem(id: number, data: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
+  deleteInventoryItem(id: number): Promise<boolean>;
 
   // Vendor Parsing Template operations
   getVendorParsingTemplates(vendorId: number): Promise<VendorParsingTemplate[]>;
@@ -1588,6 +1634,11 @@ export class DatabaseStorage implements IStorage {
     return result[0] || undefined;
   }
 
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    const result = await db.delete(inventoryItems).where(eq(inventoryItems.id, id)).returning();
+    return result.length > 0;
+  }
+
   // Vendor Parsing Template operations
   async getVendorParsingTemplates(vendorId: number): Promise<VendorParsingTemplate[]> {
     return db.select().from(vendorParsingTemplates).where(eq(vendorParsingTemplates.vendorId, vendorId)).orderBy(desc(vendorParsingTemplates.createdAt));
@@ -1619,6 +1670,190 @@ export class DatabaseStorage implements IStorage {
   async deleteVendorParsingTemplate(id: number): Promise<boolean> {
     const result = await db.delete(vendorParsingTemplates).where(eq(vendorParsingTemplates.id, id)).returning();
     return result.length > 0;
+  }
+
+  // Warehouse operations
+  async getAllWarehouses(): Promise<any[]> {
+    return db.select().from(warehouses);
+  }
+
+  async getWarehousesByOrganizationId(organizationId: number): Promise<any[]> {
+    return db.select().from(warehouses).where(eq(warehouses.organizationId, organizationId));
+  }
+
+  async getWarehouse(id: number): Promise<any | undefined> {
+    const result = await db.select().from(warehouses).where(eq(warehouses.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async createWarehouse(data: any): Promise<any> {
+    const result = await db.insert(warehouses).values(data).returning();
+    return result[0];
+  }
+
+  async updateWarehouse(id: number, data: any): Promise<any | undefined> {
+    const result = await db.update(warehouses).set({ ...data, updatedAt: new Date() }).where(eq(warehouses.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteWarehouse(id: number): Promise<boolean> {
+    const result = await db.delete(warehouses).where(eq(warehouses.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Technician Vehicle operations
+  async getAllTechnicianVehicles(): Promise<any[]> {
+    return db.select().from(technicianVehicles);
+  }
+
+  async getTechnicianVehiclesByOrganizationId(organizationId: number): Promise<any[]> {
+    return db.select().from(technicianVehicles).where(eq(technicianVehicles.organizationId, organizationId));
+  }
+
+  async getTechnicianVehicle(id: number): Promise<any | undefined> {
+    const result = await db.select().from(technicianVehicles).where(eq(technicianVehicles.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getTechnicianVehiclesByTechnicianId(technicianId: number): Promise<any[]> {
+    return db.select().from(technicianVehicles).where(eq(technicianVehicles.technicianId, technicianId));
+  }
+
+  async createTechnicianVehicle(data: any): Promise<any> {
+    const result = await db.insert(technicianVehicles).values(data).returning();
+    return result[0];
+  }
+
+  async updateTechnicianVehicle(id: number, data: any): Promise<any | undefined> {
+    const result = await db.update(technicianVehicles).set({ ...data, updatedAt: new Date() }).where(eq(technicianVehicles.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteTechnicianVehicle(id: number): Promise<boolean> {
+    const result = await db.delete(technicianVehicles).where(eq(technicianVehicles.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Warehouse Inventory operations
+  async getWarehouseInventoryByWarehouseId(warehouseId: number): Promise<any[]> {
+    return db.select().from(warehouseInventory).where(eq(warehouseInventory.warehouseId, warehouseId));
+  }
+
+  async getWarehouseInventory(id: number): Promise<any | undefined> {
+    const result = await db.select().from(warehouseInventory).where(eq(warehouseInventory.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async createWarehouseInventory(data: any): Promise<any> {
+    const result = await db.insert(warehouseInventory).values(data).returning();
+    return result[0];
+  }
+
+  async updateWarehouseInventory(id: number, data: any): Promise<any | undefined> {
+    const result = await db.update(warehouseInventory).set({ ...data, updatedAt: new Date() }).where(eq(warehouseInventory.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  // Vehicle Inventory operations
+  async getVehicleInventoryByVehicleId(vehicleId: number): Promise<any[]> {
+    return db.select().from(vehicleInventory).where(eq(vehicleInventory.vehicleId, vehicleId));
+  }
+
+  async getVehicleInventory(id: number): Promise<any | undefined> {
+    const result = await db.select().from(vehicleInventory).where(eq(vehicleInventory.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async createVehicleInventory(data: any): Promise<any> {
+    const result = await db.insert(vehicleInventory).values(data).returning();
+    return result[0];
+  }
+
+  async updateVehicleInventory(id: number, data: any): Promise<any | undefined> {
+    const result = await db.update(vehicleInventory).set({ ...data, updatedAt: new Date() }).where(eq(vehicleInventory.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  // Inventory Transfer operations
+  async getInventoryTransfersByOrganizationId(organizationId: number): Promise<any[]> {
+    return db.select().from(inventoryTransfers);
+  }
+
+  async getInventoryTransfer(id: number): Promise<any | undefined> {
+    const result = await db.select().from(inventoryTransfers).where(eq(inventoryTransfers.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async createInventoryTransfer(data: any): Promise<any> {
+    const result = await db.insert(inventoryTransfers).values(data).returning();
+    return result[0];
+  }
+
+  async updateInventoryTransfer(id: number, data: any): Promise<any | undefined> {
+    const result = await db.update(inventoryTransfers).set(data).where(eq(inventoryTransfers.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async getInventoryTransfersByStatus(status: string): Promise<any[]> {
+    return db.select().from(inventoryTransfers).where(eq(inventoryTransfers.status, status));
+  }
+
+  async getInventoryTransfersByStatusAndOrganization(status: string, _organizationId: number): Promise<any[]> {
+    return db.select().from(inventoryTransfers).where(eq(inventoryTransfers.status, status));
+  }
+
+  async getInventoryTransfersByDateAndOrganization(startDate: Date, endDate: Date, _organizationId: number): Promise<any[]> {
+    return db.select().from(inventoryTransfers).where(
+      and(
+        gte(inventoryTransfers.requestedAt, startDate),
+        lte(inventoryTransfers.requestedAt, endDate)
+      )
+    );
+  }
+
+  async completeInventoryTransfer(id: number, userId: number): Promise<any> {
+    const result = await db.update(inventoryTransfers).set({
+      status: 'completed',
+      completedByUserId: userId,
+      completedAt: new Date()
+    }).where(eq(inventoryTransfers.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  // Inventory Transfer Item operations
+  async getInventoryTransferItemsByTransferId(transferId: number): Promise<any[]> {
+    return db.select().from(inventoryTransferItems).where(eq(inventoryTransferItems.transferId, transferId));
+  }
+
+  async createInventoryTransferItem(data: any): Promise<any> {
+    const result = await db.insert(inventoryTransferItems).values(data).returning();
+    return result[0];
+  }
+
+  // Inventory Adjustment operations
+  async getInventoryAdjustmentsByOrganizationId(_organizationId: number): Promise<any[]> {
+    return db.select().from(inventoryAdjustments).orderBy(desc(inventoryAdjustments.adjustmentDate));
+  }
+
+  async createInventoryAdjustment(data: any): Promise<any> {
+    const result = await db.insert(inventoryAdjustments).values(data).returning();
+    return result[0];
+  }
+
+  async getInventoryAdjustmentsByDateAndOrganization(startDate: Date, endDate: Date, _organizationId: number): Promise<any[]> {
+    return db.select().from(inventoryAdjustments).where(
+      and(
+        gte(inventoryAdjustments.adjustmentDate, startDate),
+        lte(inventoryAdjustments.adjustmentDate, endDate)
+      )
+    );
+  }
+
+  // Low stock items
+  async getLowStockItems(): Promise<any[]> {
+    return db.select().from(inventoryItems).where(
+      sql`CAST(${inventoryItems.quantity} AS INTEGER) <= ${inventoryItems.minimumStock} AND ${inventoryItems.minimumStock} > 0`
+    );
   }
 }
 

@@ -937,6 +937,94 @@ export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit
 export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
 export type InventoryItem = typeof inventoryItems.$inferSelect;
 
+export const warehouses = pgTable("warehouses", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  phone: text("phone"),
+  managerId: integer("manager_id"),
+  organizationId: integer("organization_id").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const technicianVehicles = pgTable("technician_vehicles", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  make: text("make"),
+  model: text("model"),
+  year: integer("year"),
+  licensePlate: text("license_plate"),
+  vin: text("vin"),
+  technicianId: integer("technician_id").notNull(),
+  organizationId: integer("organization_id").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const inventoryTransfers = pgTable("inventory_transfers", {
+  id: serial("id").primaryKey(),
+  sourceType: text("source_type").notNull(),
+  sourceId: integer("source_id").notNull(),
+  destinationType: text("destination_type").notNull(),
+  destinationId: integer("destination_id").notNull(),
+  status: text("status").notNull().default("pending"),
+  requestedByUserId: integer("requested_by_user_id").notNull(),
+  requestedAt: timestamp("requested_at").notNull().defaultNow(),
+  approvedByUserId: integer("approved_by_user_id"),
+  approvedAt: timestamp("approved_at"),
+  completedByUserId: integer("completed_by_user_id"),
+  completedAt: timestamp("completed_at"),
+  notes: text("notes"),
+});
+
+export const inventoryTransferItems = pgTable("inventory_transfer_items", {
+  id: serial("id").primaryKey(),
+  transferId: integer("transfer_id").notNull(),
+  inventoryItemId: integer("inventory_item_id").notNull(),
+  quantity: integer("quantity").notNull(),
+  notes: text("notes"),
+});
+
+export const warehouseInventory = pgTable("warehouse_inventory", {
+  id: serial("id").primaryKey(),
+  warehouseId: integer("warehouse_id").notNull(),
+  inventoryItemId: integer("inventory_item_id").notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  location: text("location"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const vehicleInventory = pgTable("vehicle_inventory", {
+  id: serial("id").primaryKey(),
+  vehicleId: integer("vehicle_id").notNull(),
+  inventoryItemId: integer("inventory_item_id").notNull(),
+  quantity: integer("quantity").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const inventoryAdjustments = pgTable("inventory_adjustments", {
+  id: serial("id").primaryKey(),
+  adjustmentDate: timestamp("adjustment_date").notNull().defaultNow(),
+  locationType: text("location_type").notNull(),
+  locationId: integer("location_id").notNull(),
+  inventoryItemId: integer("inventory_item_id").notNull(),
+  previousQuantity: integer("previous_quantity").notNull(),
+  newQuantity: integer("new_quantity").notNull(),
+  reason: text("reason").notNull(),
+  performedByUserId: integer("performed_by_user_id").notNull(),
+  maintenanceId: integer("maintenance_id"),
+  repairId: integer("repair_id"),
+  notes: text("notes"),
+});
+
 // Invoice statuses
 export const INVOICE_STATUSES = ['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled'] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];

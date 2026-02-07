@@ -79,9 +79,10 @@ interface InventoryItemFormProps {
   itemCategories?: string[];
   itemToEdit?: any;
   onClose: () => void;
+  apiBasePath?: string;
 }
 
-export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: InventoryItemFormProps) {
+export function InventoryItemForm({ itemCategories, itemToEdit, onClose, apiBasePath = '/api/business/inventory' }: InventoryItemFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(true);
@@ -136,9 +137,9 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
       };
 
       if (itemToEdit?.id) {
-        return apiRequest('PATCH', `/api/business/inventory/${itemToEdit.id}`, data);
+        return apiRequest('PATCH', `${apiBasePath}/${itemToEdit.id}`, data);
       } else {
-        return apiRequest('POST', '/api/business/inventory', data);
+        return apiRequest('POST', apiBasePath, data);
       }
     },
     onSuccess: () => {
@@ -148,8 +149,11 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
           ? "The inventory item has been updated successfully."
           : "A new inventory item has been created successfully.",
       });
+      queryClient.invalidateQueries({ queryKey: [apiBasePath] });
       queryClient.invalidateQueries({ queryKey: ['/api/business/inventory'] });
       queryClient.invalidateQueries({ queryKey: ['/api/business/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/items'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/summary'] });
       handleClose();
     },
     onError: (error) => {

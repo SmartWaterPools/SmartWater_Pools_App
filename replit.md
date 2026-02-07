@@ -58,6 +58,19 @@ Preferred communication style: Simple, everyday language.
 - **Data Convention**: All monetary amounts stored in cents (integers); UI converts dollars to cents before POST, divides by 100 for display.
 - **Multi-tenant Security**: All queries filter by `organizationId`.
 
+## Standalone Inventory Page (`/inventory`)
+- **Purpose**: Full-featured inventory management hub with 5 tabs at the `/inventory` route.
+- **Summary Cards**: Total Items, Warehouses, Vehicles, Pending Transfers, Low Stock (via `/api/inventory/summary`).
+- **Tabs**:
+  - **Items Tab**: Full CRUD for inventory items via `/api/inventory/items`, search/filter, stock status badges, inline stock adjustment, uses shared `InventoryItemForm` with configurable `apiBasePath` prop.
+  - **Warehouses Tab**: CRUD for warehouse locations via `/api/inventory/warehouses`. Fields: name, address, city, state, zip, phone, active status.
+  - **Vehicles Tab**: CRUD for technician vehicles via `/api/inventory/technician-vehicles`. Fields: name, make, model, year, license plate, VIN, technician assignment.
+  - **Transfers Tab**: Inventory transfer management via `/api/inventory/transfers`. Status workflow: pending → in_transit → completed/cancelled. Create transfers between warehouses/vehicles.
+  - **Reports Tab**: Analytics dashboard with total value, category breakdown, low stock alerts, recent adjustments.
+- **Database Tables**: `warehouses`, `technician_vehicles`, `inventory_transfers`, `inventory_transfer_items`, `warehouse_inventory`, `vehicle_inventory`, `inventory_adjustments` (Drizzle schemas in `shared/schema.ts`).
+- **Storage Methods**: Full CRUD implementations in `server/storage.ts` for all 7 tables.
+- **Routes**: All endpoints in `server/routes/inventory-routes.ts` mounted at `/api/inventory`.
+
 ## Invoicing Platform
 - **Purpose**: Client invoicing with online payment processing.
 - **Features**: Auto-generated invoice numbers, detailed invoices with line items, manual payment recording, Stripe integration for online payments, webhook handling.
