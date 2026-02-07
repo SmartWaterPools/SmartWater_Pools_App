@@ -254,6 +254,10 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     }
   }, [selectedInvoice]);
   
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<Set<number>>(new Set());
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
+
   const [newInvoice, setNewInvoice] = useState({
     invoiceNumber: '',
     invoiceDate: '',
@@ -508,6 +512,53 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     },
     onError: (error) => {
       toast({ title: 'Error', description: `Failed to add line item: ${error.message}`, variant: 'destructive' });
+    },
+  });
+
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest('DELETE', `/api/vendor-invoices/${id}`);
+    },
+    onSuccess: (_data, deletedId) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      toast({ title: 'Document deleted successfully' });
+      setSelectedInvoiceIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(deletedId);
+        return newSet;
+      });
+      setDeleteTarget(null);
+      setShowDeleteConfirm(false);
+    },
+    onError: () => {
+      toast({ title: 'Failed to delete document', variant: 'destructive' });
+    },
+  });
+
+  const massDeleteMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      const results = await Promise.allSettled(ids.map(id => apiRequest('DELETE', `/api/vendor-invoices/${id}`)));
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (failed > 0 && failed < ids.length) {
+        throw new Error(`${failed} of ${ids.length} deletions failed`);
+      } else if (failed === ids.length) {
+        throw new Error('All deletions failed');
+      }
+      return results;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      toast({ title: `${selectedInvoiceIds.size} documents deleted successfully` });
+      setSelectedInvoiceIds(new Set());
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+    },
+    onError: (error) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      toast({ title: error.message || 'Failed to delete documents', variant: 'destructive' });
+      setSelectedInvoiceIds(new Set());
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
     },
   });
 
@@ -903,6 +954,21 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                 </div>
               ) : (
                 <>
+                {selectedInvoiceIds.size > 0 && (
+                  <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3 mb-3">
+                    <span className="text-sm font-medium">
+                      {selectedInvoiceIds.size} document{selectedInvoiceIds.size > 1 ? 's' : ''} selected
+                    </span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => { setDeleteTarget(null); setShowDeleteConfirm(true); }}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete Selected
+                    </Button>
+                  </div>
+                )}
                 <div className="sm:hidden space-y-2">
                   {invoices.map((invoice) => (
                     <div
@@ -953,6 +1019,13 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                               <Package className="h-4 w-4 mr-2" />
                               Process to Inventory
                             </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              className="text-red-600"
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(invoice.id); setShowDeleteConfirm(true); }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -960,6 +1033,11 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                         <span className="font-medium text-sm">
                           {formatCurrency(invoice.totalAmount)}
                         </span>
+                        {invoice.poNumber && (
+                          <span className="text-xs text-muted-foreground">
+                            PO: {invoice.poNumber}
+                          </span>
+                        )}
                         <Badge variant="outline" className={`${getStatusBadgeVariant(invoice.status)} text-xs`}>
                           {invoice.status}
                         </Badge>
@@ -984,8 +1062,24 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-10">
+                          <input
+                            type="checkbox"
+                            className="rounded border-gray-300 h-4 w-4 cursor-pointer"
+                            checked={invoices.length > 0 && selectedInvoiceIds.size === invoices.length}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              if (e.target.checked) {
+                                setSelectedInvoiceIds(new Set(invoices.map(inv => inv.id)));
+                              } else {
+                                setSelectedInvoiceIds(new Set());
+                              }
+                            }}
+                          />
+                        </TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead>Invoice #</TableHead>
+                        <TableHead className="hidden md:table-cell">PO #</TableHead>
                         <TableHead className="hidden sm:table-cell">Date</TableHead>
                         <TableHead className="hidden lg:table-cell">Due Date</TableHead>
                         <TableHead className="text-right">Total</TableHead>
@@ -1001,6 +1095,22 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                           className="cursor-pointer hover:bg-muted/50"
                           onClick={() => handleViewDetails(invoice)}
                         >
+                          <TableCell onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-300 h-4 w-4 cursor-pointer"
+                              checked={selectedInvoiceIds.has(invoice.id)}
+                              onChange={(e) => {
+                                const newSet = new Set(selectedInvoiceIds);
+                                if (e.target.checked) {
+                                  newSet.add(invoice.id);
+                                } else {
+                                  newSet.delete(invoice.id);
+                                }
+                                setSelectedInvoiceIds(newSet);
+                              }}
+                            />
+                          </TableCell>
                           <TableCell>
                             <Badge variant="outline" className={getDocumentTypeBadgeColor(invoice.documentType)}>
                               {getDocumentTypeLabel(invoice.documentType)}
@@ -1008,6 +1118,9 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                           </TableCell>
                           <TableCell className="font-medium">
                             {invoice.invoiceNumber || `DOC-${invoice.id}`}
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">
+                            {invoice.poNumber || '-'}
                           </TableCell>
                           <TableCell className="hidden sm:table-cell">{formatDate(invoice.invoiceDate)}</TableCell>
                           <TableCell className="hidden lg:table-cell">{formatDate(invoice.dueDate)}</TableCell>
@@ -1069,6 +1182,13 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                                 >
                                   <Package className="h-4 w-4 mr-2" />
                                   Process to Inventory
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="text-red-600"
+                                  onClick={(e) => { e.stopPropagation(); setDeleteTarget(invoice.id); setShowDeleteConfirm(true); }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -2172,6 +2292,41 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
             >
               <Search className="h-4 w-4 mr-2" />
               Search for Email
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Delete</DialogTitle>
+            <DialogDescription>
+              {deleteTarget !== null
+                ? 'Are you sure you want to delete this document? This action cannot be undone.'
+                : `Are you sure you want to delete ${selectedInvoiceIds.size} document${selectedInvoiceIds.size > 1 ? 's' : ''}? This action cannot be undone.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowDeleteConfirm(false); setDeleteTarget(null); }}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              disabled={deleteInvoiceMutation.isPending || massDeleteMutation.isPending}
+              onClick={() => {
+                if (deleteTarget !== null) {
+                  deleteInvoiceMutation.mutate(deleteTarget);
+                } else {
+                  massDeleteMutation.mutate(Array.from(selectedInvoiceIds));
+                }
+              }}
+            >
+              {(deleteInvoiceMutation.isPending || massDeleteMutation.isPending) 
+                ? <><Loader2 className="h-4 w-4 mr-1 animate-spin" /> Deleting...</>
+                : 'Delete'
+              }
             </Button>
           </DialogFooter>
         </DialogContent>
