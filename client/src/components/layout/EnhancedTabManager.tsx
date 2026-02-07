@@ -14,7 +14,8 @@ import {
   UserRound,
   Settings,
   FileText,
-  Clock
+  Clock,
+  Package
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { ClientWithUser } from '@/lib/types';
@@ -74,6 +75,8 @@ const getIconForPath = (path: string): React.ReactNode => {
     return <UserRound className="h-4 w-4" />;
   } else if (path.startsWith('/clients/')) {
     return <UserRound className="h-4 w-4" />;
+  } else if (path === '/inventory') {
+    return <Package className="h-4 w-4" />;
   }
   
   // Default icon
@@ -88,6 +91,7 @@ const getTitleForPath = (path: string): string => {
   if (path === '/clients') return 'Clients';
   if (path === '/technicians') return 'Technicians';
   if (path === '/client-portal') return 'Client Portal';
+  if (path === '/inventory') return 'Inventory';
   
   // Client detail pages need special handling since we don't know the client name yet
   const clientDetailsMatch = path.match(/^\/clients\/(\d+)$/);

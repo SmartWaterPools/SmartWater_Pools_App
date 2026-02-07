@@ -437,6 +437,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
       queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
       queryClient.invalidateQueries({ queryKey: ['/api/business/inventory'] });
       queryClient.invalidateQueries({ queryKey: ['/api/business/dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/items'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory/summary'] });
     },
     onError: (error) => {
       toast({ title: 'Error', description: `Failed to process to inventory: ${error.message}`, variant: 'destructive' });

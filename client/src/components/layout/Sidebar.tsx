@@ -22,7 +22,8 @@ import {
   Cog,
   ShieldCheck,
   ClipboardList,
-  FileText
+  FileText,
+  Package
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -107,6 +108,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Invoices';
       case '/settings':
         return 'Settings';
+      case '/inventory':
+        return 'Inventory';
       case '/admin':
         return 'Admin Dashboard';
       default:
@@ -138,6 +141,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <FileText className="h-4 w-4" />;
       case '/settings':
         return <Settings className="h-4 w-4" />;
+      case '/inventory':
+        return <Package className="h-4 w-4" />;
       case '/admin':
         return <ShieldCheck className="h-4 w-4" />;
       default:

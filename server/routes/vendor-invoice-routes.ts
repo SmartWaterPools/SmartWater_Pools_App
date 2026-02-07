@@ -629,45 +629,57 @@ router.post("/:id/process-to-inventory", isAuthenticated, async (req, res) => {
     }
     
     const items = await storage.getVendorInvoiceItems(id);
+    console.log(`[ProcessToInventory] Processing ${items.length} items from invoice ${id}`);
     const processedItems: any[] = [];
+    const errors: any[] = [];
     
     for (const item of items) {
-      if (item.addedToInventory) continue;
-      
-      let inventoryItem = item.inventoryItemId 
-        ? await storage.getInventoryItem?.(item.inventoryItemId)
-        : null;
-      
-      if (!inventoryItem && item.sku) {
-        const allItems = await storage.getInventoryItemsByOrganizationId?.(user.organizationId) || [];
-        inventoryItem = allItems.find((i: any) => i.sku === item.sku);
+      if (item.addedToInventory) {
+        console.log(`[ProcessToInventory] Skipping item ${item.id} - already added to inventory`);
+        continue;
       }
       
-      if (!inventoryItem) {
-        const qty = parseFloat(item.quantity || "1");
-        inventoryItem = await storage.createInventoryItem?.({
-          organizationId: user.organizationId,
-          name: item.description || "Unknown Item",
-          sku: item.sku,
-          category: "Chemicals & Supplies",
-          unitCost: item.unitPrice,
-          vendorId: invoice.vendorId,
-          quantity: String(qty),
-          lastRestockDate: new Date().toISOString().split('T')[0],
-        });
-      } else {
-        const currentQty = parseFloat(String(inventoryItem.quantity || "0"));
-        const addQty = parseFloat(item.quantity || "1");
-        await storage.updateInventoryItem(inventoryItem.id, {
-          quantity: String(currentQty + addQty),
-          unitCost: item.unitPrice || inventoryItem.unitCost,
-          lastRestockDate: new Date().toISOString().split('T')[0],
-          updatedAt: new Date(),
-        });
-        inventoryItem = await storage.getInventoryItem?.(inventoryItem.id) || inventoryItem;
-      }
-      
-      if (inventoryItem) {
+      try {
+        let inventoryItem = item.inventoryItemId 
+          ? await storage.getInventoryItem(item.inventoryItemId)
+          : null;
+        
+        if (!inventoryItem && item.sku) {
+          const allItems = await storage.getInventoryItemsByOrganizationId(user.organizationId);
+          inventoryItem = allItems.find((i: any) => i.sku === item.sku) || null;
+        }
+        
+        if (!inventoryItem) {
+          const qty = parseFloat(item.quantity || "1");
+          console.log(`[ProcessToInventory] Creating new inventory item: "${item.description}", qty: ${qty}, unitCost: ${item.unitPrice}`);
+          inventoryItem = await storage.createInventoryItem({
+            organizationId: user.organizationId,
+            name: item.description || "Unknown Item",
+            sku: item.sku,
+            category: "Chemicals & Supplies",
+            unitCost: item.unitPrice,
+            unitPrice: item.unitPrice,
+            vendorId: invoice.vendorId,
+            quantity: String(qty),
+            isActive: true,
+            minimumStock: 0,
+            reorderPoint: 0,
+            lastRestockDate: new Date().toISOString().split('T')[0],
+          });
+          console.log(`[ProcessToInventory] Created inventory item id=${inventoryItem.id}`);
+        } else {
+          const currentQty = parseFloat(String(inventoryItem.quantity || "0"));
+          const addQty = parseFloat(item.quantity || "1");
+          console.log(`[ProcessToInventory] Updating existing inventory item id=${inventoryItem.id}: qty ${currentQty} + ${addQty} = ${currentQty + addQty}`);
+          await storage.updateInventoryItem(inventoryItem.id, {
+            quantity: String(currentQty + addQty),
+            unitCost: item.unitPrice || inventoryItem.unitCost,
+            lastRestockDate: new Date().toISOString().split('T')[0],
+            updatedAt: new Date(),
+          });
+          inventoryItem = await storage.getInventoryItem(inventoryItem.id) || inventoryItem;
+        }
+        
         await storage.updateVendorInvoiceItem(item.id, {
           inventoryItemId: inventoryItem.id,
           addedToInventory: true,
@@ -680,6 +692,9 @@ router.post("/:id/process-to-inventory", isAuthenticated, async (req, res) => {
           inventoryItem,
           quantityAdded: parseFloat(item.quantity || "1"),
         });
+      } catch (itemError: any) {
+        console.error(`[ProcessToInventory] Error processing item ${item.id}:`, itemError);
+        errors.push({ itemId: item.id, description: item.description, error: itemError.message });
       }
     }
     
@@ -690,13 +705,16 @@ router.post("/:id/process-to-inventory", isAuthenticated, async (req, res) => {
       reviewedAt: new Date(),
     });
     
+    console.log(`[ProcessToInventory] Completed: ${processedItems.length} items processed, ${errors.length} errors`);
+    
     res.json({
       success: true,
       processedItems,
+      errors: errors.length > 0 ? errors : undefined,
       invoice: await storage.getVendorInvoice(id),
     });
   } catch (error) {
-    console.error("Error processing invoice to inventory:", error);
+    console.error("[ProcessToInventory] Fatal error:", error);
     res.status(500).json({ error: "Failed to process invoice to inventory" });
   }
 });
