@@ -207,7 +207,7 @@ export default function Communications() {
     queryKey: ['/api/projects']
   });
 
-  const { data: gmailStatus } = useQuery<{ connected: boolean; email?: string; messagesTotal?: number }>({
+  const { data: gmailStatus } = useQuery<{ connected: boolean; email?: string; messagesTotal?: number; needsReconnect?: boolean; error?: string; message?: string; verified?: boolean }>({
     queryKey: ['/api/emails/connection-status/gmail']
   });
 
@@ -308,8 +308,18 @@ export default function Communications() {
         description: `${data.emails.length} email${data.emails.length === 1 ? '' : 's'} fetched.${data.hasMore ? ' More available.' : ''}`
       });
     },
-    onError: (error: Error) => {
-      toast({ title: "Fetch Failed", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      const msg = error.message || '';
+      if (msg.includes('Insufficient Permission') || msg.includes('403') || msg.includes('needsReconnect')) {
+        toast({ 
+          title: "Gmail Permission Error", 
+          description: "Your Gmail permissions have expired. Please reconnect your Gmail account.",
+          variant: "destructive"
+        });
+        queryClient.invalidateQueries({ queryKey: ['/api/emails/connection-status/gmail'] });
+      } else {
+        toast({ title: "Fetch Error", description: msg || 'Failed to fetch emails', variant: "destructive" });
+      }
     }
   });
 
@@ -780,7 +790,23 @@ export default function Communications() {
           ) : (
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
-                {gmailStatus?.connected ? (
+                {gmailStatus?.needsReconnect ? (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Gmail Permissions Expired</AlertTitle>
+                    <AlertDescription className="flex items-center gap-2">
+                      <span>{gmailStatus.message || 'Your Gmail permissions have expired. Please reconnect.'}</span>
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        onClick={() => window.location.href = '/api/auth/connect-gmail'}
+                        data-testid="btn-reconnect-gmail"
+                      >
+                        Reconnect Gmail
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : gmailStatus?.connected ? (
                   <>
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                       Gmail Connected
@@ -823,6 +849,24 @@ export default function Communications() {
                     data-testid="button-disconnect-gmail"
                   >
                     {disconnectGmailMutation.isPending ? 'Disconnecting...' : 'Disconnect'}
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      disconnectGmailMutation.mutate(undefined, {
+                        onSuccess: () => {
+                          setTimeout(() => {
+                            window.location.href = '/api/auth/connect-gmail';
+                          }, 500);
+                        }
+                      });
+                    }}
+                    disabled={disconnectGmailMutation.isPending}
+                    data-testid="button-switch-gmail"
+                  >
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    Switch Email
                   </Button>
                 </div>
               )}

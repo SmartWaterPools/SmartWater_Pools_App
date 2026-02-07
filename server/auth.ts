@@ -147,7 +147,6 @@ export function configurePassport(storage: IStorage) {
             'https://www.googleapis.com/auth/gmail.modify'
           ],
           accessType: 'offline',
-          prompt: 'consent',
           // Enable both proxy trust and pass request object for better session handling
           proxy: true,
           passReqToCallback: true,

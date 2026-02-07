@@ -3,7 +3,7 @@ import { storage } from '../storage';
 import { isAuthenticated } from '../auth';
 import { syncGmailEmails, getGmailConnectionStatus, fetchGmailEmailsTransient, TransientEmail } from '../services/email-sync-service';
 import type { UserTokens } from '../services/gmail-client';
-import { sendGmailMessage } from '../services/gmail-client';
+import { sendGmailMessage, getGmailProfile } from '../services/gmail-client';
 import { 
   sendAppointmentReminder,
   sendProjectUpdate,
@@ -222,9 +222,21 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
     const result = await syncGmailEmails(providerId, user.organizationId, maxResults, userTokens, pageToken);
     console.log('Sync result:', JSON.stringify(result));
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error syncing emails:', error);
-    res.status(500).json({ error: 'Failed to sync emails' });
+    const isPermissionError = error.message?.includes('Insufficient Permission') || 
+                               error.message?.includes('insufficient') ||
+                               error.message?.includes('403') ||
+                               error.code === 403;
+    if (isPermissionError) {
+      res.status(403).json({ 
+        error: 'Insufficient Permission', 
+        needsReconnect: true,
+        message: 'Gmail permissions are insufficient. Please reconnect your Gmail account.'
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to sync emails' });
+    }
   }
 });
 
@@ -255,9 +267,21 @@ router.post('/api/emails/fetch', isAuthenticated, async (req: Request, res: Resp
     });
 
     res.json(result);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching emails:', error);
-    res.status(500).json({ error: 'Failed to fetch emails' });
+    const isPermissionError = error.message?.includes('Insufficient Permission') || 
+                               error.message?.includes('insufficient') ||
+                               error.message?.includes('403') ||
+                               error.code === 403;
+    if (isPermissionError) {
+      res.status(403).json({ 
+        error: 'Insufficient Permission', 
+        needsReconnect: true,
+        message: 'Gmail permissions are insufficient. Please reconnect your Gmail account.'
+      });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch emails' });
+    }
   }
 });
 
@@ -411,14 +435,65 @@ router.get('/api/emails/connection-status/gmail', isAuthenticated, async (req: R
     const user = req.user as any;
     
     // Check if user has Gmail tokens stored from Google OAuth login
-    if (user.gmailAccessToken && user.gmailRefreshToken) {
-      res.json({
-        connected: true,
-        email: user.gmailConnectedEmail || user.email,
-        source: 'google_oauth',
-        hasRefreshToken: !!user.gmailRefreshToken,
-        tokenExpiresAt: user.gmailTokenExpiresAt
-      });
+    if (user.gmailAccessToken) {
+      try {
+        const userTokens: UserTokens = {
+          userId: user.id,
+          gmailAccessToken: user.gmailAccessToken,
+          gmailRefreshToken: user.gmailRefreshToken,
+          gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+          gmailConnectedEmail: user.gmailConnectedEmail
+        };
+        
+        const profile = await getGmailProfile(userTokens);
+        
+        if (profile && profile.emailAddress) {
+          res.json({
+            connected: true,
+            email: profile.emailAddress || user.gmailConnectedEmail || user.email,
+            source: 'google_oauth',
+            hasRefreshToken: !!user.gmailRefreshToken,
+            tokenExpiresAt: user.gmailTokenExpiresAt,
+            verified: true
+          });
+        } else {
+          res.json({
+            connected: false,
+            email: user.gmailConnectedEmail || user.email,
+            source: 'google_oauth',
+            error: 'insufficient_permission',
+            message: 'Gmail permissions have expired or are insufficient. Please reconnect your Gmail account.',
+            needsReconnect: true
+          });
+        }
+      } catch (tokenError: any) {
+        console.error('Gmail token validation failed:', tokenError.message);
+        
+        const isPermissionError = tokenError.message?.includes('Insufficient Permission') || 
+                                   tokenError.message?.includes('insufficient') ||
+                                   tokenError.message?.includes('403') ||
+                                   tokenError.message?.includes('invalid_grant');
+        
+        if (isPermissionError) {
+          await storage.updateUser(user.id, {
+            gmailAccessToken: null,
+            gmailRefreshToken: null,
+            gmailTokenExpiresAt: null,
+            gmailConnectedEmail: null
+          });
+        }
+        
+        res.json({
+          connected: false,
+          email: user.gmailConnectedEmail || user.email,
+          source: 'google_oauth',
+          error: isPermissionError ? 'insufficient_permission' : 'token_error',
+          message: isPermissionError 
+            ? 'Gmail permissions have expired. Please reconnect your Gmail account.'
+            : 'Gmail connection error. Please try reconnecting.',
+          needsReconnect: true
+        });
+      }
     } else {
       // Fall back to checking Replit connector (for backwards compatibility)
       const status = await getGmailConnectionStatus();

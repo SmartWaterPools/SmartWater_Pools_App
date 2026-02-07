@@ -255,9 +255,16 @@ router.get('/google', oauthTimeoutMiddleware, (req: Request, res: Response, next
   console.log("Starting Google OAuth authentication flow");
   
   passport.authenticate('google', { 
-    scope: ['profile', 'email'],
+    scope: [
+      'profile', 
+      'email',
+      'https://www.googleapis.com/auth/gmail.readonly',
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.modify'
+    ],
+    accessType: 'offline',
     prompt: 'select_account'
-  })(req, res, next);
+  } as any)(req, res, next);
 });
 
 // Google OAuth callback route - enhanced with comprehensive debugging
@@ -599,10 +606,13 @@ router.get('/connect-gmail/callback',
     }
     
     // Exchange code for tokens
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || 'smartwaterpools.replit.app';
+    const callbackUrl = `${protocol}://${host}/api/auth/connect-gmail/callback`;
     const oauth2Client = new google.auth.OAuth2(
       GOOGLE_CLIENT_ID,
       GOOGLE_CLIENT_SECRET,
-      'https://smartwaterpools.replit.app/api/auth/connect-gmail/callback'
+      callbackUrl
     );
     
     const code = req.query.code as string;
