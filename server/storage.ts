@@ -199,6 +199,7 @@ export interface IStorage {
 
   // Work Order Item operations (parts/labor)
   getWorkOrderItems(workOrderId: number): Promise<WorkOrderItem[]>;
+  getWorkOrderItem(id: number): Promise<WorkOrderItem | undefined>;
   createWorkOrderItem(item: InsertWorkOrderItem): Promise<WorkOrderItem>;
   updateWorkOrderItem(id: number, data: Partial<WorkOrderItem>): Promise<WorkOrderItem | undefined>;
   deleteWorkOrderItem(id: number): Promise<boolean>;
@@ -1297,6 +1298,11 @@ export class DatabaseStorage implements IStorage {
       .from(workOrderItems)
       .where(eq(workOrderItems.workOrderId, workOrderId))
       .orderBy(workOrderItems.createdAt);
+  }
+
+  async getWorkOrderItem(id: number): Promise<WorkOrderItem | undefined> {
+    const result = await db.select().from(workOrderItems).where(eq(workOrderItems.id, id)).limit(1);
+    return result[0] || undefined;
   }
 
   async createWorkOrderItem(item: InsertWorkOrderItem): Promise<WorkOrderItem> {

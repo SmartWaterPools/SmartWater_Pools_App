@@ -43,6 +43,21 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Dashboard with time-filtered metrics (Revenue, Expenses, Profit, Inventory Value, Low Stock Items, Outstanding Invoices).
 - **Multi-tenant Security**: All queries and updates strictly filter by `organizationId`.
 
+## Inventory Management
+- **Purpose**: Track pool service parts, chemicals, equipment, and supplies with real-time stock levels.
+- **Schema** (`inventory_items` table): id, organizationId, sku, name, description, category, quantity (numeric string), unitCost (cents), unitPrice (cents), minimumStock, reorderPoint, location, isActive, vendorId, lastRestockDate, notes, createdAt, updatedAt.
+- **Features**:
+  - CRUD operations via `/api/business/inventory` endpoints (GET, POST, PATCH, DELETE)
+  - Search/filter by name/SKU, category, stock status (In Stock, Low Stock, Out of Stock)
+  - Inline stock adjustment (+/- with custom amounts)
+  - Summary cards: Total Items, Total Value, Low Stock count, Categories count
+  - Edit/delete with confirmation dialogs
+  - Mobile responsive (card layout on small screens, table on desktop)
+- **Inventory-Work Order Integration**: When parts are added to work orders with `inventoryItemId`, stock is automatically deducted. When parts are removed or quantities changed, stock is adjusted (delta calculation). Handles inventory item swaps on updates.
+- **Vendor Invoice Integration**: Process-to-Inventory creates new inventory items or updates existing ones (adds quantity, updates cost/restock date). Process-to-Expense creates expense records with amounts stored in cents.
+- **Data Convention**: All monetary amounts stored in cents (integers); UI converts dollars to cents before POST, divides by 100 for display.
+- **Multi-tenant Security**: All queries filter by `organizationId`.
+
 ## Invoicing Platform
 - **Purpose**: Client invoicing with online payment processing.
 - **Features**: Auto-generated invoice numbers, detailed invoices with line items, manual payment recording, Stripe integration for online payments, webhook handling.

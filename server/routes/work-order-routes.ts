@@ -356,6 +356,19 @@ router.post('/:id/items', isAuthenticated, async (req, res) => {
       workOrderId
     });
     
+    if (item.inventoryItemId && item.itemType === 'part') {
+      const invItem = await storage.getInventoryItem(item.inventoryItemId);
+      if (invItem) {
+        const currentQty = parseFloat(String(invItem.quantity || "0"));
+        const usedQty = parseFloat(String(item.quantity || "1"));
+        const newQty = Math.max(0, currentQty - usedQty);
+        await storage.updateInventoryItem(invItem.id, {
+          quantity: String(newQty),
+          updatedAt: new Date(),
+        });
+      }
+    }
+    
     res.status(201).json(item);
   } catch (error) {
     console.error('Error creating work order item:', error);
@@ -366,10 +379,61 @@ router.post('/:id/items', isAuthenticated, async (req, res) => {
 router.patch('/:id/items/:itemId', isAuthenticated, async (req, res) => {
   try {
     const itemId = parseInt(req.params.itemId);
-    const item = await storage.updateWorkOrderItem(itemId, req.body);
     
+    const existingItem = await storage.getWorkOrderItem(itemId);
+    if (!existingItem) {
+      return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    const item = await storage.updateWorkOrderItem(itemId, req.body);
     if (!item) {
       return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    if (existingItem.itemType === 'part' || item.itemType === 'part') {
+      const oldInvId = existingItem.inventoryItemId;
+      const newInvId = item.inventoryItemId;
+      const oldQty = parseFloat(String(existingItem.quantity || "0"));
+      const newQty = parseFloat(String(item.quantity || "0"));
+      
+      if (oldInvId && oldInvId === newInvId) {
+        const delta = newQty - oldQty;
+        if (delta !== 0 && !isNaN(delta)) {
+          const invItem = await storage.getInventoryItem(oldInvId);
+          if (invItem) {
+            const currentStock = parseFloat(String(invItem.quantity || "0"));
+            await storage.updateInventoryItem(invItem.id, {
+              quantity: String(Math.max(0, currentStock - delta)),
+              updatedAt: new Date(),
+            });
+          }
+        }
+      } else {
+        if (oldInvId) {
+          const oldInv = await storage.getInventoryItem(oldInvId);
+          if (oldInv) {
+            const stock = parseFloat(String(oldInv.quantity || "0"));
+            if (!isNaN(oldQty)) {
+              await storage.updateInventoryItem(oldInv.id, {
+                quantity: String(stock + oldQty),
+                updatedAt: new Date(),
+              });
+            }
+          }
+        }
+        if (newInvId) {
+          const newInv = await storage.getInventoryItem(newInvId);
+          if (newInv) {
+            const stock = parseFloat(String(newInv.quantity || "0"));
+            if (!isNaN(newQty)) {
+              await storage.updateInventoryItem(newInv.id, {
+                quantity: String(Math.max(0, stock - newQty)),
+                updatedAt: new Date(),
+              });
+            }
+          }
+        }
+      }
     }
     
     res.json(item);
@@ -382,10 +446,25 @@ router.patch('/:id/items/:itemId', isAuthenticated, async (req, res) => {
 router.delete('/:id/items/:itemId', isAuthenticated, async (req, res) => {
   try {
     const itemId = parseInt(req.params.itemId);
+    
+    const existingItem = await storage.getWorkOrderItem(itemId);
+    
     const deleted = await storage.deleteWorkOrderItem(itemId);
     
     if (!deleted) {
       return res.status(404).json({ error: 'Item not found' });
+    }
+    
+    if (existingItem?.inventoryItemId && existingItem.itemType === 'part') {
+      const invItem = await storage.getInventoryItem(existingItem.inventoryItemId);
+      if (invItem) {
+        const currentQty = parseFloat(String(invItem.quantity || "0"));
+        const returnedQty = parseFloat(String(existingItem.quantity || "1"));
+        await storage.updateInventoryItem(invItem.id, {
+          quantity: String(currentQty + returnedQty),
+          updatedAt: new Date(),
+        });
+      }
     }
     
     res.json({ success: true });

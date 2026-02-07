@@ -77,12 +77,13 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
     const inventoryList = await db.select().from(inventoryItems)
       .where(eq(inventoryItems.organizationId, organizationId));
     
-    const lowStockItems = inventoryList.filter(item => 
-      item.minimumStock && item.minimumStock > 0
-    );
+    const lowStockItems = inventoryList.filter(item => {
+      const qty = Number(item.quantity || 0);
+      const minStock = item.minimumStock || item.reorderPoint || 0;
+      return minStock > 0 && qty <= minStock;
+    });
     
-    // Divide by 100 to convert cents to dollars (unitCost is stored in cents)
-    const inventoryValue = inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0) * Number(i.minimumStock || 1), 0) / 100;
+    const inventoryValue = inventoryList.reduce((sum, i) => sum + Number(i.unitCost || 0) * Number(i.quantity || 0), 0) / 100;
     
     // Fetch purchase orders within time range using SQL filtering
     const recentPurchaseOrders = await db.select().from(purchaseOrders)

@@ -1,3 +1,7 @@
+import { useState, useMemo } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import {
   Table,
   TableBody,
@@ -12,139 +16,181 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Card,
-  CardContent
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Edit, MoreHorizontal, Trash2, ShoppingCart, Plus, Minus, History } from "lucide-react";
-import { formatDate } from "@/lib/types";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Edit,
+  MoreHorizontal,
+  Trash2,
+  Plus,
+  Minus,
+  Search,
+  Package,
+  SlidersHorizontal,
+} from "lucide-react";
 
-// Define the inventory item interface
 interface InventoryItem {
   id: number;
+  organizationId: number;
+  sku: string | null;
   name: string;
-  sku: string;
-  category: string;
-  quantity: number;
-  minQuantity: number;
-  unitPrice: number;
+  description: string | null;
+  category: string | null;
+  quantity: string | null;
+  unitCost: number | null;
+  unitPrice: number | null;
+  minimumStock: number | null;
+  reorderPoint: number | null;
   location: string | null;
+  isActive: boolean;
+  vendorId: number | null;
   lastRestockDate: string | null;
   notes: string | null;
+  createdAt: string;
+  updatedAt: string | null;
 }
 
 interface InventoryTableProps {
   data: InventoryItem[];
   isLoading: boolean;
   onEdit?: (item: InventoryItem) => void;
-  onDelete?: (id: number) => void;
-  onAddStock?: (id: number) => void;
-  onRemoveStock?: (id: number) => void;
-  onCreateOrder?: (id: number) => void;
 }
 
-export default function InventoryTable({
-  data,
-  isLoading,
-  onEdit,
-  onDelete,
-  onAddStock,
-  onRemoveStock,
-  onCreateOrder
-}: InventoryTableProps) {
-  // Mock data for initial UI development
-  const mockData: InventoryItem[] = [
-    {
-      id: 1,
-      name: "Liquid Chlorine (10% solution)",
-      sku: "CHEM-LC10-1",
-      category: "chemicals",
-      quantity: 45,
-      minQuantity: 20,
-      unitPrice: 599, // $5.99
-      location: "Warehouse A3",
-      lastRestockDate: "2025-03-01",
-      notes: "1 gallon containers"
+const CATEGORIES = ["All", "Chemicals", "Equipment", "Parts", "Tools", "Safety", "Other"];
+const STOCK_STATUSES = ["All", "In Stock", "Low Stock", "Out of Stock"];
+
+function getStockStatus(item: InventoryItem) {
+  const qty = Number(item.quantity || 0);
+  const minStock = item.minimumStock || 0;
+  const reorder = item.reorderPoint || 0;
+  const threshold = Math.max(minStock, reorder);
+
+  if (qty <= 0) return { label: "Out of Stock", variant: "destructive" as const };
+  if (threshold > 0 && qty <= threshold) return { label: "Low Stock", variant: "secondary" as const };
+  return { label: "In Stock", variant: "default" as const };
+}
+
+function getCategoryVariant(category: string | null) {
+  switch (category?.toLowerCase()) {
+    case "chemicals": return "default";
+    case "equipment": return "secondary";
+    case "parts": return "outline";
+    case "tools": return "secondary";
+    case "safety": return "destructive";
+    default: return "outline";
+  }
+}
+
+function formatPrice(cents: number | null) {
+  if (cents == null) return "-";
+  return `$${(cents / 100).toFixed(2)}`;
+}
+
+export default function InventoryTable({ data, isLoading, onEdit }: InventoryTableProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [adjustItem, setAdjustItem] = useState<InventoryItem | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState("");
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest("DELETE", `/api/business/inventory/${id}`);
     },
-    {
-      id: 2,
-      name: "3\" Chlorine Tablets",
-      sku: "CHEM-CT3-1",
-      category: "chemicals",
-      quantity: 12,
-      minQuantity: 15,
-      unitPrice: 8999, // $89.99
-      location: "Warehouse A2",
-      lastRestockDate: "2025-02-15",
-      notes: "50 lb buckets"
+    onSuccess: () => {
+      toast({ title: "Item deleted", description: "Inventory item has been removed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/business/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/business/dashboard"] });
+      setDeleteId(null);
     },
-    {
-      id: 3,
-      name: "Pool Pump 1.5HP",
-      sku: "EQUIP-PP15-1",
-      category: "equipment",
-      quantity: 5,
-      minQuantity: 3,
-      unitPrice: 29999, // $299.99
-      location: "Warehouse B1",
-      lastRestockDate: "2025-02-10",
-      notes: "Pentair SuperFlo"
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to delete item. ${error.message}`, variant: "destructive" });
     },
-    {
-      id: 4,
-      name: "Filter Cartridge",
-      sku: "PART-FC100-1",
-      category: "parts",
-      quantity: 8,
-      minQuantity: 10,
-      unitPrice: 4499, // $44.99
-      location: "Warehouse B4",
-      lastRestockDate: "2025-02-20",
-      notes: "Fits most standard pool filters"
-    }
-  ];
+  });
 
-  // Use mock data if no real data is provided
-  const inventory = data.length > 0 ? data : mockData;
+  const adjustMutation = useMutation({
+    mutationFn: async ({ id, quantity }: { id: number; quantity: string }) => {
+      return apiRequest("PATCH", `/api/business/inventory/${id}`, { quantity });
+    },
+    onSuccess: () => {
+      toast({ title: "Stock updated", description: "Inventory quantity has been adjusted." });
+      queryClient.invalidateQueries({ queryKey: ["/api/business/inventory"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/business/dashboard"] });
+      setAdjustItem(null);
+      setAdjustAmount("");
+    },
+    onError: (error) => {
+      toast({ title: "Error", description: `Failed to adjust stock. ${error.message}`, variant: "destructive" });
+    },
+  });
 
-  // Format price from cents to dollars
-  const formatPrice = (amount: number) => {
-    return `$${(amount / 100).toFixed(2)}`;
-  };
+  const filtered = useMemo(() => {
+    return data.filter((item) => {
+      const searchLower = search.toLowerCase();
+      const matchesSearch =
+        !search ||
+        item.name.toLowerCase().includes(searchLower) ||
+        (item.sku && item.sku.toLowerCase().includes(searchLower)) ||
+        (item.description && item.description.toLowerCase().includes(searchLower));
 
-  // Get stock status based on quantity vs. minQuantity
-  const getStockStatus = (quantity: number, minQuantity: number) => {
-    if (quantity <= 0) {
-      return { status: "Out of stock", color: "bg-red-100 text-red-800" };
-    } else if (quantity < minQuantity) {
-      return { status: "Low stock", color: "bg-yellow-100 text-yellow-800" };
-    } else {
-      return { status: "In stock", color: "bg-green-100 text-green-800" };
-    }
-  };
+      const matchesCategory =
+        categoryFilter === "All" ||
+        (item.category && item.category.toLowerCase() === categoryFilter.toLowerCase());
 
-  // Get appropriate badge color for category
-  const getCategoryColor = (category: string) => {
-    switch (category) {
-      case "chemicals":
-        return "bg-blue-100 text-blue-800";
-      case "equipment":
-        return "bg-green-100 text-green-800";
-      case "parts":
-        return "bg-orange-100 text-orange-800";
-      case "tools":
-        return "bg-purple-100 text-purple-800";
-      case "office":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+      const status = getStockStatus(item);
+      const matchesStatus = statusFilter === "All" || status.label === statusFilter;
 
-  // Loading skeletons
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [data, search, categoryFilter, statusFilter]);
+
+  function handleAdjust(delta: number) {
+    if (!adjustItem) return;
+    const currentQty = Number(adjustItem.quantity || 0);
+    const newQty = Math.max(0, currentQty + delta);
+    adjustMutation.mutate({ id: adjustItem.id, quantity: String(newQty) });
+  }
+
+  function handleAdjustCustom() {
+    if (!adjustItem || !adjustAmount) return;
+    const amt = parseInt(adjustAmount, 10);
+    if (isNaN(amt)) return;
+    const currentQty = Number(adjustItem.quantity || 0);
+    const newQty = Math.max(0, currentQty + amt);
+    adjustMutation.mutate({ id: adjustItem.id, quantity: String(newQty) });
+  }
+
   if (isLoading) {
     return (
       <Card>
@@ -161,98 +207,317 @@ export default function InventoryTable({
   }
 
   return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="rounded-md border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item Name</TableHead>
-                <TableHead>SKU</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Qty</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Unit Price</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {inventory.map((item) => {
-                const stockStatus = getStockStatus(item.quantity, item.minQuantity);
-                return (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>{item.sku}</TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={getCategoryColor(item.category)}
-                      >
-                        {item.category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-center">
-                        {item.quantity}
-                        <div className="text-xs text-muted-foreground">
-                          Min: {item.minQuantity}
+    <>
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, SKU, or description..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((cat) => (
+                    <SelectItem key={cat} value={cat}>
+                      {cat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STOCK_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Package className="h-12 w-12 mb-3 opacity-40" />
+              <p className="text-lg font-medium">No inventory items found</p>
+              <p className="text-sm">Try adjusting your search or filters.</p>
+            </div>
+          ) : (
+            <>
+              <div className="hidden md:block rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>SKU</TableHead>
+                      <TableHead>Category</TableHead>
+                      <TableHead>Qty</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Cost / Price</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((item) => {
+                      const status = getStockStatus(item);
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div className="font-medium">{item.name}</div>
+                            {item.description && (
+                              <div className="text-xs text-muted-foreground line-clamp-1">
+                                {item.description}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm">{item.sku || "-"}</TableCell>
+                          <TableCell>
+                            {item.category ? (
+                              <Badge variant={getCategoryVariant(item.category) as any}>
+                                {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                              </Badge>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div>{Number(item.quantity || 0)}</div>
+                            {(item.minimumStock || 0) > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Min: {item.minimumStock}
+                              </div>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={status.variant}
+                              className={
+                                status.label === "Low Stock"
+                                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
+                                  : status.label === "Out of Stock"
+                                  ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                  : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                              }
+                            >
+                              {status.label}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="text-sm">
+                              {formatPrice(item.unitCost)}
+                              {item.unitPrice != null && (
+                                <span className="text-muted-foreground"> / {formatPrice(item.unitPrice)}</span>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{item.location || "-"}</TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                  <span className="sr-only">Open menu</span>
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => onEdit?.(item)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setAdjustItem(item)}>
+                                  <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                  Adjust Stock
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setDeleteId(item.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="md:hidden space-y-3">
+                {filtered.map((item) => {
+                  const status = getStockStatus(item);
+                  return (
+                    <Card key={item.id}>
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium truncate">{item.name}</h4>
+                            {item.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-1">{item.description}</p>
+                            )}
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0 shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => onEdit?.(item)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setAdjustItem(item)}>
+                                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                Adjust Stock
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setDeleteId(item.id)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={stockStatus.color}
-                      >
-                        {stockStatus.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{formatPrice(item.unitPrice)}</TableCell>
-                    <TableCell>{item.location || "—"}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onEdit && onEdit(item)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onAddStock && onAddStock(item.id)}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Stock
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onRemoveStock && onRemoveStock(item.id)}>
-                            <Minus className="mr-2 h-4 w-4" />
-                            Remove Stock
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onCreateOrder && onCreateOrder(item.id)}>
-                            <ShoppingCart className="mr-2 h-4 w-4" />
-                            Create Order
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <History className="mr-2 h-4 w-4" />
-                            View History
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onDelete && onDelete(item.id)}>
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
-      </CardContent>
-    </Card>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <span className="text-muted-foreground">SKU:</span> {item.sku || "-"}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Qty:</span> {Number(item.quantity || 0)}
+                            {(item.minimumStock || 0) > 0 && (
+                              <span className="text-muted-foreground text-xs"> (min: {item.minimumStock})</span>
+                            )}
+                          </div>
+                          <div>
+                            {item.category && (
+                              <Badge variant={getCategoryVariant(item.category) as any} className="text-xs">
+                                {item.category.charAt(0).toUpperCase() + item.category.slice(1)}
+                              </Badge>
+                            )}
+                          </div>
+                          <div>
+                            <Badge
+                              variant={status.variant}
+                              className={
+                                status.label === "Low Stock"
+                                  ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs"
+                                  : status.label === "Out of Stock"
+                                  ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 text-xs"
+                                  : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 text-xs"
+                              }
+                            >
+                              {status.label}
+                            </Badge>
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Cost:</span> {formatPrice(item.unitCost)}
+                          </div>
+                          <div>
+                            <span className="text-muted-foreground">Price:</span> {formatPrice(item.unitPrice)}
+                          </div>
+                          {item.location && (
+                            <div className="col-span-2">
+                              <span className="text-muted-foreground">Location:</span> {item.location}
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <AlertDialog open={deleteId !== null} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Inventory Item</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this inventory item? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={adjustItem !== null} onOpenChange={(open) => { if (!open) { setAdjustItem(null); setAdjustAmount(""); } }}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Adjust Stock</DialogTitle>
+            <DialogDescription>
+              {adjustItem && (
+                <>Current quantity for <strong>{adjustItem.name}</strong>: {Number(adjustItem.quantity || 0)}</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center gap-3 py-4">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => handleAdjust(-1)}
+              disabled={adjustMutation.isPending}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+            <div className="text-3xl font-bold tabular-nums min-w-[60px] text-center">
+              {adjustItem ? Number(adjustItem.quantity || 0) : 0}
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => handleAdjust(1)}
+              disabled={adjustMutation.isPending}
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              type="number"
+              placeholder="Enter +/- amount"
+              value={adjustAmount}
+              onChange={(e) => setAdjustAmount(e.target.value)}
+            />
+            <Button onClick={handleAdjustCustom} disabled={!adjustAmount || adjustMutation.isPending}>
+              Apply
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAdjustItem(null); setAdjustAmount(""); }}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

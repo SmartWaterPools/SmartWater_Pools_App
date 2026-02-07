@@ -43,14 +43,11 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { useToast } from "@/hooks/use-toast";
 
-// Define the form schema
 const inventoryItemFormSchema = z.object({
   name: z.string({
     required_error: "Item name is required",
   }).min(2, "Item name must be at least 2 characters"),
-  sku: z.string({
-    required_error: "SKU is required",
-  }).min(2, "SKU must be at least 2 characters"),
+  sku: z.string().optional(),
   category: z.string({
     required_error: "Category is required",
   }),
@@ -59,14 +56,18 @@ const inventoryItemFormSchema = z.object({
     required_error: "Quantity is required",
     invalid_type_error: "Quantity must be a number",
   }).min(0, "Quantity cannot be negative"),
-  minQuantity: z.coerce.number({
-    required_error: "Minimum quantity is required",
-    invalid_type_error: "Minimum quantity must be a number",
-  }).min(0, "Minimum quantity cannot be negative"),
+  minimumStock: z.coerce.number({
+    invalid_type_error: "Minimum stock must be a number",
+  }).min(0, "Minimum stock cannot be negative").default(0),
+  reorderPoint: z.coerce.number({
+    invalid_type_error: "Reorder point must be a number",
+  }).min(0, "Reorder point cannot be negative").default(0),
+  unitCost: z.coerce.number({
+    invalid_type_error: "Unit cost must be a number",
+  }).min(0, "Unit cost cannot be negative").default(0),
   unitPrice: z.coerce.number({
-    required_error: "Unit price is required",
     invalid_type_error: "Unit price must be a number",
-  }).min(0, "Unit price cannot be negative"),
+  }).min(0, "Unit price cannot be negative").default(0),
   location: z.string().optional(),
   lastRestockDate: z.date().optional(),
   notes: z.string().optional(),
@@ -76,7 +77,7 @@ type InventoryItemFormValues = z.infer<typeof inventoryItemFormSchema>;
 
 interface InventoryItemFormProps {
   itemCategories?: string[];
-  itemToEdit?: InventoryItemFormValues & { id?: number };
+  itemToEdit?: any;
   onClose: () => void;
 }
 
@@ -85,7 +86,6 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(true);
 
-  // Default inventory categories if not provided
   const categories = itemCategories || [
     "chemicals",
     "equipment",
@@ -96,20 +96,19 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
     "other"
   ];
 
-  // Get default values for form
   const defaultValues: Partial<InventoryItemFormValues> = {
     name: itemToEdit?.name || "",
     sku: itemToEdit?.sku || "",
     category: itemToEdit?.category || "",
     description: itemToEdit?.description || "",
-    quantity: itemToEdit?.quantity || 0,
-    minQuantity: itemToEdit?.minQuantity || 0,
-    unitPrice: itemToEdit?.unitPrice 
-      ? itemToEdit.unitPrice / 100 // Convert cents to dollars for form display
-      : undefined,
+    quantity: itemToEdit ? Number(itemToEdit.quantity || 0) : 0,
+    minimumStock: itemToEdit?.minimumStock || 0,
+    reorderPoint: itemToEdit?.reorderPoint || 0,
+    unitCost: itemToEdit?.unitCost ? itemToEdit.unitCost / 100 : 0,
+    unitPrice: itemToEdit?.unitPrice ? itemToEdit.unitPrice / 100 : 0,
     location: itemToEdit?.location || "",
-    lastRestockDate: itemToEdit?.lastRestockDate 
-      ? new Date(itemToEdit.lastRestockDate) 
+    lastRestockDate: itemToEdit?.lastRestockDate
+      ? new Date(itemToEdit.lastRestockDate)
       : undefined,
     notes: itemToEdit?.notes || "",
   };
@@ -119,20 +118,26 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
     defaultValues,
   });
 
-  // Mutation for creating/updating inventory item
   const mutation = useMutation({
     mutationFn: async (values: InventoryItemFormValues) => {
-      // Convert dollars to cents for storage
       const data = {
-        ...values,
-        unitPrice: Math.round(values.unitPrice * 100), // Convert to cents
+        name: values.name,
+        sku: values.sku || null,
+        category: values.category,
+        description: values.description || null,
+        quantity: String(values.quantity),
+        minimumStock: values.minimumStock,
+        reorderPoint: values.reorderPoint,
+        unitCost: Math.round(values.unitCost * 100),
+        unitPrice: Math.round(values.unitPrice * 100),
+        location: values.location || null,
+        lastRestockDate: values.lastRestockDate ? format(values.lastRestockDate, "yyyy-MM-dd") : null,
+        notes: values.notes || null,
       };
 
       if (itemToEdit?.id) {
-        // Update existing item
         return apiRequest('PATCH', `/api/business/inventory/${itemToEdit.id}`, data);
       } else {
-        // Create new item
         return apiRequest('POST', '/api/business/inventory', data);
       }
     },
@@ -144,6 +149,7 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
           : "A new inventory item has been created successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ['/api/business/inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business/dashboard'] });
       handleClose();
     },
     onError: (error) => {
@@ -164,7 +170,6 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
     onClose();
   }
 
-  // Format category display name
   const formatCategory = (category: string): string => {
     return category.charAt(0).toUpperCase() + category.slice(1);
   };
@@ -184,7 +189,6 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 px-1 sm:px-3">
-            {/* Item Name Field */}
             <FormField
               control={form.control}
               name="name"
@@ -200,22 +204,20 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* SKU Field */}
               <FormField
                 control={form.control}
                 name="sku"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <FormLabel className="text-sm font-medium">SKU</FormLabel>
+                    <FormLabel className="text-sm font-medium">SKU (Optional)</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter SKU" {...field} className="text-base" />
+                      <Input placeholder="Enter SKU" {...field} value={field.value || ""} className="text-base" />
                     </FormControl>
                     <FormMessage className="text-xs" />
                   </FormItem>
                 )}
               />
 
-              {/* Category Field */}
               <FormField
                 control={form.control}
                 name="category"
@@ -245,7 +247,6 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
               />
             </div>
 
-            {/* Description Field */}
             <FormField
               control={form.control}
               name="description"
@@ -253,9 +254,9 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                 <FormItem className="space-y-1">
                   <FormLabel className="text-sm font-medium">Description (Optional)</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Enter item description" 
-                      {...field} 
+                    <Textarea
+                      placeholder="Enter item description"
+                      {...field}
                       value={field.value || ""}
                       className="text-base resize-none min-h-[60px]"
                     />
@@ -266,7 +267,6 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
             />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Quantity Field */}
               <FormField
                 control={form.control}
                 name="quantity"
@@ -288,13 +288,12 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                 )}
               />
 
-              {/* Min Quantity Field */}
               <FormField
                 control={form.control}
-                name="minQuantity"
+                name="minimumStock"
                 render={({ field }) => (
                   <FormItem className="space-y-1">
-                    <FormLabel className="text-sm font-medium">Minimum Quantity</FormLabel>
+                    <FormLabel className="text-sm font-medium">Minimum Stock</FormLabel>
                     <FormControl>
                       <Input
                         type="number"
@@ -313,8 +312,55 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                 )}
               />
             </div>
-            
-            {/* Unit Price Field */}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <FormField
+                control={form.control}
+                name="reorderPoint"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm font-medium">Reorder Point</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min="0"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        {...field}
+                        className="text-base"
+                      />
+                    </FormControl>
+                    <FormDescription className="text-xs">
+                      Trigger reorder at this quantity
+                    </FormDescription>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="unitCost"
+                render={({ field }) => (
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-sm font-medium">Unit Cost ($)</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        {...field}
+                        className="text-base"
+                      />
+                    </FormControl>
+                    <FormMessage className="text-xs" />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <FormField
               control={form.control}
               name="unitPrice"
@@ -332,12 +378,14 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                       className="text-base"
                     />
                   </FormControl>
+                  <FormDescription className="text-xs">
+                    Selling price per unit
+                  </FormDescription>
                   <FormMessage className="text-xs" />
                 </FormItem>
               )}
             />
 
-            {/* Storage Location Field */}
             <FormField
               control={form.control}
               name="location"
@@ -345,10 +393,10 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
                 <FormItem className="space-y-1">
                   <FormLabel className="text-sm font-medium">Storage Location (Optional)</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Where is this item stored?" 
-                      {...field} 
-                      value={field.value || ""} 
+                    <Input
+                      placeholder="Where is this item stored?"
+                      {...field}
+                      value={field.value || ""}
                       className="text-base"
                     />
                   </FormControl>
@@ -357,7 +405,6 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
               )}
             />
 
-            {/* Last Restock Date Field */}
             <FormField
               control={form.control}
               name="lastRestockDate"
@@ -398,7 +445,6 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
               )}
             />
 
-            {/* Notes Field */}
             <FormField
               control={form.control}
               name="notes"
@@ -427,9 +473,9 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose }: Inven
               >
                 <X className="h-4 w-4" /> Cancel
               </Button>
-              <Button 
-                type="submit" 
-                disabled={mutation.isPending} 
+              <Button
+                type="submit"
+                disabled={mutation.isPending}
                 className="w-full sm:w-auto gap-1 text-sm"
               >
                 {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}

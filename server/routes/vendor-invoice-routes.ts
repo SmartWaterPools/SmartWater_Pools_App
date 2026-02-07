@@ -582,7 +582,7 @@ router.post("/:id/process-to-expense", isAuthenticated, async (req, res) => {
     const expenseData = insertExpenseSchema.parse({
       organizationId: user.organizationId,
       date: invoice.invoiceDate || new Date().toISOString().split('T')[0],
-      amount: String((invoice.totalAmount || 0) / 100),
+      amount: String(invoice.totalAmount || 0),
       category: category || "Chemicals & Supplies",
       description: description || `Invoice ${invoice.invoiceNumber || 'N/A'} from ${vendor?.name || 'Unknown Vendor'}`,
       vendorId: invoice.vendorId,
@@ -644,14 +644,27 @@ router.post("/:id/process-to-inventory", isAuthenticated, async (req, res) => {
       }
       
       if (!inventoryItem) {
+        const qty = parseFloat(item.quantity || "1");
         inventoryItem = await storage.createInventoryItem?.({
           organizationId: user.organizationId,
-          name: item.description,
+          name: item.description || "Unknown Item",
           sku: item.sku,
           category: "Chemicals & Supplies",
           unitCost: item.unitPrice,
           vendorId: invoice.vendorId,
+          quantity: String(qty),
+          lastRestockDate: new Date().toISOString().split('T')[0],
         });
+      } else {
+        const currentQty = parseFloat(String(inventoryItem.quantity || "0"));
+        const addQty = parseFloat(item.quantity || "1");
+        await storage.updateInventoryItem(inventoryItem.id, {
+          quantity: String(currentQty + addQty),
+          unitCost: item.unitPrice || inventoryItem.unitCost,
+          lastRestockDate: new Date().toISOString().split('T')[0],
+          updatedAt: new Date(),
+        });
+        inventoryItem = await storage.getInventoryItem?.(inventoryItem.id) || inventoryItem;
       }
       
       if (inventoryItem) {

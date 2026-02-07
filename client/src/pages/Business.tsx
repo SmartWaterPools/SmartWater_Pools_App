@@ -85,6 +85,7 @@ export default function Business() {
   const [vendorToEdit, setVendorToEdit] = useState<any>(null);
   const [showPurchaseOrderForm, setShowPurchaseOrderForm] = useState(false);
   const [showInventoryForm, setShowInventoryForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
   const [showLicenseForm, setShowLicenseForm] = useState(false);
   const [showInsuranceForm, setShowInsuranceForm] = useState(false);
 
@@ -632,7 +633,6 @@ export default function Business() {
                 variant="outline" 
                 className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
                 onClick={() => {
-                  // Use the TabManager API to add a new tab without replacing existing ones
                   const event = new CustomEvent('addTab', {
                     detail: {
                       path: '/inventory/transfers',
@@ -648,20 +648,62 @@ export default function Business() {
                 </svg>
                 <span className="hidden xs:inline">Inventory</span> Transfers
               </Button>
-              <Button onClick={() => setShowInventoryForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
+              <Button onClick={() => { setEditingItem(null); setShowInventoryForm(true); }} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
                 <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
                 <span className="hidden xs:inline">Add</span> Item
               </Button>
             </div>
           </div>
-          {showInventoryForm && (
+
+          {!inventoryLoading && inventory && (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Total Items</div>
+                  <div className="text-2xl font-bold">{inventory.length}</div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Total Value</div>
+                  <div className="text-2xl font-bold">
+                    ${(inventory.reduce((sum: number, item: any) => sum + (Number(item.unitCost || 0) * Number(item.quantity || 0)), 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Low Stock</div>
+                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {inventory.filter((item: any) => {
+                      const qty = Number(item.quantity || 0);
+                      const threshold = Math.max(item.minimumStock || 0, item.reorderPoint || 0);
+                      return threshold > 0 && qty <= threshold;
+                    }).length}
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-4">
+                  <div className="text-sm text-muted-foreground">Categories</div>
+                  <div className="text-2xl font-bold">
+                    {new Set(inventory.map((item: any) => item.category).filter(Boolean)).size}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {(showInventoryForm || editingItem) && (
             <InventoryItemForm
-              onClose={() => setShowInventoryForm(false)}
+              itemToEdit={editingItem}
+              onClose={() => { setShowInventoryForm(false); setEditingItem(null); }}
             />
           )}
           <InventoryTable
             data={inventory || []}
             isLoading={inventoryLoading}
+            onEdit={(item: any) => { setEditingItem(item); setShowInventoryForm(true); }}
           />
         </TabsContent>
         

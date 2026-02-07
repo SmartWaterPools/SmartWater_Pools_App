@@ -420,6 +420,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     onSuccess: () => {
       toast({ title: 'Expense Created', description: 'The document has been processed to an expense.' });
       queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business/expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business/dashboard'] });
     },
     onError: (error) => {
       toast({ title: 'Error', description: `Failed to process to expense: ${error.message}`, variant: 'destructive' });
@@ -433,6 +435,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     onSuccess: () => {
       toast({ title: 'Inventory Updated', description: 'The document has been processed to inventory.' });
       queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business/inventory'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/business/dashboard'] });
     },
     onError: (error) => {
       toast({ title: 'Error', description: `Failed to process to inventory: ${error.message}`, variant: 'destructive' });
