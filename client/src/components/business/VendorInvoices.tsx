@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -62,7 +62,8 @@ import {
   Layers,
   Copy,
   Sparkles,
-  MousePointer2
+  MousePointer2,
+  Trash2
 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -167,8 +168,19 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   const [selectedDocumentType, setSelectedDocumentType] = useState('invoice');
   const [showEmailToAnalyzeDialog, setShowEmailToAnalyzeDialog] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [detailTab, setDetailTab] = useState<'details' | 'rawtext' | 'fields' | 'visual'>('details');
+  const [detailTab, setDetailTab] = useState<'details' | 'analyze' | 'rawtext'>('details');
   const [showTemplateMapping, setShowTemplateMapping] = useState(false);
+  const [textFieldTags, setTextFieldTags] = useState<Array<{
+    id: string;
+    fieldType: string;
+    text: string;
+    startOffset: number;
+    endOffset: number;
+  }>>([]);
+  const [showFieldPopover, setShowFieldPopover] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
+  const [currentSelection, setCurrentSelection] = useState<{ text: string; start: number; end: number } | null>(null);
+  const rawTextRef = useRef<HTMLDivElement>(null);
   const [editValues, setEditValues] = useState<{
     invoiceNumber: string;
     invoiceDate: string;
@@ -177,6 +189,14 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
     subtotal: string;
     taxAmount: string;
     documentType: string;
+  } | null>(null);
+  const [analyzeEditValues, setAnalyzeEditValues] = useState<{
+    invoiceNumber: string;
+    invoiceDate: string;
+    dueDate: string;
+    totalAmount: string;
+    subtotal: string;
+    taxAmount: string;
   } | null>(null);
   
   useEffect(() => {
@@ -198,6 +218,22 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
       });
     }
   }, [selectedInvoice, isEditing]);
+
+  useEffect(() => {
+    if (selectedInvoice) {
+      setAnalyzeEditValues({
+        invoiceNumber: selectedInvoice.invoiceNumber || '',
+        invoiceDate: selectedInvoice.invoiceDate || '',
+        dueDate: selectedInvoice.dueDate || '',
+        totalAmount: selectedInvoice.totalAmount ? (selectedInvoice.totalAmount / 100).toFixed(2) : '',
+        subtotal: selectedInvoice.subtotal ? (selectedInvoice.subtotal / 100).toFixed(2) : '',
+        taxAmount: selectedInvoice.taxAmount ? (selectedInvoice.taxAmount / 100).toFixed(2) : '',
+      });
+      setTextFieldTags([]);
+      setShowFieldPopover(false);
+      setCurrentSelection(null);
+    }
+  }, [selectedInvoice]);
   
   const [newInvoice, setNewInvoice] = useState({
     invoiceNumber: '',
@@ -336,11 +372,17 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
 
   const parseWithAIMutation = useMutation({
     mutationFn: async (invoiceId: number) => {
-      return apiRequest('POST', `/api/vendor-invoices/${invoiceId}/parse-with-ai`);
+      const res = await apiRequest('POST', `/api/vendor-invoices/${invoiceId}/parse-with-ai`);
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({ title: 'AI Extraction Complete', description: 'Document fields have been extracted successfully.' });
       queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices', selectedInvoice?.id, 'items'] });
+      if (data?.invoice) {
+        setSelectedInvoice(data.invoice);
+      }
+      setDetailTab('analyze');
     },
     onError: (error) => {
       toast({ title: 'AI Extraction Failed', description: `${error.message}`, variant: 'destructive' });
@@ -396,6 +438,146 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
       toast({ title: 'Error', description: `Failed to update document: ${error.message}`, variant: 'destructive' });
     },
   });
+
+  const { data: parsingTemplates } = useQuery({
+    queryKey: ['/api/vendor-invoices/parsing-templates', vendorId],
+    queryFn: async () => {
+      const res = await fetch(`/api/vendor-invoices/parsing-templates/${vendorId}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: number) => {
+      return apiRequest('DELETE', `/api/vendor-invoices/parsing-template/${templateId}`);
+    },
+    onSuccess: () => {
+      toast({ title: 'Template Deleted' });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/parsing-templates', vendorId] });
+    },
+  });
+
+  const applyTemplateMutation = useMutation({
+    mutationFn: async (invoiceId: number) => {
+      return apiRequest('POST', `/api/vendor-invoices/${invoiceId}/parse`);
+    },
+    onSuccess: () => {
+      toast({ title: 'Template Applied', description: 'Document has been re-parsed. Check the extracted data below.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices', selectedInvoice?.id, 'items'] });
+    },
+    onError: (error) => {
+      toast({ title: 'Error', description: `Failed to apply template: ${error.message}`, variant: 'destructive' });
+    },
+  });
+
+  const FIELD_TAG_TYPES = [
+    { value: 'invoice_number', label: 'Invoice #', color: 'bg-blue-200 text-blue-800' },
+    { value: 'invoice_date', label: 'Date', color: 'bg-green-200 text-green-800' },
+    { value: 'due_date', label: 'Due Date', color: 'bg-yellow-200 text-yellow-800' },
+    { value: 'subtotal', label: 'Subtotal', color: 'bg-purple-200 text-purple-800' },
+    { value: 'tax', label: 'Tax', color: 'bg-orange-200 text-orange-800' },
+    { value: 'total', label: 'Total', color: 'bg-red-200 text-red-800' },
+  ];
+
+  const handleTextSelection = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !rawTextRef.current) {
+      setShowFieldPopover(false);
+      return;
+    }
+    const text = selection.toString().trim();
+    if (!text) {
+      setShowFieldPopover(false);
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    const containerRect = rawTextRef.current.getBoundingClientRect();
+    setCurrentSelection({
+      text,
+      start: range.startOffset,
+      end: range.endOffset,
+    });
+    setPopoverPosition({
+      x: rect.left - containerRect.left + rect.width / 2,
+      y: rect.top - containerRect.top - 10,
+    });
+    setShowFieldPopover(true);
+  };
+
+  const applyFieldTag = (fieldType: string) => {
+    if (!currentSelection) return;
+    const newTag = {
+      id: `tag-${Date.now()}`,
+      fieldType,
+      text: currentSelection.text,
+      startOffset: currentSelection.start,
+      endOffset: currentSelection.end,
+    };
+    setTextFieldTags(prev => [...prev.filter(t => t.fieldType !== fieldType), newTag]);
+    setShowFieldPopover(false);
+    window.getSelection()?.removeAllRanges();
+  };
+
+  const applyTaggedFieldsToInvoice = () => {
+    if (!selectedInvoice || textFieldTags.length === 0) return;
+    const updates: any = {};
+    for (const tag of textFieldTags) {
+      switch (tag.fieldType) {
+        case 'invoice_number': updates.invoiceNumber = tag.text; break;
+        case 'invoice_date': updates.invoiceDate = tag.text; break;
+        case 'due_date': updates.dueDate = tag.text; break;
+        case 'subtotal': updates.subtotal = tag.text; break;
+        case 'tax': updates.taxAmount = tag.text; break;
+        case 'total': updates.totalAmount = tag.text; break;
+      }
+    }
+    updateInvoiceMutation.mutate({
+      invoiceId: selectedInvoice.id,
+      data: {
+        invoiceNumber: updates.invoiceNumber || selectedInvoice.invoiceNumber || '',
+        invoiceDate: updates.invoiceDate || selectedInvoice.invoiceDate || '',
+        dueDate: updates.dueDate || selectedInvoice.dueDate || '',
+        totalAmount: updates.totalAmount || (selectedInvoice.totalAmount ? (selectedInvoice.totalAmount / 100).toFixed(2) : ''),
+        subtotal: updates.subtotal || (selectedInvoice.subtotal ? (selectedInvoice.subtotal / 100).toFixed(2) : ''),
+        taxAmount: updates.taxAmount || (selectedInvoice.taxAmount ? (selectedInvoice.taxAmount / 100).toFixed(2) : ''),
+        documentType: selectedInvoice.documentType || 'invoice',
+      }
+    });
+  };
+
+  const renderHighlightedText = (text: string) => {
+    if (textFieldTags.length === 0) return text;
+    const highlights: Array<{ start: number; end: number; fieldType: string }> = [];
+    for (const tag of textFieldTags) {
+      const idx = text.indexOf(tag.text);
+      if (idx !== -1) {
+        highlights.push({ start: idx, end: idx + tag.text.length, fieldType: tag.fieldType });
+      }
+    }
+    if (highlights.length === 0) return text;
+    highlights.sort((a, b) => a.start - b.start);
+    const segments: JSX.Element[] = [];
+    let lastEnd = 0;
+    highlights.forEach((h, i) => {
+      if (h.start > lastEnd) {
+        segments.push(<span key={`text-${i}`}>{text.substring(lastEnd, h.start)}</span>);
+      }
+      const tagType = FIELD_TAG_TYPES.find(t => t.value === h.fieldType);
+      segments.push(
+        <mark key={`highlight-${i}`} className={`${tagType?.color || 'bg-yellow-200'} px-0.5 rounded`}>
+          {text.substring(h.start, h.end)}
+        </mark>
+      );
+      lastEnd = h.end;
+    });
+    if (lastEnd < text.length) {
+      segments.push(<span key="text-end">{text.substring(lastEnd)}</span>);
+    }
+    return <>{segments}</>;
+  };
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status.toLowerCase()) {
@@ -934,6 +1116,9 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
           setEditValues(null);
           setDetailTab('details');
           setShowTemplateMapping(false);
+          setTextFieldTags([]);
+          setShowFieldPopover(false);
+          setCurrentSelection(null);
         }
       }}>
         <DialogContent className="w-[95vw] max-w-2xl max-h-[90vh] overflow-y-auto p-4 sm:p-6">
@@ -1021,23 +1206,19 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                 </div>
               )}
 
-              <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as 'details' | 'rawtext' | 'fields' | 'visual')}>
-                <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto">
+              <Tabs value={detailTab} onValueChange={(v) => setDetailTab(v as 'details' | 'analyze' | 'rawtext')}>
+                <TabsList className="w-full grid grid-cols-3 h-auto">
                   <TabsTrigger value="details" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
                     <Layers className="h-3 w-3 shrink-0" />
                     Details
                   </TabsTrigger>
-                  <TabsTrigger value="visual" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
-                    <Image className="h-3 w-3 shrink-0" />
-                    Visual
+                  <TabsTrigger value="analyze" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
+                    <Sparkles className="h-3 w-3 shrink-0" />
+                    Analyze & Map
                   </TabsTrigger>
                   <TabsTrigger value="rawtext" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
                     <FileCode className="h-3 w-3 shrink-0" />
                     Raw Text
-                  </TabsTrigger>
-                  <TabsTrigger value="fields" className="flex items-center gap-1 text-xs sm:text-sm py-1.5">
-                    <Package className="h-3 w-3 shrink-0" />
-                    Mapping
                   </TabsTrigger>
                 </TabsList>
 
@@ -1287,9 +1468,9 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
               )}
                 </TabsContent>
 
-                <TabsContent value="visual" className="mt-4">
+                <TabsContent value="analyze" className="mt-4 space-y-4">
                   {selectedInvoice.parseErrors && (
-                    <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                       <p className="text-sm font-medium text-amber-800 flex items-center gap-2">
                         <AlertCircle className="h-4 w-4" />
                         Parsing Issue
@@ -1297,8 +1478,8 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       <p className="text-xs text-amber-700 mt-1">{selectedInvoice.parseErrors}</p>
                     </div>
                   )}
-                  
-                  <div className="mb-4 p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
+
+                  <div className="p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg">
                     <div className="flex flex-col gap-3">
                       <div className="flex items-start gap-2">
                         <Sparkles className="h-5 w-5 text-purple-600 shrink-0 mt-0.5" />
@@ -1326,34 +1507,187 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                       </Button>
                     </div>
                   </div>
-                  
-                  <div className="mt-4 border-t pt-4">
+
+                  {parsingTemplates && parsingTemplates.length > 0 && (
+                    <div className="border rounded-lg p-3">
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Layers className="h-4 w-4" />
+                        Saved Templates
+                      </h4>
+                      <div className="space-y-2">
+                        {parsingTemplates.map((template: any) => (
+                          <div key={template.id} className="flex items-center justify-between p-2 bg-muted/30 rounded">
+                            <div>
+                              <p className="text-sm font-medium">{template.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {template.fieldPositions ? `${JSON.parse(template.fieldPositions).length} fields mapped` : 'No field positions'}
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  toast({ title: 'Applying Template', description: `Re-parsing document with template "${template.name}"...` });
+                                  applyTemplateMutation.mutate(selectedInvoice.id);
+                                }}
+                                disabled={applyTemplateMutation.isPending}
+                              >
+                                {applyTemplateMutation.isPending ? (
+                                  <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Applying...</>
+                                ) : (
+                                  'Apply'
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteTemplateMutation.mutate(template.id)}
+                              >
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <Layers className="h-4 w-4" />
+                      Extracted Data
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="border rounded-lg p-3 bg-purple-50/50">
+                        <h5 className="font-medium text-sm mb-3 flex items-center gap-2 text-purple-800">
+                          <DollarSign className="h-4 w-4" />
+                          Expense Fields
+                        </h5>
+                        {analyzeEditValues && (
+                          <div className="space-y-2">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Invoice #</Label>
+                              <Input
+                                value={analyzeEditValues.invoiceNumber}
+                                onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, invoiceNumber: e.target.value })}
+                                placeholder="Invoice number"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Date</Label>
+                              <Input
+                                type="date"
+                                value={analyzeEditValues.invoiceDate}
+                                onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, invoiceDate: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Due Date</Label>
+                              <Input
+                                type="date"
+                                value={analyzeEditValues.dueDate}
+                                onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, dueDate: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Subtotal</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={analyzeEditValues.subtotal}
+                                onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, subtotal: e.target.value })}
+                                placeholder="0.00"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Tax</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={analyzeEditValues.taxAmount}
+                                onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, taxAmount: e.target.value })}
+                                placeholder="0.00"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs">Total</Label>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={analyzeEditValues.totalAmount}
+                                onChange={(e) => setAnalyzeEditValues({ ...analyzeEditValues, totalAmount: e.target.value })}
+                                placeholder="0.00"
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                            <Button
+                              size="sm"
+                              className="w-full mt-2"
+                              onClick={() => updateInvoiceMutation.mutate({
+                                invoiceId: selectedInvoice.id,
+                                data: {
+                                  ...analyzeEditValues,
+                                  documentType: selectedInvoice.documentType || 'invoice',
+                                },
+                              })}
+                              disabled={updateInvoiceMutation.isPending}
+                            >
+                              {updateInvoiceMutation.isPending ? (
+                                <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Saving...</>
+                              ) : (
+                                'Save Changes'
+                              )}
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border rounded-lg p-3 bg-teal-50/50">
+                        <h5 className="font-medium text-sm mb-3 flex items-center gap-2 text-teal-800">
+                          <Package className="h-4 w-4" />
+                          Line Items
+                        </h5>
+                        {invoiceItems && invoiceItems.length > 0 ? (
+                          <div className="space-y-2 text-sm max-h-40 overflow-y-auto">
+                            {invoiceItems.map((item: any, idx: number) => (
+                              <div key={idx} className="border-b pb-2 last:border-b-0">
+                                <p className="font-medium truncate">{item.description}</p>
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>SKU: {item.sku || '-'}</span>
+                                  <span>Qty: {item.quantity}</span>
+                                  <span>{formatCurrency(item.totalPrice)}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground">No line items parsed yet</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4">
                     {!showTemplateMapping ? (
-                      <div className="flex flex-col items-center gap-2 py-4 text-center">
-                        <MousePointer2 className="h-6 w-6 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground">
-                          Create reusable templates by mapping fields on the PDF
-                        </p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowTemplateMapping(true)}
-                        >
-                          <Layers className="h-4 w-4 mr-2" />
-                          Enable Template Mapping
+                      <div className="flex flex-col items-center gap-2 py-3 text-center">
+                        <MousePointer2 className="h-5 w-5 text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">Create reusable templates by mapping fields directly on the PDF</p>
+                        <Button variant="outline" size="sm" onClick={() => setShowTemplateMapping(true)}>
+                          <Layers className="h-4 w-4 mr-2" /> Visual Template Mapping
                         </Button>
                       </div>
                     ) : (
                       <>
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-medium">Template Mapping</h4>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowTemplateMapping(false)}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            Close
+                          <h4 className="text-sm font-medium">Visual Template Mapping</h4>
+                          <Button variant="ghost" size="sm" onClick={() => setShowTemplateMapping(false)}>
+                            <XCircle className="h-4 w-4 mr-1" /> Close
                           </Button>
                         </div>
                         <PdfFieldSelector
@@ -1362,12 +1696,10 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                           vendorId={selectedInvoice.vendorId}
                           invoiceId={selectedInvoice.id}
                           onFieldsSelected={(fields) => {
-                            toast({
-                              title: 'Fields Mapped',
-                              description: `${fields.length} field(s) have been mapped and saved as a template.`
-                            });
+                            toast({ title: 'Fields Mapped', description: `${fields.length} field(s) have been mapped and saved as a template.` });
                             setShowTemplateMapping(false);
                             queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices', selectedInvoice.id] });
+                            queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/parsing-templates', vendorId] });
                           }}
                         />
                       </>
@@ -1380,110 +1712,104 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
                     <div className="flex items-center justify-between">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <FileCode className="h-4 w-4" />
-                        Extracted Text
+                        Interactive Text Extraction
                       </h4>
-                      {selectedInvoice.rawText && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
+                      <div className="flex gap-2">
+                        {selectedInvoice.rawText && (
+                          <Button variant="outline" size="sm" onClick={() => {
                             navigator.clipboard.writeText(selectedInvoice.rawText || '');
                             toast({ title: 'Copied', description: 'Raw text copied to clipboard' });
-                          }}
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copy
-                        </Button>
-                      )}
-                    </div>
-                    {selectedInvoice.rawText ? (
-                      <ScrollArea className="h-64 w-full rounded-md border bg-muted/30 p-3">
-                        <pre className="text-xs whitespace-pre-wrap font-mono">{selectedInvoice.rawText}</pre>
-                      </ScrollArea>
-                    ) : (
-                      <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
-                        <FileCode className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                        <p className="text-sm">No text has been extracted yet.</p>
-                        <p className="text-xs mt-1">Click "Re-parse Document" to extract text from the PDF.</p>
-                      </div>
-                    )}
-                    {selectedInvoice.parseErrors && (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <p className="text-sm font-medium text-red-800 flex items-center gap-2">
-                          <XCircle className="h-4 w-4" />
-                          Parsing Errors
-                        </p>
-                        <p className="text-xs text-red-700 mt-1">{selectedInvoice.parseErrors}</p>
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="fields" className="mt-4">
-                  <div className="space-y-4">
-                    <h4 className="text-sm font-medium flex items-center gap-2">
-                      <Layers className="h-4 w-4" />
-                      Field Mappings for Expense & Inventory
-                    </h4>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="border rounded-lg p-4 bg-purple-50/50">
-                        <h5 className="font-medium text-sm mb-3 flex items-center gap-2 text-purple-800">
-                          <DollarSign className="h-4 w-4" />
-                          Expense Fields
-                        </h5>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Date:</span>
-                            <span className="font-medium">{selectedInvoice.invoiceDate || '-'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Amount:</span>
-                            <span className="font-medium">{formatCurrency(selectedInvoice.totalAmount)}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Category:</span>
-                            <span className="font-medium">Chemicals & Supplies</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Description:</span>
-                            <span className="font-medium text-xs">Invoice {selectedInvoice.invoiceNumber || 'N/A'}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="border rounded-lg p-4 bg-teal-50/50">
-                        <h5 className="font-medium text-sm mb-3 flex items-center gap-2 text-teal-800">
-                          <Package className="h-4 w-4" />
-                          Inventory Fields
-                        </h5>
-                        {invoiceItems && invoiceItems.length > 0 ? (
-                          <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
-                            {invoiceItems.map((item, idx) => (
-                              <div key={idx} className="border-b pb-2 last:border-b-0">
-                                <p className="font-medium truncate">{item.description}</p>
-                                <div className="flex justify-between text-xs text-muted-foreground">
-                                  <span>SKU: {item.sku || '-'}</span>
-                                  <span>Qty: {item.quantity}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">No line items parsed</p>
+                          }}>
+                            <Copy className="h-3 w-3 mr-1" /> Copy
+                          </Button>
                         )}
                       </div>
                     </div>
 
-                    <Separator />
-
-                    <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-lg">
-                      <p className="font-medium mb-1">How Field Mapping Works:</p>
-                      <ul className="list-disc list-inside space-y-1">
-                        <li><strong>Process to Expense:</strong> Creates an expense record using invoice date, total amount, and vendor info</li>
-                        <li><strong>Process to Inventory:</strong> Matches line items by SKU or creates new inventory items with quantity and pricing</li>
-                      </ul>
+                    <div className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950/30 p-2 rounded border border-blue-200 dark:border-blue-800">
+                      <MousePointer2 className="h-3 w-3 inline mr-1" />
+                      Highlight text below and tag it as a field type to extract data from the document.
                     </div>
+
+                    {textFieldTags.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-medium">Tagged Fields ({textFieldTags.length})</h5>
+                          <div className="flex gap-2">
+                            <Button variant="outline" size="sm" onClick={() => setTextFieldTags([])}>
+                              Clear Tags
+                            </Button>
+                            <Button size="sm" onClick={applyTaggedFieldsToInvoice} disabled={updateInvoiceMutation.isPending}>
+                              {updateInvoiceMutation.isPending ? <><Loader2 className="h-3 w-3 mr-1 animate-spin" /> Applying...</> : 'Apply to Document'}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {textFieldTags.map(tag => {
+                            const tagType = FIELD_TAG_TYPES.find(t => t.value === tag.fieldType);
+                            return (
+                              <Badge key={tag.id} variant="secondary" className={`${tagType?.color} py-1 px-2`}>
+                                {tagType?.label}: <span className="font-normal ml-1">"{tag.text.substring(0, 30)}{tag.text.length > 30 ? '...' : ''}"</span>
+                                <button onClick={() => setTextFieldTags(prev => prev.filter(t => t.id !== tag.id))} className="ml-2 hover:text-destructive">
+                                  <XCircle className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedInvoice.rawText ? (
+                      <div className="relative" ref={rawTextRef}>
+                        {showFieldPopover && currentSelection && (
+                          <div
+                            className="absolute z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border p-2 flex flex-wrap gap-1"
+                            style={{
+                              left: `${Math.max(0, popoverPosition.x - 100)}px`,
+                              top: `${Math.max(0, popoverPosition.y - 40)}px`,
+                              transform: 'translateY(-100%)',
+                            }}
+                          >
+                            <span className="text-xs text-muted-foreground w-full mb-1">Tag as:</span>
+                            {FIELD_TAG_TYPES.map(type => (
+                              <Button
+                                key={type.value}
+                                variant="outline"
+                                size="sm"
+                                className={`text-xs h-7 ${type.color}`}
+                                onClick={() => applyFieldTag(type.value)}
+                              >
+                                {type.label}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                        <ScrollArea className="h-64 w-full rounded-md border bg-muted/30 p-3">
+                          <pre
+                            className="text-xs whitespace-pre-wrap font-mono select-text cursor-text"
+                            onMouseUp={handleTextSelection}
+                          >
+                            {renderHighlightedText(selectedInvoice.rawText)}
+                          </pre>
+                        </ScrollArea>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
+                        <FileCode className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                        <p className="text-sm">No text has been extracted yet.</p>
+                        <p className="text-xs mt-1">Use the Analyze & Map tab to extract text from the document.</p>
+                      </div>
+                    )}
+
+                    {selectedInvoice.parseErrors && (
+                      <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-sm font-medium text-red-800 flex items-center gap-2">
+                          <XCircle className="h-4 w-4" /> Parsing Errors
+                        </p>
+                        <p className="text-xs text-red-700 mt-1">{selectedInvoice.parseErrors}</p>
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </Tabs>

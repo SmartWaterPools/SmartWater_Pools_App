@@ -92,6 +92,9 @@ Preferred communication style: Simple, everyday language.
     - Slightly reduces confidence score for OCR results
   - Inventory Routing: Map parsed line items to inventory (match by SKU or create new items)
   - Expense Routing: Create expense records from invoice totals with vendor linkage
+  - AI-Powered Extraction: OpenAI-based document field extraction with auto-population of mapped fields
+  - Interactive Raw Text: Highlight/select text and tag as field types (Invoice #, Date, Total, etc.) to populate document data
+  - Template Management: Save, browse, apply, and delete parsing templates per vendor for reusable field mapping
   - Status Tracking: Track parsing confidence, review status, and processing flags
     - "processed" status for high confidence (>= 50%)
     - "needs_review" status for low confidence (< 50%)
