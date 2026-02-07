@@ -14,18 +14,24 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory summary statistics
    * GET /api/inventory/summary
    */
-  router.get('/summary', isAuthenticated, async (_req: Request, res: Response) => {
+  router.get('/summary', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      // Get counts from various inventory entities
-      const items = await storage.getAllInventoryItems();
-      const warehouses = await storage.getAllWarehouses();
-      const vehicles = await storage.getAllTechnicianVehicles();
-      const lowStockItems = await storage.getLowStockItems();
+      const organizationId = req.user.organizationId;
       
-      // Get pending transfers
-      const transfers = await storage.getInventoryTransfersByStatus('pending');
+      const items = await storage.getInventoryItemsByOrganizationId(organizationId);
+      const warehouses = await storage.getWarehousesByOrganizationId(organizationId);
+      const vehicles = await storage.getTechnicianVehiclesByOrganizationId(organizationId);
       
-      // Build summary object
+      const lowStockItems = items.filter((item: any) => {
+        const qty = parseFloat(String(item.quantity || "0"));
+        const minStock = item.minimumStock || 0;
+        const reorderPoint = item.reorderPoint || 0;
+        const threshold = Math.max(minStock, reorderPoint);
+        return threshold > 0 && qty <= threshold;
+      });
+      
+      const transfers = await storage.getInventoryTransfersByStatusAndOrganization('pending', organizationId);
+      
       const summary = {
         totalItems: items.length,
         totalWarehouses: warehouses.length,
@@ -173,9 +179,17 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get low stock inventory items
    * GET /api/inventory/items/low-stock
    */
-  router.get('/items/low-stock', isAuthenticated, async (_req: Request, res: Response) => {
+  router.get('/items/low-stock', isAuthenticated, async (req: Request, res: Response) => {
     try {
-      const items = await storage.getLowStockItems();
+      const organizationId = req.user.organizationId;
+      const allItems = await storage.getInventoryItemsByOrganizationId(organizationId);
+      const items = allItems.filter((item: any) => {
+        const qty = parseFloat(String(item.quantity || "0"));
+        const minStock = item.minimumStock || 0;
+        const reorderPoint = item.reorderPoint || 0;
+        const threshold = Math.max(minStock, reorderPoint);
+        return threshold > 0 && qty <= threshold;
+      });
       res.json(items);
     } catch (error: any) {
       console.error('Error fetching low stock items:', error);

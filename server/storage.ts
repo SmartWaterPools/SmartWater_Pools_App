@@ -75,10 +75,6 @@ export interface IStorage {
   // Additional methods needed by various routes
   getSubscriptionPlan?(planId: number): Promise<any>;
   getInventoryItemsByOrganizationId?(organizationId: number): Promise<any[]>;
-  getAllInventoryItems?(): Promise<any[]>;
-  getAllWarehouses(): Promise<any[]>;
-  getAllTechnicianVehicles(): Promise<any[]>;
-  getLowStockItems(): Promise<any[]>;
   getInventoryTransfersByStatus(status: string): Promise<any[]>;
   getInventoryItem?(id: number): Promise<any>;
   getBazzaRoutesByTechnicianId?(technicianId: number): Promise<any[]>;
@@ -1673,10 +1669,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Warehouse operations
-  async getAllWarehouses(): Promise<any[]> {
-    return db.select().from(warehouses);
-  }
-
   async getWarehousesByOrganizationId(organizationId: number): Promise<any[]> {
     return db.select().from(warehouses).where(eq(warehouses.organizationId, organizationId));
   }
@@ -1702,10 +1694,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Technician Vehicle operations
-  async getAllTechnicianVehicles(): Promise<any[]> {
-    return db.select().from(technicianVehicles);
-  }
-
   async getTechnicianVehiclesByOrganizationId(organizationId: number): Promise<any[]> {
     return db.select().from(technicianVehicles).where(eq(technicianVehicles.organizationId, organizationId));
   }
@@ -1798,17 +1786,41 @@ export class DatabaseStorage implements IStorage {
     return db.select().from(inventoryTransfers).where(eq(inventoryTransfers.status, status));
   }
 
-  async getInventoryTransfersByStatusAndOrganization(status: string, _organizationId: number): Promise<any[]> {
-    return db.select().from(inventoryTransfers).where(eq(inventoryTransfers.status, status));
+  async getInventoryTransfersByStatusAndOrganization(status: string, organizationId: number): Promise<any[]> {
+    const orgWarehouses = await db.select().from(warehouses).where(eq(warehouses.organizationId, organizationId));
+    const orgVehicles = await db.select().from(technicianVehicles).where(eq(technicianVehicles.organizationId, organizationId));
+    const warehouseIds = orgWarehouses.map(w => w.id);
+    const vehicleIds = orgVehicles.map(v => v.id);
+
+    const allTransfers = await db.select().from(inventoryTransfers).where(eq(inventoryTransfers.status, status));
+    return allTransfers.filter(t => {
+      const sourceMatch = (t.sourceType === 'warehouse' && warehouseIds.includes(t.sourceId)) ||
+                          (t.sourceType === 'vehicle' && vehicleIds.includes(t.sourceId));
+      const destMatch = (t.destinationType === 'warehouse' && warehouseIds.includes(t.destinationId)) ||
+                        (t.destinationType === 'vehicle' && vehicleIds.includes(t.destinationId));
+      return sourceMatch || destMatch;
+    });
   }
 
-  async getInventoryTransfersByDateAndOrganization(startDate: Date, endDate: Date, _organizationId: number): Promise<any[]> {
-    return db.select().from(inventoryTransfers).where(
+  async getInventoryTransfersByDateAndOrganization(startDate: Date, endDate: Date, organizationId: number): Promise<any[]> {
+    const orgWarehouses = await db.select().from(warehouses).where(eq(warehouses.organizationId, organizationId));
+    const orgVehicles = await db.select().from(technicianVehicles).where(eq(technicianVehicles.organizationId, organizationId));
+    const warehouseIds = orgWarehouses.map(w => w.id);
+    const vehicleIds = orgVehicles.map(v => v.id);
+
+    const allTransfers = await db.select().from(inventoryTransfers).where(
       and(
         gte(inventoryTransfers.requestedAt, startDate),
         lte(inventoryTransfers.requestedAt, endDate)
       )
     );
+    return allTransfers.filter(t => {
+      const sourceMatch = (t.sourceType === 'warehouse' && warehouseIds.includes(t.sourceId)) ||
+                          (t.sourceType === 'vehicle' && vehicleIds.includes(t.sourceId));
+      const destMatch = (t.destinationType === 'warehouse' && warehouseIds.includes(t.destinationId)) ||
+                        (t.destinationType === 'vehicle' && vehicleIds.includes(t.destinationId));
+      return sourceMatch || destMatch;
+    });
   }
 
   async completeInventoryTransfer(id: number, userId: number): Promise<any> {
@@ -1849,12 +1861,6 @@ export class DatabaseStorage implements IStorage {
     );
   }
 
-  // Low stock items
-  async getLowStockItems(): Promise<any[]> {
-    return db.select().from(inventoryItems).where(
-      sql`CAST(${inventoryItems.quantity} AS INTEGER) <= ${inventoryItems.minimumStock} AND ${inventoryItems.minimumStock} > 0`
-    );
-  }
 }
 
 export const storage = new DatabaseStorage();
