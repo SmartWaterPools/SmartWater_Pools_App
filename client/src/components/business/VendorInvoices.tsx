@@ -194,6 +194,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   const [popoverPosition, setPopoverPosition] = useState({ x: 0, y: 0 });
   const [currentSelection, setCurrentSelection] = useState<{ text: string; start: number; end: number } | null>(null);
   const rawTextRef = useRef<HTMLDivElement>(null);
+  const tagSaveQueue = useRef<Promise<void>>(Promise.resolve());
   const [editValues, setEditValues] = useState<{
     invoiceNumber: string;
     invoiceDate: string;
@@ -603,7 +604,7 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
   };
 
   const applyFieldTag = (fieldType: string) => {
-    if (!currentSelection) return;
+    if (!currentSelection || !selectedInvoice) return;
     const newTag = {
       id: `tag-${Date.now()}`,
       fieldType,
@@ -623,6 +624,86 @@ export function VendorInvoices({ vendorId, vendorEmail, emailToAnalyze, onEmailA
       });
     } else {
       setTextFieldTags(prev => [...prev.filter(t => t.fieldType !== fieldType), newTag]);
+
+      const taggedText = currentSelection.text;
+      const fieldMap: Record<string, string> = {
+        invoice_number: 'invoiceNumber',
+        invoice_date: 'invoiceDate',
+        due_date: 'dueDate',
+        po_number: 'poNumber',
+        subtotal: 'subtotal',
+        tax: 'taxAmount',
+        total: 'totalAmount',
+      };
+      const fieldKey = fieldMap[fieldType];
+      if (fieldKey) {
+        const isCurrency = ['subtotal', 'taxAmount', 'totalAmount'].includes(fieldKey);
+        const cleanValue = isCurrency ? taggedText.replace(/[^0-9.]/g, '') : taggedText.trim();
+
+        if (isCurrency && (cleanValue === '' || isNaN(parseFloat(cleanValue)))) {
+          toast({ title: 'Invalid number', description: 'Could not parse a valid number from the selected text.', variant: 'destructive' });
+          setShowFieldPopover(false);
+          window.getSelection()?.removeAllRanges();
+          return;
+        }
+
+        setAnalyzeEditValues(prev => prev ? { ...prev, [fieldKey]: cleanValue } : null);
+        if (editValues) {
+          setEditValues(prev => prev ? { ...prev, [fieldKey]: cleanValue } : null);
+        }
+
+        const previousInvoice = { ...selectedInvoice };
+        const updatedInvoice = { ...selectedInvoice };
+        if (isCurrency) {
+          (updatedInvoice as any)[fieldKey] = Math.round(parseFloat(cleanValue) * 100);
+        } else {
+          (updatedInvoice as any)[fieldKey] = cleanValue || null;
+        }
+        setSelectedInvoice(updatedInvoice);
+
+        const patchData: any = {
+          invoiceNumber: updatedInvoice.invoiceNumber || null,
+          invoiceDate: updatedInvoice.invoiceDate || null,
+          dueDate: updatedInvoice.dueDate || null,
+          poNumber: updatedInvoice.poNumber || null,
+          totalAmount: updatedInvoice.totalAmount,
+          subtotal: updatedInvoice.subtotal,
+          taxAmount: updatedInvoice.taxAmount,
+          documentType: updatedInvoice.documentType || 'invoice',
+        };
+        const invoiceId = selectedInvoice.id;
+        tagSaveQueue.current = tagSaveQueue.current.then(() =>
+          apiRequest('PATCH', `/api/vendor-invoices/${invoiceId}`, patchData)
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ['/api/vendor-invoices/by-vendor', vendorId] });
+            })
+            .catch(() => {
+              setSelectedInvoice(previousInvoice);
+              setAnalyzeEditValues({
+                invoiceNumber: previousInvoice.invoiceNumber || '',
+                invoiceDate: previousInvoice.invoiceDate || '',
+                dueDate: previousInvoice.dueDate || '',
+                poNumber: previousInvoice.poNumber || '',
+                totalAmount: previousInvoice.totalAmount ? (previousInvoice.totalAmount / 100).toFixed(2) : '',
+                subtotal: previousInvoice.subtotal ? (previousInvoice.subtotal / 100).toFixed(2) : '',
+                taxAmount: previousInvoice.taxAmount ? (previousInvoice.taxAmount / 100).toFixed(2) : '',
+              });
+              if (editValues) {
+                setEditValues({
+                  invoiceNumber: previousInvoice.invoiceNumber || '',
+                  invoiceDate: previousInvoice.invoiceDate || '',
+                  dueDate: previousInvoice.dueDate || '',
+                  poNumber: previousInvoice.poNumber || '',
+                  totalAmount: previousInvoice.totalAmount ? (previousInvoice.totalAmount / 100).toFixed(2) : '',
+                  subtotal: previousInvoice.subtotal ? (previousInvoice.subtotal / 100).toFixed(2) : '',
+                  taxAmount: previousInvoice.taxAmount ? (previousInvoice.taxAmount / 100).toFixed(2) : '',
+                  documentType: previousInvoice.documentType || 'invoice',
+                });
+              }
+              toast({ title: 'Failed to save tagged field', variant: 'destructive' });
+            })
+        );
+      }
     }
     setShowFieldPopover(false);
     window.getSelection()?.removeAllRanges();
