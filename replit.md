@@ -128,7 +128,13 @@ Preferred communication style: Simple, everyday language.
 - **Scandit**: Barcode scanning for inventory.
 
 ## Communication Services
-- **Gmail Integration**: Per-user OAuth-based Gmail integration for email sync, compose/send, and 6 types of automated notifications. Supports auto-linking to entities.
+- **Gmail Integration**: Per-user OAuth-based Gmail integration for email sync, compose/send, and 6 types of automated notifications. Supports auto-linking to entities. Features include:
+  - Dynamic OAuth callback URLs (not hardcoded)
+  - Gmail scopes requested during login for seamless access
+  - Token validation on connection status check (verifies actual API access, not just token existence)
+  - Automatic detection and handling of "Insufficient Permission" errors (clears stale tokens, prompts reconnection)
+  - "Switch Email" button allows users to connect a different Gmail account without logging out of the app
+  - Separate connect-gmail flow with `prompt: consent` for fresh permissions; login flow uses `prompt: select_account` for convenience
 - **RingCentral SMS Integration**: Multi-tenant OAuth-based SMS service for notifications, client messaging, and custom alerts. Includes SMS templates and auto-refresh for tokens.
 
 ## Deployment Platform
