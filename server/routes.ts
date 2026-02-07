@@ -19,6 +19,7 @@ import googleCalendarRoutes from "./routes/google-calendar-routes";
 import businessRoutes from "./routes/business-routes";
 import invoiceRoutes from "./routes/invoice-routes";
 import vendorInvoiceRoutes from "./routes/vendor-invoice-routes";
+import registerInventoryRoutes from "./routes/inventory-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops } from "@shared/schema";
 
@@ -61,6 +62,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount business routes
   app.use('/api/business', businessRoutes);
+
+  // Mount standalone inventory routes
+  const inventoryRouter = Router();
+  registerInventoryRoutes(inventoryRouter, storage);
+  app.use('/api/inventory', inventoryRouter);
 
   // Stripe webhook needs raw body for signature verification
   const { raw } = await import('express');
