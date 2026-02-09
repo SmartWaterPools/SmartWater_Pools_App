@@ -177,7 +177,7 @@ export function MaintenanceMapView({
       title: (m.client as any)?.name || m.client?.user?.name || 'Client',
       address: (m.client as any)?.address || m.client?.user?.address || m.client?.client?.address || 'No address',
       date: m.scheduleDate,
-      status: m.status,
+      status: (m as any).isRouted ? 'routed' : m.status,
       latitude: (m.client as any)?.latitude,
       longitude: (m.client as any)?.longitude,
       technicianName: (m.technician as any)?.name || m.technician?.user?.name,

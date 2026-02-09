@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { Router } from "express";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import authRoutes from "./routes/auth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
 import documentRoutes from "./routes/document-routes";
@@ -1290,6 +1290,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const organizationMaintenances = await storage.getMaintenancesByClientIds(clientIds);
       
+      const maintenanceIds = organizationMaintenances.map(m => m.id);
+      let routedMaintenanceIds = new Set<number>();
+      if (maintenanceIds.length > 0) {
+        const assignments = await db.select({ maintenanceId: bazzaMaintenanceAssignments.maintenanceId })
+          .from(bazzaMaintenanceAssignments)
+          .where(inArray(bazzaMaintenanceAssignments.maintenanceId, maintenanceIds));
+        routedMaintenanceIds = new Set(assignments.map(a => a.maintenanceId));
+      }
+      
       const formattedMaintenances = await Promise.all(organizationMaintenances.map(async (maintenance) => {
         const clientUser = await storage.getUser(maintenance.clientId);
         const technician = maintenance.technicianId ? await storage.getUser(maintenance.technicianId) : null;
@@ -1329,6 +1338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         return {
           ...maintenance,
+          isRouted: routedMaintenanceIds.has(maintenance.id),
           client: clientUser ? {
             id: clientUser.id,
             name: clientUser.name,

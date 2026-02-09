@@ -74,6 +74,8 @@ export function getStatusClasses(status: string): { bg: string; text: string } {
       return { bg: 'bg-green-100', text: 'text-green-800' };
     case 'cancelled':
       return { bg: 'bg-red-100', text: 'text-red-800' };
+    case 'routed':
+      return { bg: 'bg-purple-100', text: 'text-purple-800' };
     default:
       return { bg: 'bg-gray-100', text: 'text-gray-800' };
   }
@@ -195,9 +197,10 @@ export interface MaintenanceWithDetails {
   totalChemicalCost?: number | null;
   profitAmount?: number | null;
   profitPercentage?: number | null;
+  isRouted?: boolean;
   
   // Relations
-  client: ClientWithUser;
+  client: ClientWithUser | { id: number; name: string; email: string; phone?: string; address?: string; latitude?: number | null; longitude?: number | null };
   technician?: {
     id: number;
     userId: number;

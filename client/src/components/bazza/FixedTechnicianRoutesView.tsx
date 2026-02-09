@@ -120,7 +120,8 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       console.log(`Adding maintenance ${maintenance.id} to route ${routeId}`);
       console.log(`Maintenance client:`, maintenance.client);
       
-      if (!maintenance.client || !maintenance.client.client || !maintenance.client.client.id) {
+      const clientId = maintenance.client?.client?.id || (maintenance.client as any)?.id;
+      if (!maintenance.client || !clientId) {
         console.error("Maintenance is missing client information");
         toast({
           title: "Missing Information",
@@ -237,8 +238,8 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
           </div>
           <div>
             {maintenance.status && (
-              <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200">
-                {maintenance.status.replace('_', ' ')}
+              <Badge className={(maintenance as any).isRouted ? "bg-purple-100 text-purple-800 hover:bg-purple-200" : "bg-amber-100 text-amber-800 hover:bg-amber-200"}>
+                {((maintenance as any).isRouted ? 'routed' : maintenance.status).replace('_', ' ')}
               </Badge>
             )}
           </div>
@@ -359,7 +360,8 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
     try {
       console.log(`Dropping maintenance ${maintenanceId} onto route ${route.id}`);
       
-      if (!maintenance.client || !maintenance.client.client || !maintenance.client.client.id) {
+      const clientId = maintenance.client?.client?.id || (maintenance.client as any)?.id;
+      if (!maintenance.client || !clientId) {
         console.error("Maintenance is missing client information");
         toast({
           title: "Missing Information",
@@ -738,7 +740,8 @@ export default function TechnicianRoutesView({
         const route = filteredRoutes[0];
         const date = new Date(maintenance.scheduleDate);
         
-        if (!maintenance.client || !maintenance.client.client || !maintenance.client.client.id) {
+        const clientId = (maintenance.client as any)?.client?.id || (maintenance.client as any)?.id;
+        if (!maintenance.client || !clientId) {
           console.error(`Maintenance ${maintenance.id} is missing client information, skipping`);
           continue;
         }

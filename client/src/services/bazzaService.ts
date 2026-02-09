@@ -579,17 +579,11 @@ export const getOrCreateRouteStop = async (
       throw new Error("Cannot create route stop: maintenance has no client data");
     }
     
-    if (!maintenance.client.client) {
-      console.error("Maintenance client has no client object");
-      throw new Error("Cannot create route stop: client data is incomplete");
-    }
-    
-    if (!maintenance.client.client.id) {
+    const clientId = (maintenance.client as any)?.client?.id || (maintenance.client as any)?.id;
+    if (!clientId) {
       console.error("Maintenance client has no ID");
       throw new Error("Cannot create route stop: client has no ID");
     }
-    
-    const clientId = maintenance.client.client.id;
     
     // Try to get existing stops for this route
     const stops = await fetchRouteStops(routeId);
@@ -725,9 +719,10 @@ export const createAssignment = async (
   if (!('routeStopId' in assignmentData) && assignmentData.maintenance) {
     try {
       console.log("Creating assignment with auto stop creation for maintenance:", assignmentData.maintenanceId);
+      const _debugClientId = (assignmentData.maintenance.client as any)?.client?.id || (assignmentData.maintenance.client as any)?.id;
       console.log("Maintenance client data:", 
-        assignmentData.maintenance.client?.client?.id ? 
-        `Client ID: ${assignmentData.maintenance.client.client.id}` : 
+        _debugClientId ? 
+        `Client ID: ${_debugClientId}` : 
         "No client ID found");
       
       // First check if route exists
@@ -765,14 +760,15 @@ export const createAssignment = async (
           // Try to create a new stop just for this client instead of reusing existing stops
           console.log("Creating a dedicated stop for this client as fallback");
           
-          if (!assignmentData.maintenance || !assignmentData.maintenance.client || 
-              !assignmentData.maintenance.client.client || !assignmentData.maintenance.client.client.id) {
+          const fallbackClientId = assignmentData.maintenance ? 
+            ((assignmentData.maintenance.client as any)?.client?.id || (assignmentData.maintenance.client as any)?.id) : null;
+          if (!assignmentData.maintenance || !assignmentData.maintenance.client || !fallbackClientId) {
             console.error("Cannot create a client-specific stop: missing client information");
             throw new Error("Cannot assign maintenance: missing client information");
           }
           
           // Create a new stop specifically for this client
-          const clientId = assignmentData.maintenance.client.client.id;
+          const clientId = fallbackClientId;
           
           // Calculate proper order index for this emergency stop
           const latestStops = await fetchRouteStops(assignmentData.routeId);
