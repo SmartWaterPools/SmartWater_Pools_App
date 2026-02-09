@@ -38,21 +38,21 @@ export function AppLayout({ children }: AppLayoutProps) {
         />
         
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {/* Header with mobile menu toggle */}
-          <Header toggleMobileMenu={toggleMobileMenu} />
-          
-          {/* Tab Manager */}
-          <div className="bg-white border-b overflow-hidden">
-            <EnhancedTabManager />
+        <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+          {/* Sticky top section: Header + Tab Manager + Breadcrumbs */}
+          <div className="flex-shrink-0">
+            <Header toggleMobileMenu={toggleMobileMenu} />
+            
+            <div className="bg-white border-b overflow-hidden">
+              <EnhancedTabManager />
+            </div>
+            
+            <div className="bg-white px-4 py-2 border-b">
+              <EnhancedBreadcrumbs />
+            </div>
           </div>
           
-          {/* Breadcrumbs */}
-          <div className="bg-white px-4 py-2 border-b">
-            <EnhancedBreadcrumbs />
-          </div>
-          
-          {/* Main Content */}
+          {/* Scrollable Main Content */}
           <main className="flex-1 p-4 overflow-auto">
             {children}
           </main>
