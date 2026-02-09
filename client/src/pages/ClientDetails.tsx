@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, useLocation, Link } from 'wouter';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History, MessageSquare, FileText, DollarSign, Eye } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { MapPin, Phone, Mail, Calendar, Clock, AlertCircle, CheckCircle2, User, Droplet as DropletIcon, Settings, BarChart, Building2, Camera, Plus, ImagePlus, CalendarIcon, History, MessageSquare, FileText, DollarSign, Eye, Trash2 } from 'lucide-react';
 import { formatDate, formatCurrency, ClientWithUser, PoolEquipment, PoolImage } from '@/lib/types';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 import ClientAddressMap from '@/components/maps/ClientAddressMap';
 import { EntityEmailList } from '@/components/communications/EntityEmailList';
 import { EntitySMSList } from '@/components/communications/EntitySMSList';
@@ -108,15 +112,15 @@ export default function ClientDetails() {
     enabled: !!id
   });
   
-  // Fetch all maintenance history for this client
+  // Fetch all work orders for this client
   const {
-    data: maintenanceHistoryData,
+    data: workOrdersData,
     isLoading: isHistoryLoading
   } = useQuery({
-    queryKey: [`/api/maintenances`, id],
+    queryKey: ['/api/work-orders', 'client', id],
     queryFn: async () => {
-      const res = await fetch(`/api/maintenances?clientId=${id}`);
-      if (!res.ok) throw new Error('Failed to fetch maintenance history');
+      const res = await fetch(`/api/work-orders?clientId=${id}&includeClient=true`);
+      if (!res.ok) throw new Error('Failed to fetch work orders');
       return res.json();
     },
     enabled: !!id
@@ -143,55 +147,69 @@ export default function ClientDetails() {
     outstanding: invoicesData?.reduce((sum: number, inv: any) => ['sent', 'viewed', 'partial', 'overdue'].includes(inv.status) ? sum + (inv.amountDue || 0) : sum, 0) || 0
   };
   
-  // Process maintenance history to create service history items
-  const serviceHistory = maintenanceHistoryData?.map((maintenance: any) => {
-    // Only include completed maintenances in service history
-    if (maintenance.status !== 'completed') return null;
-    
-    // Extract water chemistry values from notes if they exist
-    let waterChemistry = { ph: null, chlorine: null, alkalinity: null };
-    let notes = maintenance.notes || '';
-    
-    // Parse service report data if it exists
-    if (notes.includes('Service Report:')) {
-      try {
-        const reportSection = notes.split('Service Report:')[1].trim();
-        
-        // Extract pH, chlorine, and alkalinity from report
-        const phMatch = reportSection.match(/pH\s*:\s*([\d.]+)/i);
-        const chlorineMatch = reportSection.match(/Chlorine\s*:\s*([\d.]+)/i);
-        const alkalinityMatch = reportSection.match(/Alkalinity\s*:\s*([\d.]+)/i);
-        
-        waterChemistry = {
-          ph: phMatch ? phMatch[1] : null,
-          chlorine: chlorineMatch ? chlorineMatch[1] : null,
-          alkalinity: alkalinityMatch ? alkalinityMatch[1] : null
-        };
-        
-        // Clean up the notes to remove technical details
-        const cleanNotes = reportSection
-          .split('\n')
-          .filter((line: string) => !line.match(/^(pH|Chlorine|Alkalinity|Date|Time|Weather)/i))
-          .join('\n')
-          .trim();
-          
-        notes = cleanNotes || 'Regular maintenance performed';
-      } catch (e) {
-        console.error('Error parsing service report:', e);
-      }
-    }
-    
+  // Process work orders to create service history items
+  const serviceHistory = workOrdersData?.map((wo: any) => {
     return {
-      id: maintenance.id,
-      date: maintenance.scheduleDate,
-      type: maintenance.type || 'Regular Maintenance',
-      category: 'maintenance',
-      notes: notes,
-      technician: maintenance.technician?.user?.name || 'Unassigned',
-      waterChemistry,
-      status: maintenance.status
+      id: wo.id,
+      date: wo.scheduledDate,
+      type: wo.title || wo.category || 'Work Order',
+      category: wo.category || 'maintenance',
+      notes: wo.description || wo.notes || '',
+      technician: wo.technician?.user?.name || 'Unassigned',
+      status: wo.status,
+      priority: wo.priority
     };
-  }).filter(Boolean); // Remove null entries
+  }) || [];
+
+  // Selection state for bulk operations
+  const [selectedServices, setSelectedServices] = useState<Set<number>>(new Set());
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState<number | null>(null);
+  const { toast } = useToast();
+
+  const deleteWorkOrderMutation = useMutation({
+    mutationFn: async (workOrderId: number) => {
+      await apiRequest('DELETE', `/api/work-orders/${workOrderId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/work-orders', 'client', id] });
+      toast({ title: 'Work order deleted successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to delete work order', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: number[]) => {
+      await Promise.all(ids.map(woId => apiRequest('DELETE', `/api/work-orders/${woId}`)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/work-orders', 'client', id] });
+      setSelectedServices(new Set());
+      toast({ title: 'Selected work orders deleted successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to delete work orders', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const toggleServiceSelection = (serviceId: number) => {
+    setSelectedServices(prev => {
+      const next = new Set(prev);
+      if (next.has(serviceId)) next.delete(serviceId);
+      else next.add(serviceId);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (services: any[]) => {
+    if (selectedServices.size === services.length) {
+      setSelectedServices(new Set());
+    } else {
+      setSelectedServices(new Set(services.map((s: any) => s.id)));
+    }
+  };
 
   // Update ExtendedClientData with the fetched equipment, images, and services
   const clientWithData: ExtendedClientData | null = client ? {
@@ -213,13 +231,13 @@ export default function ClientDetails() {
     if (imagesData) {
       console.log('Images data loaded:', imagesData);
     }
-    if (maintenanceHistoryData) {
-      console.log('Maintenance history loaded:', maintenanceHistoryData);
+    if (workOrdersData) {
+      console.log('Work orders loaded:', workOrdersData);
     }
     if (serviceHistory) {
       console.log('Service history processed:', serviceHistory);
     }
-  }, [client, equipmentData, imagesData, maintenanceHistoryData, serviceHistory]);
+  }, [client, equipmentData, imagesData, workOrdersData, serviceHistory]);
 
   if (isClientLoading) {
     return (
@@ -577,7 +595,31 @@ export default function ClientDetails() {
 
         <TabsContent value="services">
           <div className="space-y-6">
-            {/* Sub-tabs for different service types */}
+            {selectedServices.size > 0 && (
+              <div className="flex items-center gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <span className="text-sm font-medium">{selectedServices.size} item{selectedServices.size > 1 ? 's' : ''} selected</span>
+                <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" disabled={bulkDeleteMutation.isPending}>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete Selected
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {selectedServices.size} work order{selectedServices.size > 1 ? 's' : ''}?</AlertDialogTitle>
+                      <AlertDialogDescription>This action cannot be undone. The selected work orders will be permanently deleted.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => { bulkDeleteMutation.mutate(Array.from(selectedServices)); setShowBulkDeleteDialog(false); }}>Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <Button variant="outline" size="sm" onClick={() => setSelectedServices(new Set())}>Cancel</Button>
+              </div>
+            )}
+
             <Tabs defaultValue="all">
               <div className="flex justify-center w-full overflow-x-auto pb-2">
                 <TabsList className="justify-center min-w-max">
@@ -588,18 +630,36 @@ export default function ClientDetails() {
                 </TabsList>
               </div>
 
-              {/* All Services Tab */}
               <TabsContent value="all">
                 <Card className="bg-white">
                   <CardHeader>
-                    <CardTitle>Service History</CardTitle>
-                    <CardDescription>All service visits for this client</CardDescription>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle>Service History</CardTitle>
+                        <CardDescription>All work orders for this client</CardDescription>
+                      </div>
+                      {serviceHistory && serviceHistory.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedServices.size === serviceHistory.length && serviceHistory.length > 0}
+                            onCheckedChange={() => toggleSelectAll(serviceHistory)}
+                          />
+                          <span className="text-sm text-gray-500">Select All</span>
+                        </div>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
                       {serviceHistory && serviceHistory.length > 0 ? (
-                        serviceHistory.map((service: any, index: number) => (
-                          <div key={index} className="flex items-start p-4 border rounded-lg">
+                        serviceHistory.map((service: any) => (
+                          <div key={service.id} className="flex items-start p-4 border rounded-lg">
+                            <div className="flex items-center mr-3 pt-1">
+                              <Checkbox
+                                checked={selectedServices.has(service.id)}
+                                onCheckedChange={() => toggleServiceSelection(service.id)}
+                              />
+                            </div>
                             <div className="mr-4">
                               <div className={`p-3 rounded-full ${
                                 service.category === 'repair' ? 'bg-amber-100' : 
@@ -617,39 +677,57 @@ export default function ClientDetails() {
                               <div className="flex justify-between">
                                 <div>
                                   <h4 className="font-medium">{service.type}</h4>
-                                  <Badge className="mt-1" variant={
-                                    service.category === 'repair' ? 'destructive' : 
-                                    service.category === 'construction' ? 'secondary' : 
-                                    'default'
-                                  }>
-                                    {service.category || 'Maintenance'}
-                                  </Badge>
-                                </div>
-                                <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
-                              </div>
-                              <p className="text-sm text-gray-600 mt-2">{service.notes}</p>
-                              {service.waterChemistry && (service.waterChemistry.ph || service.waterChemistry.chlorine || service.waterChemistry.alkalinity) && (
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                                  {service.waterChemistry.ph && (
-                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                      <span className="text-gray-500">pH:</span> {service.waterChemistry.ph}
-                                    </div>
-                                  )}
-                                  {service.waterChemistry.chlorine && (
-                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                      <span className="text-gray-500">Chlorine:</span> {service.waterChemistry.chlorine} ppm
-                                    </div>
-                                  )}
-                                  {service.waterChemistry.alkalinity && (
-                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                      <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry.alkalinity} ppm
-                                    </div>
-                                  )}
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Technician:</span> {service.technician}
+                                  <div className="flex gap-1 mt-1">
+                                    <Badge variant={
+                                      service.category === 'repair' ? 'destructive' : 
+                                      service.category === 'construction' ? 'secondary' : 
+                                      'default'
+                                    }>
+                                      {service.category || 'Maintenance'}
+                                    </Badge>
+                                    <Badge variant="outline" className={
+                                      service.status === 'completed' ? 'border-green-500 text-green-700' :
+                                      service.status === 'in_progress' ? 'border-blue-500 text-blue-700' :
+                                      service.status === 'scheduled' ? 'border-purple-500 text-purple-700' :
+                                      service.status === 'cancelled' ? 'border-red-500 text-red-700' :
+                                      'border-gray-500 text-gray-700'
+                                    }>
+                                      {service.status}
+                                    </Badge>
                                   </div>
                                 </div>
-                              )}
+                                <div className="flex items-start gap-2">
+                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                  <AlertDialog open={deleteTargetId === service.id} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+                                    <AlertDialogTrigger asChild>
+                                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-600" onClick={() => setDeleteTargetId(service.id)}>
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                      <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete work order?</AlertDialogTitle>
+                                        <AlertDialogDescription>This action cannot be undone. "{service.type}" will be permanently deleted.</AlertDialogDescription>
+                                      </AlertDialogHeader>
+                                      <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => { deleteWorkOrderMutation.mutate(service.id); setDeleteTargetId(null); }}>Delete</AlertDialogAction>
+                                      </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                  </AlertDialog>
+                                </div>
+                              </div>
+                              <p className="text-sm text-gray-600 mt-2">{service.notes}</p>
+                              <div className="flex gap-2 mt-3">
+                                <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                  <span className="text-gray-500">Technician:</span> {service.technician}
+                                </div>
+                                {service.priority && (
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Priority:</span> {service.priority}
+                                  </div>
+                                )}
+                              </div>
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
@@ -688,11 +766,14 @@ export default function ClientDetails() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {serviceHistory && serviceHistory.length > 0 ? (
+                      {serviceHistory && serviceHistory.filter((s: any) => s.category === 'maintenance').length > 0 ? (
                         serviceHistory
                           .filter((s: any) => s.category === 'maintenance')
-                          .map((service: any, index: number) => (
-                            <div key={index} className="flex items-start p-4 border rounded-lg">
+                          .map((service: any) => (
+                            <div key={service.id} className="flex items-start p-4 border rounded-lg">
+                              <div className="flex items-center mr-3 pt-1">
+                                <Checkbox checked={selectedServices.has(service.id)} onCheckedChange={() => toggleServiceSelection(service.id)} />
+                              </div>
                               <div className="mr-4">
                                 <div className="bg-blue-100 p-3 rounded-full">
                                   <DropletIcon className="h-5 w-5 text-blue-600" />
@@ -700,40 +781,30 @@ export default function ClientDetails() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex justify-between">
-                                  <h4 className="font-medium">{service.type || 'Regular Maintenance'}</h4>
-                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                  <div>
+                                    <h4 className="font-medium">{service.type || 'Regular Maintenance'}</h4>
+                                    <Badge variant="outline" className={service.status === 'completed' ? 'border-green-500 text-green-700' : service.status === 'in_progress' ? 'border-blue-500 text-blue-700' : 'border-gray-500 text-gray-700'}>{service.status}</Badge>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                    <AlertDialog open={deleteTargetId === service.id} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-600" onClick={() => setDeleteTargetId(service.id)}><Trash2 className="h-4 w-4" /></Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Delete work order?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { deleteWorkOrderMutation.mutate(service.id); setDeleteTargetId(null); }}>Delete</AlertDialogAction></AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
-                                {service.waterChemistry && (service.waterChemistry.ph || service.waterChemistry.chlorine || service.waterChemistry.alkalinity) && (
-                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
-                                    {service.waterChemistry.ph && (
-                                      <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                        <span className="text-gray-500">pH:</span> {service.waterChemistry.ph}
-                                      </div>
-                                    )}
-                                    {service.waterChemistry.chlorine && (
-                                      <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                        <span className="text-gray-500">Chlorine:</span> {service.waterChemistry.chlorine} ppm
-                                      </div>
-                                    )}
-                                    {service.waterChemistry.alkalinity && (
-                                      <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                        <span className="text-gray-500">Alkalinity:</span> {service.waterChemistry.alkalinity} ppm
-                                      </div>
-                                    )}
-                                    <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                      <span className="text-gray-500">Technician:</span> {service.technician}
-                                    </div>
+                                <div className="flex gap-2 mt-3">
+                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
+                                    <span className="text-gray-500">Technician:</span> {service.technician}
                                   </div>
-                                )}
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="mt-2"
-                                  onClick={() => setLocation(`/service-report/${service.id}`)}
-                                >
-                                  View Full Report
-                                </Button>
+                                </div>
+                                <Button variant="ghost" size="sm" className="mt-2" onClick={() => setLocation(`/service-report/${service.id}`)}>View Full Report</Button>
                               </div>
                             </div>
                         ))
@@ -741,13 +812,7 @@ export default function ClientDetails() {
                         <div className="text-center py-8">
                           <History className="h-12 w-12 mx-auto text-blue-200 mb-2" />
                           <p className="text-gray-500">No maintenance history available</p>
-                          <Button 
-                            variant="outline" 
-                            className="mt-4"
-                            onClick={() => setLocation('/maintenance')}
-                          >
-                            Schedule Maintenance
-                          </Button>
+                          <Button variant="outline" className="mt-4" onClick={() => setLocation('/maintenance')}>Schedule Maintenance</Button>
                         </div>
                       )}
                     </div>
@@ -767,8 +832,11 @@ export default function ClientDetails() {
                       {serviceHistory && serviceHistory.filter((s: any) => s.category === 'repair').length > 0 ? (
                         serviceHistory
                           .filter((s: any) => s.category === 'repair')
-                          .map((service: any, index: number) => (
-                            <div key={index} className="flex items-start p-4 border rounded-lg">
+                          .map((service: any) => (
+                            <div key={service.id} className="flex items-start p-4 border rounded-lg">
+                              <div className="flex items-center mr-3 pt-1">
+                                <Checkbox checked={selectedServices.has(service.id)} onCheckedChange={() => toggleServiceSelection(service.id)} />
+                              </div>
                               <div className="mr-4">
                                 <div className="bg-amber-100 p-3 rounded-full">
                                   <Settings className="h-5 w-5 text-amber-600" />
@@ -776,26 +844,30 @@ export default function ClientDetails() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex justify-between">
-                                  <h4 className="font-medium">{service.type || 'Equipment Repair'}</h4>
-                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                  <div>
+                                    <h4 className="font-medium">{service.type || 'Equipment Repair'}</h4>
+                                    <Badge variant="outline" className={service.status === 'completed' ? 'border-green-500 text-green-700' : service.status === 'in_progress' ? 'border-blue-500 text-blue-700' : 'border-gray-500 text-gray-700'}>{service.status}</Badge>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                    <AlertDialog open={deleteTargetId === service.id} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-600" onClick={() => setDeleteTargetId(service.id)}><Trash2 className="h-4 w-4" /></Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Delete work order?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { deleteWorkOrderMutation.mutate(service.id); setDeleteTargetId(null); }}>Delete</AlertDialogAction></AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
-                                <div className="flex flex-col xs:flex-row gap-2 mt-3">
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Cost:</span> {formatCurrency(service.cost || 0)}
-                                  </div>
+                                <div className="flex gap-2 mt-3">
                                   <div className="text-xs bg-gray-100 p-2 rounded-md">
                                     <span className="text-gray-500">Technician:</span> {service.technician}
                                   </div>
                                 </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="mt-2"
-                                  onClick={() => setLocation(`/service-report/${service.id}`)}
-                                >
-                                  View Full Report
-                                </Button>
+                                <Button variant="ghost" size="sm" className="mt-2" onClick={() => setLocation(`/service-report/${service.id}`)}>View Full Report</Button>
                               </div>
                             </div>
                         ))
@@ -803,13 +875,7 @@ export default function ClientDetails() {
                         <div className="text-center py-8">
                           <Settings className="h-12 w-12 mx-auto text-amber-200 mb-2" />
                           <p className="text-gray-500">No repair history available</p>
-                          <Button 
-                            variant="outline" 
-                            className="mt-4"
-                            onClick={() => setLocation('/repairs')}
-                          >
-                            Request Repair
-                          </Button>
+                          <Button variant="outline" className="mt-4" onClick={() => setLocation('/repairs')}>Request Repair</Button>
                         </div>
                       )}
                     </div>
@@ -829,8 +895,11 @@ export default function ClientDetails() {
                       {serviceHistory && serviceHistory.filter((s: any) => s.category === 'construction').length > 0 ? (
                         serviceHistory
                           .filter((s: any) => s.category === 'construction')
-                          .map((service: any, index: number) => (
-                            <div key={index} className="flex items-start p-4 border rounded-lg">
+                          .map((service: any) => (
+                            <div key={service.id} className="flex items-start p-4 border rounded-lg">
+                              <div className="flex items-center mr-3 pt-1">
+                                <Checkbox checked={selectedServices.has(service.id)} onCheckedChange={() => toggleServiceSelection(service.id)} />
+                              </div>
                               <div className="mr-4">
                                 <div className="bg-indigo-100 p-3 rounded-full">
                                   <Building2 className="h-5 w-5 text-indigo-600" />
@@ -838,26 +907,30 @@ export default function ClientDetails() {
                               </div>
                               <div className="flex-1">
                                 <div className="flex justify-between">
-                                  <h4 className="font-medium">{service.type || 'Construction'}</h4>
-                                  <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                  <div>
+                                    <h4 className="font-medium">{service.type || 'Construction'}</h4>
+                                    <Badge variant="outline" className={service.status === 'completed' ? 'border-green-500 text-green-700' : service.status === 'in_progress' ? 'border-blue-500 text-blue-700' : 'border-gray-500 text-gray-700'}>{service.status}</Badge>
+                                  </div>
+                                  <div className="flex items-start gap-2">
+                                    <span className="text-sm text-gray-500">{formatDate(service.date)}</span>
+                                    <AlertDialog open={deleteTargetId === service.id} onOpenChange={(open) => { if (!open) setDeleteTargetId(null); }}>
+                                      <AlertDialogTrigger asChild>
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-400 hover:text-red-600" onClick={() => setDeleteTargetId(service.id)}><Trash2 className="h-4 w-4" /></Button>
+                                      </AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Delete work order?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => { deleteWorkOrderMutation.mutate(service.id); setDeleteTargetId(null); }}>Delete</AlertDialogAction></AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
                                 </div>
                                 <p className="text-sm text-gray-600 mt-1">{service.notes}</p>
-                                <div className="flex flex-col xs:flex-row gap-2 mt-3">
-                                  <div className="text-xs bg-gray-100 p-2 rounded-md">
-                                    <span className="text-gray-500">Project Value:</span> {formatCurrency(service.cost || 0)}
-                                  </div>
+                                <div className="flex gap-2 mt-3">
                                   <div className="text-xs bg-gray-100 p-2 rounded-md">
                                     <span className="text-gray-500">Supervisor:</span> {service.technician}
                                   </div>
                                 </div>
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="mt-2"
-                                  onClick={() => setLocation(`/service-report/${service.id}`)}
-                                >
-                                  View Project Details
-                                </Button>
+                                <Button variant="ghost" size="sm" className="mt-2" onClick={() => setLocation(`/service-report/${service.id}`)}>View Project Details</Button>
                               </div>
                             </div>
                         ))

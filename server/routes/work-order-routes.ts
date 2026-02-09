@@ -74,7 +74,7 @@ const router = Router();
 router.get('/', isAuthenticated, async (req, res) => {
   try {
     const user = req.user as User;
-    const { category, status, technicianId, projectId, repairId, includeClient } = req.query;
+    const { category, status, technicianId, projectId, repairId, includeClient, clientId } = req.query;
     
     console.log('[Work Orders API] User:', user?.id, 'OrgId:', user?.organizationId, 'Category:', category);
     
@@ -97,6 +97,9 @@ router.get('/', isAuthenticated, async (req, res) => {
     }
     if (repairId) {
       workOrders = workOrders.filter(wo => wo.repairId === parseInt(repairId as string));
+    }
+    if (clientId) {
+      workOrders = workOrders.filter(wo => wo.clientId === parseInt(clientId as string));
     }
     
     // Hydrate client and technician info for maintenance work orders or when explicitly requested
