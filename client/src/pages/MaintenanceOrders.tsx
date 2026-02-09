@@ -855,7 +855,8 @@ export default function MaintenanceOrders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance-orders"] });
-      toast({ title: "Deleted", description: "Maintenance order has been deleted." });
+      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+      toast({ title: "Deleted", description: "Maintenance order and all its scheduled visits have been deleted." });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -863,7 +864,7 @@ export default function MaintenanceOrders() {
   });
 
   const handleDelete = (order: MaintenanceOrder) => {
-    if (window.confirm(`Are you sure you want to delete "${order.title}"?`)) {
+    if (window.confirm(`Are you sure you want to delete "${order.title}"? This will also delete all scheduled visits (work orders) generated from this maintenance order. This action cannot be undone.`)) {
       deleteMutation.mutate(order.id);
     }
   };

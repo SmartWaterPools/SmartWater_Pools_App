@@ -1937,8 +1937,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteMaintenanceOrder(id: number): Promise<boolean> {
-    const result = await db.delete(maintenanceOrders).where(eq(maintenanceOrders.id, id)).returning();
-    return result.length > 0;
+    return await db.transaction(async (tx) => {
+      await tx.delete(workOrders).where(eq(workOrders.maintenanceOrderId, id));
+      const result = await tx.delete(maintenanceOrders).where(eq(maintenanceOrders.id, id)).returning();
+      return result.length > 0;
+    });
   }
 
   async getWorkOrdersByMaintenanceOrder(maintenanceOrderId: number): Promise<WorkOrder[]> {

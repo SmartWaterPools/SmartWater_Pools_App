@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { storage } from "../storage";
+import { db } from "../db";
 import { isAuthenticated } from "../auth";
-import { type User, insertWorkOrderSchema, insertWorkOrderNoteSchema } from "@shared/schema";
+import { type User, insertWorkOrderSchema, insertWorkOrderNoteSchema, clients } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 
@@ -50,6 +52,23 @@ async function returnToVehicleInventory(
   }
 }
 
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) return null;
+    const encodedAddress = encodeURIComponent(address);
+    const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}`);
+    const data = await response.json();
+    if (data.status === 'OK' && data.results?.[0]?.geometry?.location) {
+      return data.results[0].geometry.location;
+    }
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+}
+
 const router = Router();
 
 router.get('/', isAuthenticated, async (req, res) => {
@@ -84,6 +103,8 @@ router.get('/', isAuthenticated, async (req, res) => {
     if (includeClient === 'true' || category === 'maintenance') {
       const technicians = await storage.getTechnicians();
       
+      const clientCoordsCache = new Map<number, { lat: number; lng: number } | null>();
+
       const hydratedWorkOrders = await Promise.all(workOrders.map(async (wo) => {
         const result: Record<string, unknown> = { ...wo };
         
@@ -91,6 +112,57 @@ router.get('/', isAuthenticated, async (req, res) => {
         if (wo.clientId) {
           const clientUser = await storage.getUser(wo.clientId);
           if (clientUser) {
+            let latitude: number | null = null;
+            let longitude: number | null = null;
+
+            if (wo.addressLat && wo.addressLng) {
+              const parsedLat = parseFloat(wo.addressLat);
+              const parsedLng = parseFloat(wo.addressLng);
+              if (Number.isFinite(parsedLat) && Number.isFinite(parsedLng)) {
+                latitude = parsedLat;
+                longitude = parsedLng;
+              }
+            }
+            
+            if (latitude == null || longitude == null) {
+              if (clientCoordsCache.has(clientUser.id)) {
+                const cached = clientCoordsCache.get(clientUser.id)!;
+                if (cached) {
+                  latitude = cached.lat;
+                  longitude = cached.lng;
+                }
+              } else {
+                const clientRecords = await db.select().from(clients).where(eq(clients.userId, clientUser.id));
+                const clientRecord = clientRecords[0] || null;
+
+                if (clientRecord) {
+                  latitude = clientRecord.latitude;
+                  longitude = clientRecord.longitude;
+
+                  if (latitude == null && longitude == null && clientUser.address) {
+                    const coords = await geocodeAddress(clientUser.address);
+                    if (coords) {
+                      latitude = coords.lat;
+                      longitude = coords.lng;
+                      try {
+                        await db.update(clients).set({ latitude, longitude }).where(eq(clients.id, clientRecord.id));
+                      } catch (e) {
+                        console.error('Failed to save geocoded coords:', e);
+                      }
+                    }
+                  }
+                } else if (clientUser.address) {
+                  const coords = await geocodeAddress(clientUser.address);
+                  if (coords) {
+                    latitude = coords.lat;
+                    longitude = coords.lng;
+                  }
+                }
+
+                clientCoordsCache.set(clientUser.id, latitude != null && longitude != null ? { lat: latitude, lng: longitude } : null);
+              }
+            }
+
             result.client = {
               id: clientUser.id,
               user: { 
@@ -99,7 +171,9 @@ router.get('/', isAuthenticated, async (req, res) => {
                 email: clientUser.email, 
                 address: clientUser.address,
                 phone: clientUser.phone
-              }
+              },
+              latitude,
+              longitude
             };
           }
         }
