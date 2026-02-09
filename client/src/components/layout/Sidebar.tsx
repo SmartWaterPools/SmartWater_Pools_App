@@ -64,6 +64,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnTechnicians] = useRoute("/technicians");
   const [isOnCommunications] = useRoute("/communications");
   const [isOnBusiness] = useRoute("/business");
+  const [isOnReports] = useRoute("/reports");
   const [isOnInvoices] = useRoute("/invoices");
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
@@ -109,6 +110,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Communications';
       case '/business':
         return 'Business';
+      case '/reports':
+        return 'Reports';
       case '/invoices':
         return 'Invoices';
       case '/settings':
@@ -144,6 +147,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <MessageSquare className="h-4 w-4" />;
       case '/business':
         return <BarChart4 className="h-4 w-4" />;
+      case '/reports':
+        return <FileText className="h-4 w-4" />;
       case '/invoices':
         return <FileText className="h-4 w-4" />;
       case '/settings':
@@ -553,6 +558,40 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 isOnBusiness ? "text-primary font-medium" : "text-gray-500"
               )}>
                 Business
+              </span>
+            )}
+          </div>
+          
+          {/* Reports */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/reports")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnReports ? "text-primary" : "text-gray-500"
+            )}>
+              <Droplet className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnReports ? "text-primary" : "text-gray-700"
+              )}>
+                Reports
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnReports ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Reports
               </span>
             )}
           </div>

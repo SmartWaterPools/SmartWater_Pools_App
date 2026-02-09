@@ -155,6 +155,16 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               </div>
             </Link>
             
+            {/* Reports */}
+            <Link href="/reports" onClick={onClose}>
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
+                isActive('/reports') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
+              }`}>
+                <Phone className="mr-3 h-5 w-5" />
+                Reports
+              </div>
+            </Link>
+            
             {/* Barcode Scanner Demo */}
             <Link href="/inventory/barcode-demo" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${

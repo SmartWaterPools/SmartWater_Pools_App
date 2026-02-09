@@ -71,6 +71,7 @@ import { WORK_ORDER_CATEGORIES, WORK_ORDER_STATUSES, WORK_ORDER_PRIORITIES } fro
 import { WorkOrderItemsSection } from "@/components/WorkOrderItemsSection";
 import { WorkOrderTimeTracking } from "@/components/WorkOrderTimeTracking";
 import { WorkOrderTeamMembers } from "@/components/WorkOrderTeamMembers";
+import { FieldServiceReportForm } from "@/components/reports/FieldServiceReportForm";
 
 interface WorkOrderWithDetails extends WorkOrder {
   technician?: {
@@ -558,6 +559,7 @@ export default function WorkOrderDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const workOrderId = parseInt(id || "0");
 
   const { data: workOrder, isLoading, error } = useQuery<WorkOrderWithDetails>({
@@ -565,6 +567,17 @@ export default function WorkOrderDetail() {
     enabled: !!workOrderId,
   });
   
+  const { data: existingReport } = useQuery<any>({
+    queryKey: ['/api/service-reports/by-work-order', workOrderId],
+    queryFn: async () => {
+      const res = await fetch(`/api/service-reports/by-work-order/${workOrderId}`, { credentials: 'include' });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error('Failed to fetch report');
+      return res.json();
+    },
+    enabled: !!workOrderId,
+  });
+
   const { data: auditLogs } = useQuery<AuditLogWithUser[]>({
     queryKey: [`/api/work-orders/${workOrderId}/audit-logs`],
     enabled: !!workOrderId,
@@ -694,6 +707,27 @@ export default function WorkOrderDetail() {
           </div>
         </div>
         <div className="flex gap-2">
+          {existingReport ? (
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => setLocation(`/reports/${existingReport.id}`)}
+              className="bg-teal-600 hover:bg-teal-700"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              View Report
+            </Button>
+          ) : (
+            <Button 
+              variant="default" 
+              size="sm" 
+              onClick={() => setReportDialogOpen(true)}
+              className="bg-teal-600 hover:bg-teal-700"
+            >
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Complete Report
+            </Button>
+          )}
           <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
@@ -958,6 +992,21 @@ export default function WorkOrderDetail() {
           </Card>
         </div>
       </div>
+
+      {workOrder && (
+        <FieldServiceReportForm
+          open={reportDialogOpen}
+          onOpenChange={setReportDialogOpen}
+          workOrderId={workOrderId}
+          clientId={workOrder.clientId || 0}
+          technicianId={workOrder.technician?.id}
+          serviceTemplateId={workOrder.serviceTemplateId || undefined}
+          checklistItems={workOrder.checklist || undefined}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/service-reports/by-work-order', workOrderId] });
+          }}
+        />
+      )}
     </div>
   );
 }

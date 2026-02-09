@@ -1540,3 +1540,96 @@ export const insertVendorParsingTemplateSchema = createInsertSchema(vendorParsin
 
 export type InsertVendorParsingTemplate = z.infer<typeof insertVendorParsingTemplateSchema>;
 export type VendorParsingTemplate = typeof vendorParsingTemplates.$inferSelect;
+
+// Service Reports - completed field reports from technicians on work orders / maintenance orders
+export const serviceReports = pgTable("service_reports", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+
+  // Links
+  workOrderId: integer("work_order_id"),
+  maintenanceId: integer("maintenance_id"),
+  clientId: integer("client_id").notNull(),
+  technicianId: integer("technician_id"),
+  serviceTemplateId: integer("service_template_id"),
+
+  // Timing
+  serviceDate: date("service_date").notNull(),
+  arrivalTime: timestamp("arrival_time"),
+  departureTime: timestamp("departure_time"),
+  totalServiceMinutes: integer("total_service_minutes"),
+
+  // Water Chemistry Readings
+  phLevel: numeric("ph_level"),
+  chlorineLevel: numeric("chlorine_level"),
+  alkalinity: numeric("alkalinity"),
+  calciumHardness: numeric("calcium_hardness"),
+  cyanuricAcid: numeric("cyanuric_acid"),
+  totalDissolvedSolids: numeric("total_dissolved_solids"),
+  saltLevel: numeric("salt_level"),
+  phosphateLevel: numeric("phosphate_level"),
+  waterTemperature: numeric("water_temperature"),
+  combinedChlorine: numeric("combined_chlorine"),
+  freeChlorine: numeric("free_chlorine"),
+  waterClarity: text("water_clarity"), // 'clear', 'slightly_cloudy', 'cloudy', 'green', 'dark_green'
+  waterColor: text("water_color"),
+
+  // Equipment Status
+  filterPressurePsi: numeric("filter_pressure_psi"),
+  filterCondition: text("filter_condition"), // 'good', 'needs_cleaning', 'needs_replacement'
+  pumpCondition: text("pump_condition"), // 'running', 'noisy', 'leaking', 'not_running'
+  pumpFlowRate: numeric("pump_flow_rate"),
+  heaterCondition: text("heater_condition"), // 'working', 'not_working', 'na'
+  heaterTemperature: numeric("heater_temperature"),
+  saltCellCondition: text("salt_cell_condition"), // 'good', 'needs_cleaning', 'needs_replacement', 'na'
+  cleanerCondition: text("cleaner_condition"), // 'working', 'stuck', 'not_working', 'na'
+  lightCondition: text("light_condition"), // 'working', 'flickering', 'not_working', 'na'
+  surfaceCondition: text("surface_condition"), // 'clean', 'algae_spots', 'staining', 'scaling'
+  waterLineCondition: text("water_line_condition"), // 'clean', 'buildup', 'staining'
+  tileCondition: text("tile_condition"), // 'good', 'cracked', 'missing', 'na'
+  waterLevel: text("water_level"), // 'normal', 'low', 'high'
+  skimmerCondition: text("skimmer_condition"), // 'clear', 'debris', 'damaged'
+
+  // Checklist - JSON array of completed items from template
+  checklistItems: text("checklist_items"), // JSON: [{name, completed, notes}]
+
+  // Chemicals Applied - JSON array of chemicals used during service
+  chemicalsApplied: text("chemicals_applied"), // JSON: [{name, amount, unit, cost}]
+  totalChemicalCost: integer("total_chemical_cost"), // in cents
+
+  // Photos
+  photos: text("photos").array(),
+  beforePhotos: text("before_photos").array(),
+  afterPhotos: text("after_photos").array(),
+
+  // Notes & Recommendations
+  techNotes: text("tech_notes"),
+  internalNotes: text("internal_notes"),
+  recommendations: text("recommendations"),
+  followUpRequired: boolean("follow_up_required").default(false),
+  followUpNotes: text("follow_up_notes"),
+
+  // Customer interaction
+  customerPresent: boolean("customer_present").default(false),
+  customerNotes: text("customer_notes"),
+  customerSignature: text("customer_signature"), // base64
+
+  // Rating/Quality
+  overallCondition: text("overall_condition"), // 'excellent', 'good', 'fair', 'poor'
+  customerSatisfaction: integer("customer_satisfaction"), // 1-5
+
+  // Status
+  status: text("status").notNull().default("draft"), // 'draft', 'completed', 'sent_to_client', 'reviewed'
+
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertServiceReportSchema = createInsertSchema(serviceReports).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertServiceReport = z.infer<typeof insertServiceReportSchema>;
+export type ServiceReport = typeof serviceReports.$inferSelect;

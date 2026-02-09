@@ -1,6 +1,6 @@
 # Overview
 
-SmartWater Pools Management System is a web-based application designed to manage and streamline pool service operations. It connects office staff, technicians, and clients, facilitating project management, maintenance scheduling, and repair services. The system includes a client portal for project status updates and communication. Its core capabilities span pool construction and renovation, recurring maintenance, and repair request handling.
+SmartWater Pools Management System is a web-based application designed to manage and streamline pool service operations. It connects office staff, technicians, and clients, facilitating project management, maintenance scheduling, and repair services. The system includes a client portal for project status updates and communication, and aims to be a comprehensive solution for pool construction, renovation, recurring maintenance, and repair services.
 
 # User Preferences
 
@@ -14,154 +14,52 @@ Preferred communication style: Simple, everyday language.
 - **Form Handling**: React Hook Form with Zod for validation.
 - **Routing**: Wouter with protected routes.
 - **Authentication**: Session-based with Google OAuth and role-based access control.
+- **UI/UX**: Professional dashboard views with color-coded gauges for reports, mobile responsiveness with adaptive layouts.
 
 ## Backend
 - **Technology Stack**: Node.js with Express.js and TypeScript.
 - **Authentication**: Passport.js (local and Google OAuth strategies) with session-based and role-based authorization.
-- **Data Storage**: Drizzle ORM for PostgreSQL (currently in-memory for development).
+- **Data Storage**: Drizzle ORM for PostgreSQL.
 - **API Design**: RESTful APIs organized by feature domains.
-- **Session Management**: Express sessions with security configuration.
+- **Security**: Role-based access control, secure session configuration, protected routes.
 
 ## Database
 - **ORM**: Drizzle ORM with PostgreSQL and Drizzle Kit for migrations.
-- **Schema**: Relational schema covering users, organizations, projects, maintenance, technicians, clients, vendors, and communication.
-- **Architecture**: Multi-tenant, organization-based data isolation with role-based permissions.
+- **Schema**: Relational schema for users, organizations, projects, inventory, work orders, maintenance orders, vendor invoices, and service reports.
+- **Architecture**: Multi-tenant, organization-based data isolation with role-based permissions. All monetary amounts are stored in cents.
 
 ## Deployment
 - **Build Process**: Vite for frontend, esbuild for server.
 - **Environment**: Configured for Google Cloud Run deployment.
-- **Environment Configuration**: Comprehensive environment variable handling.
 
-## Security
-- **Authentication**: Multi-strategy (username/password, Google OAuth).
-- **Authorization**: Role-based access control with organization-level permissions.
-- **Session Security**: Secure session configuration.
-- **API Security**: Protected routes with authentication middleware.
+## Core Feature Specifications
 
-## Business Management System
+### Business Management
 - **Purpose**: Manage expenses, time tracking, inventory, licenses, and insurance.
-- **Features**: Dashboard with time-filtered metrics (Revenue, Expenses, Profit, Inventory Value, Low Stock Items, Outstanding Invoices).
-- **Multi-tenant Security**: All queries and updates strictly filter by `organizationId`.
+- **Key Metrics**: Dashboard with revenue, expenses, profit, inventory value, low stock items, outstanding invoices.
 
-## Inventory Management
+### Inventory Management
 - **Purpose**: Track pool service parts, chemicals, equipment, and supplies with real-time stock levels.
-- **Schema** (`inventory_items` table): id, organizationId, sku, name, description, category, quantity (numeric string), unitCost (cents), unitPrice (cents), minimumStock, reorderPoint, location, isActive, vendorId, lastRestockDate, notes, createdAt, updatedAt.
-- **Features**:
-  - CRUD operations via `/api/business/inventory` endpoints (GET, POST, PATCH, DELETE)
-  - Search/filter by name/SKU, category, stock status (In Stock, Low Stock, Out of Stock)
-  - Inline stock adjustment (+/- with custom amounts)
-  - Summary cards: Total Items, Total Value, Low Stock count, Categories count
-  - Edit/delete with confirmation dialogs
-  - Mobile responsive (card layout on small screens, table on desktop)
-- **Inventory-Work Order Integration**: When parts are added to work orders with `inventoryItemId`, stock is automatically deducted. When parts are removed or quantities changed, stock is adjusted (delta calculation). Handles inventory item swaps on updates.
-- **Vendor Invoice Integration**: Process-to-Inventory creates new inventory items or updates existing ones (adds quantity, updates cost/restock date). Process-to-Expense creates expense records with amounts stored in cents.
-- **Data Convention**: All monetary amounts stored in cents (integers); UI converts dollars to cents before POST, divides by 100 for display.
-- **Multi-tenant Security**: All queries filter by `organizationId`.
+- **Features**: CRUD operations, search/filter, inline stock adjustment, integration with work orders for automatic deduction, integration with vendor invoices for stock updates.
+- **Standalone Page**: Full-featured `/inventory` hub with tabs for Items, Warehouses, Vehicles, Transfers, and Reports. Includes comprehensive CRUD for all related entities.
 
-## Standalone Inventory Page (`/inventory`)
-- **Purpose**: Full-featured inventory management hub with 5 tabs at the `/inventory` route.
-- **Summary Cards**: Total Items, Warehouses, Vehicles, Pending Transfers, Low Stock (via `/api/inventory/summary`).
-- **Tabs**:
-  - **Items Tab**: Full CRUD for inventory items via `/api/inventory/items`, search/filter, stock status badges, inline stock adjustment, uses shared `InventoryItemForm` with configurable `apiBasePath` prop.
-  - **Warehouses Tab**: CRUD for warehouse locations via `/api/inventory/warehouses`. Fields: name, address, city, state, zip, phone, active status.
-  - **Vehicles Tab**: CRUD for technician vehicles via `/api/inventory/technician-vehicles`. Fields: name, make, model, year, license plate, VIN, technician assignment.
-  - **Transfers Tab**: Inventory transfer management via `/api/inventory/transfers`. Status workflow: pending → in_transit → completed/cancelled. Create transfers between warehouses/vehicles.
-  - **Reports Tab**: Analytics dashboard with total value, category breakdown, low stock alerts, recent adjustments.
-- **Database Tables**: `warehouses`, `technician_vehicles`, `inventory_transfers`, `inventory_transfer_items`, `warehouse_inventory`, `vehicle_inventory`, `inventory_adjustments` (Drizzle schemas in `shared/schema.ts`).
-- **Storage Methods**: Full CRUD implementations in `server/storage.ts` for all 7 tables.
-- **Routes**: All endpoints in `server/routes/inventory-routes.ts` mounted at `/api/inventory`.
-
-## Invoicing Platform
+### Invoicing Platform
 - **Purpose**: Client invoicing with online payment processing.
-- **Features**: Auto-generated invoice numbers, detailed invoices with line items, manual payment recording, Stripe integration for online payments, webhook handling.
-- **Multi-tenant Security**: All queries filter by `organizationId`.
+- **Features**: Auto-generated invoice numbers, detailed line items, manual payment recording, Stripe integration, webhook handling.
 
-## Work Order & Maintenance Order System
-- **Purpose**: Comprehensive order management with two distinct types:
-  - **Work Orders**: One-time jobs (pool opening, initial cleaning, plumbing, construction tasks, repairs)
-  - **Maintenance Orders**: Recurring schedules (weekly pool service, bi-weekly chemical check) with start/end dates and frequency
-- **Core Features**:
-  - Work Order Requests: Submitted by techs, office staff, or clients; can spawn multiple work orders
-  - Parts & Labor Tracking: Line items with inventory integration (location-aware vehicle inventory deductions)
-  - Time Tracking: Clock in/out with break time, automatic duration calculation, technician hours dashboard
-  - Team Assignment: Multiple technicians per work order with roles (Lead Tech, Technician, Helper)
-  - Service Templates: Pre-configured templates with `orderType` field ('work_order' or 'maintenance_order')
-  - Maintenance Order Recurrence: Weekly, bi-weekly, monthly, bi-monthly, quarterly scheduling with auto-generated visits
-  - Route Planning: Plan technician daily routes across all job types
+### Work Order & Maintenance Order System
+- **Purpose**: Comprehensive order management for one-time jobs (Work Orders) and recurring schedules (Maintenance Orders).
+- **Features**: Work order requests, parts & labor tracking (with inventory integration), time tracking, team assignment, service templates, recurrence scheduling, route planning.
+- **Integration**: Maintenance orders generate work orders, repair jobs and projects link to work orders, inventory deductions from global and vehicle stock.
+- **Frontend Pages**: Scheduling Hub (List/Calendar/Board/Routes views), Maintenance Orders dashboard, interactive Maintenance Map with multiple filter views, Projects, Repairs, Technicians, and Routes Tab for drag-and-drop route management.
 
-- **Integration Points**:
-  - Maintenance Orders generate work orders (with `maintenanceOrderId` link) for each scheduled visit
-  - Repairs: Create work orders linked to repair jobs with issue details pre-filled
-  - Projects: Create work orders linked to construction projects and phases
-  - Inventory: Parts usage deducts from both global stock AND technician's vehicle inventory
-
-- **Database Tables**:
-  - `work_orders`: Core work order entity with status, priority, category, `maintenanceOrderId` for recurring visits
-  - `maintenance_orders`: Recurring maintenance plans with frequency, day_of_week, start/end dates
-  - `work_order_requests`: Request tracking with requester type and status
-  - `work_order_items`: Parts and labor line items
-  - `work_order_time_entries`: Clock in/out records per technician
-  - `work_order_team_members`: Team assignments with roles
-  - `service_templates`: Templates with `orderType` field for work_order vs maintenance_order
-
-- **API Endpoints**:
-  - `/api/work-orders` - CRUD for work orders with filtering
-  - `/api/work-orders/:id/items` - Parts/labor line items (with vehicle inventory deduction)
-  - `/api/work-orders/:id/time-entries` - Time tracking
-  - `/api/work-orders/:id/team` - Team member management
-  - `/api/work-orders/:id/clock-in|clock-out` - Convenience time tracking
-  - `/api/work-orders/technician-hours/summary` - Technician hours aggregation with date filters
-  - `/api/work-order-requests` - Request management
-  - `/api/maintenance-orders` - CRUD for maintenance orders
-  - `/api/maintenance-orders/:id/work-orders` - Get visits for a maintenance order
-  - `/api/maintenance-orders/:id/generate-visits` - Generate recurring visit work orders
-
-- **Frontend Pages**:
-  - **Scheduling Hub** (`/work-orders`): Central scheduling dashboard with List/Calendar/Board/Routes views, filters for order type, category, status, technician
-  - **Maintenance Orders** (`/maintenance-orders`): Dashboard for managing recurring maintenance plans, generating visits
-  - **Maintenance Map** (`/maintenance/map`): Interactive map with 8 filter views (All Maintenances, All Work Orders, Today's Stops, Today+Tomorrow, By Technician, By Route, By Priority, By Status). Supports geocoding for addresses without coordinates. "By Route" displays all route stops including unassigned ones.
-  - **Projects** (`/projects`): Dashboard with work order creation and linked work order display
-  - **Repairs** (`/repairs`): Dashboard with work order creation and linked work order display
-  - **Technicians** (`/technicians`): Team tab + Time Tracking tab with hours per technician
-  - **Routes Tab** (within Maintenance): Drag-and-drop route management with expandable route cards showing stops underneath, auto-expand on drop, query key alignment for real-time updates
-
-- **Multi-tenant Security**: All queries filter by `organizationId`.
-
-## Vendor Invoice Management System
+### Vendor Invoice Management System
 - **Purpose**: Automated invoice processing from vendor emails with PDF parsing and routing to inventory/expenses.
-- **Core Features**:
-  - Email Import: Import PDF attachments from vendor emails, validates sender matches vendor email
-  - PDF Parsing: Extract invoice number, PO number, dates, amounts, and line items using pdf-parse library
-  - OCR Fallback: Automatic OCR using Tesseract.js for image-based PDFs when text extraction fails
-    - Triggers when extracted text is minimal (< 50 chars)
-    - Uses pdf-to-img for PDF-to-image conversion
-    - Limits: max 5 pages, 60s timeout, 10MB file size
-    - Slightly reduces confidence score for OCR results
-  - Inventory Routing: Map parsed line items to inventory (match by SKU or create new items)
-  - Expense Routing: Create expense records from invoice totals with vendor linkage
-  - AI-Powered Extraction: OpenAI-based document field extraction with auto-population of mapped fields
-  - Interactive Raw Text: Highlight/select text and tag as field types (Invoice #, PO #, Date, Total, etc.) to populate document data
-  - Line Item Tagging: Select text in raw view and tag as Item Description, Quantity, Unit Price, or Item Total to build and save line items
-  - Template Management: Save, browse, apply, and delete parsing templates per vendor for reusable field mapping
-  - Status Tracking: Track parsing confidence, review status, and processing flags
-    - "processed" status for high confidence (>= 50%)
-    - "needs_review" status for low confidence (< 50%)
+- **Features**: Email import, PDF parsing (with OCR fallback), routing to inventory or expenses, AI-powered extraction, interactive raw text tagging for fields/line items, template management, status tracking (processed, needs_review).
 
-- **Database Tables**:
-  - `email_attachments`: Store email attachment metadata and download status
-  - `vendor_invoices`: Invoice records linked to vendors, emails, and attachments
-  - `vendor_invoice_items`: Parsed line items with product/financial data
-
-- **API Endpoints**:
-  - `/api/vendor-invoices` - CRUD for vendor invoices
-  - `/api/vendor-invoices/:id/parse-pdf` - Trigger PDF parsing
-  - `/api/vendor-invoices/:id/process-to-expense` - Route to expense system
-  - `/api/vendor-invoices/:id/process-to-inventory` - Route items to inventory
-  - `/api/vendor-invoices/import-from-email` - Import from email attachment
-  - `/api/vendor-invoices/from-vendor-emails/:vendorId` - Fetch vendor emails
-
-- **Data Storage**: Monetary amounts stored in cents (integers) for precision; UI converts dollars to cents before POST and divides by 100 for display.
-- **Multi-tenant Security**: All queries filter by `organizationId`.
+### Field Service Reports
+- **Purpose**: Comprehensive service reporting system for technicians.
+- **Features**: Capture water chemistry, equipment status, chemicals applied, checklist items, photos, notes, and customer signatures. Linked to work orders and maintenance orders. Professional dashboard for viewing.
 
 # External Dependencies
 
@@ -174,20 +72,18 @@ Preferred communication style: Simple, everyday language.
 - **Neon Database**: Serverless PostgreSQL provider.
 
 ## Third-Party APIs
-- **Google Maps API**: For location services.
-- **Stripe**: Payment processing via `@stripe/stripe-js` and `@stripe/react-stripe-js`.
+- **Google Maps API**: For location services and geocoding.
+- **Stripe**: Payment processing.
 - **Scandit**: Barcode scanning for inventory.
+- **OpenAI**: AI-powered document field extraction.
+- **Tesseract.js**: OCR for image-based PDFs.
+- **pdf-parse**: PDF text extraction.
+- **pdf-to-img**: PDF-to-image conversion for OCR fallback.
 
 ## Communication Services
-- **Gmail Integration**: Per-user OAuth-based Gmail integration for email sync, compose/send, and 6 types of automated notifications. Supports auto-linking to entities. Features include:
-  - Dynamic OAuth callback URLs (not hardcoded)
-  - Gmail scopes requested during login for seamless access
-  - Token validation on connection status check (verifies actual API access, not just token existence)
-  - Automatic detection and handling of "Insufficient Permission" errors (clears stale tokens, prompts reconnection)
-  - "Switch Email" button allows users to connect a different Gmail account without logging out of the app
-  - Separate connect-gmail flow with `prompt: consent` for fresh permissions; login flow uses `prompt: select_account` for convenience
-- **RingCentral SMS Integration**: Multi-tenant OAuth-based SMS service for notifications, client messaging, and custom alerts. Includes SMS templates and auto-refresh for tokens.
+- **Gmail Integration**: Per-user OAuth-based email sync, compose/send, and automated notifications. Handles token management and permission issues.
+- **RingCentral SMS Integration**: Multi-tenant OAuth-based SMS service for notifications and client messaging.
 
 ## Deployment Platform
-- **Google Cloud Run**: Target deployment.
+- **Google Cloud Run**: Target deployment platform.
 - **Replit**: Development and hosting environment.

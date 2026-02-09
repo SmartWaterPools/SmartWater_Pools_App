@@ -39,6 +39,8 @@ import Invoices from "@/pages/Invoices";
 import InvoiceForm from "@/pages/InvoiceForm";
 import InvoiceDetail from "@/pages/InvoiceDetail";
 import DispatchBoard from "@/pages/DispatchBoard";
+import ServiceReportView from "@/pages/ServiceReportView";
+import Reports from "@/pages/Reports";
 
 // Protected route wrapper that includes the AppLayout
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -108,6 +110,8 @@ function Router() {
       <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} />} />
       <Route path="/business" component={() => <ProtectedRoute component={Business} />} />
       <Route path="/inventory" component={() => <ProtectedRoute component={InventoryManagement} />} />
+      <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
+      <Route path="/reports/:id" component={() => <ProtectedRoute component={ServiceReportView} />} />
       <Route path="/admin" component={() => <ProtectedRoute component={Admin} />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
       
