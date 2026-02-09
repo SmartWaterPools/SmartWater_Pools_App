@@ -76,9 +76,17 @@ interface TechnicianWithUser {
 
 interface ClientInfo {
   id: number;
-  name: string;
-  email: string;
+  userId?: number;
+  name?: string;
+  email?: string;
   address?: string;
+  user?: {
+    id: number;
+    name: string;
+    email: string;
+    phone: string | null;
+    address: string | null;
+  };
 }
 
 interface WorkOrderWithDetails extends WorkOrder {
@@ -145,7 +153,7 @@ const workOrderFormSchema = z.object({
 type WorkOrderFormValues = z.infer<typeof workOrderFormSchema>;
 
 const maintenanceOrderFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().optional(),
   description: z.string().optional(),
   serviceTemplateId: z.number().optional().nullable(),
   clientId: z.number().min(1, "Client is required"),
@@ -156,6 +164,7 @@ const maintenanceOrderFormSchema = z.object({
   startDate: z.string().min(1, "Start date is required"),
   endDate: z.string().optional(),
   pricePerVisit: z.string().optional(),
+  estimatedDuration: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -342,6 +351,9 @@ function CreateWorkOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { toast } = useToast();
   const [generateVisits, setGenerateVisits] = useState(true);
+  const [clientSearch, setClientSearch] = useState("");
+  const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [addressMode, setAddressMode] = useState<"client" | "custom">("client");
 
   const { data: technicians } = useQuery<TechnicianWithUser[]>({
     queryKey: ["/api/technicians-with-users"],
@@ -371,15 +383,77 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
       startDate: "",
       endDate: "",
       pricePerVisit: "",
+      estimatedDuration: "",
       address: "",
       notes: "",
     },
   });
 
+  const watchedClientId = form.watch("clientId");
+  const watchedFrequency = form.watch("frequency");
+  const selectedClient = clients?.find((c) => c.id === watchedClientId);
+
+  const getClientName = (c: ClientInfo) => c.user?.name ?? c.name ?? `Client #${c.id}`;
+  const getClientEmail = (c: ClientInfo) => c.user?.email ?? c.email ?? "";
+  const getClientPhone = (c: ClientInfo) => c.user?.phone ?? "";
+  const getClientAddress = (c: ClientInfo) => c.user?.address ?? c.address ?? "";
+
+  const filteredClients = useMemo(() => {
+    if (!clients || !clientSearch.trim()) return clients ?? [];
+    const search = clientSearch.toLowerCase();
+    return clients.filter((c) =>
+      getClientName(c).toLowerCase().includes(search) ||
+      getClientEmail(c).toLowerCase().includes(search) ||
+      getClientPhone(c)?.toLowerCase().includes(search) ||
+      getClientAddress(c)?.toLowerCase().includes(search)
+    );
+  }, [clients, clientSearch]);
+
+  const handleClientSelect = (client: ClientInfo) => {
+    form.setValue("clientId", client.id);
+    setClientSearch(getClientName(client));
+    setShowClientDropdown(false);
+    const addr = getClientAddress(client);
+    if (addr) {
+      form.setValue("address", addr);
+      setAddressMode("client");
+    }
+  };
+
+  const selectedDays = (form.watch("dayOfWeek") ?? "").split(",").filter(Boolean);
+
+  const toggleDay = (day: string) => {
+    const isWeekly = watchedFrequency === "weekly";
+    if (isWeekly) {
+      const current = selectedDays.includes(day)
+        ? selectedDays.filter((d) => d !== day)
+        : [...selectedDays, day];
+      form.setValue("dayOfWeek", current.join(","));
+    } else {
+      form.setValue("dayOfWeek", day);
+    }
+  };
+
+  const daysOfWeek: Record<string, string> = {
+    monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu",
+    friday: "Fri", saturday: "Sat", sunday: "Sun",
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: MaintenanceOrderFormValues) => {
+      let title = data.title;
+      if (!title) {
+        const tmpl = moTemplates.find((t) => t.id === data.serviceTemplateId);
+        if (tmpl) {
+          title = tmpl.name;
+        } else {
+          const client = clients?.find((c) => c.id === data.clientId);
+          title = client ? `Maintenance - ${getClientName(client)}` : "Maintenance Service";
+        }
+      }
+
       const payload: Record<string, unknown> = {
-        title: data.title,
+        title,
         description: data.description || undefined,
         clientId: data.clientId,
         technicianId: data.technicianId || undefined,
@@ -389,6 +463,7 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
         startDate: data.startDate,
         endDate: data.endDate || undefined,
         pricePerVisit: data.pricePerVisit ? Math.round(parseFloat(data.pricePerVisit) * 100) : undefined,
+        estimatedDuration: data.estimatedDuration ? parseInt(data.estimatedDuration) : undefined,
         address: data.address || undefined,
         notes: data.notes || undefined,
         serviceTemplateId: data.serviceTemplateId || undefined,
@@ -412,6 +487,7 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance-orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
       form.reset();
+      setClientSearch("");
       onOpenChange(false);
     },
     onError: (error: Error) => {
@@ -422,6 +498,7 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
   const handleTemplateSelect = (templateId: string) => {
     if (!templateId || templateId === "none") {
       form.setValue("serviceTemplateId", null);
+      form.setValue("title", "");
       return;
     }
     const template = moTemplates.find((t) => t.id === parseInt(templateId));
@@ -429,10 +506,10 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
       form.setValue("serviceTemplateId", template.id);
       form.setValue("title", template.name);
       if (template.description) form.setValue("description", template.description);
+      if (template.estimatedDuration) form.setValue("estimatedDuration", template.estimatedDuration.toString());
+      if (template.laborRate) form.setValue("pricePerVisit", (template.laborRate / 100).toFixed(2));
     }
   };
-
-  const daysOfWeek = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -443,34 +520,51 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((data) => createMutation.mutate(data))} className="space-y-4">
-            {moTemplates.length > 0 && (
-              <div className="space-y-1">
-                <Label className="text-sm">Service Template</Label>
-                <Select onValueChange={handleTemplateSelect}>
-                  <SelectTrigger><SelectValue placeholder="Select a template..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No template</SelectItem>
-                    {moTemplates.map((t) => (
-                      <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <FormField control={form.control} name="title" render={({ field }) => (
-              <FormItem><FormLabel>Title</FormLabel><FormControl><Input placeholder="Maintenance order title" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
+            <div className="space-y-1">
+              <Label className="text-sm">Service Template</Label>
+              <Select onValueChange={handleTemplateSelect}>
+                <SelectTrigger><SelectValue placeholder="Select a template..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No template</SelectItem>
+                  {moTemplates.map((t) => (
+                    <SelectItem key={t.id} value={t.id.toString()}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <FormField control={form.control} name="description" render={({ field }) => (
               <FormItem><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Describe the maintenance..." {...field} /></FormControl><FormMessage /></FormItem>
             )} />
-            <FormField control={form.control} name="clientId" render={({ field }) => (
-              <FormItem><FormLabel>Client *</FormLabel>
-                <Select onValueChange={(v) => field.onChange(parseInt(v))} value={field.value ? field.value.toString() : ""}>
-                  <FormControl><SelectTrigger><SelectValue placeholder="Select client" /></SelectTrigger></FormControl>
-                  <SelectContent>
-                    {clients?.map((c) => (<SelectItem key={c.id} value={c.id.toString()}>{c.name}</SelectItem>))}
-                  </SelectContent>
-                </Select><FormMessage />
+            <FormField control={form.control} name="clientId" render={() => (
+              <FormItem>
+                <FormLabel>Client *</FormLabel>
+                <div className="relative">
+                  <Input
+                    placeholder="Search clients..."
+                    value={clientSearch}
+                    onChange={(e) => {
+                      setClientSearch(e.target.value);
+                      setShowClientDropdown(true);
+                      if (!e.target.value) form.setValue("clientId", 0);
+                    }}
+                    onFocus={() => setShowClientDropdown(true)}
+                  />
+                  {showClientDropdown && filteredClients.length > 0 && (
+                    <div className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-gray-800 border rounded-md shadow-lg">
+                      {filteredClients.map((c) => (
+                        <div
+                          key={c.id}
+                          className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 text-sm"
+                          onClick={() => handleClientSelect(c)}
+                        >
+                          <div className="font-medium">{getClientName(c)}</div>
+                          {getClientEmail(c) && <div className="text-xs text-muted-foreground">{getClientEmail(c)}</div>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <FormMessage />
               </FormItem>
             )} />
             <FormField control={form.control} name="technicianId" render={({ field }) => (
@@ -487,7 +581,16 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
             <div className="grid grid-cols-2 gap-4">
               <FormField control={form.control} name="frequency" render={({ field }) => (
                 <FormItem><FormLabel>Frequency *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select onValueChange={(value) => {
+                    field.onChange(value);
+                    if (watchedFrequency === "weekly" && value !== "weekly") {
+                      const currentDayOfWeek = form.watch("dayOfWeek") ?? "";
+                      const firstDay = currentDayOfWeek.split(",")[0];
+                      if (firstDay) {
+                        form.setValue("dayOfWeek", firstDay);
+                      }
+                    }
+                  }} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
                       {MAINTENANCE_ORDER_FREQUENCIES.filter(f => f !== "custom").map((f) => (
@@ -497,14 +600,26 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
                   </Select><FormMessage />
                 </FormItem>
               )} />
-              <FormField control={form.control} name="dayOfWeek" render={({ field }) => (
-                <FormItem><FormLabel>Day of Week</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent>
-                      {daysOfWeek.map((d) => (<SelectItem key={d} value={d}>{formatLabel(d)}</SelectItem>))}
-                    </SelectContent>
-                  </Select><FormMessage />
+              <FormField control={form.control} name="dayOfWeek" render={() => (
+                <FormItem>
+                  <FormLabel>Day of Week</FormLabel>
+                  <div className="flex flex-wrap gap-1">
+                    {Object.entries(daysOfWeek).map(([val, label]) => (
+                      <button
+                        key={val}
+                        type="button"
+                        onClick={() => toggleDay(val)}
+                        className={`px-2 py-1 text-xs rounded-md border transition-colors ${
+                          selectedDays.includes(val)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background hover:bg-muted border-input"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <FormMessage />
                 </FormItem>
               )} />
             </div>
@@ -519,11 +634,38 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
                 <FormItem><FormLabel>End Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
             </div>
-            <FormField control={form.control} name="pricePerVisit" render={({ field }) => (
-              <FormItem><FormLabel>Price per Visit ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
-            )} />
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="pricePerVisit" render={({ field }) => (
+                <FormItem><FormLabel>Price per Visit ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="estimatedDuration" render={({ field }) => (
+                <FormItem><FormLabel>Est. Duration (min)</FormLabel><FormControl><Input type="number" placeholder="60" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+            </div>
             <FormField control={form.control} name="address" render={({ field }) => (
-              <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Service address" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem>
+                <FormLabel>Address</FormLabel>
+                {selectedClient && getClientAddress(selectedClient) && (
+                  <div className="flex gap-2 mb-1">
+                    <button
+                      type="button"
+                      onClick={() => { setAddressMode("client"); field.onChange(getClientAddress(selectedClient)); }}
+                      className={`text-xs px-2 py-0.5 rounded border ${addressMode === "client" ? "bg-primary text-primary-foreground" : "bg-background"}`}
+                    >
+                      Client Address
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setAddressMode("custom"); field.onChange(""); }}
+                      className={`text-xs px-2 py-0.5 rounded border ${addressMode === "custom" ? "bg-primary text-primary-foreground" : "bg-background"}`}
+                    >
+                      Custom
+                    </button>
+                  </div>
+                )}
+                <FormControl><Input placeholder="Service address" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
             )} />
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem><FormLabel>Notes</FormLabel><FormControl><Textarea placeholder="Additional notes..." {...field} /></FormControl><FormMessage /></FormItem>
