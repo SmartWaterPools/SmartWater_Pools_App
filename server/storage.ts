@@ -344,6 +344,7 @@ export interface IStorage {
   updateMaintenanceOrder(id: number, data: Partial<MaintenanceOrder>): Promise<MaintenanceOrder | undefined>;
   deleteMaintenanceOrder(id: number): Promise<boolean>;
   getWorkOrdersByMaintenanceOrder(maintenanceOrderId: number): Promise<WorkOrder[]>;
+  getMaintenancesByMaintenanceOrder(maintenanceOrderId: number): Promise<Maintenance[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1938,7 +1939,7 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMaintenanceOrder(id: number): Promise<boolean> {
     return await db.transaction(async (tx) => {
-      await tx.delete(workOrders).where(eq(workOrders.maintenanceOrderId, id));
+      await tx.delete(maintenances).where(eq(maintenances.maintenanceOrderId, id));
       const result = await tx.delete(maintenanceOrders).where(eq(maintenanceOrders.id, id)).returning();
       return result.length > 0;
     });
@@ -1946,6 +1947,10 @@ export class DatabaseStorage implements IStorage {
 
   async getWorkOrdersByMaintenanceOrder(maintenanceOrderId: number): Promise<WorkOrder[]> {
     return await db.select().from(workOrders).where(eq(workOrders.maintenanceOrderId, maintenanceOrderId)).orderBy(desc(workOrders.createdAt));
+  }
+
+  async getMaintenancesByMaintenanceOrder(maintenanceOrderId: number): Promise<Maintenance[]> {
+    return await db.select().from(maintenances).where(eq(maintenances.maintenanceOrderId, maintenanceOrderId)).orderBy(desc(maintenances.scheduleDate));
   }
 
   // ========== Bazza Route Operations ==========

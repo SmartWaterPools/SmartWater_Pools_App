@@ -111,11 +111,11 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
 router.get('/:id/work-orders', isAuthenticated, async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const workOrders = await storage.getWorkOrdersByMaintenanceOrder(id);
-    res.json(workOrders);
+    const visits = await storage.getMaintenancesByMaintenanceOrder(id);
+    res.json(visits);
   } catch (error) {
-    console.error('Error fetching work orders for maintenance order:', error);
-    res.status(500).json({ error: 'Failed to fetch work orders' });
+    console.error('Error fetching maintenance visits for maintenance order:', error);
+    res.status(500).json({ error: 'Failed to fetch maintenance visits' });
   }
 });
 
@@ -141,8 +141,8 @@ router.post('/:id/generate-visits', isAuthenticated, async (req, res) => {
     const startDate = new Date(fromDate || order.startDate);
     const endDate = new Date(toDate || order.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
-    const existingVisits = await storage.getWorkOrdersByMaintenanceOrder(id);
-    const existingDates = new Set(existingVisits.map(v => v.scheduledDate));
+    const existingVisits = await storage.getMaintenancesByMaintenanceOrder(id);
+    const existingDates = new Set(existingVisits.map(v => v.scheduleDate));
 
     const visitDates = generateRecurringDates(
       startDate,
@@ -156,27 +156,18 @@ router.post('/:id/generate-visits', isAuthenticated, async (req, res) => {
       const dateStr = date.toISOString().split('T')[0];
       if (existingDates.has(dateStr)) continue;
 
-      const workOrder = await storage.createWorkOrder({
-        organizationId: user.organizationId,
-        title: `${order.title} - ${dateStr}`,
-        description: order.description || undefined,
-        category: 'maintenance',
-        status: 'scheduled',
-        priority: 'medium',
-        scheduledDate: dateStr,
-        scheduledTime: order.preferredTime || undefined,
-        technicianId: order.technicianId || undefined,
+      const maintenance = await storage.createMaintenance({
         clientId: order.clientId,
+        technicianId: order.technicianId || null,
         maintenanceOrderId: order.id,
-        serviceTemplateId: order.serviceTemplateId || undefined,
-        checklist: order.checklist || undefined,
-        estimatedDuration: order.estimatedDuration || undefined,
-        address: order.address || undefined,
-        addressLat: order.addressLat || undefined,
-        addressLng: order.addressLng || undefined,
-        createdBy: user.id,
+        scheduleDate: dateStr,
+        type: order.title || 'maintenance',
+        status: 'scheduled',
+        notes: order.description || null,
+        routeName: null,
+        routeOrder: null,
       });
-      newVisits.push(workOrder);
+      newVisits.push(maintenance);
     }
 
     res.status(201).json({ generated: newVisits.length, visits: newVisits });

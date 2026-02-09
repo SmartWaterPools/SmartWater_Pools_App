@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/form";
 import {
   MaintenanceOrder,
+  Maintenance,
   WorkOrder,
   ServiceTemplate,
   MAINTENANCE_ORDER_FREQUENCIES,
@@ -541,8 +542,8 @@ function GenerateVisitsDialog({
       setResultCount(count);
       toast({ title: "Visits Generated", description: `${count} visit(s) have been generated.` });
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance-orders", order.id, "work-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
       queryClient.invalidateQueries({ queryKey: ["/api/maintenance-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message || "Failed to generate visits", variant: "destructive" });
@@ -585,7 +586,7 @@ function GenerateVisitsDialog({
 }
 
 function VisitsPanel({ orderId }: { orderId: number }) {
-  const { data: visits, isLoading } = useQuery<WorkOrder[]>({
+  const { data: visits, isLoading } = useQuery<Maintenance[]>({
     queryKey: ["/api/maintenance-orders", orderId, "work-orders"],
     queryFn: async () => {
       const res = await fetch(`/api/maintenance-orders/${orderId}/work-orders`, { credentials: "include" });
@@ -617,25 +618,19 @@ function VisitsPanel({ orderId }: { orderId: number }) {
         Generated Visits ({visits.length})
       </h4>
       {visits.map((visit) => (
-        <Link key={visit.id} href={`/work-orders/${visit.id}`}>
-          <div className="flex items-center justify-between p-3 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer transition-colors">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-gray-900 dark:text-gray-100">
-                {visit.scheduledDate ?? "Unscheduled"}
-              </span>
-              {visit.scheduledTime && (
-                <span className="text-xs text-muted-foreground">{visit.scheduledTime}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={statusColors[visit.status] ?? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}>
-                {formatLabel(visit.status)}
-              </Badge>
-              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-            </div>
+        <div key={visit.id} className="flex items-center justify-between p-3 rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+          <div className="flex items-center gap-3">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm text-gray-900 dark:text-gray-100">
+              {visit.scheduleDate ?? "Unscheduled"}
+            </span>
           </div>
-        </Link>
+          <div className="flex items-center gap-2">
+            <Badge className={statusColors[visit.status] ?? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}>
+              {formatLabel(visit.status)}
+            </Badge>
+          </div>
+        </div>
       ))}
     </div>
   );
