@@ -290,6 +290,7 @@ export type MaintenanceOrder = typeof maintenanceOrders.$inferSelect;
 // Bazza Routes - Service routes for technicians
 export const bazzaRoutes = pgTable("bazza_routes", {
   id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
   name: text("name").notNull(),
   description: text("description"),
   type: text("type").notNull(),
@@ -314,6 +315,8 @@ export const bazzaRouteStops = pgTable("bazza_route_stops", {
   orderIndex: integer("order_index").notNull(),
   estimatedDuration: integer("estimated_duration"),
   customInstructions: text("custom_instructions"),
+  addressLat: text("address_lat"),
+  addressLng: text("address_lng"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });

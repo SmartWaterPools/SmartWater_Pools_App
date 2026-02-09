@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql, gte } from "drizzle-orm";
 
@@ -77,8 +77,34 @@ export interface IStorage {
   getInventoryItemsByOrganizationId?(organizationId: number): Promise<any[]>;
   getInventoryTransfersByStatus(status: string): Promise<any[]>;
   getInventoryItem?(id: number): Promise<any>;
-  getBazzaRoutesByTechnicianId?(technicianId: number): Promise<any[]>;
-  getAllBazzaRoutes?(): Promise<any[]>;
+  // Bazza Route operations
+  getAllBazzaRoutes(): Promise<BazzaRoute[]>;
+  getBazzaRoute(id: number): Promise<BazzaRoute | undefined>;
+  getBazzaRoutesByTechnicianId(technicianId: number): Promise<BazzaRoute[]>;
+  getBazzaRoutesByDayOfWeek(dayOfWeek: string): Promise<BazzaRoute[]>;
+  createBazzaRoute(data: InsertBazzaRoute): Promise<BazzaRoute>;
+  updateBazzaRoute(id: number, data: Partial<BazzaRoute>): Promise<BazzaRoute | undefined>;
+  deleteBazzaRoute(id: number): Promise<boolean>;
+
+  // Bazza Route Stop operations
+  getBazzaRouteStop(id: number): Promise<BazzaRouteStop | undefined>;
+  getBazzaRouteStopsByRouteId(routeId: number): Promise<BazzaRouteStop[]>;
+  getBazzaRouteStopsByClientId(clientId: number): Promise<BazzaRouteStop[]>;
+  createBazzaRouteStop(data: InsertBazzaRouteStop): Promise<BazzaRouteStop>;
+  updateBazzaRouteStop(id: number, data: Partial<BazzaRouteStop>): Promise<BazzaRouteStop | undefined>;
+  deleteBazzaRouteStop(id: number): Promise<boolean>;
+  reorderBazzaRouteStops(routeId: number, stopIds: number[]): Promise<BazzaRouteStop[]>;
+
+  // Bazza Maintenance Assignment operations (expand existing)
+  getBazzaMaintenanceAssignment(id: number): Promise<BazzaMaintenanceAssignment | undefined>;
+  getBazzaMaintenanceAssignmentsByRouteId(routeId: number): Promise<BazzaMaintenanceAssignment[]>;
+  getBazzaMaintenanceAssignmentsByMaintenanceId(maintenanceId: number): Promise<BazzaMaintenanceAssignment[]>;
+  getBazzaMaintenanceAssignmentsByDate(date: Date): Promise<BazzaMaintenanceAssignment[]>;
+  getBazzaMaintenanceAssignmentsByTechnicianIdAndDateRange(technicianId: number, startDate: Date, endDate: Date): Promise<BazzaMaintenanceAssignment[]>;
+  createBazzaMaintenanceAssignment(data: InsertBazzaMaintenanceAssignment): Promise<BazzaMaintenanceAssignment>;
+  updateBazzaMaintenanceAssignment(id: number, data: Partial<BazzaMaintenanceAssignment>): Promise<BazzaMaintenanceAssignment | undefined>;
+  deleteBazzaMaintenanceAssignment(id: number): Promise<boolean>;
+
   getPaymentRecordsByOrganizationId?(organizationId: number): Promise<any[]>;
   getFleetmaticsConfigByOrganizationId?(organizationId: number): Promise<any>;
 
@@ -1917,6 +1943,134 @@ export class DatabaseStorage implements IStorage {
 
   async getWorkOrdersByMaintenanceOrder(maintenanceOrderId: number): Promise<WorkOrder[]> {
     return await db.select().from(workOrders).where(eq(workOrders.maintenanceOrderId, maintenanceOrderId)).orderBy(desc(workOrders.createdAt));
+  }
+
+  // ========== Bazza Route Operations ==========
+  
+  async getAllBazzaRoutes(): Promise<BazzaRoute[]> {
+    return await db.select().from(bazzaRoutes).where(eq(bazzaRoutes.isActive, true)).orderBy(bazzaRoutes.name);
+  }
+
+  async getBazzaRoute(id: number): Promise<BazzaRoute | undefined> {
+    const result = await db.select().from(bazzaRoutes).where(eq(bazzaRoutes.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getBazzaRoutesByTechnicianId(technicianId: number): Promise<BazzaRoute[]> {
+    return await db.select().from(bazzaRoutes).where(and(eq(bazzaRoutes.technicianId, technicianId), eq(bazzaRoutes.isActive, true))).orderBy(bazzaRoutes.dayOfWeek);
+  }
+
+  async getBazzaRoutesByDayOfWeek(dayOfWeek: string): Promise<BazzaRoute[]> {
+    return await db.select().from(bazzaRoutes).where(and(eq(bazzaRoutes.dayOfWeek, dayOfWeek), eq(bazzaRoutes.isActive, true))).orderBy(bazzaRoutes.name);
+  }
+
+  async createBazzaRoute(data: InsertBazzaRoute): Promise<BazzaRoute> {
+    const result = await db.insert(bazzaRoutes).values(data).returning();
+    return result[0];
+  }
+
+  async updateBazzaRoute(id: number, data: Partial<BazzaRoute>): Promise<BazzaRoute | undefined> {
+    const result = await db.update(bazzaRoutes).set({ ...data, updatedAt: new Date() }).where(eq(bazzaRoutes.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteBazzaRoute(id: number): Promise<boolean> {
+    await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.routeId, id));
+    await db.delete(bazzaRouteStops).where(eq(bazzaRouteStops.routeId, id));
+    const result = await db.delete(bazzaRoutes).where(eq(bazzaRoutes.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // ========== Bazza Route Stop Operations ==========
+
+  async getBazzaRouteStop(id: number): Promise<BazzaRouteStop | undefined> {
+    const result = await db.select().from(bazzaRouteStops).where(eq(bazzaRouteStops.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getBazzaRouteStopsByRouteId(routeId: number): Promise<BazzaRouteStop[]> {
+    return await db.select().from(bazzaRouteStops).where(eq(bazzaRouteStops.routeId, routeId)).orderBy(bazzaRouteStops.orderIndex);
+  }
+
+  async getBazzaRouteStopsByClientId(clientId: number): Promise<BazzaRouteStop[]> {
+    return await db.select().from(bazzaRouteStops).where(eq(bazzaRouteStops.clientId, clientId));
+  }
+
+  async createBazzaRouteStop(data: InsertBazzaRouteStop): Promise<BazzaRouteStop> {
+    const result = await db.insert(bazzaRouteStops).values(data).returning();
+    return result[0];
+  }
+
+  async updateBazzaRouteStop(id: number, data: Partial<BazzaRouteStop>): Promise<BazzaRouteStop | undefined> {
+    const result = await db.update(bazzaRouteStops).set({ ...data, updatedAt: new Date() }).where(eq(bazzaRouteStops.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteBazzaRouteStop(id: number): Promise<boolean> {
+    await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.routeStopId, id));
+    const result = await db.delete(bazzaRouteStops).where(eq(bazzaRouteStops.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async reorderBazzaRouteStops(routeId: number, stopIds: number[]): Promise<BazzaRouteStop[]> {
+    const results: BazzaRouteStop[] = [];
+    for (let i = 0; i < stopIds.length; i++) {
+      const result = await db.update(bazzaRouteStops)
+        .set({ orderIndex: i, updatedAt: new Date() })
+        .where(and(eq(bazzaRouteStops.id, stopIds[i]), eq(bazzaRouteStops.routeId, routeId)))
+        .returning();
+      if (result[0]) results.push(result[0]);
+    }
+    return results;
+  }
+
+  // ========== Bazza Maintenance Assignment Operations ==========
+
+  async getBazzaMaintenanceAssignment(id: number): Promise<BazzaMaintenanceAssignment | undefined> {
+    const result = await db.select().from(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getBazzaMaintenanceAssignmentsByRouteId(routeId: number): Promise<BazzaMaintenanceAssignment[]> {
+    return await db.select().from(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.routeId, routeId));
+  }
+
+  async getBazzaMaintenanceAssignmentsByMaintenanceId(maintenanceId: number): Promise<BazzaMaintenanceAssignment[]> {
+    return await db.select().from(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.maintenanceId, maintenanceId));
+  }
+
+  async getBazzaMaintenanceAssignmentsByDate(date: Date): Promise<BazzaMaintenanceAssignment[]> {
+    const dateStr = date.toISOString().split('T')[0];
+    return await db.select().from(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.date, dateStr));
+  }
+
+  async getBazzaMaintenanceAssignmentsByTechnicianIdAndDateRange(technicianId: number, startDate: Date, endDate: Date): Promise<BazzaMaintenanceAssignment[]> {
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+    const routes = await this.getBazzaRoutesByTechnicianId(technicianId);
+    const routeIds = routes.map(r => r.id);
+    if (routeIds.length === 0) return [];
+    return await db.select().from(bazzaMaintenanceAssignments)
+      .where(and(
+        inArray(bazzaMaintenanceAssignments.routeId, routeIds),
+        gte(bazzaMaintenanceAssignments.date, startStr),
+        lte(bazzaMaintenanceAssignments.date, endStr)
+      ));
+  }
+
+  async createBazzaMaintenanceAssignment(data: InsertBazzaMaintenanceAssignment): Promise<BazzaMaintenanceAssignment> {
+    const result = await db.insert(bazzaMaintenanceAssignments).values(data).returning();
+    return result[0];
+  }
+
+  async updateBazzaMaintenanceAssignment(id: number, data: Partial<BazzaMaintenanceAssignment>): Promise<BazzaMaintenanceAssignment | undefined> {
+    const result = await db.update(bazzaMaintenanceAssignments).set({ ...data, updatedAt: new Date() }).where(eq(bazzaMaintenanceAssignments.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteBazzaMaintenanceAssignment(id: number): Promise<boolean> {
+    const result = await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id)).returning();
+    return result.length > 0;
   }
 
 }

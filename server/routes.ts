@@ -21,6 +21,7 @@ import invoiceRoutes from "./routes/invoice-routes";
 import vendorInvoiceRoutes from "./routes/vendor-invoice-routes";
 import maintenanceOrderRoutes from "./routes/maintenance-order-routes";
 import registerInventoryRoutes from "./routes/inventory-routes";
+import dispatchRoutes from "./routes/dispatch-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops } from "@shared/schema";
 
@@ -33,6 +34,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount bazza routes (service routes)
   app.use('/api/bazza', bazzaRoutes);
+
+  // Mount dispatch routes
+  app.use('/api/dispatch', dispatchRoutes);
 
   // Mount communication routes
   app.use('/api', communicationRoutes);

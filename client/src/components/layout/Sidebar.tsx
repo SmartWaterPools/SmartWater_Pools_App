@@ -56,6 +56,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const isAdminUser = user && ['system_admin', 'org_admin', 'admin'].includes(user.role);
   
   const [isOnDashboard] = useRoute("/");
+  const [isOnDispatch] = useRoute("/dispatch");
   const [isOnProjects] = useRoute("/projects");
   const [isOnMaintenance] = useRoute("/maintenance");
   const [isOnRepairs] = useRoute("/repairs");
@@ -250,6 +251,40 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             )}
           </div>
           
+          {/* Dispatch Board */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/dispatch")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnDispatch ? "text-primary" : "text-gray-500"
+            )}>
+              <Truck className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnDispatch ? "text-primary" : "text-gray-700"
+              )}>
+                Dispatch
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnDispatch ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Dispatch
+              </span>
+            )}
+          </div>
+
           {/* Clients - matched to mobile navigation */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/clients")}

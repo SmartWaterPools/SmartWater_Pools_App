@@ -39,6 +39,7 @@ import MaintenanceOrders from "@/pages/MaintenanceOrders";
 import Invoices from "@/pages/Invoices";
 import InvoiceForm from "@/pages/InvoiceForm";
 import InvoiceDetail from "@/pages/InvoiceDetail";
+import DispatchBoard from "@/pages/DispatchBoard";
 
 // Protected route wrapper that includes the AppLayout
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -88,6 +89,7 @@ function Router() {
       <Route path="/clients/:id/portal" component={() => <ProtectedRoute component={ClientPortal} />} />
       <Route path="/clients/:id" component={() => <ProtectedRoute component={ClientDetails} />} />
       <Route path="/clients" component={() => <ProtectedRoute component={Clients} />} />
+      <Route path="/dispatch" component={() => <ProtectedRoute component={DispatchBoard} />} />
       <Route path="/maintenance/calendar" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} />} />
       <Route path="/maintenance/list" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="list" />} />} />
       <Route path="/maintenance/map" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="map" />} />} />
