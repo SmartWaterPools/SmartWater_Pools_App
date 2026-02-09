@@ -119,9 +119,11 @@ Preferred communication style: Simple, everyday language.
 - **Frontend Pages**:
   - **Scheduling Hub** (`/work-orders`): Central scheduling dashboard with List/Calendar/Board/Routes views, filters for order type, category, status, technician
   - **Maintenance Orders** (`/maintenance-orders`): Dashboard for managing recurring maintenance plans, generating visits
+  - **Maintenance Map** (`/maintenance/map`): Interactive map with 8 filter views (All Maintenances, All Work Orders, Today's Stops, Today+Tomorrow, By Technician, By Route, By Priority, By Status). Supports geocoding for addresses without coordinates. "By Route" displays all route stops including unassigned ones.
   - **Projects** (`/projects`): Dashboard with work order creation and linked work order display
   - **Repairs** (`/repairs`): Dashboard with work order creation and linked work order display
   - **Technicians** (`/technicians`): Team tab + Time Tracking tab with hours per technician
+  - **Routes Tab** (within Maintenance): Drag-and-drop route management with expandable route cards showing stops underneath, auto-expand on drop, query key alignment for real-time updates
 
 - **Multi-tenant Security**: All queries filter by `organizationId`.
 
