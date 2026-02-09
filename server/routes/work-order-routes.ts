@@ -5,6 +5,51 @@ import { type User, insertWorkOrderSchema, insertWorkOrderNoteSchema } from "@sh
 import { ZodError } from "zod";
 import { fromZodError } from "zod-validation-error";
 
+async function deductFromVehicleInventory(
+  technicianId: number | null | undefined,
+  inventoryItemId: number,
+  quantity: number
+): Promise<void> {
+  if (!technicianId) return;
+  try {
+    const vehicles = await storage.getTechnicianVehiclesByTechnicianId(technicianId);
+    for (const vehicle of vehicles) {
+      const vehicleItems = await storage.getVehicleInventoryByVehicleId(vehicle.id);
+      const match = vehicleItems.find((vi: any) => vi.inventoryItemId === inventoryItemId);
+      if (match) {
+        const currentQty = parseFloat(String(match.quantity || "0"));
+        const newQty = Math.max(0, currentQty - quantity);
+        await storage.updateVehicleInventory(match.id, { quantity: String(newQty) });
+        return;
+      }
+    }
+  } catch (error) {
+    console.error('Error deducting from vehicle inventory:', error);
+  }
+}
+
+async function returnToVehicleInventory(
+  technicianId: number | null | undefined,
+  inventoryItemId: number,
+  quantity: number
+): Promise<void> {
+  if (!technicianId) return;
+  try {
+    const vehicles = await storage.getTechnicianVehiclesByTechnicianId(technicianId);
+    for (const vehicle of vehicles) {
+      const vehicleItems = await storage.getVehicleInventoryByVehicleId(vehicle.id);
+      const match = vehicleItems.find((vi: any) => vi.inventoryItemId === inventoryItemId);
+      if (match) {
+        const currentQty = parseFloat(String(match.quantity || "0"));
+        await storage.updateVehicleInventory(match.id, { quantity: String(currentQty + quantity) });
+        return;
+      }
+    }
+  } catch (error) {
+    console.error('Error returning to vehicle inventory:', error);
+  }
+}
+
 const router = Router();
 
 router.get('/', isAuthenticated, async (req, res) => {
@@ -85,6 +130,71 @@ router.get('/', isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error fetching work orders:', error);
     res.status(500).json({ error: 'Failed to fetch work orders' });
+  }
+});
+
+router.get('/technician-hours/summary', isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as User;
+    const { startDate, endDate, technicianId } = req.query;
+
+    const workOrdersList = await storage.getWorkOrders(user.organizationId);
+    
+    const techHours: Record<number, {
+      technicianId: number;
+      totalMinutes: number;
+      completedOrders: number;
+      activeOrders: number;
+      maintenanceVisits: number;
+      workOrders: number;
+      entries: any[];
+    }> = {};
+
+    for (const wo of workOrdersList) {
+      if (technicianId && wo.technicianId !== parseInt(technicianId as string)) continue;
+      if (!wo.technicianId) continue;
+
+      if (startDate && wo.scheduledDate && wo.scheduledDate < (startDate as string)) continue;
+      if (endDate && wo.scheduledDate && wo.scheduledDate > (endDate as string)) continue;
+
+      if (!techHours[wo.technicianId]) {
+        techHours[wo.technicianId] = {
+          technicianId: wo.technicianId,
+          totalMinutes: 0,
+          completedOrders: 0,
+          activeOrders: 0,
+          maintenanceVisits: 0,
+          workOrders: 0,
+          entries: [],
+        };
+      }
+
+      const summary = techHours[wo.technicianId];
+      if (wo.status === 'completed') summary.completedOrders++;
+      if (wo.status === 'in_progress') summary.activeOrders++;
+      if (wo.maintenanceOrderId) summary.maintenanceVisits++;
+      else summary.workOrders++;
+
+      const timeEntries = await storage.getWorkOrderTimeEntries(wo.id);
+      for (const entry of timeEntries) {
+        if (entry.duration) {
+          summary.totalMinutes += entry.duration;
+        }
+        summary.entries.push({
+          workOrderId: wo.id,
+          workOrderTitle: wo.title,
+          date: wo.scheduledDate,
+          duration: entry.duration,
+          clockIn: entry.clockIn,
+          clockOut: entry.clockOut,
+        });
+      }
+    }
+
+    res.json(Object.values(techHours));
+  } catch (error) {
+    console.error('Error fetching technician hours:', error);
+    res.status(500).json({ error: 'Failed to fetch technician hours' });
   }
 });
 
@@ -369,6 +479,11 @@ router.post('/:id/items', isAuthenticated, async (req, res) => {
       }
     }
     
+    if (item.inventoryItemId && item.itemType === 'part') {
+      const wo = await storage.getWorkOrder(workOrderId);
+      await deductFromVehicleInventory(wo?.technicianId, item.inventoryItemId, parseFloat(String(item.quantity || "1")));
+    }
+    
     res.status(201).json(item);
   } catch (error) {
     console.error('Error creating work order item:', error);
@@ -436,6 +551,30 @@ router.patch('/:id/items/:itemId', isAuthenticated, async (req, res) => {
       }
     }
     
+    if (existingItem.itemType === 'part' || item.itemType === 'part') {
+      const wo = await storage.getWorkOrder(parseInt(req.params.id));
+      const oldInvIdVeh = existingItem.inventoryItemId;
+      const newInvIdVeh = item.inventoryItemId;
+      const oldQtyVeh = parseFloat(String(existingItem.quantity || "0"));
+      const newQtyVeh = parseFloat(String(item.quantity || "0"));
+      
+      if (oldInvIdVeh && oldInvIdVeh === newInvIdVeh) {
+        const delta = newQtyVeh - oldQtyVeh;
+        if (delta > 0) {
+          await deductFromVehicleInventory(wo?.technicianId, oldInvIdVeh, delta);
+        } else if (delta < 0) {
+          await returnToVehicleInventory(wo?.technicianId, oldInvIdVeh, Math.abs(delta));
+        }
+      } else {
+        if (oldInvIdVeh) {
+          await returnToVehicleInventory(wo?.technicianId, oldInvIdVeh, oldQtyVeh);
+        }
+        if (newInvIdVeh) {
+          await deductFromVehicleInventory(wo?.technicianId, newInvIdVeh, newQtyVeh);
+        }
+      }
+    }
+    
     res.json(item);
   } catch (error) {
     console.error('Error updating work order item:', error);
@@ -465,6 +604,11 @@ router.delete('/:id/items/:itemId', isAuthenticated, async (req, res) => {
           updatedAt: new Date(),
         });
       }
+    }
+    
+    if (existingItem?.inventoryItemId && existingItem.itemType === 'part') {
+      const wo = await storage.getWorkOrder(parseInt(req.params.id));
+      await returnToVehicleInventory(wo?.technicianId, existingItem.inventoryItemId, parseFloat(String(existingItem.quantity || "1")));
     }
     
     res.json({ success: true });

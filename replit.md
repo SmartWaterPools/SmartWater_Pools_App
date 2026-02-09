@@ -76,35 +76,52 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Auto-generated invoice numbers, detailed invoices with line items, manual payment recording, Stripe integration for online payments, webhook handling.
 - **Multi-tenant Security**: All queries filter by `organizationId`.
 
-## Work Order System
-- **Purpose**: Comprehensive work order management integrating with maintenance, repairs, and construction modules.
+## Work Order & Maintenance Order System
+- **Purpose**: Comprehensive order management with two distinct types:
+  - **Work Orders**: One-time jobs (pool opening, initial cleaning, plumbing, construction tasks, repairs)
+  - **Maintenance Orders**: Recurring schedules (weekly pool service, bi-weekly chemical check) with start/end dates and frequency
 - **Core Features**:
-  - Work Order Requests: Submitted by techs, office staff, or clients; can spawn multiple work orders for multi-visit jobs
-  - Parts & Labor Tracking: Line items for parts (inventory integration) and labor entries with cost/price calculation
-  - Time Tracking: Clock in/out with break time, automatic duration calculation
+  - Work Order Requests: Submitted by techs, office staff, or clients; can spawn multiple work orders
+  - Parts & Labor Tracking: Line items with inventory integration (location-aware vehicle inventory deductions)
+  - Time Tracking: Clock in/out with break time, automatic duration calculation, technician hours dashboard
   - Team Assignment: Multiple technicians per work order with roles (Lead Tech, Technician, Helper)
-  - Service Templates: Pre-configured job templates (Weekly Maintenance, Filter Clean, Leak Detection, etc.) with estimated duration, default priority, and labor rates
+  - Service Templates: Pre-configured templates with `orderType` field ('work_order' or 'maintenance_order')
+  - Maintenance Order Recurrence: Weekly, bi-weekly, monthly, bi-monthly, quarterly scheduling with auto-generated visits
+  - Route Planning: Plan technician daily routes across all job types
 
 - **Integration Points**:
-  - Maintenance: Create work orders from Bazza Routes maintenance assignments/stops, auto-populate from service templates
+  - Maintenance Orders generate work orders (with `maintenanceOrderId` link) for each scheduled visit
   - Repairs: Create work orders linked to repair jobs with issue details pre-filled
   - Projects: Create work orders linked to construction projects and phases
-  - Related Entity Navigation: Work order detail shows clickable links to request, maintenance, repair, and project
+  - Inventory: Parts usage deducts from both global stock AND technician's vehicle inventory
 
 - **Database Tables**:
-  - `work_orders`: Core work order entity with status, priority, category
+  - `work_orders`: Core work order entity with status, priority, category, `maintenanceOrderId` for recurring visits
+  - `maintenance_orders`: Recurring maintenance plans with frequency, day_of_week, start/end dates
   - `work_order_requests`: Request tracking with requester type and status
   - `work_order_items`: Parts and labor line items
   - `work_order_time_entries`: Clock in/out records per technician
   - `work_order_team_members`: Team assignments with roles
+  - `service_templates`: Templates with `orderType` field for work_order vs maintenance_order
 
 - **API Endpoints**:
   - `/api/work-orders` - CRUD for work orders with filtering
-  - `/api/work-orders/:id/items` - Parts/labor line items
+  - `/api/work-orders/:id/items` - Parts/labor line items (with vehicle inventory deduction)
   - `/api/work-orders/:id/time-entries` - Time tracking
   - `/api/work-orders/:id/team` - Team member management
   - `/api/work-orders/:id/clock-in|clock-out` - Convenience time tracking
+  - `/api/work-orders/technician-hours/summary` - Technician hours aggregation with date filters
   - `/api/work-order-requests` - Request management
+  - `/api/maintenance-orders` - CRUD for maintenance orders
+  - `/api/maintenance-orders/:id/work-orders` - Get visits for a maintenance order
+  - `/api/maintenance-orders/:id/generate-visits` - Generate recurring visit work orders
+
+- **Frontend Pages**:
+  - **Scheduling Hub** (`/work-orders`): Central scheduling dashboard with List/Calendar/Board/Routes views, filters for order type, category, status, technician
+  - **Maintenance Orders** (`/maintenance-orders`): Dashboard for managing recurring maintenance plans, generating visits
+  - **Projects** (`/projects`): Dashboard with work order creation and linked work order display
+  - **Repairs** (`/repairs`): Dashboard with work order creation and linked work order display
+  - **Technicians** (`/technicians`): Team tab + Time Tracking tab with hours per technician
 
 - **Multi-tenant Security**: All queries filter by `organizationId`.
 

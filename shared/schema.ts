@@ -227,6 +227,66 @@ export const insertMaintenanceSchema = createInsertSchema(maintenances).omit({
 export type InsertMaintenance = z.infer<typeof insertMaintenanceSchema>;
 export type Maintenance = typeof maintenances.$inferSelect;
 
+// Maintenance Order Frequencies
+export const MAINTENANCE_ORDER_FREQUENCIES = ['weekly', 'bi_weekly', 'monthly', 'bi_monthly', 'quarterly', 'custom'] as const;
+export type MaintenanceOrderFrequency = (typeof MAINTENANCE_ORDER_FREQUENCIES)[number];
+
+// Maintenance Order Statuses
+export const MAINTENANCE_ORDER_STATUSES = ['active', 'paused', 'completed', 'cancelled'] as const;
+export type MaintenanceOrderStatus = (typeof MAINTENANCE_ORDER_STATUSES)[number];
+
+// Maintenance Orders - Recurring maintenance plans with scheduling
+export const maintenanceOrders = pgTable("maintenance_orders", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id"),
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Client and tech assignment
+  clientId: integer("client_id").notNull(),
+  technicianId: integer("technician_id"),
+  
+  // Recurrence scheduling
+  frequency: text("frequency").notNull().default("weekly"), // 'weekly', 'bi_weekly', 'monthly', 'bi_monthly', 'quarterly', 'custom'
+  dayOfWeek: text("day_of_week"), // 'monday', 'tuesday', etc.
+  preferredTime: time("preferred_time"),
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date"), // null = ongoing
+  
+  // Template
+  serviceTemplateId: integer("service_template_id"),
+  checklist: text("checklist"), // JSON array of checklist items from template
+  
+  // Status
+  status: text("status").notNull().default("active"), // 'active', 'paused', 'completed', 'cancelled'
+  
+  // Pricing
+  pricePerVisit: integer("price_per_visit"), // in cents
+  estimatedDuration: integer("estimated_duration"), // in minutes
+  
+  // Location (from client or override)
+  address: text("address"),
+  addressLat: text("address_lat"),
+  addressLng: text("address_lng"),
+  
+  // Notes
+  notes: text("notes"),
+  
+  // Metadata
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertMaintenanceOrderSchema = createInsertSchema(maintenanceOrders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertMaintenanceOrder = z.infer<typeof insertMaintenanceOrderSchema>;
+export type MaintenanceOrder = typeof maintenanceOrders.$inferSelect;
+
 // Bazza Routes - Service routes for technicians
 export const bazzaRoutes = pgTable("bazza_routes", {
   id: serial("id").primaryKey(),
@@ -612,7 +672,7 @@ export const serviceTemplates = pgTable("service_templates", {
   id: serial("id").primaryKey(),
   organizationId: integer("organization_id"),
   name: text("name").notNull(),
-  type: text("type").notNull(), // 'maintenance', 'repair', 'construction', 'cleaning'
+  type: text("type").notNull(), // 'maintenance', 'repair', 'construction', 'cleaning', 'plumbing', 'opening'
   description: text("description"),
   isDefault: boolean("is_default").default(false),
   checklistItems: text("checklist_items"), // JSON array of checklist items
@@ -623,6 +683,7 @@ export const serviceTemplates = pgTable("service_templates", {
   defaultLaborRate: integer("default_labor_rate"), // Default labor rate in cents per hour
   recurrence: text("recurrence"), // 'one_time', 'weekly', 'bi_weekly', 'monthly', etc.
   category: text("category"), // More specific: 'weekly_maintenance', 'filter_clean', 'leak_detection', etc.
+  orderType: text("order_type").default("work_order"), // 'work_order' or 'maintenance_order' - which type of order this template creates
   
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
@@ -674,6 +735,7 @@ export const workOrders = pgTable("work_orders", {
   projectPhaseId: integer("project_phase_id"), // FK to project_phases (link to specific phase/stage)
   repairId: integer("repair_id"), // FK to repairs
   maintenanceAssignmentId: integer("maintenance_assignment_id"), // FK to bazza_maintenance_assignments
+  maintenanceOrderId: integer("maintenance_order_id"), // FK to maintenance_orders (for visits generated from recurring plans)
   workOrderRequestId: integer("work_order_request_id"), // FK to work_order_requests (optional link to parent request)
   
   // Template reference

@@ -91,6 +91,7 @@ type TemplateItem = z.infer<typeof templateItemSchema>;
 const serviceTemplateSchema = z.object({
   name: z.string().min(1, "Template name is required"),
   type: z.string().min(1, "Template type is required"),
+  orderType: z.string().default("work_order"),
   description: z.string().optional(),
   isDefault: z.boolean().default(false),
   checklistItems: z.array(templateItemSchema).min(1, "At least one checklist item is required"),
@@ -200,6 +201,7 @@ export function ServiceTemplates() {
     defaultValues: {
       name: "",
       type: "maintenance",
+      orderType: "work_order",
       description: "",
       isDefault: false,
       checklistItems: [
@@ -263,6 +265,7 @@ export function ServiceTemplates() {
     form.reset({
       name: template.name,
       type: template.type,
+      orderType: template.orderType || "work_order",
       description: template.description || "",
       isDefault: template.isDefault === null ? false : template.isDefault,
       checklistItems: parsedItems.length > 0 ? parsedItems : [
@@ -385,6 +388,36 @@ export function ServiceTemplates() {
                       )}
                     />
 
+                    <FormField
+                      control={form.control}
+                      name="orderType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Order Type</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select order type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="work_order">Work Order</SelectItem>
+                              <SelectItem value="maintenance_order">Maintenance Order</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            Whether this template creates a one-time work order or a recurring maintenance order
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="category"

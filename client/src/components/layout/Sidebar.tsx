@@ -23,7 +23,8 @@ import {
   ShieldCheck,
   ClipboardList,
   FileText,
-  Package
+  Package,
+  CalendarRange
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -66,6 +67,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
   const [isOnWorkOrders] = useRoute("/work-orders");
+  const [isOnMaintenanceOrders] = useRoute("/maintenance-orders");
   const [isOnSettings] = useRoute("/settings");
   const [isOnAdmin] = useRoute("/admin");
   
@@ -95,7 +97,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
       case '/repairs':
         return 'Repair';
       case '/work-orders':
-        return 'Work Orders';
+        return 'Scheduling';
+      case '/maintenance-orders':
+        return 'Maintenance Orders';
       case '/clients':
         return 'Clients';
       case '/technicians':
@@ -129,6 +133,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <Wrench className="h-4 w-4" />;
       case '/work-orders':
         return <ClipboardList className="h-4 w-4" />;
+      case '/maintenance-orders':
+        return <CalendarRange className="h-4 w-4" />;
       case '/clients':
         return <Users className="h-4 w-4" />;
       case '/technicians':
@@ -380,7 +386,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             )}
           </div>
           
-          {/* Work Orders */}
+          {/* Scheduling Hub (Work Orders) */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/work-orders")}
             className={cn(
@@ -402,14 +408,48 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 "text-sm font-medium",
                 isOnWorkOrders ? "text-primary" : "text-gray-700"
               )}>
-                Work Orders
+                Scheduling
               </span>
             ) : (
               <span className={cn(
                 "text-xs mt-0.5",
                 isOnWorkOrders ? "text-primary font-medium" : "text-gray-500"
               )}>
-                Work Orders
+                Scheduling
+              </span>
+            )}
+          </div>
+
+          {/* Maintenance Orders */}
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/maintenance-orders")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnMaintenanceOrders ? "text-primary" : "text-gray-500"
+            )}>
+              <CalendarRange className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnMaintenanceOrders ? "text-primary" : "text-gray-700"
+              )}>
+                Maint. Orders
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnMaintenanceOrders ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Maint. Orders
               </span>
             )}
           </div>

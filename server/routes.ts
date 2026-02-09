@@ -19,6 +19,7 @@ import googleCalendarRoutes from "./routes/google-calendar-routes";
 import businessRoutes from "./routes/business-routes";
 import invoiceRoutes from "./routes/invoice-routes";
 import vendorInvoiceRoutes from "./routes/vendor-invoice-routes";
+import maintenanceOrderRoutes from "./routes/maintenance-order-routes";
 import registerInventoryRoutes from "./routes/inventory-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops } from "@shared/schema";
@@ -56,6 +57,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount service template routes
   app.use('/api/service-templates', serviceTemplateRoutes);
+
+  // Mount maintenance order routes
+  app.use('/api/maintenance-orders', maintenanceOrderRoutes);
 
   // Mount Google Calendar routes
   app.use('/api/google-calendar', googleCalendarRoutes);

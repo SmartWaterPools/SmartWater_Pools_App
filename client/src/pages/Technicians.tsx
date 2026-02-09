@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { 
   PlusCircle, 
@@ -10,11 +10,13 @@ import {
   MoreHorizontal,
   Calendar,
   CalendarCheck,
-  BadgeCheck
+  BadgeCheck,
+  Clock,
+  BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { 
   Dialog, 
   DialogContent, 
@@ -23,20 +25,75 @@ import {
   DialogTrigger 
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { TechnicianList } from "@/components/technicians/TechnicianList";
 import { TechnicianForm } from "@/components/technicians/TechnicianForm";
 import { TechnicianWithUser } from "@/lib/types";
+
+interface TechHoursSummary {
+  technicianId: number;
+  totalMinutes: number;
+  completedOrders: number;
+  activeOrders: number;
+  maintenanceVisits: number;
+  workOrders: number;
+  entries: any[];
+}
+
+type DateFilter = "week" | "month" | "all";
+
+function getDateRange(filter: DateFilter): { startDate?: string; endDate?: string } {
+  if (filter === "all") return {};
+  
+  const now = new Date();
+  const endDate = now.toISOString().split("T")[0];
+  
+  if (filter === "week") {
+    const day = now.getDay();
+    const diff = day === 0 ? 6 : day - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diff);
+    return { startDate: monday.toISOString().split("T")[0], endDate };
+  }
+  
+  if (filter === "month") {
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { startDate: firstOfMonth.toISOString().split("T")[0], endDate };
+  }
+  
+  return {};
+}
 
 export default function Technicians() {
   const [open, setOpen] = useState(false);
   const [selectedTechnician, setSelectedTechnician] = useState<TechnicianWithUser | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
   const { data: technicians, isLoading, error } = useQuery<TechnicianWithUser[]>({
     queryKey: ["/api/technicians-with-users"],
   });
 
-  // Log any errors for debugging
+  const dateRange = useMemo(() => getDateRange(dateFilter), [dateFilter]);
+
+  const hoursQueryKey = useMemo(() => {
+    const params = new URLSearchParams();
+    if (dateRange.startDate) params.set("startDate", dateRange.startDate);
+    if (dateRange.endDate) params.set("endDate", dateRange.endDate);
+    const qs = params.toString();
+    return `/api/work-orders/technician-hours/summary${qs ? `?${qs}` : ""}`;
+  }, [dateRange]);
+
+  const { data: hoursSummary, isLoading: hoursLoading } = useQuery<TechHoursSummary[]>({
+    queryKey: ["/api/work-orders/technician-hours/summary", dateRange],
+    queryFn: async () => {
+      const res = await fetch(hoursQueryKey);
+      if (!res.ok) throw new Error("Failed to fetch technician hours");
+      return res.json();
+    },
+  });
+
   if (error) {
     console.error("Error loading technicians:", error);
   }
@@ -53,7 +110,6 @@ export default function Technicians() {
     return true;
   });
 
-  // Show error state if query failed
   if (error) {
     return (
       <div className="w-full max-w-full overflow-hidden">
@@ -68,49 +124,165 @@ export default function Technicians() {
     );
   }
 
+  const maxMinutes = hoursSummary?.reduce((max, s) => Math.max(max, s.totalMinutes), 0) || 1;
+
+  function getTechName(techId: number): string {
+    const tech = technicians?.find(t => t.id === techId);
+    return tech?.user?.name || `Technician #${techId}`;
+  }
+
   return (
     <div className="w-full max-w-full overflow-hidden">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <h1 className="text-2xl font-bold text-foreground font-heading mb-3 md:mb-0">Technicians</h1>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-          <div className="relative flex-1 sm:flex-initial">
-            <Input 
-              type="text" 
-              placeholder="Search technicians..." 
-              className="pl-10 pr-4 w-full"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+      </div>
+
+      <Tabs defaultValue="team" className="w-full">
+        <TabsList>
+          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="time-tracking">
+            <Clock className="h-4 w-4 mr-1" />
+            Time Tracking
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="team">
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto mb-6">
+            <div className="relative flex-1 sm:flex-initial">
+              <Input 
+                type="text" 
+                placeholder="Search technicians..." 
+                className="pl-10 pr-4 w-full"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            </div>
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90 text-white font-medium whitespace-nowrap">
+                  <PlusCircle className="h-4 w-4 mr-1 flex-shrink-0" />
+                  <span>Add Technician</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md overflow-y-auto max-h-[90vh]">
+                <DialogHeader>
+                  <DialogTitle>Add New Technician</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <TechnicianForm onSuccess={() => setOpen(false)} />
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90 text-white font-medium whitespace-nowrap">
-                <PlusCircle className="h-4 w-4 mr-1 flex-shrink-0" />
-                <span>Add Technician</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md overflow-y-auto max-h-[90vh]">
-              <DialogHeader>
-                <DialogTitle>Add New Technician</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-2">
-                <TechnicianForm onSuccess={() => setOpen(false)} />
-              </div>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
 
-      <div className="mb-6">
-        <TechnicianList 
-          technicians={filteredTechnicians || []} 
-          isLoading={isLoading} 
-          onTechnicianSelect={setSelectedTechnician}
-        />
-      </div>
+          <div className="mb-6">
+            <TechnicianList 
+              technicians={filteredTechnicians || []} 
+              isLoading={isLoading} 
+              onTechnicianSelect={setSelectedTechnician}
+            />
+          </div>
+        </TabsContent>
 
-      {/* Technician detail dialog */}
+        <TabsContent value="time-tracking">
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Button
+              variant={dateFilter === "week" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDateFilter("week")}
+            >
+              This Week
+            </Button>
+            <Button
+              variant={dateFilter === "month" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDateFilter("month")}
+            >
+              This Month
+            </Button>
+            <Button
+              variant={dateFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setDateFilter("all")}
+            >
+              All Time
+            </Button>
+          </div>
+
+          {hoursLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardContent className="pt-6">
+                    <Skeleton className="h-6 w-32 mb-3" />
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4 mb-2" />
+                    <Skeleton className="h-3 w-full" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : !hoursSummary || hoursSummary.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center text-muted-foreground py-8">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-3 opacity-40" />
+                  <p className="text-lg font-medium">No time tracking data</p>
+                  <p className="text-sm mt-1">No hours have been logged for the selected period.</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {hoursSummary.map((summary) => {
+                const totalHours = (summary.totalMinutes / 60).toFixed(1);
+                const barWidth = Math.max((summary.totalMinutes / maxMinutes) * 100, 2);
+
+                return (
+                  <Card key={summary.technicianId}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center justify-between">
+                        <span className="truncate">{getTechName(summary.technicianId)}</span>
+                        <span className="text-lg font-bold text-primary ml-2 flex-shrink-0">{totalHours}h</span>
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        <Badge variant="secondary">
+                          {summary.completedOrders} completed
+                        </Badge>
+                        <Badge variant="outline">
+                          {summary.activeOrders} active
+                        </Badge>
+                      </div>
+
+                      <div className="text-sm text-muted-foreground space-y-1">
+                        <div className="flex justify-between">
+                          <span>Maintenance Visits</span>
+                          <span className="font-medium">{summary.maintenanceVisits}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Work Orders</span>
+                          <span className="font-medium">{summary.workOrders}</span>
+                        </div>
+                      </div>
+
+                      <div className="w-full bg-muted rounded-full h-2.5">
+                        <div
+                          className="bg-primary h-2.5 rounded-full transition-all"
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
       {selectedTechnician && (
         <Dialog open={!!selectedTechnician} onOpenChange={() => setSelectedTechnician(null)}>
           <DialogContent className="max-w-2xl overflow-y-auto max-h-[90vh]">

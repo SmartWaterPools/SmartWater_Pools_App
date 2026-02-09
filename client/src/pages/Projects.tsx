@@ -12,7 +12,8 @@ import {
   ClipboardList,
   Layers,
   Edit,
-  Trash2
+  Trash2,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,15 +32,19 @@ import {
 } from "@/components/ui/select";
 import { ProjectForm } from "@/components/projects/ProjectForm";
 import { ProjectPhases } from "@/components/projects/ProjectPhases";
+import { CreateWorkOrderFromProjectDialog } from "@/components/projects/CreateWorkOrderFromProjectDialog";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 import { ProjectWithDetails, formatDate, formatCurrency } from "@/lib/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTrigger, DialogTitle, DialogHeader, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { WorkOrder } from "@shared/schema";
 
 export default function Projects() {
   const [open, setOpen] = useState(false);
@@ -47,6 +52,7 @@ export default function Projects() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProject, setSelectedProject] = useState<ProjectWithDetails | null>(null);
+  const [workOrderDialogProject, setWorkOrderDialogProject] = useState<ProjectWithDetails | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -54,6 +60,14 @@ export default function Projects() {
   const { data: rawProjects, isLoading } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
+
+  const { data: allWorkOrders } = useQuery<WorkOrder[]>({
+    queryKey: ["/api/work-orders"],
+  });
+
+  const getWorkOrdersForProject = (projectId: number) => {
+    return allWorkOrders?.filter(wo => wo.projectId === projectId) || [];
+  };
   
   // Delete project mutation
   const deleteProjectMutation = useMutation({
@@ -282,6 +296,14 @@ export default function Projects() {
                         <span className="text-gray-600">{project.assignments?.length || 0} Technicians</span>
                       </div>
                     </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      {getWorkOrdersForProject(project.id).length > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          <ClipboardList className="h-3 w-3 mr-1" />
+                          {getWorkOrdersForProject(project.id).length} Work Order{getWorkOrdersForProject(project.id).length !== 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center justify-between">
                       <div className="flex -space-x-2">
                         {project.assignments?.slice(0, 3).map((assignment) => (
@@ -300,6 +322,17 @@ export default function Projects() {
                         )}
                       </div>
                       <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-blue-600 hover:text-blue-900"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setWorkOrderDialogProject(project);
+                          }}
+                        >
+                          <ClipboardList className="h-4 w-4" />
+                        </Button>
                         <Link href={`/projects/${project.id}`}>
                           <Button 
                             variant="outline" 
@@ -427,7 +460,25 @@ export default function Projects() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-2">
+                          <div className="flex justify-end items-center space-x-2">
+                            {getWorkOrdersForProject(project.id).length > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                <ClipboardList className="h-3 w-3 mr-1" />
+                                {getWorkOrdersForProject(project.id).length}
+                              </Badge>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 text-blue-600 hover:text-blue-900"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setWorkOrderDialogProject(project);
+                              }}
+                              title="Create Work Order"
+                            >
+                              <ClipboardList className="h-4 w-4" />
+                            </Button>
                             <Link href={`/projects/${project.id}`}>
                               <Button 
                                 variant="outline" 
@@ -557,6 +608,70 @@ export default function Projects() {
                     projectId={selectedProject.id}
                     currentPhase={selectedProject.currentPhase}
                   />
+
+                  <Separator className="my-4" />
+
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-sm text-gray-500 uppercase flex items-center gap-2">
+                        <ClipboardList className="h-4 w-4" />
+                        Linked Work Orders
+                        {getWorkOrdersForProject(selectedProject.id).length > 0 && (
+                          <Badge variant="secondary" className="text-xs ml-2">
+                            {getWorkOrdersForProject(selectedProject.id).length}
+                          </Badge>
+                        )}
+                      </h3>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProject(null);
+                          setWorkOrderDialogProject(selectedProject);
+                        }}
+                      >
+                        <PlusCircle className="h-4 w-4 mr-1" />
+                        Create Work Order
+                      </Button>
+                    </div>
+                    {getWorkOrdersForProject(selectedProject.id).length > 0 ? (
+                      <div className="space-y-2">
+                        {getWorkOrdersForProject(selectedProject.id).map((workOrder) => (
+                          <div
+                            key={workOrder.id}
+                            className="border rounded-lg p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm">{workOrder.title}</span>
+                                  <Badge 
+                                    variant={workOrder.status === 'completed' ? 'default' : 'secondary'}
+                                    className="text-xs"
+                                  >
+                                    {workOrder.status.charAt(0).toUpperCase() + workOrder.status.slice(1).replace('_', ' ')}
+                                  </Badge>
+                                </div>
+                                {workOrder.scheduledDate && (
+                                  <div className="flex items-center text-xs text-muted-foreground mt-1">
+                                    <Calendar className="h-3 w-3 mr-1" />
+                                    {formatDate(workOrder.scheduledDate)}
+                                  </div>
+                                )}
+                              </div>
+                              <Link href={`/work-orders/${workOrder.id}`}>
+                                <Button variant="ghost" size="sm" className="text-primary">
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No work orders linked to this project.</p>
+                    )}
+                  </div>
                 </div>
                 
                 {/* Right column - Project team */}
@@ -605,6 +720,19 @@ export default function Projects() {
           )}
         </DialogContent>
       </Dialog>
+
+      {workOrderDialogProject && (
+        <CreateWorkOrderFromProjectDialog
+          open={!!workOrderDialogProject}
+          onOpenChange={(open) => {
+            if (!open) setWorkOrderDialogProject(null);
+          }}
+          project={workOrderDialogProject}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+          }}
+        />
+      )}
     </div>
   );
 }

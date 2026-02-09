@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql, gte } from "drizzle-orm";
 
@@ -307,6 +307,17 @@ export interface IStorage {
   createVendorParsingTemplate(template: InsertVendorParsingTemplate): Promise<VendorParsingTemplate>;
   updateVendorParsingTemplate(id: number, data: Partial<VendorParsingTemplate>): Promise<VendorParsingTemplate | undefined>;
   deleteVendorParsingTemplate(id: number): Promise<boolean>;
+
+  // Maintenance Order operations
+  getMaintenanceOrders(organizationId?: number): Promise<MaintenanceOrder[]>;
+  getMaintenanceOrder(id: number): Promise<MaintenanceOrder | undefined>;
+  getMaintenanceOrdersByClient(clientId: number): Promise<MaintenanceOrder[]>;
+  getMaintenanceOrdersByTechnician(technicianId: number): Promise<MaintenanceOrder[]>;
+  getMaintenanceOrdersByStatus(status: string, organizationId?: number): Promise<MaintenanceOrder[]>;
+  createMaintenanceOrder(order: InsertMaintenanceOrder): Promise<MaintenanceOrder>;
+  updateMaintenanceOrder(id: number, data: Partial<MaintenanceOrder>): Promise<MaintenanceOrder | undefined>;
+  deleteMaintenanceOrder(id: number): Promise<boolean>;
+  getWorkOrdersByMaintenanceOrder(maintenanceOrderId: number): Promise<WorkOrder[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1859,6 +1870,53 @@ export class DatabaseStorage implements IStorage {
         lte(inventoryAdjustments.adjustmentDate, endDate)
       )
     );
+  }
+
+  // Maintenance Order operations
+  async getMaintenanceOrders(organizationId?: number): Promise<MaintenanceOrder[]> {
+    if (organizationId) {
+      return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.organizationId, organizationId)).orderBy(desc(maintenanceOrders.createdAt));
+    }
+    return await db.select().from(maintenanceOrders).orderBy(desc(maintenanceOrders.createdAt));
+  }
+
+  async getMaintenanceOrder(id: number): Promise<MaintenanceOrder | undefined> {
+    const result = await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.id, id)).limit(1);
+    return result[0] || undefined;
+  }
+
+  async getMaintenanceOrdersByClient(clientId: number): Promise<MaintenanceOrder[]> {
+    return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.clientId, clientId)).orderBy(desc(maintenanceOrders.createdAt));
+  }
+
+  async getMaintenanceOrdersByTechnician(technicianId: number): Promise<MaintenanceOrder[]> {
+    return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.technicianId, technicianId)).orderBy(desc(maintenanceOrders.createdAt));
+  }
+
+  async getMaintenanceOrdersByStatus(status: string, organizationId?: number): Promise<MaintenanceOrder[]> {
+    if (organizationId) {
+      return await db.select().from(maintenanceOrders).where(and(eq(maintenanceOrders.status, status), eq(maintenanceOrders.organizationId, organizationId))).orderBy(desc(maintenanceOrders.createdAt));
+    }
+    return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.status, status)).orderBy(desc(maintenanceOrders.createdAt));
+  }
+
+  async createMaintenanceOrder(order: InsertMaintenanceOrder): Promise<MaintenanceOrder> {
+    const result = await db.insert(maintenanceOrders).values(order).returning();
+    return result[0];
+  }
+
+  async updateMaintenanceOrder(id: number, data: Partial<MaintenanceOrder>): Promise<MaintenanceOrder | undefined> {
+    const result = await db.update(maintenanceOrders).set({ ...data, updatedAt: new Date() }).where(eq(maintenanceOrders.id, id)).returning();
+    return result[0] || undefined;
+  }
+
+  async deleteMaintenanceOrder(id: number): Promise<boolean> {
+    const result = await db.delete(maintenanceOrders).where(eq(maintenanceOrders.id, id)).returning();
+    return result.length > 0;
+  }
+
+  async getWorkOrdersByMaintenanceOrder(maintenanceOrderId: number): Promise<WorkOrder[]> {
+    return await db.select().from(workOrders).where(eq(workOrders.maintenanceOrderId, maintenanceOrderId)).orderBy(desc(workOrders.createdAt));
   }
 
 }
