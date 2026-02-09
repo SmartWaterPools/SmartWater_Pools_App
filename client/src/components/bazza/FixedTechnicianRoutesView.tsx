@@ -12,7 +12,7 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
 import { Spinner } from "../ui/spinner";
-import { useBazzaRoutesByTechnician, useRouteStops } from "../../hooks/useBazzaRoutes";
+import { useBazzaRoutesByTechnician, useBazzaRoutes, useRouteStops } from "../../hooks/useBazzaRoutes";
 import { BazzaRoute, MaintenanceWithDetails } from "../../lib/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { 
@@ -31,7 +31,7 @@ import { ScrollArea } from "../ui/scroll-area";
 import { createAssignment } from "../../services/bazzaService";
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -42,6 +42,7 @@ import {
 } from "../ui/dropdown-menu";
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 
 // Create context for maintenance assignments
 export const MaintenanceAssignmentsContext = createContext<React.Dispatch<React.SetStateAction<Record<number, boolean>>> | null>(null);
@@ -525,7 +526,38 @@ export default function TechnicianRoutesView({
   const [maintenanceAssignments, setMaintenanceAssignments] = useState<Record<number, boolean>>({});
   const [lastAssignedMaintenanceId, setLastAssignedMaintenanceId] = useState<number | null>(null);
   const [isAddingGlobal, setIsAddingGlobal] = useState(false);
-  
+  const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
+  const [bulkAssignClientId, setBulkAssignClientId] = useState<string>("");
+  const [bulkAssignRouteId, setBulkAssignRouteId] = useState<string>("");
+
+  const { data: clientsList } = useQuery<{ id: number; name: string; companyName?: string }[]>({
+    queryKey: ["/api/clients"],
+  });
+
+  const bulkAssignMutation = useMutation({
+    mutationFn: (data: { clientId: number; routeId: number }) =>
+      apiRequest("POST", "/api/dispatch/bulk-assign-client-stops", data),
+    onSuccess: async (response) => {
+      const result = await response.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes/technician"] });
+      toast({
+        title: "Stops Assigned",
+        description: result.message || `Successfully assigned stops to route.`,
+      });
+      setBulkAssignOpen(false);
+      setBulkAssignClientId("");
+      setBulkAssignRouteId("");
+    },
+    onError: () => {
+      toast({
+        title: "Assignment Failed",
+        description: "Could not assign stops to route.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Days of week options
   const daysOfWeek = [
     { value: 'all', label: 'All days' },
@@ -550,14 +582,14 @@ export default function TechnicianRoutesView({
     }
   }, [lastAssignedMaintenanceId]);
   
+  // Query all routes (used when no technician selected)
+  const { routes: allRoutes, isRoutesLoading: allRoutesLoading, routesError: allRoutesError } = useBazzaRoutes();
   // Query routes for selected technician
-  const { 
-    technicianRoutes: routes, 
-    isTechnicianRoutesLoading: isRoutesLoading, 
-    technicianRoutesError: routesError 
-  } = useBazzaRoutesByTechnician(
-    selectedTechnicianId
-  );
+  const { technicianRoutes, isTechnicianRoutesLoading, technicianRoutesError } = useBazzaRoutesByTechnician(selectedTechnicianId);
+
+  const routes = selectedTechnicianId ? technicianRoutes : allRoutes;
+  const isRoutesLoading = selectedTechnicianId ? isTechnicianRoutesLoading : allRoutesLoading;
+  const routesError = selectedTechnicianId ? technicianRoutesError : allRoutesError;
   
   // Filter routes by day
   const filteredRoutes = useMemo(() => {
@@ -799,6 +831,14 @@ export default function TechnicianRoutesView({
                 )}
               </Button>
             )}
+            <Button 
+              onClick={() => setBulkAssignOpen(true)} 
+              variant="outline" 
+              size="sm"
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Assign Client Stops
+            </Button>
           </div>
           
           {isRoutesLoading ? (
@@ -875,6 +915,68 @@ export default function TechnicianRoutesView({
         </div>
         </div>
       </MaintenanceAssignmentsContext.Provider>
+      <Dialog open={bulkAssignOpen} onOpenChange={setBulkAssignOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign All Client Stops</DialogTitle>
+            <DialogDescription>
+              Assign all scheduled maintenance jobs for a client to a route.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Client</Label>
+              <Select value={bulkAssignClientId} onValueChange={setBulkAssignClientId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a client..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(clientsList || []).map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {c.name || c.companyName || `Client #${c.id}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Route</Label>
+              <Select value={bulkAssignRouteId} onValueChange={setBulkAssignRouteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a route..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {(routes || []).map((r) => (
+                    <SelectItem key={r.id} value={String(r.id)}>
+                      {r.name} ({r.dayOfWeek})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setBulkAssignOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!bulkAssignClientId || !bulkAssignRouteId) {
+                  toast({ title: "Select Both", description: "Please select both a client and a route.", variant: "destructive" });
+                  return;
+                }
+                bulkAssignMutation.mutate({
+                  clientId: Number(bulkAssignClientId),
+                  routeId: Number(bulkAssignRouteId),
+                });
+              }}
+              disabled={bulkAssignMutation.isPending}
+            >
+              {bulkAssignMutation.isPending ? "Assigning..." : "Assign All Stops"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </DndProvider>
   );
 }

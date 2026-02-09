@@ -442,4 +442,67 @@ router.post("/assign-job", isAuthenticated, async (req: Request, res: Response) 
   }
 });
 
+router.post("/bulk-assign-client-stops", isAuthenticated, async (req: Request, res: Response) => {
+  try {
+    const { clientId, routeId } = req.body;
+    if (!clientId || !routeId) {
+      return res.status(400).json({ error: "Missing required fields: clientId, routeId" });
+    }
+
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route) {
+      return res.status(404).json({ error: "Route not found" });
+    }
+
+    const allMaintenances = await db.select().from(maintenances)
+      .where(and(
+        eq(maintenances.clientId, clientId),
+        eq(maintenances.status, "scheduled")
+      ));
+
+    if (allMaintenances.length === 0) {
+      return res.json({ success: true, stopsCreated: 0, message: "No scheduled maintenances found for this client" });
+    }
+
+    const existingStops = await storage.getBazzaRouteStopsByRouteId(routeId);
+    let nextOrder = existingStops.length > 0 ? Math.max(...existingStops.map(s => s.orderIndex)) + 1 : 0;
+
+    const existingMaintenanceIds = new Set<number>();
+    const assignments = await db.select().from(bazzaMaintenanceAssignments)
+      .where(eq(bazzaMaintenanceAssignments.routeId, routeId));
+    for (const a of assignments) {
+      existingMaintenanceIds.add(a.maintenanceId);
+    }
+
+    let stopsCreated = 0;
+
+    for (const m of allMaintenances) {
+      if (existingMaintenanceIds.has(m.id)) continue;
+
+      await storage.createBazzaRouteStop({
+        routeId,
+        clientId,
+        orderIndex: nextOrder++,
+        estimatedDuration: 30,
+        customInstructions: m.notes || null,
+      });
+
+      await storage.createBazzaMaintenanceAssignment({
+        routeId,
+        maintenanceId: m.id,
+        date: m.scheduleDate ? new Date(m.scheduleDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        status: "scheduled",
+        notes: m.notes || null,
+      });
+
+      stopsCreated++;
+    }
+
+    res.json({ success: true, stopsCreated, message: `Added ${stopsCreated} stops to route` });
+  } catch (error) {
+    console.error("[DISPATCH] Error bulk assigning client stops:", error);
+    res.status(500).json({ error: "Failed to bulk assign client stops" });
+  }
+});
+
 export default router;

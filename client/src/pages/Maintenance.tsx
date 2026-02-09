@@ -642,6 +642,7 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
           }
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
+            queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes/technician"] });
             setIsRouteFormOpen(false);
             toast({
               title: route ? "Route updated" : "Route created",
