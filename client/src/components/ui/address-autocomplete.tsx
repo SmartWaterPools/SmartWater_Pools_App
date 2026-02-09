@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Loader2, X } from 'lucide-react';
-import { loadPlacesLibrary } from '../../lib/googleMapsUtils';
+import { useGoogleMaps } from '../../contexts/GoogleMapsContext';
 import { Input } from './input';
 
 export interface AddressCoordinates {
@@ -43,14 +43,15 @@ export function AddressAutocomplete({
   const sessionTokenRef = useRef<any>(null);
   const placesLibRef = useRef<google.maps.PlacesLibrary | null>(null);
 
-  // Initialize Google Maps API with the new Places library
+  const { isLoaded } = useGoogleMaps();
+
   useEffect(() => {
+    if (!isLoaded) return;
+
     const init = async () => {
       try {
-        console.log('Loading Places library...');
-        const placesLib = await loadPlacesLibrary();
+        const placesLib = await google.maps.importLibrary("places") as google.maps.PlacesLibrary;
         placesLibRef.current = placesLib;
-        console.log('Places library loaded:', Object.keys(placesLib));
         setIsApiReady(true);
       } catch (err) {
         console.error('Failed to load Google Places API:', err);
@@ -58,14 +59,12 @@ export function AddressAutocomplete({
       }
     };
     init();
-  }, []);
+  }, [isLoaded]);
 
-  // Sync external value changes
   useEffect(() => {
     setInputValue(value || '');
   }, [value]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
@@ -81,7 +80,6 @@ export function AddressAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Cleanup debounce timer on unmount
   useEffect(() => {
     return () => {
       if (debounceRef.current) {
@@ -90,17 +88,14 @@ export function AddressAutocomplete({
     };
   }, []);
 
-  // Create a new session token for billing optimization
   const getSessionToken = useCallback(() => {
     const placesLib = placesLibRef.current as any;
     if (!sessionTokenRef.current && placesLib?.AutocompleteSessionToken) {
       sessionTokenRef.current = new placesLib.AutocompleteSessionToken();
-      console.log('Created new session token');
     }
     return sessionTokenRef.current;
   }, []);
 
-  // Fetch suggestions using the new Autocomplete Data API
   const fetchSuggestions = useCallback(async (query: string) => {
     if (!isApiReady || !query || query.length < 3) {
       setSuggestions([]);
@@ -115,7 +110,6 @@ export function AddressAutocomplete({
     }
 
     setIsLoading(true);
-    console.log('Fetching suggestions for:', query);
     
     try {
       const { AutocompleteSuggestion } = placesLib;
@@ -132,9 +126,7 @@ export function AddressAutocomplete({
         sessionToken: getSessionToken(),
       };
 
-      console.log('Autocomplete request:', request);
       const response = await AutocompleteSuggestion.fetchAutocompleteSuggestions(request);
-      console.log('Autocomplete response:', response);
       
       const results = response?.suggestions;
       
@@ -149,48 +141,39 @@ export function AddressAutocomplete({
             placePrediction: placePrediction,
           };
         });
-        console.log('Formatted suggestions:', formattedSuggestions);
         setSuggestions(formattedSuggestions);
         setShowDropdown(true);
       } else {
-        console.log('No suggestions returned');
         setSuggestions([]);
         setShowDropdown(false);
       }
     } catch (err: any) {
       console.error('Error fetching suggestions:', err);
-      console.error('Error message:', err?.message);
-      console.error('Error stack:', err?.stack);
       setSuggestions([]);
     } finally {
       setIsLoading(false);
     }
   }, [isApiReady, getSessionToken]);
 
-  // Handle input change with debounce
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setInputValue(newValue);
     
-    // Clear previous debounce
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
     }
     
-    // Debounce API calls
     debounceRef.current = setTimeout(() => {
       fetchSuggestions(newValue);
     }, 300);
   };
 
-  // Handle suggestion selection
   const handleSelectSuggestion = async (suggestion: Suggestion) => {
     setShowDropdown(false);
     setInputValue(suggestion.fullText);
     setIsLoading(true);
     
     try {
-      // Use toPlace() method from the stored placePrediction (Google's recommended approach)
       const place = suggestion.placePrediction.toPlace();
       await place.fetchFields({ 
         fields: ['formattedAddress', 'location', 'addressComponents'] 
@@ -199,7 +182,6 @@ export function AddressAutocomplete({
       const formattedAddress = place.formattedAddress || suggestion.fullText;
       const location = place.location;
 
-      // Extract zip code from address components
       let zipCode = '';
       if (place.addressComponents) {
         for (const component of place.addressComponents) {
@@ -210,11 +192,8 @@ export function AddressAutocomplete({
         }
       }
 
-      console.log('Place selected:', { formattedAddress, zipCode, location });
-
       setInputValue(formattedAddress);
       
-      // Clear session token after selection (for billing)
       sessionTokenRef.current = null;
 
       if (location) {
@@ -228,14 +207,12 @@ export function AddressAutocomplete({
       }
     } catch (err) {
       console.error('Error fetching place details:', err);
-      // Fallback to just the text
       onAddressSelect(suggestion.fullText);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle clear button
   const handleClear = () => {
     setInputValue('');
     setSuggestions([]);
@@ -285,7 +262,6 @@ export function AddressAutocomplete({
         ) : null}
       </div>
       
-      {/* Suggestions dropdown */}
       {showDropdown && suggestions.length > 0 && (
         <div 
           ref={dropdownRef}
@@ -316,7 +292,7 @@ export function AddressAutocomplete({
         </div>
       )}
       
-      {!isApiReady && (
+      {!isApiReady && !error && (
         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
           <Loader2 className="h-3 w-3 animate-spin" />
           Loading address search...

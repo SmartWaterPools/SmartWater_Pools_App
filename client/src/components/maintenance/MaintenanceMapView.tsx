@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { GoogleMap, useJsApiLoader, MarkerClusterer, Marker, InfoWindow } from "@react-google-maps/api";
+import { GoogleMap, MarkerClusterer, Marker, InfoWindow } from "@react-google-maps/api";
 import { useLocation } from "wouter";
 import { CalendarIcon, MapPin, Clock, User, Route } from "lucide-react";
 import { Card, CardContent } from "../../components/ui/card";
@@ -53,7 +53,6 @@ export function MaintenanceMapView({
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(propSelectedMaintenance || null);
   const [showRoutes, setShowRoutes] = useState(false);
   const [mapInstance, setMapInstance] = useState<google.maps.Map | null>(null);
-  const [googleMapsApiKey, setGoogleMapsApiKey] = useState<string | null>(null);
   
   // Update selected maintenance when prop changes
   useEffect(() => {
@@ -62,22 +61,7 @@ export function MaintenanceMapView({
     }
   }, [propSelectedMaintenance]);
 
-  // Use our GoogleMapsContext to get the API key
-  const { apiKey, isLoaded: apiKeyLoaded } = useGoogleMaps();
-  
-  useEffect(() => {
-    console.log("MaintenanceMapView: Using API key from context:", apiKey ? "Valid key" : "Empty key");
-    if (apiKey) {
-      setGoogleMapsApiKey(apiKey);
-    }
-  }, [apiKey]);
-
-  // Only initialize the Google Maps loader once when using the GoogleMapsContext
-  const { isLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKey || '',
-    libraries: ['places'],
-  });
+  const { apiKey, isLoaded } = useGoogleMaps();
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMapInstance(map);
@@ -146,7 +130,7 @@ export function MaintenanceMapView({
     );
   }
 
-  if (!googleMapsApiKey) {
+  if (!apiKey) {
     return (
       <div className="flex flex-col justify-center items-center h-[600px] bg-gray-50 border rounded-lg">
         <p className="text-red-500 mb-2">Google Maps API key is not configured.</p>

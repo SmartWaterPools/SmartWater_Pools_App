@@ -8,6 +8,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useGoogleMaps } from '../contexts/GoogleMapsContext';
+import { GoogleMap, Marker, InfoWindow, Circle, Polyline } from '@react-google-maps/api';
 import { Loader2, MapPin, RefreshCw, Search, History, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { TechnicianWithLocation } from '../types/fleetmatics';
@@ -33,7 +34,7 @@ interface LocationHistoryRequest {
 
 export default function VehicleTracking() {
   const { toast } = useToast();
-  const { isLoaded: mapsLoaded, GoogleMap, Marker, InfoWindow, Circle, Polyline } = useGoogleMaps();
+  const { isLoaded: mapsLoaded } = useGoogleMaps();
   
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number }>({ lat: 28.0, lng: -82.0 }); // Tampa, FL area
   const [mapZoom, setMapZoom] = useState<number>(10);
@@ -246,7 +247,7 @@ export default function VehicleTracking() {
     
     return (
       <div className="h-[400px] rounded-md overflow-hidden">
-        {GoogleMap && (
+        {mapsLoaded && (
           <GoogleMap
             center={mapCenter}
             zoom={mapZoom}
@@ -258,7 +259,7 @@ export default function VehicleTracking() {
             }}
           >
             {/* Search Area Circle */}
-            {showSearchArea && searchResults && Circle && (
+            {showSearchArea && searchResults && (
               <Circle
                 center={{ 
                   lat: searchResults.center.latitude, 
@@ -278,7 +279,7 @@ export default function VehicleTracking() {
             {/* Vehicle markers */}
             {vehicles && vehicles.map((vehicle: TechnicianWithLocation) => (
               <div key={`marker-${vehicle.id}`}>
-                {Marker && vehicle.lastKnownLatitude && vehicle.lastKnownLongitude && (
+                {vehicle.lastKnownLatitude && vehicle.lastKnownLongitude && (
                   <Marker
                     position={{ 
                       lat: vehicle.lastKnownLatitude, 
@@ -293,7 +294,7 @@ export default function VehicleTracking() {
                     }}
                   >
                     {/* Info Window */}
-                    {InfoWindow && activeInfoWindow === vehicle.id && (
+                    {activeInfoWindow === vehicle.id && (
                       <InfoWindow
                         position={{ 
                           lat: vehicle.lastKnownLatitude, 
@@ -337,7 +338,7 @@ export default function VehicleTracking() {
             ))}
             
             {/* History path polyline */}
-            {showHistoryPath && historyPath.length > 0 && Polyline && (
+            {showHistoryPath && historyPath.length > 0 && (
               <Polyline
                 path={historyPath}
                 options={{

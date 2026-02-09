@@ -1,26 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { getGoogleMapsApiKey } from '../lib/googleMapsUtils';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { useJsApiLoader } from '@react-google-maps/api';
 
-// Dynamically import Google Maps libraries when needed
-let GoogleMap: any = null;
-let Marker: any = null;
-let InfoWindow: any = null; 
-let Circle: any = null;
-let Polyline: any = null;
-let LoadScript: any = null;
+const LIBRARIES: ("places")[] = ['places'];
 
-// Extended Google Maps context type with components
 interface GoogleMapsContextType {
   apiKey: string;
   isLoaded: boolean;
   isLoading: boolean;
   error: Error | null;
-  GoogleMap: any;
-  Marker: any;
-  InfoWindow: any;
-  Circle: any;
-  Polyline: any;
-  LoadScript: any;
 }
 
 const GoogleMapsContext = createContext<GoogleMapsContextType>({
@@ -28,12 +15,6 @@ const GoogleMapsContext = createContext<GoogleMapsContextType>({
   isLoaded: false,
   isLoading: true,
   error: null,
-  GoogleMap: null,
-  Marker: null,
-  InfoWindow: null,
-  Circle: null,
-  Polyline: null,
-  LoadScript: null
 });
 
 export const useGoogleMaps = () => useContext(GoogleMapsContext);
@@ -44,84 +25,42 @@ interface GoogleMapsProviderProps {
 
 export const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => {
   const [apiKey, setApiKey] = useState<string>('');
-  const [isLoaded, setIsLoaded] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [mapComponents, setMapComponents] = useState({
-    GoogleMap: null,
-    Marker: null,
-    InfoWindow: null,
-    Circle: null,
-    Polyline: null,
-    LoadScript: null
-  });
+  const [keyLoading, setKeyLoading] = useState(true);
+  const [keyError, setKeyError] = useState<Error | null>(null);
 
-  // Load the Google Maps API key and components
   useEffect(() => {
-    const loadApiKeyAndComponents = async () => {
+    const fetchKey = async () => {
       try {
-        console.log('GoogleMapsContext: Loading API key');
-        setIsLoading(true);
-        const key = await getGoogleMapsApiKey();
-        console.log('GoogleMapsContext: API key loaded:', key ? 'Valid key received' : 'Empty key');
-        setApiKey(key);
-        
-        // If we have a valid API key, dynamically import the @react-google-maps/api components
-        if (key) {
-          try {
-            // Dynamic import of the React Google Maps components
-            const { GoogleMap: GM, Marker: M, InfoWindow: IW, Circle: C, Polyline: P, LoadScript: LS } = 
-              await import('@react-google-maps/api');
-            
-            // Store the components in state
-            setMapComponents({
-              GoogleMap: GM,
-              Marker: M,
-              InfoWindow: IW,
-              Circle: C,
-              Polyline: P,
-              LoadScript: LS
-            });
-            
-            // Also store in module-level variables for direct access
-            GoogleMap = GM;
-            Marker = M;
-            InfoWindow = IW;
-            Circle = C;
-            Polyline = P;
-            LoadScript = LS;
-            
-            console.log('GoogleMapsContext: Map components loaded successfully');
-          } catch (componentErr) {
-            console.error('GoogleMapsContext: Error loading map components:', componentErr);
-            setError(new Error('Failed to load Google Maps components'));
-          }
-        }
-        
-        setIsLoaded(true);
-        setIsLoading(false);
+        const response = await fetch('/api/google-maps-key');
+        if (!response.ok) throw new Error('Failed to fetch API key');
+        const data = await response.json();
+        setApiKey(data.apiKey || '');
       } catch (err) {
-        console.error('GoogleMapsContext: Error loading API key:', err);
-        setError(err instanceof Error ? err : new Error('Failed to load Google Maps API key'));
-        setIsLoading(false);
+        console.error('Error fetching Google Maps API key:', err);
+        setKeyError(err instanceof Error ? err : new Error('Failed to load API key'));
+      } finally {
+        setKeyLoading(false);
       }
     };
-
-    loadApiKeyAndComponents();
+    fetchKey();
   }, []);
 
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey,
+    libraries: LIBRARIES,
+  });
+
+  const contextIsLoaded = !keyLoading && !!apiKey && isLoaded;
+  const contextIsLoading = keyLoading || (!!apiKey && !isLoaded && !loadError);
+  const contextError = keyError || (loadError ? new Error(loadError.message) : null);
+
   return (
-    <GoogleMapsContext.Provider value={{ 
-      apiKey, 
-      isLoaded, 
-      isLoading, 
-      error,
-      GoogleMap: mapComponents.GoogleMap,
-      Marker: mapComponents.Marker,
-      InfoWindow: mapComponents.InfoWindow,
-      Circle: mapComponents.Circle,
-      Polyline: mapComponents.Polyline,
-      LoadScript: mapComponents.LoadScript
+    <GoogleMapsContext.Provider value={{
+      apiKey,
+      isLoaded: contextIsLoaded,
+      isLoading: contextIsLoading,
+      error: contextError,
     }}>
       {children}
     </GoogleMapsContext.Provider>

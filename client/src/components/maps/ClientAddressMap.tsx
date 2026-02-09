@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { GoogleMap, Marker } from '@react-google-maps/api';
+import { useGoogleMaps } from '../../contexts/GoogleMapsContext';
 
 interface ClientAddressMapProps {
   address: string;
@@ -20,62 +21,15 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
   zoom = 16,
   mapType = 'satellite',
 }) => {
-  const [apiKey, setApiKey] = useState<string | null>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { isLoaded, error: mapsError } = useGoogleMaps();
   const [center, setCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const scriptLoadedRef = useRef(false);
 
   useEffect(() => {
-    const fetchApiKey = async () => {
-      try {
-        const response = await fetch('/api/google-maps-key');
-        if (!response.ok) throw new Error('Failed to fetch API key');
-        const data = await response.json();
-        if (data.apiKey) {
-          setApiKey(data.apiKey);
-        } else {
-          setError('No API key available');
-        }
-      } catch (err) {
-        console.error('Error fetching Google Maps API key:', err);
-        setError('Failed to load map');
-      }
-    };
-
-    fetchApiKey();
-  }, []);
-
-  useEffect(() => {
-    if (!apiKey || scriptLoadedRef.current) return;
-
-    const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
-    if (existingScript) {
-      if (window.google && window.google.maps) {
-        setIsLoaded(true);
-        scriptLoadedRef.current = true;
-      } else {
-        existingScript.addEventListener('load', () => {
-          setIsLoaded(true);
-          scriptLoadedRef.current = true;
-        });
-      }
-      return;
+    if (mapsError) {
+      setError('Failed to load map');
     }
-
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      setIsLoaded(true);
-      scriptLoadedRef.current = true;
-    };
-    script.onerror = () => {
-      setError('Failed to load Google Maps');
-    };
-    document.head.appendChild(script);
-  }, [apiKey]);
+  }, [mapsError]);
 
   useEffect(() => {
     if (latitude && longitude) {
@@ -111,7 +65,7 @@ const ClientAddressMap: React.FC<ClientAddressMapProps> = ({
     );
   }
 
-  if (!apiKey || !isLoaded || !center) {
+  if (!isLoaded || !center) {
     return (
       <div 
         className="flex items-center justify-center bg-gray-100 rounded-md"
