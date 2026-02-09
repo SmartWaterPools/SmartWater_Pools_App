@@ -120,7 +120,7 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       console.log(`Adding maintenance ${maintenance.id} to route ${routeId}`);
       console.log(`Maintenance client:`, maintenance.client);
       
-      const clientId = maintenance.client?.client?.id || (maintenance.client as any)?.id;
+      const clientId = (maintenance.client as any)?.clientRecordId || maintenance.client?.client?.id || (maintenance.client as any)?.id;
       if (!maintenance.client || !clientId) {
         console.error("Maintenance is missing client information");
         toast({
@@ -131,7 +131,6 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
         return;
       }
       
-      // Create assignment for this maintenance on this route
       await createAssignment({
         routeId: routeId,
         maintenanceId: maintenance.id,
@@ -360,7 +359,7 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
     try {
       console.log(`Dropping maintenance ${maintenanceId} onto route ${route.id}`);
       
-      const clientId = maintenance.client?.client?.id || (maintenance.client as any)?.id;
+      const clientId = (maintenance.client as any)?.clientRecordId || maintenance.client?.client?.id || (maintenance.client as any)?.id;
       if (!maintenance.client || !clientId) {
         console.error("Maintenance is missing client information");
         toast({

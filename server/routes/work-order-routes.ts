@@ -124,6 +124,9 @@ router.get('/', isAuthenticated, async (req, res) => {
               }
             }
             
+            const clientRecords = await db.select().from(clients).where(eq(clients.userId, clientUser.id));
+            const clientRecord = clientRecords[0] || null;
+
             if (latitude == null || longitude == null) {
               if (clientCoordsCache.has(clientUser.id)) {
                 const cached = clientCoordsCache.get(clientUser.id)!;
@@ -132,9 +135,6 @@ router.get('/', isAuthenticated, async (req, res) => {
                   longitude = cached.lng;
                 }
               } else {
-                const clientRecords = await db.select().from(clients).where(eq(clients.userId, clientUser.id));
-                const clientRecord = clientRecords[0] || null;
-
                 if (clientRecord) {
                   latitude = clientRecord.latitude;
                   longitude = clientRecord.longitude;
@@ -165,6 +165,7 @@ router.get('/', isAuthenticated, async (req, res) => {
 
             result.client = {
               id: clientUser.id,
+              clientRecordId: clientRecord?.id || null,
               user: { 
                 id: clientUser.id, 
                 name: clientUser.name, 

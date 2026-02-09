@@ -579,11 +579,12 @@ export const getOrCreateRouteStop = async (
       throw new Error("Cannot create route stop: maintenance has no client data");
     }
     
-    const clientId = (maintenance.client as any)?.client?.id || (maintenance.client as any)?.id;
+    const clientId = (maintenance.client as any)?.clientRecordId || (maintenance.client as any)?.client?.id || (maintenance.client as any)?.id;
     if (!clientId) {
       console.error("Maintenance client has no ID");
       throw new Error("Cannot create route stop: client has no ID");
     }
+    console.log(`Resolved clientId for route stop: ${clientId} (clientRecordId: ${(maintenance.client as any)?.clientRecordId})`);
     
     // Try to get existing stops for this route
     const stops = await fetchRouteStops(routeId);
@@ -761,7 +762,7 @@ export const createAssignment = async (
           console.log("Creating a dedicated stop for this client as fallback");
           
           const fallbackClientId = assignmentData.maintenance ? 
-            ((assignmentData.maintenance.client as any)?.client?.id || (assignmentData.maintenance.client as any)?.id) : null;
+            ((assignmentData.maintenance.client as any)?.clientRecordId || (assignmentData.maintenance.client as any)?.client?.id || (assignmentData.maintenance.client as any)?.id) : null;
           if (!assignmentData.maintenance || !assignmentData.maintenance.client || !fallbackClientId) {
             console.error("Cannot create a client-specific stop: missing client information");
             throw new Error("Cannot assign maintenance: missing client information");

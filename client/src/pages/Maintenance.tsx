@@ -249,9 +249,13 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
     // Work order specific fields for display
     workOrderId: wo.id,
     workOrderTitle: wo.title,
-    // Preserve clientId and use actual client data from the work order's client relationship if available
     client: wo.client ? {
       id: wo.client.id || wo.clientId || 0,
+      clientRecordId: wo.client.clientRecordId || null,
+      name: wo.client.user?.name || wo.client.companyName || wo.title || 'Maintenance Work Order',
+      address: wo.client.user?.address || wo.location || '',
+      latitude: wo.client.latitude || null,
+      longitude: wo.client.longitude || null,
       user: {
         id: wo.client.user?.id || wo.client.id || wo.clientId || 0,
         name: wo.client.user?.name || wo.client.companyName || wo.title || 'Maintenance Work Order',
@@ -260,6 +264,11 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
       }
     } : {
       id: wo.clientId || 0,
+      clientRecordId: null,
+      name: wo.title || 'Maintenance Work Order',
+      address: wo.location || '',
+      latitude: null,
+      longitude: null,
       user: {
         id: wo.clientId || 0,
         name: wo.title || 'Maintenance Work Order',
