@@ -436,6 +436,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: clients.userId,
         name: users.name,
         companyName: clients.companyName,
+        address: users.address,
+        latitude: clients.latitude,
+        longitude: clients.longitude,
       }).from(clients)
         .innerJoin(users, eq(clients.userId, users.id))
         .where(eq(users.organizationId, user.organizationId));
