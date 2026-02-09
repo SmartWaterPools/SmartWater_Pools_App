@@ -18,6 +18,8 @@ import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { 
   AlertCircle, 
   Calendar, 
+  ChevronDown,
+  ChevronRight,
   Clock, 
   FileText, 
   MapPin, 
@@ -171,7 +173,7 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       
       // More comprehensive query invalidation to ensure all related data is refreshed
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${routeId}/assignments`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${routeId}/stops`] }); 
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', routeId] }); 
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${routeId}`] }); 
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] }); 
       queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] }); 
@@ -304,9 +306,24 @@ interface RouteCardProps {
 function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  const { data: clientsList } = useQuery<{ id: number; name: string; companyName?: string }[]>({
+    queryKey: ["/api/clients"],
+  });
+  
+  const clientMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    if (clientsList) {
+      for (const c of clientsList) {
+        map[c.id] = c.name || c.companyName || `Client #${c.id}`;
+      }
+    }
+    return map;
+  }, [clientsList]);
   
   // Get route stops to display stop count
-  const { stops = [] } = useRouteStops(route.id);
+  const { stops = [], isStopsLoading } = useRouteStops(route.id);
   
   // Get the setMaintenanceAssignments function from context
   const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
@@ -398,7 +415,7 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
       
       // Invalidate queries to refresh the UI
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}/assignments`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}/stops`] }); 
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', route.id] }); 
       queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/${route.id}`] }); 
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] }); 
       queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] }); 
@@ -409,6 +426,8 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
           queryKey: [`/api/bazza/routes/technician/${route.technicianId}`] 
         });
       }
+      
+      setIsExpanded(true);
       
       toast({
         title: "Maintenance Added",
@@ -445,69 +464,139 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
     return day.charAt(0).toUpperCase() + day.slice(1);
   };
   
+  const sortedStops = useMemo(() => {
+    return [...stops].sort((a, b) => (a.orderIndex ?? a.position ?? 0) - (b.orderIndex ?? b.position ?? 0));
+  }, [stops]);
+  
   return (
-    <Card 
-      ref={drop} 
-      key={route.id} 
-      className={`cursor-pointer hover:bg-accent/10 transition-colors ${
-        isOver ? 'border-primary border-2' : ''
-      }`}
-      onClick={() => onRouteClick(route)}
-    >
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-base">{route.name}</CardTitle>
-            <CardDescription className="text-xs mt-1">
-              {formatDayOfWeek(route.dayOfWeek)}
-            </CardDescription>
+    <div ref={drop} className={`rounded-lg border transition-colors ${
+      isOver ? 'border-primary border-2 bg-primary/5' : 'border-border'
+    }`}>
+      <Card 
+        key={route.id} 
+        className="border-0 shadow-none cursor-pointer hover:bg-accent/10 transition-colors"
+        onClick={() => onRouteClick(route)}
+      >
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-start">
+            <div className="flex items-start gap-2">
+              <button
+                type="button"
+                className="mt-1 p-0.5 rounded hover:bg-accent"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+              >
+                {isExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+              </button>
+              <div>
+                <CardTitle className="text-base">{route.name}</CardTitle>
+                <CardDescription className="text-xs mt-1">
+                  {formatDayOfWeek(route.dayOfWeek)}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex flex-col items-end gap-1">
+              <Badge className={`${route.type === 'residential' 
+                ? 'bg-sky-100 text-sky-800' 
+                : route.type === 'commercial' 
+                  ? 'bg-indigo-100 text-indigo-800' 
+                  : 'bg-purple-100 text-purple-800'} hover:bg-opacity-80`}>
+                {route.type.charAt(0).toUpperCase() + route.type.slice(1)}
+              </Badge>
+              <Badge variant="outline" className="text-xs cursor-pointer" onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}>
+                {stops.length} {stops.length === 1 ? 'Stop' : 'Stops'}
+              </Badge>
+            </div>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <Badge className={`${route.type === 'residential' 
-              ? 'bg-sky-100 text-sky-800' 
-              : route.type === 'commercial' 
-                ? 'bg-indigo-100 text-indigo-800' 
-                : 'bg-purple-100 text-purple-800'} hover:bg-opacity-80`}>
-              {route.type.charAt(0).toUpperCase() + route.type.slice(1)}
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              {stops.length} {stops.length === 1 ? 'Stop' : 'Stops'}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="py-2">
-        <div className="text-sm flex flex-col gap-1">
-          <div className="flex justify-between">
-            <span>Start time:</span>
-            <span className="font-medium">{route.startTime || 'N/A'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span>End time:</span>
-            <span className="font-medium">{route.endTime || 'N/A'}</span>
-          </div>
-          {route.region && (
+        </CardHeader>
+        <CardContent className="py-2">
+          <div className="text-sm flex flex-col gap-1">
             <div className="flex justify-between">
-              <span>Region:</span>
-              <span className="font-medium">{route.region}</span>
+              <span>Start time:</span>
+              <span className="font-medium">{route.startTime || 'N/A'}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>End time:</span>
+              <span className="font-medium">{route.endTime || 'N/A'}</span>
+            </div>
+            {route.region && (
+              <div className="flex justify-between">
+                <span>Region:</span>
+                <span className="font-medium">{route.region}</span>
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="pt-1 pb-3">
+          <div className="w-full">
+            <div className="text-xs text-muted-foreground">
+              {route.description || 'No description available'}
+            </div>
+            <div className="mt-2 flex justify-end">
+              <Badge variant="outline" className="text-xs">
+                <Route className="h-3 w-3 mr-1" />
+                View Details
+              </Badge>
+            </div>
+          </div>
+        </CardFooter>
+      </Card>
+      
+      {isExpanded && (
+        <div className="px-3 pb-3 border-t border-border/50 bg-muted/30">
+          <div className="pt-2 text-xs font-medium text-muted-foreground mb-2">
+            Stops ({stops.length})
+          </div>
+          {isStopsLoading ? (
+            <div className="flex justify-center py-2">
+              <Spinner size="sm" />
+            </div>
+          ) : sortedStops.length > 0 ? (
+            <div className="space-y-1.5">
+              {sortedStops.map((stop, index) => (
+                <div 
+                  key={stop.id} 
+                  className="flex items-start gap-2 p-2 bg-background rounded-md border border-border/50 text-xs"
+                >
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                    {(stop.orderIndex ?? stop.position ?? index + 1)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">
+                      {clientMap[stop.clientId] || `Client #${stop.clientId}`}
+                    </div>
+                    {(stop.customInstructions || stop.notes) && (
+                      <div className="text-muted-foreground truncate mt-0.5">
+                        {stop.customInstructions || stop.notes}
+                      </div>
+                    )}
+                    {stop.estimatedDuration && (
+                      <div className="text-muted-foreground mt-0.5">
+                        <Clock className="h-3 w-3 inline mr-0.5" />
+                        {stop.estimatedDuration} min
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground text-center py-2">
+              No stops yet. Drag a maintenance card here to add one.
             </div>
           )}
         </div>
-      </CardContent>
-      <CardFooter className="pt-1 pb-3">
-        <div className="w-full">
-          <div className="text-xs text-muted-foreground">
-            {route.description || 'No description available'}
-          </div>
-          <div className="mt-2 flex justify-end">
-            <Badge variant="outline" className="text-xs">
-              <Route className="h-3 w-3 mr-1" />
-              View Details
-            </Badge>
-          </div>
-        </div>
-      </CardFooter>
-    </Card>
+      )}
+    </div>
   );
 }
 

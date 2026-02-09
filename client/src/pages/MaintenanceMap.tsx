@@ -16,44 +16,26 @@ export default function MaintenanceMap() {
   const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<number | null>(null);
+  const [selectedView, setSelectedView] = useState("all_maintenances");
+  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
   const { routes, isRoutesLoading, routesError } = useBazzaRoutes();
 
-  // Fetch maintenance data
   const { data: maintenances, isLoading, error } = useQuery<MaintenanceWithDetails[]>({
     queryKey: ['/api/maintenances'],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Fetch technicians data
   const { data: technicians, isLoading: isLoadingTechnicians } = useQuery<any[]>({
     queryKey: ['/api/technicians'],
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
-  // Filter maintenances to show only today and future appointments
-  const today = new Date();
-  today.setHours(0, 0, 0, 0); // Set to start of day
-  
-  const filteredMaintenances = maintenances?.filter(maintenance => {
-    // First filter out past appointments
-    const scheduleDate = new Date(maintenance.scheduleDate);
-    scheduleDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
-    
-    // Only show appointments from today onwards
-    if (scheduleDate < today) {
-      return false;
-    }
-    
-    // Then apply search term filter
-    const clientName = maintenance.client?.user?.name?.toLowerCase() || "";
-    const clientAddress = maintenance.client?.client?.address?.toLowerCase() || "";
-    const searchLower = searchTerm.toLowerCase();
-    
-    return clientName.includes(searchLower) || 
-           clientAddress.includes(searchLower) ||
-           maintenance.type?.toLowerCase().includes(searchLower) ||
-           maintenance.status.toLowerCase().includes(searchLower);
-  }) || [];
+  const { data: workOrders } = useQuery<any[]>({
+    queryKey: ['/api/work-orders'],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const allMaintenances = maintenances || [];
 
   const handleAddMaintenance = () => {
     navigate("/maintenance/add");
@@ -129,8 +111,17 @@ export default function MaintenanceMap() {
             </CardHeader>
             <CardContent className="p-4">
               <LazyMaintenanceMapView
-                maintenances={filteredMaintenances || []}
+                maintenances={allMaintenances}
                 isLoading={isLoading}
+                selectedView={selectedView}
+                selectedTechnician={selectedTechnicianId}
+                workOrders={workOrders || []}
+                routes={routes || []}
+                technicians={technicians || []}
+                onViewChange={setSelectedView}
+                onTechnicianChange={setSelectedTechnicianId}
+                selectedRouteId={selectedRouteId}
+                onRouteChange={setSelectedRouteId}
               />
             </CardContent>
           </Card>

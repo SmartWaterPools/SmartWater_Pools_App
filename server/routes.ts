@@ -23,7 +23,29 @@ import maintenanceOrderRoutes from "./routes/maintenance-order-routes";
 import registerInventoryRoutes from "./routes/inventory-routes";
 import dispatchRoutes from "./routes/dispatch-routes";
 import { isAuthenticated } from "./auth";
-import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops } from "@shared/schema";
+import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients } from "@shared/schema";
+
+async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      console.warn('GOOGLE_MAPS_API_KEY not set, skipping geocoding');
+      return null;
+    }
+    const encodedAddress = encodeURIComponent(address);
+    const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodedAddress}&key=${apiKey}`);
+    const data = await response.json();
+    if (data.status === 'OK' && data.results?.[0]?.geometry?.location) {
+      const { lat, lng } = data.results[0].geometry.location;
+      return { lat, lng };
+    }
+    console.warn(`Geocoding failed for "${address}": ${data.status}`);
+    return null;
+  } catch (error) {
+    console.error('Geocoding error:', error);
+    return null;
+  }
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount authentication routes
@@ -1262,30 +1284,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as User;
       
-      // Get all clients from the current organization
       const allClients = await storage.getUsersByRole('client');
       const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
       const clientIds = organizationClients.map(c => c.id);
       
-      // Get maintenances filtered by organization's clients
       const organizationMaintenances = await storage.getMaintenancesByClientIds(clientIds);
       
-      // Format maintenances with proper client and technician details
       const formattedMaintenances = await Promise.all(organizationMaintenances.map(async (maintenance) => {
-        const client = await storage.getUser(maintenance.clientId);
+        const clientUser = await storage.getUser(maintenance.clientId);
         const technician = maintenance.technicianId ? await storage.getUser(maintenance.technicianId) : null;
+        
+        let clientRecord = null;
+        let latitude: number | null = null;
+        let longitude: number | null = null;
+        
+        if (clientUser) {
+          const clientRecords = await db.select().from(clients).where(eq(clients.userId, clientUser.id));
+          clientRecord = clientRecords[0] || null;
+          
+          if (clientRecord) {
+            latitude = clientRecord.latitude;
+            longitude = clientRecord.longitude;
+            
+            if (!latitude && !longitude && clientUser.address) {
+              const coords = await geocodeAddress(clientUser.address);
+              if (coords) {
+                latitude = coords.lat;
+                longitude = coords.lng;
+                await db.update(clients).set({ latitude, longitude }).where(eq(clients.id, clientRecord.id));
+              }
+            }
+          }
+        }
         
         return {
           ...maintenance,
-          // Add client details
-          client: client ? {
-            id: client.id,
-            name: client.name,
-            email: client.email,
-            phone: client.phone,
-            address: client.address
+          client: clientUser ? {
+            id: clientUser.id,
+            name: clientUser.name,
+            email: clientUser.email,
+            phone: clientUser.phone,
+            address: clientUser.address,
+            latitude,
+            longitude
           } : null,
-          // Add technician details
           technician: technician ? {
             id: technician.id,
             name: technician.name,
