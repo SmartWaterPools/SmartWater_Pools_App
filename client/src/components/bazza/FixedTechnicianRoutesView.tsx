@@ -308,8 +308,8 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(false);
   
-  const { data: clientsList } = useQuery<{ id: number; name: string; companyName?: string }[]>({
-    queryKey: ["/api/clients"],
+  const { data: clientsList } = useQuery<{ id: number; userId: number; name: string; companyName?: string }[]>({
+    queryKey: ["/api/clients/client-records"],
   });
   
   const clientMap = useMemo(() => {

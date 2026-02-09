@@ -23,7 +23,7 @@ import maintenanceOrderRoutes from "./routes/maintenance-order-routes";
 import registerInventoryRoutes from "./routes/inventory-routes";
 import dispatchRoutes from "./routes/dispatch-routes";
 import { isAuthenticated } from "./auth";
-import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients } from "@shared/schema";
+import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users } from "@shared/schema";
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
@@ -425,6 +425,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Create client error:', error);
       res.status(500).json({ error: 'Failed to create client' });
+    }
+  });
+
+  app.get('/api/clients/client-records', isAuthenticated, async (req, res) => {
+    try {
+      const user = req.user as User;
+      const records = await db.select({
+        id: clients.id,
+        userId: clients.userId,
+        name: users.name,
+        companyName: clients.companyName,
+      }).from(clients)
+        .innerJoin(users, eq(clients.userId, users.id))
+        .where(eq(users.organizationId, user.organizationId));
+      res.json(records);
+    } catch (error) {
+      console.error('Client records error:', error);
+      res.status(500).json({ error: 'Failed to fetch client records' });
     }
   });
 

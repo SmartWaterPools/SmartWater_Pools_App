@@ -84,9 +84,8 @@ export function RouteDetailView({
     }
   });
   
-  // Fetch client details for each stop
-  const { data: clients = [] } = useQuery({
-    queryKey: ['/api/clients'],
+  const { data: clientRecords = [] } = useQuery<{ id: number; userId: number; name: string; companyName?: string }[]>({
+    queryKey: ['/api/clients/client-records'],
     enabled: stops.length > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
@@ -207,20 +206,14 @@ export function RouteDetailView({
                   </TableHeader>
                   <TableBody>
                     {stops.map((stop) => {
-                      // Find client information
-                      const client = Array.isArray(clients) ? 
-                        clients.find((c: any) => c.id === stop.clientId || c.client?.id === stop.clientId) : null;
+                      const clientRecord = Array.isArray(clientRecords) ? 
+                        clientRecords.find((c: any) => c.id === stop.clientId) : null;
                       
-                      // Get client name
-                      const clientName = client ? 
-                        (client.user?.name || client.name || `Client #${stop.clientId}`) : 
+                      const clientName = clientRecord ? 
+                        (clientRecord.name || clientRecord.companyName || `Client #${stop.clientId}`) : 
                         `Client #${stop.clientId}`;
                       
-                      // Get client address
-                      const clientAddress = client ? 
-                        (client.user?.address || client.address || 
-                         client.client?.address || '-') : 
-                        '-';
+                      const clientAddress = '-';
                         
                       return (
                         <TableRow key={stop.id}>

@@ -138,6 +138,19 @@ export function MaintenanceMapView({
     staleTime: 2 * 60 * 1000,
   });
 
+  const { data: clientRecordsList = [] } = useQuery<{ id: number; userId: number; name: string; companyName?: string }[]>({
+    queryKey: ['/api/clients/client-records'],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const clientNameMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const c of clientRecordsList) {
+      map[c.id] = c.name || c.companyName || `Client #${c.id}`;
+    }
+    return map;
+  }, [clientRecordsList]);
+
   const clientCoordMap = useMemo(() => {
     const map: Record<number, { lat: number; lng: number }> = {};
     for (const m of maintenances) {
@@ -296,7 +309,7 @@ export function MaintenanceMapView({
               latitude,
               longitude,
               technicianName: (maintenance.technician as any)?.name || maintenance.technician?.user?.name,
-              subtitle: `Stop #${stop.orderIndex || stop.position || 'N/A'} - Client #${stop.clientId}`,
+              subtitle: `Stop #${stop.orderIndex || stop.position || 'N/A'} - ${clientNameMap[stop.clientId] || `Client #${stop.clientId}`}`,
               original: maintenance,
             };
           }
@@ -307,7 +320,7 @@ export function MaintenanceMapView({
               id: stop.id,
               type: 'route_stop',
               title: `Stop #${stop.orderIndex || stop.position || 'N/A'}`,
-              subtitle: `Client #${stop.clientId}`,
+              subtitle: clientNameMap[stop.clientId] || `Client #${stop.clientId}`,
               address: stop.customInstructions || stop.notes || 'No address provided',
               date: '',
               status: 'assigned',
@@ -322,7 +335,7 @@ export function MaintenanceMapView({
             id: stop.id,
             type: 'route_stop',
             title: `Stop #${stop.orderIndex || stop.position || 'N/A'}`,
-            subtitle: `Client #${stop.clientId}`,
+            subtitle: clientNameMap[stop.clientId] || `Client #${stop.clientId}`,
             address: stop.customInstructions || stop.notes || 'No address provided',
             date: '',
             status: 'unassigned',
@@ -350,7 +363,7 @@ export function MaintenanceMapView({
       default:
         return futureMaintenances.map(maintenanceToCard);
     }
-  }, [maintenances, workOrders, selectedView, selectedTechnician, selectedRouteId, routes, filterPriority, filterStatus, routeAssignments, routeStops, clientCoordMap]);
+  }, [maintenances, workOrders, selectedView, selectedTechnician, selectedRouteId, routes, filterPriority, filterStatus, routeAssignments, routeStops, clientCoordMap, clientNameMap]);
 
   const bounds = useMemo(() => {
     if (!displayCards?.length || !isLoaded || typeof google === 'undefined' || !google.maps) {
