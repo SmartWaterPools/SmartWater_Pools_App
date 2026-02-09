@@ -195,7 +195,8 @@ export const insertProjectDocumentSchema = createInsertSchema(projectDocuments).
 export const maintenances = pgTable("maintenances", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
-  technicianId: integer("technician_id").notNull(),
+  technicianId: integer("technician_id"),
+  maintenanceOrderId: integer("maintenance_order_id"),
   scheduleDate: date("schedule_date").notNull(),
   completionDate: date("completion_date"),
   type: text("type").notNull(),
