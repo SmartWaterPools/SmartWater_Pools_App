@@ -5,6 +5,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "../contexts/AuthContext";
+import { GoogleAddressAutocomplete } from "../components/maps/GoogleAddressAutocomplete";
 
 import {
   Card,
@@ -270,8 +271,9 @@ export default function Register() {
                   <FormItem>
                     <FormLabel>Address (Optional)</FormLabel>
                     <FormControl>
-                      <Input
-                        {...field}
+                      <GoogleAddressAutocomplete
+                        value={field.value || ""}
+                        onChange={(address) => field.onChange(address)}
                         placeholder="Enter your address"
                         disabled={isLoading}
                       />

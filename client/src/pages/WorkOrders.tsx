@@ -20,6 +20,7 @@ import {
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GoogleAddressAutocomplete } from "../components/maps/GoogleAddressAutocomplete";
 import {
   Select,
   SelectContent,
@@ -330,7 +331,7 @@ function CreateWorkOrderDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               )} />
             </div>
             <FormField control={form.control} name="address" render={({ field }) => (
-              <FormItem><FormLabel>Address</FormLabel><FormControl><Input placeholder="Service address" {...field} /></FormControl><FormMessage /></FormItem>
+              <FormItem><FormLabel>Address</FormLabel><FormControl><GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="Service address" /></FormControl><FormMessage /></FormItem>
             )} />
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem><FormLabel>Notes</FormLabel><FormControl><Textarea placeholder="Additional notes..." {...field} /></FormControl><FormMessage /></FormItem>
@@ -663,7 +664,7 @@ function CreateMaintenanceOrderDialog({ open, onOpenChange }: { open: boolean; o
                     </button>
                   </div>
                 )}
-                <FormControl><Input placeholder="Service address" {...field} /></FormControl>
+                <FormControl><GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="Service address" /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

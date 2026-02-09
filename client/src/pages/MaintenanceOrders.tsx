@@ -24,6 +24,7 @@ import {
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GoogleAddressAutocomplete } from "../components/maps/GoogleAddressAutocomplete";
 import {
   Select,
   SelectContent,
@@ -483,7 +484,7 @@ function MaintenanceOrderFormDialog({
                     </button>
                   </div>
                 )}
-                <FormControl><Input placeholder="Service address" {...field} /></FormControl>
+                <FormControl><GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="Service address" /></FormControl>
                 <FormMessage />
               </FormItem>
             )} />

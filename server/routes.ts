@@ -1306,13 +1306,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
             latitude = clientRecord.latitude;
             longitude = clientRecord.longitude;
             
-            if (!latitude && !longitude && clientUser.address) {
+            if (latitude == null && longitude == null && clientUser.address) {
               const coords = await geocodeAddress(clientUser.address);
               if (coords) {
                 latitude = coords.lat;
                 longitude = coords.lng;
-                await db.update(clients).set({ latitude, longitude }).where(eq(clients.id, clientRecord.id));
+                try {
+                  await db.update(clients).set({ latitude, longitude }).where(eq(clients.id, clientRecord.id));
+                } catch (updateErr) {
+                  console.error(`Failed to save geocoded coords for client ${clientRecord.id}:`, updateErr);
+                }
               }
+            }
+          } else if (clientUser.address) {
+            const coords = await geocodeAddress(clientUser.address);
+            if (coords) {
+              latitude = coords.lat;
+              longitude = coords.lng;
             }
           }
         }

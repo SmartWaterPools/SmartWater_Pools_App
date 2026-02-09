@@ -21,7 +21,6 @@ import ClientEdit from "@/pages/ClientEdit";
 import ClientPortal from "@/pages/ClientPortal";
 import PoolWizardPage from "@/pages/PoolWizardPage";
 import Maintenance from "@/pages/Maintenance";
-import MaintenanceList from "@/pages/MaintenanceList";
 import Repairs from "@/pages/Repairs";
 import Settings from "@/pages/Settings";
 import Technicians from "@/pages/Technicians";
@@ -91,7 +90,7 @@ function Router() {
       <Route path="/clients" component={() => <ProtectedRoute component={Clients} />} />
       <Route path="/dispatch" component={() => <ProtectedRoute component={DispatchBoard} />} />
       <Route path="/maintenance/calendar" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} />} />
-      <Route path="/maintenance/list" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="list" />} />} />
+      <Route path="/maintenance/list" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} />} />
       <Route path="/maintenance/map" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="map" />} />} />
       <Route path="/maintenance/routes" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="routes" />} />} />
       <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} />} />

@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleAddressAutocomplete } from "../maps/GoogleAddressAutocomplete";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -413,7 +414,7 @@ export function CreateWorkOrderFromProjectDialog({
                 <FormItem>
                   <FormLabel>Address</FormLabel>
                   <FormControl>
-                    <Input placeholder="Job site address" {...field} />
+                    <GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="Job site address" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

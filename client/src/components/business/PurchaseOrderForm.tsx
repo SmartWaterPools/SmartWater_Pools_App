@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleAddressAutocomplete } from "../maps/GoogleAddressAutocomplete";
 import {
   Select,
   SelectContent,
@@ -416,7 +417,7 @@ export function PurchaseOrderForm({ orderToEdit, onClose }: PurchaseOrderFormPro
                 <FormItem>
                   <FormLabel>Shipping Address (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter shipping address" {...field} value={field.value || ""} />
+                    <GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="Enter shipping address" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

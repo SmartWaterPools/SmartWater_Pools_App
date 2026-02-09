@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { GoogleAddressAutocomplete } from "../maps/GoogleAddressAutocomplete";
 import {
   Select,
   SelectContent,
@@ -282,7 +283,7 @@ export function VendorForm({ vendorCategories, vendorToEdit, onClose }: VendorFo
                 <FormItem>
                   <FormLabel>Address (Optional)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Vendor address" {...field} value={field.value || ""} className="w-full" />
+                    <GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="Vendor address" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

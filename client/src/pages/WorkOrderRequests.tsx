@@ -10,6 +10,7 @@ import {
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GoogleAddressAutocomplete } from "../components/maps/GoogleAddressAutocomplete";
 import { 
   Select,
   SelectContent,
@@ -388,7 +389,15 @@ function CreateRequestDialog({ onClose }: { onClose: () => void }) {
             <FormItem>
               <FormLabel>Address</FormLabel>
               <FormControl>
-                <Input placeholder="Address" {...field} />
+                <GoogleAddressAutocomplete
+                  value={field.value || ""}
+                  onChange={(address, lat, lng) => {
+                    field.onChange(address);
+                    if (lat !== undefined) form.setValue("addressLat", String(lat));
+                    if (lng !== undefined) form.setValue("addressLng", String(lng));
+                  }}
+                  placeholder="Address"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>

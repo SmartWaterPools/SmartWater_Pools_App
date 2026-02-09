@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { GoogleAddressAutocomplete } from "../maps/GoogleAddressAutocomplete";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { 
@@ -229,7 +230,7 @@ export function ProfileSettings() {
                       <FormItem>
                         <FormLabel>Address</FormLabel>
                         <FormControl>
-                          <Input placeholder="123 Main St, City, State, ZIP" {...field} />
+                          <GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="123 Main St, City, State, ZIP" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>

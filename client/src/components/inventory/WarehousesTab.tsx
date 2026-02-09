@@ -25,6 +25,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { GoogleAddressAutocomplete } from "../maps/GoogleAddressAutocomplete";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -443,7 +444,7 @@ export default function WarehousesTab({ onAddWarehouse, showAddDialog, onAddDial
                   <FormItem>
                     <FormLabel>Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="Street address" {...field} />
+                      <GoogleAddressAutocomplete value={field.value || ""} onChange={(address) => field.onChange(address)} placeholder="Street address" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

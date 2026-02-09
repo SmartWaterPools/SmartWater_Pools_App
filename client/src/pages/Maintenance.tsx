@@ -19,7 +19,6 @@ import {
   FileBarChart2,
   Map,
   ListFilter,
-  List,
   RefreshCw
 } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -42,8 +41,8 @@ import { Card, CardContent } from "../components/ui/card";
 import { Skeleton } from "../components/ui/skeleton";
 import { Badge } from "../components/ui/badge";
 import { MaintenanceCalendar } from "../components/maintenance/MaintenanceCalendar";
-import { LazyMaintenanceListView } from "../components/maintenance/LazyMaintenanceListView";
 import { LazyMaintenanceMapView } from "../components/maintenance/LazyMaintenanceMapView";
+import { useBazzaRoutes } from "../hooks/useBazzaRoutes";
 import TechnicianRoutesView from "../components/bazza/FixedTechnicianRoutesView";
 import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
 import { MaintenanceForm } from "../components/maintenance/MaintenanceForm";
@@ -61,7 +60,7 @@ import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 
 interface MaintenanceProps {
-  defaultTab?: 'calendar' | 'list' | 'map' | 'routes';
+  defaultTab?: 'calendar' | 'map' | 'routes';
 }
 
 export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProps) {
@@ -81,16 +80,26 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
   const [route, setRoute] = useState<BazzaRoute | undefined>(undefined);
   
+  const [mapFilterView, setMapFilterView] = useState<string>('all_maintenances');
+  const [mapSelectedTechnician, setMapSelectedTechnician] = useState<number | null>(null);
+  const [mapSelectedRouteId, setMapSelectedRouteId] = useState<number | null>(null);
+  
   // Determine initial view based on URL path or defaultTab prop
   const getInitialView = (): string => {
     if (location === '/maintenance/map') return 'map';
-    if (location === '/maintenance/list') return 'list';
+    if (location === '/maintenance/list') return 'calendar';
     if (location === '/maintenance/routes') return 'routes';
     if (location === '/maintenance/calendar') return 'calendar';
     return defaultTab;
   };
   
   const [selectedView, setSelectedView] = useState<string>(getInitialView);
+  
+  useEffect(() => {
+    if (location === '/maintenance/list') {
+      navigate('/maintenance/calendar', { replace: true });
+    }
+  }, [location, navigate]);
 
   // Check Google Calendar connection status
   const { data: calendarStatus } = useQuery<{ connected: boolean }>({
@@ -195,6 +204,13 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
       error: techniciansError ? (techniciansError as Error).message : null 
     });
   }, [technicians, techniciansLoading, techniciansError]);
+
+  const { routes } = useBazzaRoutes();
+
+  const { data: allWorkOrders } = useQuery<any[]>({
+    queryKey: ['/api/work-orders'],
+    staleTime: 60 * 1000,
+  });
 
   // Fetch work orders with category="maintenance" - these are the maintenance items
   // Using category query param ensures server-side filtering and client data hydration
@@ -423,21 +439,16 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
           setSelectedView(value);
           const urlMap: Record<string, string> = {
             calendar: '/maintenance/calendar',
-            list: '/maintenance/list',
             map: '/maintenance/map',
             routes: '/maintenance/routes'
           };
           navigate(urlMap[value] || '/maintenance');
         }}
       >
-        <TabsList className="grid grid-cols-4 w-full md:w-auto">
+        <TabsList className="grid grid-cols-3 w-full md:w-auto">
           <TabsTrigger value="calendar" className="flex items-center gap-2">
             <CalendarIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Calendar</span>
-          </TabsTrigger>
-          <TabsTrigger value="list" className="flex items-center gap-2">
-            <List className="h-4 w-4" />
-            <span className="hidden sm:inline">List</span>
           </TabsTrigger>
           <TabsTrigger value="map" className="flex items-center gap-2">
             <Map className="h-4 w-4" />
@@ -489,31 +500,23 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
           </Card>
         </TabsContent>
 
-        {/* List View */}
-        <TabsContent value="list">
-          <Card>
-            <CardContent className="p-6">
-              <LazyMaintenanceListView
-                maintenances={filteredMaintenances || []}
-                isLoading={isLoading}
-                onStatusUpdate={handleStatusUpdate}
-                isUpdatingStatus={isUpdatingStatus}
-                selectedMaintenance={selectedMaintenance}
-              />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Map View */}
         <TabsContent value="map">
           <Card>
             <CardContent className="p-6">
               <LazyMaintenanceMapView
-                maintenances={filteredMaintenances || []}
+                maintenances={allMaintenances || []}
                 isLoading={isLoading}
-                selectedView={selectedView}
-                selectedTechnician={selectedTechnician}
+                selectedView={mapFilterView}
+                onViewChange={setMapFilterView}
+                selectedTechnician={mapSelectedTechnician}
+                onTechnicianChange={setMapSelectedTechnician}
+                selectedRouteId={mapSelectedRouteId}
+                onRouteChange={setMapSelectedRouteId}
                 selectedDay={selectedDay}
+                workOrders={allWorkOrders || []}
+                routes={routes || []}
+                technicians={technicians || []}
                 onStatusUpdate={handleStatusUpdate}
                 isUpdatingStatus={isUpdatingStatus}
                 selectedMaintenance={selectedMaintenance}
