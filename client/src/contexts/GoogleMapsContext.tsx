@@ -23,9 +23,29 @@ interface GoogleMapsProviderProps {
   children: ReactNode;
 }
 
+function GoogleMapsLoader({ apiKey, children }: { apiKey: string; children: ReactNode }) {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey,
+    libraries: LIBRARIES,
+  });
+
+  const error = loadError ? new Error(loadError.message) : null;
+
+  return (
+    <GoogleMapsContext.Provider value={{
+      apiKey,
+      isLoaded,
+      isLoading: !isLoaded && !loadError,
+      error,
+    }}>
+      {children}
+    </GoogleMapsContext.Provider>
+  );
+}
+
 export const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children }) => {
-  const [apiKey, setApiKey] = useState<string>('');
-  const [keyLoading, setKeyLoading] = useState(true);
+  const [apiKey, setApiKey] = useState<string | null>(null);
   const [keyError, setKeyError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -38,31 +58,41 @@ export const GoogleMapsProvider: React.FC<GoogleMapsProviderProps> = ({ children
       } catch (err) {
         console.error('Error fetching Google Maps API key:', err);
         setKeyError(err instanceof Error ? err : new Error('Failed to load API key'));
-      } finally {
-        setKeyLoading(false);
+        setApiKey('');
       }
     };
     fetchKey();
   }, []);
 
-  const { isLoaded, loadError } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: apiKey,
-    libraries: LIBRARIES,
-  });
+  if (apiKey === null) {
+    return (
+      <GoogleMapsContext.Provider value={{
+        apiKey: '',
+        isLoaded: false,
+        isLoading: true,
+        error: null,
+      }}>
+        {children}
+      </GoogleMapsContext.Provider>
+    );
+  }
 
-  const contextIsLoaded = !keyLoading && !!apiKey && isLoaded;
-  const contextIsLoading = keyLoading || (!!apiKey && !isLoaded && !loadError);
-  const contextError = keyError || (loadError ? new Error(loadError.message) : null);
+  if (!apiKey || keyError) {
+    return (
+      <GoogleMapsContext.Provider value={{
+        apiKey: '',
+        isLoaded: false,
+        isLoading: false,
+        error: keyError || new Error('No Google Maps API key configured'),
+      }}>
+        {children}
+      </GoogleMapsContext.Provider>
+    );
+  }
 
   return (
-    <GoogleMapsContext.Provider value={{
-      apiKey,
-      isLoaded: contextIsLoaded,
-      isLoading: contextIsLoading,
-      error: contextError,
-    }}>
+    <GoogleMapsLoader apiKey={apiKey}>
       {children}
-    </GoogleMapsContext.Provider>
+    </GoogleMapsLoader>
   );
 };
