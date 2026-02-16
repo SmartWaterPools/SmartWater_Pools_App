@@ -112,6 +112,23 @@ interface SMSMessage {
   projectId?: number | null;
 }
 
+interface CallLog {
+  id: number;
+  direction: string;
+  fromNumber: string;
+  toNumber: string;
+  status: string;
+  duration: number | null;
+  callerUserId: number | null;
+  clientId: number | null;
+  vendorId: number | null;
+  projectId: number | null;
+  notes: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+}
+
 const EMAILS_PER_PAGE = 10;
 
 export default function Communications() {
@@ -156,6 +173,10 @@ export default function Communications() {
   
   // SMS view message dialog
   const [selectedSmsMessage, setSelectedSmsMessage] = useState<SMSMessage | null>(null);
+  
+  // Call dialog state
+  const [callDialogOpen, setCallDialogOpen] = useState(false);
+  const [callData, setCallData] = useState({ customerPhone: "", callerPhone: "", clientId: "", notes: "" });
   
   // Create new client from link dialogs
   const [showCreateSmsClient, setShowCreateSmsClient] = useState(false);
@@ -220,6 +241,20 @@ export default function Communications() {
   const { data: smsMessagesData, isLoading: isSmsMessagesLoading, refetch: refetchSmsMessages } = useQuery<{ messages: SMSMessage[]; success: boolean }>({
     queryKey: ['/api/sms/messages'],
     enabled: ringCentralStatus?.connected === true
+  });
+
+  const { data: twilioStatus, isLoading: isTwilioLoading } = useQuery<{ connected: boolean; phoneNumber?: string; error?: string }>({
+    queryKey: ['/api/twilio/connection-status']
+  });
+
+  const { data: twilioSmsData, isLoading: isTwilioSmsLoading, refetch: refetchTwilioSms } = useQuery<{ success: boolean; messages: SMSMessage[] }>({
+    queryKey: ['/api/twilio/messages'],
+    enabled: twilioStatus?.connected === true
+  });
+
+  const { data: callLogsData, isLoading: isCallLogsLoading, refetch: refetchCallLogs } = useQuery<{ success: boolean; callLogs: CallLog[] }>({
+    queryKey: ['/api/twilio/call-logs'],
+    enabled: twilioStatus?.connected === true
   });
 
   // Sync SMS messages from RingCentral
@@ -430,6 +465,46 @@ export default function Communications() {
     }
   });
 
+  const sendTwilioSmsMutation = useMutation({
+    mutationFn: async (data: { to: string; message: string; clientId?: number; projectId?: number }) => {
+      const response = await apiRequest('POST', '/api/twilio/send-sms', data);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        toast({ title: "SMS Sent", description: "Message sent successfully via Twilio" });
+        setComposeSmsOpen(false);
+        setComposeSmsData({ to: "", message: "", clientId: "" });
+        refetchTwilioSms();
+      } else {
+        toast({ title: "Send Failed", description: data.error || 'Failed to send SMS', variant: "destructive" });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Send Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
+  const initiateCallMutation = useMutation({
+    mutationFn: async (data: { customerPhone: string; callerPhone: string; clientId?: number; notes?: string }) => {
+      const response = await apiRequest('POST', '/api/twilio/call', data);
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.success) {
+        toast({ title: "Call Initiated", description: "Your phone will ring shortly. Answer to connect to the customer." });
+        setCallDialogOpen(false);
+        setCallData({ customerPhone: "", callerPhone: "", clientId: "", notes: "" });
+        refetchCallLogs();
+      } else {
+        toast({ title: "Call Failed", description: data.error || 'Failed to initiate call', variant: "destructive" });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: "Call Failed", description: error.message, variant: "destructive" });
+    }
+  });
+
   // Create new client mutation
   const createClientMutation = useMutation({
     mutationFn: async (data: { name: string; email: string; phone: string; address: string }) => {
@@ -455,9 +530,14 @@ export default function Communications() {
   
   // Email is ready if Gmail connector is connected OR we have database providers
   const hasEmailProvider = gmailStatus?.connected || emailProviders.length > 0;
-  // SMS is ready if RingCentral is connected OR we have Twilio providers
-  const hasSmsProvider = ringCentralStatus?.connected || smsProviders.length > 0;
-  const hasVoiceProvider = voiceProviders.length > 0;
+  // SMS is ready if RingCentral is connected OR Twilio is connected OR we have Twilio providers
+  const hasSmsProvider = ringCentralStatus?.connected || twilioStatus?.connected || smsProviders.length > 0;
+  const hasVoiceProvider = voiceProviders.length > 0 || twilioStatus?.connected;
+
+  const allSmsMessages = [
+    ...(smsMessagesData?.messages || []),
+    ...(twilioSmsData?.messages || [])
+  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   // Pagination (no local filtering - search is done via API)
   const totalPages = Math.ceil(transientEmails.length / EMAILS_PER_PAGE);
@@ -513,7 +593,11 @@ export default function Communications() {
       toast({ title: "Validation Error", description: "Please fill in phone number and message.", variant: "destructive" });
       return;
     }
-    sendSMSMutation.mutate({ to: composeSmsData.to, message: composeSmsData.message });
+    if (twilioStatus?.connected) {
+      sendTwilioSmsMutation.mutate({ to: composeSmsData.to, message: composeSmsData.message, clientId: composeSmsData.clientId ? parseInt(composeSmsData.clientId) : undefined });
+    } else {
+      sendSMSMutation.mutate({ to: composeSmsData.to, message: composeSmsData.message });
+    }
   };
 
   const handleClientSelectForSms = (clientId: string) => {
@@ -1528,7 +1612,16 @@ export default function Communications() {
           ) : (
             <div className="mb-4">
               <div className="flex items-center gap-2 mb-2">
-                {ringCentralStatus?.connected ? (
+                {twilioStatus?.connected ? (
+                  <>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" data-testid="badge-twilio-connected">
+                      Twilio Connected
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      Connected as {twilioStatus.phoneNumber || 'Twilio account'}
+                    </span>
+                  </>
+                ) : ringCentralStatus?.connected ? (
                   <>
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200" data-testid="badge-ringcentral-connected">
                       RingCentral Connected
@@ -1642,11 +1735,11 @@ export default function Communications() {
                     </Button>
                     <Button 
                       onClick={handleSendSms} 
-                      disabled={sendSMSMutation.isPending}
+                      disabled={sendSMSMutation.isPending || sendTwilioSmsMutation.isPending}
                       data-testid="button-sms-send"
                     >
                       <Send className="h-4 w-4 mr-2" />
-                      {sendSMSMutation.isPending ? 'Sending...' : 'Send SMS'}
+                      {(sendSMSMutation.isPending || sendTwilioSmsMutation.isPending) ? 'Sending...' : 'Send SMS'}
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -1662,7 +1755,7 @@ export default function Communications() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {isSmsMessagesLoading ? (
+              {(isSmsMessagesLoading || isTwilioSmsLoading) ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-4 p-3 border rounded-md">
@@ -1674,7 +1767,7 @@ export default function Communications() {
                     </div>
                   ))}
                 </div>
-              ) : smsMessagesData?.messages && smsMessagesData.messages.length > 0 ? (
+              ) : allSmsMessages.length > 0 ? (
                 <div className="space-y-2">
                   <Table>
                     <TableHeader>
@@ -1689,7 +1782,7 @@ export default function Communications() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {smsMessagesData.messages.map((message) => (
+                      {allSmsMessages.map((message) => (
                         <TableRow 
                           key={message.id} 
                           data-testid={`row-sms-${message.id}`}
@@ -1778,11 +1871,13 @@ export default function Communications() {
                     <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                     <h3 className="text-lg font-medium">SMS Integration</h3>
                     <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
-                      {ringCentralStatus?.connected 
-                        ? "Your RingCentral account is connected. Click 'Sync Messages' to load your SMS history, or 'Compose SMS' to send a new message." 
-                        : hasSmsProvider 
-                          ? "Your SMS provider is configured. You can now send text messages to clients." 
-                          : "Connect RingCentral or configure Twilio to send maintenance reminders, service updates, and other communications to clients."}
+                      {twilioStatus?.connected 
+                        ? "Your Twilio account is connected. Click 'Compose SMS' to send a new message."
+                        : ringCentralStatus?.connected 
+                          ? "Your RingCentral account is connected. Click 'Sync Messages' to load your SMS history, or 'Compose SMS' to send a new message."
+                          : hasSmsProvider 
+                            ? "Your SMS provider is configured. You can now send text messages to clients." 
+                            : "Connect RingCentral or configure Twilio to send maintenance reminders, service updates, and other communications to clients."}
                     </p>
                   </div>
                 </div>
@@ -1791,11 +1886,13 @@ export default function Communications() {
             <CardFooter className="border-t p-4">
               <div className="flex w-full justify-between items-center">
                 <div className="text-sm text-muted-foreground" data-testid="text-sms-status">
-                  {ringCentralStatus?.connected 
-                    ? `RingCentral connected as ${ringCentralStatus.phoneNumber || 'your account'}${smsMessagesData?.messages ? ` • ${smsMessagesData.messages.length} messages` : ''}`
-                    : hasSmsProvider 
-                      ? `${smsProviders.length} SMS ${smsProviders.length === 1 ? 'provider' : 'providers'} configured` 
-                      : "No SMS providers configured"}
+                  {twilioStatus?.connected 
+                    ? `Twilio connected as ${twilioStatus.phoneNumber || 'your account'}${allSmsMessages.length > 0 ? ` • ${allSmsMessages.length} messages` : ''}`
+                    : ringCentralStatus?.connected 
+                      ? `RingCentral connected as ${ringCentralStatus.phoneNumber || 'your account'}${smsMessagesData?.messages ? ` • ${smsMessagesData.messages.length} messages` : ''}`
+                      : hasSmsProvider 
+                        ? `${smsProviders.length} SMS ${smsProviders.length === 1 ? 'provider' : 'providers'} configured` 
+                        : "No SMS providers configured"}
                 </div>
                 <Button variant="outline" size="sm" asChild>
                   <Link to="/settings">
@@ -2187,90 +2284,173 @@ export default function Communications() {
         
         <TabsContent value="calls" className="space-y-4">
           {!hasVoiceProvider ? (
-            <Alert variant="destructive" className="mb-6">
+            <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>No Voice Provider Configured</AlertTitle>
-              <AlertDescription className="flex justify-between items-center">
-                <span>You need to set up a voice provider (like RingCentral) to use this feature.</span>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/settings">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Configure Provider
-                  </Link>
+              <AlertDescription>
+                <span>You need to set up Twilio in Settings to use voice calling features.</span>
+                <Button variant="link" asChild className="p-0 ml-1 h-auto">
+                  <Link to="/settings">Go to Settings</Link>
                 </Button>
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  {voiceProviders.filter(p => p.isDefault)[0]?.name || voiceProviders[0]?.name}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  Using {voiceProviders.filter(p => p.isDefault)[0]?.type || voiceProviders[0]?.type} for voice calls
-                </span>
+            <>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    {twilioStatus?.phoneNumber || 'Connected'}
+                  </Badge>
+                  <span className="text-sm text-muted-foreground">
+                    Using Twilio for voice calls
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => refetchCallLogs()}>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Refresh
+                  </Button>
+                  <Button size="sm" onClick={() => setCallDialogOpen(true)}>
+                    <Phone className="h-4 w-4 mr-2" />
+                    Make a Call
+                  </Button>
+                </div>
               </div>
-            </div>
+
+              {isCallLogsLoading ? (
+                <div className="space-y-3">
+                  {[1,2,3].map(i => <Skeleton key={i} className="h-16 w-full" />)}
+                </div>
+              ) : callLogsData?.callLogs && callLogsData.callLogs.length > 0 ? (
+                <Card>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Direction</TableHead>
+                          <TableHead>To/From</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Duration</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Notes</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {callLogsData.callLogs.map((call: CallLog) => (
+                          <TableRow key={call.id}>
+                            <TableCell>
+                              <Badge variant={call.direction === 'outbound' ? 'default' : 'secondary'}>
+                                {call.direction === 'outbound' ? '↗ Outbound' : '↙ Inbound'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="font-mono text-sm">{call.toNumber}</TableCell>
+                            <TableCell>
+                              <Badge variant={
+                                call.status === 'completed' ? 'default' :
+                                call.status === 'failed' ? 'destructive' :
+                                call.status === 'busy' || call.status === 'no-answer' ? 'secondary' :
+                                'outline'
+                              }>
+                                {call.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{call.duration ? `${Math.floor(call.duration / 60)}m ${call.duration % 60}s` : '-'}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
+                              {call.createdAt ? format(new Date(call.createdAt), 'MMM d, h:mm a') : '-'}
+                            </TableCell>
+                            <TableCell className="text-sm max-w-[200px] truncate">{call.notes || '-'}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <Phone className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <h3 className="text-lg font-medium mb-2">No Call History Yet</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      Make your first call to a client to start building your call history.
+                    </p>
+                    <Button onClick={() => setCallDialogOpen(true)}>
+                      <Phone className="h-4 w-4 mr-2" />
+                      Make a Call
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
-          
-          <div className="flex justify-between mb-4">
-            <div className="flex gap-2">
-              <Select defaultValue="all">
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Calls</SelectItem>
-                  <SelectItem value="incoming">Incoming</SelectItem>
-                  <SelectItem value="outgoing">Outgoing</SelectItem>
-                  <SelectItem value="missed">Missed</SelectItem>
-                </SelectContent>
-              </Select>
-              <Input placeholder="Search call logs..." className="w-64" />
-            </div>
-            <Button disabled={!hasVoiceProvider}>
-              <Phone className="h-4 w-4 mr-2" />
-              Log New Call
-            </Button>
-          </div>
-          
-          <Card>
-            <CardHeader>
-              <CardTitle>Call History</CardTitle>
-              <CardDescription>
-                Track and manage client phone conversations
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <p className="text-muted-foreground">No call logs to display yet.</p>
-                <div className="bg-muted rounded-md p-6 text-center">
-                  <Phone className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">Call Tracking</h3>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
-                    {hasVoiceProvider 
-                      ? "Your voice provider is configured. You can now log and track client calls." 
-                      : "Configure a voice provider to log and track client calls, set reminders, and manage follow-ups all in one place."}
-                  </p>
+
+          {/* Make a Call Dialog */}
+          <Dialog open={callDialogOpen} onOpenChange={setCallDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Make a Call</DialogTitle>
+                <DialogDescription>
+                  Enter the customer's phone number and your cell phone. We'll ring your phone first, then connect you to the customer.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>Customer Phone Number</Label>
+                  <Input
+                    placeholder="+1234567890"
+                    value={callData.customerPhone}
+                    onChange={(e) => setCallData(prev => ({ ...prev, customerPhone: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Your Cell Phone</Label>
+                  <Input
+                    placeholder="+1234567890"
+                    value={callData.callerPhone}
+                    onChange={(e) => setCallData(prev => ({ ...prev, callerPhone: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">This is the number we'll ring first</p>
+                </div>
+                <div className="space-y-2">
+                  <Label>Link to Client (optional)</Label>
+                  <Select value={callData.clientId} onValueChange={(v) => setCallData(prev => ({ ...prev, clientId: v }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {clients.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id.toString()}>
+                          {c.user?.name || c.client?.companyName || `Client #${c.id}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Notes (optional)</Label>
+                  <Textarea
+                    placeholder="Call notes..."
+                    value={callData.notes}
+                    onChange={(e) => setCallData(prev => ({ ...prev, notes: e.target.value }))}
+                  />
                 </div>
               </div>
-            </CardContent>
-            <CardFooter className="border-t p-4">
-              <div className="flex w-full justify-between items-center">
-                <div className="text-sm text-muted-foreground">
-                  {hasVoiceProvider 
-                    ? `${voiceProviders.length} voice ${voiceProviders.length === 1 ? 'provider' : 'providers'} configured` 
-                    : "No voice providers configured"}
-                </div>
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/settings">
-                    <Settings className="h-4 w-4 mr-2" />
-                    Manage Providers
-                  </Link>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCallDialogOpen(false)}>Cancel</Button>
+                <Button
+                  disabled={!callData.customerPhone || !callData.callerPhone || initiateCallMutation.isPending}
+                  onClick={() => initiateCallMutation.mutate({
+                    customerPhone: callData.customerPhone,
+                    callerPhone: callData.callerPhone,
+                    clientId: callData.clientId ? parseInt(callData.clientId) : undefined,
+                    notes: callData.notes || undefined
+                  })}
+                >
+                  {initiateCallMutation.isPending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Phone className="h-4 w-4 mr-2" />}
+                  Call Now
                 </Button>
-              </div>
-            </CardFooter>
-          </Card>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

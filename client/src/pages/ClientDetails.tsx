@@ -16,6 +16,7 @@ import { apiRequest, queryClient } from '@/lib/queryClient';
 import ClientAddressMap from '@/components/maps/ClientAddressMap';
 import { EntityEmailList } from '@/components/communications/EntityEmailList';
 import { EntitySMSList } from '@/components/communications/EntitySMSList';
+import { QuickContactActions } from '@/components/communications/QuickContactActions';
 
 // We need to extend the ClientWithUser type to include the additional properties
 // that are used in this component but are not part of the original type
@@ -47,6 +48,78 @@ interface ExtendedClientData extends Omit<ClientWithUser, 'poolType' | 'poolSize
   documents?: Array<any>;
   equipment?: Array<PoolEquipment>;
   images?: Array<PoolImage>;
+}
+
+function ClientCallHistory({ clientId }: { clientId: number }) {
+  const { data, isLoading } = useQuery<{ success: boolean; callLogs: Array<{
+    id: number;
+    direction: string;
+    fromNumber: string;
+    toNumber: string;
+    status: string;
+    duration: number | null;
+    notes: string | null;
+    createdAt: string;
+  }> }>({
+    queryKey: ['/api/twilio/call-logs/client', clientId],
+    queryFn: async () => {
+      const res = await fetch(`/api/twilio/call-logs/client/${clientId}`);
+      if (!res.ok) throw new Error('Failed to fetch call logs');
+      return res.json();
+    },
+    enabled: !!clientId,
+  });
+
+  if (isLoading) {
+    return <div className="space-y-2">{[1,2].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>;
+  }
+
+  const logs = data?.callLogs || [];
+
+  if (logs.length === 0) {
+    return (
+      <div className="text-center py-6 text-muted-foreground">
+        <Phone className="h-8 w-8 mx-auto mb-2 opacity-50" />
+        <p className="text-sm">No call history with this client yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {logs.map((call) => (
+        <div key={call.id} className="flex items-center justify-between p-3 border rounded-md">
+          <div className="flex items-center gap-3">
+            <div className={`p-1.5 rounded-full ${call.direction === 'outbound' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+              <Phone className="h-3.5 w-3.5" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">
+                {call.direction === 'outbound' ? 'Outgoing' : 'Incoming'} Call
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {call.toNumber} &middot; {call.createdAt ? new Date(call.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : ''}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {call.duration && (
+              <span className="text-xs text-muted-foreground">
+                {Math.floor(call.duration / 60)}m {call.duration % 60}s
+              </span>
+            )}
+            <Badge variant={
+              call.status === 'completed' ? 'default' :
+              call.status === 'failed' ? 'destructive' :
+              'secondary'
+            } className="text-xs">
+              {call.status}
+            </Badge>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function ClientDetails() {
@@ -330,6 +403,14 @@ export default function ClientDetails() {
                   <div className="flex items-center">
                     <Mail className="h-5 w-5 mr-2 text-gray-500" />
                     <p>{client.user.email || 'No email provided'}</p>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t mt-2">
+                    <QuickContactActions
+                      phone={client.user.phone}
+                      email={client.user.email}
+                      clientId={client.client.id}
+                      entityName={client.user.name}
+                    />
                   </div>
                   
                   {/* Google Maps integration */}
@@ -1305,6 +1386,18 @@ export default function ClientDetails() {
 
         <TabsContent value="communications">
           <div className="space-y-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Phone className="h-5 w-5" />
+                  Recent Call History
+                </CardTitle>
+                <CardDescription>Voice calls with this client via Twilio</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ClientCallHistory clientId={client.client.id} />
+              </CardContent>
+            </Card>
             <EntityEmailList
               entityType="client"
               entityId={client.client.id}

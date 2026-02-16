@@ -38,7 +38,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { User, Lock, Key, X } from "lucide-react";
+import { User, Lock, Key, X, Phone } from "lucide-react";
 
 // Form schema for profile information
 const profileFormSchema = z.object({
@@ -222,6 +222,16 @@ export function ProfileSettings() {
                       </FormItem>
                     )}
                   />
+
+                  <div className="border rounded-md p-4 bg-muted/30 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Outbound Call Routing</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      The phone number above will be used when you make outbound calls to clients. When you click "Call" on a client, the system will first ring your phone, and once you answer, it will connect you to the client.
+                    </p>
+                  </div>
                   
                   <FormField
                     control={profileForm.control}

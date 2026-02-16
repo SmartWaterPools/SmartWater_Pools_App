@@ -27,6 +27,7 @@ import { formatCurrency, formatDate } from "@/lib/types";
 import { Link } from "wouter";
 import { ProjectEditForm } from "@/components/projects/ProjectEditForm";
 import { EntityEmailList } from "@/components/communications/EntityEmailList";
+import { QuickContactActions } from "@/components/communications/QuickContactActions";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -292,6 +293,17 @@ export default function ProjectDetails() {
                     <span className="text-sm font-medium">Address:</span>
                     <p>{projectData.client.address || "Not provided"}</p>
                   </div>
+                </div>
+                <Separator className="my-4" />
+                <div className="flex gap-2">
+                  <QuickContactActions
+                    phone={projectData.client.phone}
+                    email={projectData.client.user.email}
+                    clientId={projectData.client.id}
+                    projectId={projectId}
+                    entityName={projectData.client.user.name}
+                    compact={true}
+                  />
                 </div>
               </CardContent>
             </Card>

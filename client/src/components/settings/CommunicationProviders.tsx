@@ -137,6 +137,8 @@ export function CommunicationProviders() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<CommunicationProvider | null>(null);
+  const [isTwilioSetupOpen, setIsTwilioSetupOpen] = useState(false);
+  const [twilioSetupData, setTwilioSetupData] = useState({ accountSid: '', authToken: '', phoneNumber: '', name: 'Twilio' });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -153,6 +155,15 @@ export function CommunicationProviders() {
   // Fetch RingCentral connection status (OAuth-based)
   const { data: ringCentralStatus, isLoading: isRingCentralLoading, refetch: refetchRingCentralStatus } = useQuery<RingCentralStatus>({
     queryKey: ['/api/sms/connection-status'],
+  });
+
+  // Fetch Twilio connection status (API credentials)
+  const { data: twilioStatus, isLoading: isTwilioLoading, refetch: refetchTwilioStatus } = useQuery<{
+    connected: boolean;
+    phoneNumber?: string;
+    error?: string;
+  }>({
+    queryKey: ['/api/twilio/connection-status'],
   });
 
   // Mutation to disconnect Gmail
@@ -232,6 +243,60 @@ export function CommunicationProviders() {
       toast({
         title: "Error",
         description: "Failed to disconnect RingCentral. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const saveTwilioMutation = useMutation({
+    mutationFn: async (data: { accountSid: string; authToken: string; phoneNumber: string; name: string }) => {
+      const res = await apiRequest('POST', '/api/communication-providers', {
+        type: 'twilio',
+        name: data.name,
+        accountSid: data.accountSid,
+        authToken: data.authToken,
+        phoneNumber: data.phoneNumber,
+        isDefault: true,
+        isActive: true,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/twilio/connection-status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/communication-providers'] });
+      setIsTwilioSetupOpen(false);
+      setTwilioSetupData({ accountSid: '', authToken: '', phoneNumber: '', name: 'Twilio' });
+      toast({
+        title: "Twilio Connected",
+        description: "Your Twilio account has been connected successfully.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to connect Twilio: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        variant: "destructive",
+      });
+    }
+  });
+
+  const disconnectTwilioMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/twilio/disconnect');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/twilio/connection-status'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/communication-providers'] });
+      toast({
+        title: "Twilio Disconnected",
+        description: "Your Twilio account has been disconnected.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect Twilio. Please try again.",
         variant: "destructive",
       });
     }
@@ -770,130 +835,154 @@ export function CommunicationProviders() {
                   </>
                 )}
 
-                {/* Show Twilio provider configuration */}
-                {type === "twilio" && (isLoading ? (
-                  <div className="py-8 text-center text-muted-foreground">Loading providers...</div>
-                ) : filteredProviders.length === 0 ? (
-                  <div className="py-8 text-center border rounded-md">
-                    <p className="text-muted-foreground mb-4">No Twilio providers configured</p>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        createForm.reset({
-                          type: "twilio" as ProviderType,
-                          name: "",
-                          isDefault: true,
-                          isActive: true,
-                          clientId: null,
-                          clientSecret: null,
-                          apiKey: null,
-                          accountSid: null,
-                          authToken: null,
-                          email: null,
-                          phoneNumber: null,
-                          settings: null,
-                        });
-                        setIsCreateModalOpen(true);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Twilio Provider</span>
-                    </Button>
-                  </div>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Default</TableHead>
-                        <TableHead>Credentials</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredProviders.map((provider: CommunicationProvider) => (
-                        <TableRow key={provider.id}>
-                          <TableCell className="font-medium">{provider.name}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Switch
-                                checked={provider.isActive}
-                                onCheckedChange={() => handleToggleActive(provider)}
-                              />
-                              <span>{provider.isActive ? "Active" : "Inactive"}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {provider.isDefault ? (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1">
-                                <Check className="h-3 w-3" />
-                                Default
-                              </Badge>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleSetDefault(provider)}
-                                className="text-xs h-7"
-                              >
-                                Set as default
-                              </Button>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <span>{provider.accountSid ? "Configured" : "Not configured"}</span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 p-0"
-                                onClick={() => handleEdit(provider)}
-                              >
-                                <span className="sr-only">Edit</span>
-                                <RotateCcw className="h-4 w-4" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-8 w-8 p-0 text-destructive"
+                {type === "twilio" && (
+                  <>
+                    {isTwilioLoading ? (
+                      <div className="py-8 text-center text-muted-foreground">
+                        <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+                        Checking Twilio connection...
+                      </div>
+                    ) : twilioStatus?.connected ? (
+                      <div className="py-6 border rounded-md bg-green-50/50 dark:bg-green-900/20">
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-400 flex items-center gap-1 text-sm px-3 py-1">
+                              <Check className="h-4 w-4" />
+                              Twilio Connected
+                            </Badge>
+                          </div>
+                          {twilioStatus.phoneNumber && (
+                            <p className="text-sm text-muted-foreground">
+                              Twilio Number: <strong>{twilioStatus.phoneNumber}</strong>
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground max-w-md text-center">
+                            Your organization can now send SMS messages and make voice calls to clients using this Twilio number.
+                          </p>
+                          <div className="flex gap-2 mt-2">
+                            <Button variant="outline" size="sm" asChild>
+                              <Link to="/communications">
+                                <MessageSquare className="h-4 w-4 mr-2" />
+                                Go to Communications
+                              </Link>
+                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button 
+                                  variant="destructive" 
+                                  size="sm"
+                                  disabled={disconnectTwilioMutation.isPending}
+                                >
+                                  {disconnectTwilioMutation.isPending ? (
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <Trash className="h-4 w-4 mr-2" />
+                                  )}
+                                  Disconnect
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Disconnect Twilio?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will remove the Twilio connection from your organization. You won't be able to send SMS or make calls until you reconnect.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    onClick={() => disconnectTwilioMutation.mutate()}
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
-                                    <span className="sr-only">Delete</span>
-                                    <Trash className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="w-[95%] max-w-[500px] p-4 md:p-6">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      Delete {provider.name}?
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will permanently remove this provider. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                                    <AlertDialogCancel className="mt-0">Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDeleteProvider(provider.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
+                                    Disconnect
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-6 border rounded-md">
+                        <div className="flex flex-col items-center gap-4">
+                          <Phone className="h-12 w-12 text-muted-foreground" />
+                          <div className="text-center">
+                            <p className="text-muted-foreground mb-1">Twilio not connected</p>
+                            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                              Connect your Twilio account to send SMS messages and make voice calls to clients. You'll need your Account SID, Auth Token, and a Twilio phone number.
+                            </p>
+                          </div>
+                          {!isTwilioSetupOpen ? (
+                            <Button
+                              onClick={() => setIsTwilioSetupOpen(true)}
+                              className="flex items-center gap-2"
+                            >
+                              <Phone className="h-4 w-4" />
+                              Connect Twilio Account
+                            </Button>
+                          ) : (
+                            <div className="w-full max-w-md space-y-4 p-4 border rounded-md bg-muted/30">
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Display Name</label>
+                                <Input 
+                                  placeholder="e.g. My Twilio Account"
+                                  value={twilioSetupData.name}
+                                  onChange={(e) => setTwilioSetupData(prev => ({ ...prev, name: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Account SID</label>
+                                <Input 
+                                  placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                                  value={twilioSetupData.accountSid}
+                                  onChange={(e) => setTwilioSetupData(prev => ({ ...prev, accountSid: e.target.value }))}
+                                />
+                                <p className="text-xs text-muted-foreground">Found in your Twilio Console dashboard</p>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Auth Token</label>
+                                <Input 
+                                  type="password"
+                                  placeholder="Your Twilio Auth Token"
+                                  value={twilioSetupData.authToken}
+                                  onChange={(e) => setTwilioSetupData(prev => ({ ...prev, authToken: e.target.value }))}
+                                />
+                                <p className="text-xs text-muted-foreground">Found in your Twilio Console dashboard</p>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-medium">Twilio Phone Number</label>
+                                <Input 
+                                  placeholder="+1234567890"
+                                  value={twilioSetupData.phoneNumber}
+                                  onChange={(e) => setTwilioSetupData(prev => ({ ...prev, phoneNumber: e.target.value }))}
+                                />
+                                <p className="text-xs text-muted-foreground">Your Twilio phone number with country code (e.g. +1 for US)</p>
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <Button variant="outline" size="sm" onClick={() => {
+                                  setIsTwilioSetupOpen(false);
+                                  setTwilioSetupData({ accountSid: '', authToken: '', phoneNumber: '', name: 'Twilio' });
+                                }}>
+                                  Cancel
+                                </Button>
+                                <Button 
+                                  size="sm"
+                                  disabled={!twilioSetupData.accountSid || !twilioSetupData.authToken || !twilioSetupData.phoneNumber || saveTwilioMutation.isPending}
+                                  onClick={() => saveTwilioMutation.mutate(twilioSetupData)}
+                                >
+                                  {saveTwilioMutation.isPending ? (
+                                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : null}
+                                  Connect
+                                </Button>
+                              </div>
                             </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                ))}
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
               </CardContent>
               <CardFooter className="border-t p-4 flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
@@ -901,6 +990,8 @@ export function CommunicationProviders() {
                     ? "Gmail connected via Google OAuth"
                     : type === "ringcentral" && ringCentralStatus?.connected
                     ? "RingCentral connected via OAuth"
+                    : type === "twilio" && twilioStatus?.connected
+                    ? "Twilio connected with API credentials"
                     : filteredProviders.length > 0
                     ? `${filteredProviders.length} ${
                         filteredProviders.length === 1 ? "provider" : "providers"

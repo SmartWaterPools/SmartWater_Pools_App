@@ -72,6 +72,18 @@ import { WorkOrderItemsSection } from "@/components/WorkOrderItemsSection";
 import { WorkOrderTimeTracking } from "@/components/WorkOrderTimeTracking";
 import { WorkOrderTeamMembers } from "@/components/WorkOrderTeamMembers";
 import { FieldServiceReportForm } from "@/components/reports/FieldServiceReportForm";
+import { QuickContactActions } from "@/components/communications/QuickContactActions";
+
+interface ClientInfo {
+  id: number;
+  user: {
+    id: number;
+    name: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+}
 
 interface WorkOrderWithDetails extends WorkOrder {
   technician?: {
@@ -583,6 +595,17 @@ export default function WorkOrderDetail() {
     enabled: !!workOrderId,
   });
 
+  const { data: clientInfo } = useQuery<ClientInfo>({
+    queryKey: [`/api/clients/${workOrder?.clientId}`],
+    enabled: !!workOrder?.clientId,
+    queryFn: async () => {
+      if (!workOrder?.clientId) return null as any;
+      const response = await fetch(`/api/clients/${workOrder.clientId}`, { credentials: 'include' });
+      if (!response.ok) throw new Error('Failed to fetch client');
+      return response.json();
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("DELETE", `/api/work-orders/${workOrderId}`);
@@ -888,6 +911,54 @@ export default function WorkOrderDetail() {
               )}
             </CardContent>
           </Card>
+
+          {workOrder.clientId && clientInfo && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Client</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground mb-1">Name</h4>
+                  <p className="text-sm">{clientInfo.user?.name || "Unknown"}</p>
+                </div>
+                
+                {clientInfo.user?.email && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Email</h4>
+                    <p className="text-sm">{clientInfo.user.email}</p>
+                  </div>
+                )}
+                
+                {clientInfo.user?.phone && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Phone</h4>
+                    <p className="text-sm">{clientInfo.user.phone}</p>
+                  </div>
+                )}
+                
+                {clientInfo.user?.address && (
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-1">Address</h4>
+                    <p className="text-sm">{clientInfo.user.address}</p>
+                  </div>
+                )}
+                
+                {(clientInfo.user?.email || clientInfo.user?.phone) && (
+                  <div className="pt-2 border-t">
+                    <h4 className="text-sm font-medium text-muted-foreground mb-3">Quick Contact</h4>
+                    <QuickContactActions
+                      phone={clientInfo.user?.phone}
+                      email={clientInfo.user?.email}
+                      clientId={workOrder.clientId}
+                      entityName={clientInfo.user?.name}
+                      compact={true}
+                    />
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {(workOrder.workOrderRequestId || workOrder.maintenanceAssignmentId || workOrder.repairId) && (
             <Card>

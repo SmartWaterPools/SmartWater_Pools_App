@@ -11,6 +11,7 @@ import bazzaRoutes from "./routes/bazza-routes";
 import communicationRoutes from "./routes/communication-routes";
 import emailRoutes from "./routes/email-routes";
 import smsRoutes from "./routes/sms-routes";
+import twilioRoutes from "./routes/twilio-routes";
 import vendorRoutes from "./routes/vendor-routes";
 import workOrderRoutes from "./routes/work-order-routes";
 import workOrderRequestRoutes from "./routes/work-order-request-routes";
@@ -69,6 +70,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount SMS routes
   app.use('/api/sms', smsRoutes);
+
+  // Mount Twilio routes
+  app.use('/api/twilio', twilioRoutes);
 
   // Mount vendor routes
   app.use('/api/vendors', vendorRoutes);

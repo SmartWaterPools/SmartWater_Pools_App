@@ -83,6 +83,13 @@ Preferred communication style: Simple, everyday language.
 ## Communication Services
 - **Gmail Integration**: Per-user OAuth-based email sync, compose/send, and automated notifications. Handles token management and permission issues.
 - **RingCentral SMS Integration**: Multi-tenant OAuth-based SMS service for notifications and client messaging.
+- **Twilio Integration**: Multi-tenant SMS and voice call service. Organizations connect their Twilio accounts (Account SID, Auth Token, phone number) via Settings > Communication Providers. Features include:
+  - SMS sending to clients from Communications page and entity detail pages
+  - Click-to-call (callout): rings the user's cell phone first, then connects to the customer via Twilio
+  - Call logging with status, duration, and notes tracking
+  - Quick contact action buttons (Call, Text, Email) on Client Details, Project Details, and Work Order pages
+  - Backend service: `server/twilio-service.ts`, routes: `server/routes/twilio-routes.ts`
+  - Schema: `callLogs` table for voice call history, existing `smsMessages` table for SMS
 
 ## Deployment Platform
 - **Google Cloud Run**: Target deployment platform.

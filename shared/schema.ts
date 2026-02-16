@@ -568,7 +568,7 @@ export type ScheduledEmail = typeof scheduledEmails.$inferSelect;
 // SMS Messages table - stores sent/received SMS messages
 export const smsMessages = pgTable("sms_messages", {
   id: serial("id").primaryKey(),
-  providerId: integer("provider_id").notNull(), // FK to communication_providers (RingCentral)
+  providerId: integer("provider_id").notNull(), // FK to communication_providers (RingCentral or Twilio)
   externalId: text("external_id"), // RingCentral message ID
   direction: text("direction").notNull().default("outbound"), // inbound, outbound
   fromNumber: text("from_number").notNull(),
@@ -621,6 +621,36 @@ export const insertSmsTemplateSchema = createInsertSchema(smsTemplates).omit({
 
 export type InsertSmsTemplate = z.infer<typeof insertSmsTemplateSchema>;
 export type SmsTemplate = typeof smsTemplates.$inferSelect;
+
+// Call Logs table - stores voice calls made via Twilio
+export const callLogs = pgTable("call_logs", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  providerId: integer("provider_id").notNull(),
+  externalId: text("external_id"),
+  direction: text("direction").notNull().default("outbound"),
+  fromNumber: text("from_number").notNull(),
+  toNumber: text("to_number").notNull(),
+  status: text("status").notNull().default("initiated"),
+  duration: integer("duration"),
+  recordingUrl: text("recording_url"),
+  callerUserId: integer("caller_user_id"),
+  clientId: integer("client_id"),
+  vendorId: integer("vendor_id"),
+  projectId: integer("project_id"),
+  notes: text("notes"),
+  startedAt: timestamp("started_at"),
+  endedAt: timestamp("ended_at"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertCallLogSchema = createInsertSchema(callLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCallLog = z.infer<typeof insertCallLogSchema>;
+export type CallLog = typeof callLogs.$inferSelect;
 
 // Vendors table - subcontractors, suppliers, and other business partners
 export const vendors = pgTable("vendors", {
