@@ -652,7 +652,7 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     let emailSent = false;
     let emailWarning: string | undefined;
 
-    if (!user.gmailAccessToken || !user.gmailRefreshToken) {
+    if (!user.gmailAccessToken) {
       emailWarning = "Gmail is not connected. Estimate status updated but email was not sent.";
     } else if (!recipientEmail) {
       emailWarning = "Client does not have an email address on file. Estimate status updated but email was not sent.";
