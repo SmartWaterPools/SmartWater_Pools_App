@@ -1,10 +1,12 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth";
-import { insertInvoiceSchema, insertInvoiceItemSchema, insertInvoicePaymentSchema } from "@shared/schema";
+import { insertInvoiceSchema, insertInvoiceItemSchema, insertInvoicePaymentSchema, clients } from "@shared/schema";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import Stripe from 'stripe';
 import { sendGmailMessage, UserTokens } from "../services/gmail-client";
+import { db } from "../db";
 
 const router = Router();
 
@@ -559,7 +561,9 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     }
 
     const items = await storage.getInvoiceItems(invoiceId);
-    const client = await storage.getUser(invoice.clientId);
+    const clientRecord = await db.select().from(clients).where(eq(clients.id, invoice.clientId)).limit(1);
+    const client = clientRecord.length > 0 ? await storage.getUser(clientRecord[0].userId) : null;
+    console.log(`[Invoice Send] Client lookup: clientId=${invoice.clientId}, clientRecord userId=${clientRecord[0]?.userId}, user email=${client?.email}`);
 
     let emailSent = false;
     let emailWarning: string | undefined;

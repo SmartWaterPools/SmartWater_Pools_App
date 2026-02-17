@@ -156,24 +156,30 @@ router.post('/:id/generate-visits', isAuthenticated, async (req, res) => {
       const dateStr = date.toISOString().split('T')[0];
       if (existingDates.has(dateStr)) continue;
 
-      const maintenance = await storage.createMaintenance({
-        clientId: order.clientId,
-        technicianId: order.technicianId || null,
-        maintenanceOrderId: order.id,
-        scheduleDate: dateStr,
-        type: order.title || 'maintenance',
-        status: 'scheduled',
-        notes: order.description || null,
-        routeName: null,
-        routeOrder: null,
-      });
-      newVisits.push(maintenance);
+      try {
+        console.log(`[Generate Visits] Creating maintenance visit for date ${dateStr}, clientId=${order.clientId}, techId=${order.technicianId}`);
+        const maintenance = await storage.createMaintenance({
+          clientId: order.clientId,
+          technicianId: order.technicianId || null,
+          maintenanceOrderId: order.id,
+          scheduleDate: dateStr,
+          type: order.title || 'maintenance',
+          status: 'scheduled',
+          notes: order.description || null,
+          routeName: null,
+          routeOrder: null,
+        });
+        newVisits.push(maintenance);
+      } catch (visitError) {
+        console.error(`[Generate Visits] Failed to create visit for date ${dateStr}:`, visitError);
+      }
     }
 
     res.status(201).json({ generated: newVisits.length, visits: newVisits });
   } catch (error) {
-    console.error('Error generating visits:', error);
-    res.status(500).json({ error: 'Failed to generate visits' });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('Error generating visits:', errorMessage, error);
+    res.status(500).json({ error: 'Failed to generate visits', details: errorMessage });
   }
 });
 

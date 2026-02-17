@@ -332,7 +332,7 @@ router.delete("/routes/:id", isAuthenticated, async (req: Request, res: Response
 // Create a new route stop
 router.post("/stops", isAuthenticated, async (req: Request, res: Response) => {
   try {
-    console.log("[BAZZA ROUTES API] Processing request to create new bazza route stop");
+    console.log("[BAZZA ROUTES API] Processing request to create new bazza route stop, body:", JSON.stringify(req.body));
     
     // Validate request body
     const validationResult = insertBazzaRouteStopSchema.safeParse(req.body);
@@ -346,8 +346,9 @@ router.post("/stops", isAuthenticated, async (req: Request, res: Response) => {
     const newStop = await storage.createBazzaRouteStop(validationResult.data as InsertBazzaRouteStop);
     res.status(201).json(newStop);
   } catch (error) {
-    console.error("[BAZZA ROUTES API] Error creating bazza route stop:", error);
-    res.status(500).json({ error: "Failed to create bazza route stop" });
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("[BAZZA ROUTES API] Error creating bazza route stop:", errorMessage, error);
+    res.status(500).json({ error: "Failed to create bazza route stop", details: errorMessage });
   }
 });
 

@@ -1,9 +1,11 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth";
-import { insertEstimateSchema, insertEstimateItemSchema, insertInvoiceSchema, insertInvoiceItemSchema } from "@shared/schema";
+import { insertEstimateSchema, insertEstimateItemSchema, insertInvoiceSchema, insertInvoiceItemSchema, clients } from "@shared/schema";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { sendGmailMessage, UserTokens } from "../services/gmail-client";
+import { db } from "../db";
 
 const router = Router();
 
@@ -639,7 +641,9 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     }
 
     const items = await storage.getEstimateItems(estimateId);
-    const client = await storage.getUser(estimate.clientId);
+    const clientRecord = await db.select().from(clients).where(eq(clients.id, estimate.clientId)).limit(1);
+    const client = clientRecord.length > 0 ? await storage.getUser(clientRecord[0].userId) : null;
+    console.log(`[Estimate Send] Client lookup: clientId=${estimate.clientId}, clientRecord userId=${clientRecord[0]?.userId}, user email=${client?.email}`);
 
     let emailSent = false;
     let emailWarning: string | undefined;
