@@ -56,6 +56,7 @@ router.post("/", isAuthenticated, async (req, res) => {
     const user = req.user as any;
     const parsed = insertTaxTemplateSchema.parse({
       ...req.body,
+      rate: String(req.body.rate),
       organizationId: user.organizationId,
     });
     const template = await storage.createTaxTemplate(parsed);
@@ -73,7 +74,9 @@ router.patch("/:id", isAuthenticated, async (req, res) => {
     const existing = await storage.getTaxTemplate(id);
     if (!existing) return res.status(404).json({ error: "Tax template not found" });
     if (existing.organizationId !== user.organizationId) return res.status(403).json({ error: "Access denied" });
-    const updated = await storage.updateTaxTemplate(id, req.body);
+    const updateData = { ...req.body };
+    if (updateData.rate !== undefined) updateData.rate = String(updateData.rate);
+    const updated = await storage.updateTaxTemplate(id, updateData);
     res.json(updated);
   } catch (error) {
     console.error("Error updating tax template:", error);
