@@ -1,4 +1,5 @@
-import { X, Droplet, Home, Activity, Briefcase, UserCircle, Users, Settings, LogOut, Wrench, Phone, MessageSquare, Barcode } from "lucide-react";
+import { useState } from "react";
+import { X, Droplet, Home, Activity, Briefcase, UserCircle, Users, Settings, LogOut, Wrench, Phone, MessageSquare, Barcode, CalendarCheck, CalendarRange, ChevronDown, Truck, MapPin, Cog } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useLocation } from "wouter";
 
@@ -10,6 +11,8 @@ interface MobileSidebarProps {
 export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
+  const [isMaintenanceExpanded, setIsMaintenanceExpanded] = useState(() => location.startsWith('/maintenance'));
+  const [isFleetExpanded, setIsFleetExpanded] = useState(() => location.startsWith('/fleetmatics'));
 
   const handleLogout = async () => {
     await logout();
@@ -95,15 +98,41 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
               </div>
             </Link>
             
-            {/* Maintenance */}
-            <Link href="/maintenance" onClick={onClose}>
-              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
-                isActive('/maintenance') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
-              }`}>
-                <Activity className="mr-3 h-5 w-5" />
-                Maintenance
+            {/* Maintenance Group */}
+            <div>
+              <div
+                onClick={() => setIsMaintenanceExpanded(!isMaintenanceExpanded)}
+                className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
+                  isActive('/maintenance') ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-blue-50'
+                }`}
+              >
+                <div className="flex items-center">
+                  <CalendarCheck className="mr-3 h-5 w-5" />
+                  Maintenance
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform ${isMaintenanceExpanded ? 'rotate-180' : ''}`} />
               </div>
-            </Link>
+              {isMaintenanceExpanded && (
+                <div className="ml-8 mt-1 space-y-1">
+                  <Link href="/maintenance" onClick={onClose}>
+                    <div className={`flex items-center px-3 py-1.5 text-sm rounded-md cursor-pointer ${
+                      location === '/maintenance' ? 'text-primary font-medium' : 'text-gray-600 hover:bg-blue-50'
+                    }`}>
+                      <CalendarCheck className="mr-2 h-4 w-4" />
+                      Maintenance
+                    </div>
+                  </Link>
+                  <Link href="/maintenance-orders" onClick={onClose}>
+                    <div className={`flex items-center px-3 py-1.5 text-sm rounded-md cursor-pointer ${
+                      isActive('/maintenance-orders') ? 'text-primary font-medium' : 'text-gray-600 hover:bg-blue-50'
+                    }`}>
+                      <CalendarRange className="mr-2 h-4 w-4" />
+                      Maint. Orders
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
             
             {/* Repairs */}
             <Link href="/repairs" onClick={onClose}>
@@ -164,6 +193,50 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Reports
               </div>
             </Link>
+            
+            {/* Fleet Group */}
+            <div>
+              <div
+                onClick={() => setIsFleetExpanded(!isFleetExpanded)}
+                className={`flex items-center justify-between px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
+                  isActive('/fleetmatics') ? 'bg-primary/10 text-primary' : 'text-gray-700 hover:bg-blue-50'
+                }`}
+              >
+                <div className="flex items-center">
+                  <Truck className="mr-3 h-5 w-5" />
+                  Fleet
+                </div>
+                <ChevronDown className={`h-4 w-4 transition-transform ${isFleetExpanded ? 'rotate-180' : ''}`} />
+              </div>
+              {isFleetExpanded && (
+                <div className="ml-8 mt-1 space-y-1">
+                  <Link href="/fleetmatics/vehicle-tracking" onClick={onClose}>
+                    <div className={`flex items-center px-3 py-1.5 text-sm rounded-md cursor-pointer ${
+                      isActive('/fleetmatics/vehicle-tracking') ? 'text-primary font-medium' : 'text-gray-600 hover:bg-blue-50'
+                    }`}>
+                      <MapPin className="mr-2 h-4 w-4" />
+                      Vehicle Tracking
+                    </div>
+                  </Link>
+                  <Link href="/fleetmatics/vehicle-mapping" onClick={onClose}>
+                    <div className={`flex items-center px-3 py-1.5 text-sm rounded-md cursor-pointer ${
+                      isActive('/fleetmatics/vehicle-mapping') ? 'text-primary font-medium' : 'text-gray-600 hover:bg-blue-50'
+                    }`}>
+                      <Truck className="mr-2 h-4 w-4" />
+                      Vehicle Mapping
+                    </div>
+                  </Link>
+                  <Link href="/fleetmatics/settings" onClick={onClose}>
+                    <div className={`flex items-center px-3 py-1.5 text-sm rounded-md cursor-pointer ${
+                      isActive('/fleetmatics/settings') ? 'text-primary font-medium' : 'text-gray-600 hover:bg-blue-50'
+                    }`}>
+                      <Cog className="mr-2 h-4 w-4" />
+                      Fleet Settings
+                    </div>
+                  </Link>
+                </div>
+              )}
+            </div>
             
             {/* Barcode Scanner Demo */}
             <Link href="/inventory/barcode-demo" onClick={onClose}>

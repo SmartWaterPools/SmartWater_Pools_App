@@ -62,6 +62,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnDispatch] = useRoute("/dispatch");
   const [isOnProjects] = useRoute("/projects");
   const [isOnMaintenance] = useRoute("/maintenance");
+  const [isOnMaintenanceOrders] = useRoute("/maintenance-orders");
   const [isOnRepairs] = useRoute("/repairs");
   const [isOnClients] = useRoute("/clients");
   const [isOnTechnicians] = useRoute("/technicians");
@@ -80,10 +81,32 @@ export function Sidebar({ user: propUser }: SidebarProps) {
       setIsBillingExpanded(true);
     }
   }, [location]);
+
+  const isOnMaintenanceGroup = isOnMaintenance || isOnMaintenanceOrders || location.startsWith('/maintenance');
+  const [isMaintenanceExpanded, setIsMaintenanceExpanded] = useState(() => {
+    return location.startsWith('/maintenance');
+  });
+
+  useEffect(() => {
+    if (location.startsWith('/maintenance')) {
+      setIsMaintenanceExpanded(true);
+    }
+  }, [location]);
+
+  const isOnFleet = location.startsWith('/fleetmatics');
+  const [isFleetExpanded, setIsFleetExpanded] = useState(() => {
+    return location.startsWith('/fleetmatics');
+  });
+
+  useEffect(() => {
+    if (location.startsWith('/fleetmatics')) {
+      setIsFleetExpanded(true);
+    }
+  }, [location]);
+
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
   const [isOnWorkOrders] = useRoute("/work-orders");
-  const [isOnMaintenanceOrders] = useRoute("/maintenance-orders");
   const [isOnSettings] = useRoute("/settings");
   const [isOnAdmin] = useRoute("/admin");
   
@@ -136,6 +159,12 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Inventory';
       case '/admin':
         return 'Admin Dashboard';
+      case '/fleetmatics/vehicle-tracking':
+        return 'Vehicle Tracking';
+      case '/fleetmatics/vehicle-mapping':
+        return 'Vehicle Mapping';
+      case '/fleetmatics/settings':
+        return 'Fleet Settings';
       default:
         return 'New Tab';
     }
@@ -175,6 +204,12 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <Package className="h-4 w-4" />;
       case '/admin':
         return <ShieldCheck className="h-4 w-4" />;
+      case '/fleetmatics/vehicle-tracking':
+        return <MapPin className="h-4 w-4" />;
+      case '/fleetmatics/vehicle-mapping':
+        return <Truck className="h-4 w-4" />;
+      case '/fleetmatics/settings':
+        return <Cog className="h-4 w-4" />;
       default:
         return <LayoutDashboard className="h-4 w-4" />;
     }
@@ -376,37 +411,76 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             )}
           </div>
           
-          {/* Maintenance - matched to mobile navigation */}
-          <div
-            onClick={(e) => handleSidebarNavigation(e, "/maintenance")}
-            className={cn(
-              "flex cursor-pointer",
-              isCollapsed 
-                ? "flex-col items-center justify-center p-2" 
-                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
-            )}
-          >
-            <div className={cn(
-              "flex items-center justify-center",
-              isCollapsed ? "p-1 rounded-md" : "mr-3",
-              isOnMaintenance ? "text-primary" : "text-gray-500"
-            )}>
-              <CalendarCheck className="h-5 w-5" />
+          {/* Maintenance Group */}
+          <div>
+            <div
+              onClick={() => {
+                if (isCollapsed) {
+                  handleSidebarNavigation({preventDefault: () => {}} as any, "/maintenance");
+                } else {
+                  setIsMaintenanceExpanded(!isMaintenanceExpanded);
+                }
+              }}
+              className={cn(
+                "flex cursor-pointer",
+                isCollapsed 
+                  ? "flex-col items-center justify-center p-2" 
+                  : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+              )}
+            >
+              <div className={cn(
+                "flex items-center justify-center",
+                isCollapsed ? "p-1 rounded-md" : "mr-3",
+                isOnMaintenanceGroup ? "text-primary" : "text-gray-500"
+              )}>
+                <CalendarCheck className="h-5 w-5" />
+              </div>
+              {!isCollapsed ? (
+                <div className="flex items-center justify-between flex-1">
+                  <span className={cn(
+                    "text-sm font-medium",
+                    isOnMaintenanceGroup ? "text-primary" : "text-gray-700"
+                  )}>
+                    Maintenance
+                  </span>
+                  <ChevronDown className={cn(
+                    "h-4 w-4 transition-transform",
+                    isMaintenanceExpanded ? "rotate-180" : "",
+                    isOnMaintenanceGroup ? "text-primary" : "text-gray-400"
+                  )} />
+                </div>
+              ) : (
+                <span className={cn(
+                  "text-xs mt-0.5",
+                  isOnMaintenanceGroup ? "text-primary font-medium" : "text-gray-500"
+                )}>
+                  Maintenance
+                </span>
+              )}
             </div>
-            {!isCollapsed ? (
-              <span className={cn(
-                "text-sm font-medium",
-                isOnMaintenance ? "text-primary" : "text-gray-700"
-              )}>
-                Maintenance
-              </span>
-            ) : (
-              <span className={cn(
-                "text-xs mt-0.5",
-                isOnMaintenance ? "text-primary font-medium" : "text-gray-500"
-              )}>
-                Maintenance
-              </span>
+            {!isCollapsed && isMaintenanceExpanded && (
+              <div className="ml-8 mt-1 space-y-1">
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/maintenance")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    isOnMaintenance ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <CalendarCheck className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Maintenance</span>
+                </div>
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/maintenance-orders")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    isOnMaintenanceOrders ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <CalendarRange className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Maint. Orders</span>
+                </div>
+              </div>
             )}
           </div>
           
@@ -478,40 +552,6 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             )}
           </div>
 
-          {/* Maintenance Orders */}
-          <div
-            onClick={(e) => handleSidebarNavigation(e, "/maintenance-orders")}
-            className={cn(
-              "flex cursor-pointer",
-              isCollapsed 
-                ? "flex-col items-center justify-center p-2" 
-                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
-            )}
-          >
-            <div className={cn(
-              "flex items-center justify-center",
-              isCollapsed ? "p-1 rounded-md" : "mr-3",
-              isOnMaintenanceOrders ? "text-primary" : "text-gray-500"
-            )}>
-              <CalendarRange className="h-5 w-5" />
-            </div>
-            {!isCollapsed ? (
-              <span className={cn(
-                "text-sm font-medium",
-                isOnMaintenanceOrders ? "text-primary" : "text-gray-700"
-              )}>
-                Maint. Orders
-              </span>
-            ) : (
-              <span className={cn(
-                "text-xs mt-0.5",
-                isOnMaintenanceOrders ? "text-primary font-medium" : "text-gray-500"
-              )}>
-                Maint. Orders
-              </span>
-            )}
-          </div>
-          
           {/* Communications */}
           <div
             onClick={(e) => handleSidebarNavigation(e, "/communications")}
@@ -755,105 +795,86 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             )}
           </div>
           
-          {/* Fleetmatics Vehicle Tracking */}
-          <div
-            onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/vehicle-tracking")}
-            className={cn(
-              "flex cursor-pointer",
-              isCollapsed 
-                ? "flex-col items-center justify-center p-2" 
-                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
-            )}
-          >
-            <div className={cn(
-              "flex items-center justify-center",
-              isCollapsed ? "p-1 rounded-md" : "mr-3",
-              location.startsWith("/fleetmatics/vehicle-tracking") ? "text-primary" : "text-gray-500"
-            )}>
-              <MapPin className="h-5 w-5" />
+          {/* Fleet Group */}
+          <div>
+            <div
+              onClick={() => {
+                if (isCollapsed) {
+                  handleSidebarNavigation({preventDefault: () => {}} as any, "/fleetmatics/vehicle-tracking");
+                } else {
+                  setIsFleetExpanded(!isFleetExpanded);
+                }
+              }}
+              className={cn(
+                "flex cursor-pointer",
+                isCollapsed 
+                  ? "flex-col items-center justify-center p-2" 
+                  : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+              )}
+            >
+              <div className={cn(
+                "flex items-center justify-center",
+                isCollapsed ? "p-1 rounded-md" : "mr-3",
+                isOnFleet ? "text-primary" : "text-gray-500"
+              )}>
+                <Truck className="h-5 w-5" />
+              </div>
+              {!isCollapsed ? (
+                <div className="flex items-center justify-between flex-1">
+                  <span className={cn(
+                    "text-sm font-medium",
+                    isOnFleet ? "text-primary" : "text-gray-700"
+                  )}>
+                    Fleet
+                  </span>
+                  <ChevronDown className={cn(
+                    "h-4 w-4 transition-transform",
+                    isFleetExpanded ? "rotate-180" : "",
+                    isOnFleet ? "text-primary" : "text-gray-400"
+                  )} />
+                </div>
+              ) : (
+                <span className={cn(
+                  "text-xs mt-0.5",
+                  isOnFleet ? "text-primary font-medium" : "text-gray-500"
+                )}>
+                  Fleet
+                </span>
+              )}
             </div>
-            {!isCollapsed ? (
-              <span className={cn(
-                "text-sm font-medium",
-                location.startsWith("/fleetmatics/vehicle-tracking") ? "text-primary" : "text-gray-700"
-              )}>
-                Vehicle Tracking
-              </span>
-            ) : (
-              <span className={cn(
-                "text-xs mt-0.5",
-                location.startsWith("/fleetmatics/vehicle-tracking") ? "text-primary font-medium" : "text-gray-500"
-              )}>
-                Tracking
-              </span>
-            )}
-          </div>
-          
-          {/* Fleetmatics Vehicle Mapping */}
-          <div
-            onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/vehicle-mapping")}
-            className={cn(
-              "flex cursor-pointer",
-              isCollapsed 
-                ? "flex-col items-center justify-center p-2" 
-                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
-            )}
-          >
-            <div className={cn(
-              "flex items-center justify-center",
-              isCollapsed ? "p-1 rounded-md" : "mr-3",
-              location.startsWith("/fleetmatics/vehicle-mapping") ? "text-primary" : "text-gray-500"
-            )}>
-              <Truck className="h-5 w-5" />
-            </div>
-            {!isCollapsed ? (
-              <span className={cn(
-                "text-sm font-medium",
-                location.startsWith("/fleetmatics/vehicle-mapping") ? "text-primary" : "text-gray-700"
-              )}>
-                Vehicle Mapping
-              </span>
-            ) : (
-              <span className={cn(
-                "text-xs mt-0.5",
-                location.startsWith("/fleetmatics/vehicle-mapping") ? "text-primary font-medium" : "text-gray-500"
-              )}>
-                Mapping
-              </span>
-            )}
-          </div>
-          
-          {/* Fleetmatics Settings */}
-          <div
-            onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/settings")}
-            className={cn(
-              "flex cursor-pointer",
-              isCollapsed 
-                ? "flex-col items-center justify-center p-2" 
-                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
-            )}
-          >
-            <div className={cn(
-              "flex items-center justify-center",
-              isCollapsed ? "p-1 rounded-md" : "mr-3",
-              location.startsWith("/fleetmatics/settings") ? "text-primary" : "text-gray-500"
-            )}>
-              <Cog className="h-5 w-5" />
-            </div>
-            {!isCollapsed ? (
-              <span className={cn(
-                "text-sm font-medium",
-                location.startsWith("/fleetmatics/settings") ? "text-primary" : "text-gray-700"
-              )}>
-                Fleetmatics Settings
-              </span>
-            ) : (
-              <span className={cn(
-                "text-xs mt-0.5",
-                location.startsWith("/fleetmatics/settings") ? "text-primary font-medium" : "text-gray-500"
-              )}>
-                Fleet Settings
-              </span>
+            {!isCollapsed && isFleetExpanded && (
+              <div className="ml-8 mt-1 space-y-1">
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/vehicle-tracking")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    location.startsWith("/fleetmatics/vehicle-tracking") ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Vehicle Tracking</span>
+                </div>
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/vehicle-mapping")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    location.startsWith("/fleetmatics/vehicle-mapping") ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <Truck className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Vehicle Mapping</span>
+                </div>
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/fleetmatics/settings")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    location.startsWith("/fleetmatics/settings") ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <Cog className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Fleet Settings</span>
+                </div>
+              </div>
             )}
           </div>
           
