@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation, useRoute } from "wouter";
 import { format, addDays } from "date-fns";
-import { CalendarIcon, Loader2, Plus, Trash2, ArrowLeft, Send, Save } from "lucide-react";
+import { CalendarIcon, Loader2, Plus, Trash2, ArrowLeft, Send, Save, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,12 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const lineItemSchema = z.object({
   inventoryItemId: z.coerce.number().optional(),
@@ -138,6 +144,10 @@ export default function InvoiceForm() {
     queryKey: ['/api/inventory/items'],
   });
 
+  const { data: taxTemplates } = useQuery<any[]>({
+    queryKey: ['/api/tax-templates'],
+  });
+
   const today = new Date();
   const defaultDueDate = addDays(today, 30);
 
@@ -199,8 +209,9 @@ export default function InvoiceForm() {
   });
 
   useEffect(() => {
-    if (selectedClientData?.billingState && !isEditing) {
-      fetch(`/api/tax-templates/by-state/${selectedClientData.billingState}`, { credentials: 'include' })
+    const clientBillingState = selectedClientData?.client?.billingState || selectedClientData?.billingState;
+    if (clientBillingState && !isEditing) {
+      fetch(`/api/tax-templates/by-state/${clientBillingState}`, { credentials: 'include' })
         .then(res => res.json())
         .then(templates => {
           if (templates && templates.length > 0) {
@@ -210,7 +221,7 @@ export default function InvoiceForm() {
         })
         .catch(() => {});
     }
-  }, [selectedClientData?.billingState, isEditing, form]);
+  }, [selectedClientData, isEditing, form]);
 
   const watchedItems = form.watch("items");
   const watchedTaxRate = form.watch("taxRate");
@@ -502,6 +513,42 @@ export default function InvoiceForm() {
             </CardContent>
           </Card>
 
+          {selectedClientData && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Client Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Contact Details</h4>
+                    <div className="space-y-1 text-sm">
+                      <p className="font-medium">{selectedClientData.user?.name || selectedClientData.client?.companyName || 'N/A'}</p>
+                      {selectedClientData.client?.companyName && <p className="text-muted-foreground">{selectedClientData.client.companyName}</p>}
+                      {selectedClientData.user?.email && <p className="text-muted-foreground">{selectedClientData.user.email}</p>}
+                      {selectedClientData.user?.phone && <p className="text-muted-foreground">{selectedClientData.user.phone}</p>}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Billing Address</h4>
+                    <div className="space-y-1 text-sm">
+                      {selectedClientData.client?.billingAddress || selectedClientData.client?.billingCity || selectedClientData.client?.billingState ? (
+                        <>
+                          {selectedClientData.client?.billingAddress && <p>{selectedClientData.client.billingAddress}</p>}
+                          <p>
+                            {[selectedClientData.client?.billingCity, selectedClientData.client?.billingState, selectedClientData.client?.billingZip].filter(Boolean).join(', ')}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-muted-foreground italic">No billing address on file</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>Line Items</CardTitle>
@@ -661,26 +708,51 @@ export default function InvoiceForm() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <FormField
-                  control={form.control}
-                  name="taxRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tax Rate (%)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          min="0" 
-                          max="100"
-                          placeholder="0"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div>
+                  <FormLabel className="text-sm font-medium">Tax Template</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      const template = taxTemplates?.find((t: any) => t.id.toString() === value);
+                      if (template) {
+                        form.setValue("taxRate", parseFloat(template.rate));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="mb-2">
+                      <SelectValue placeholder="Select tax template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {taxTemplates?.filter((t: any) => t.isActive !== false).map((t: any) => (
+                        <SelectItem key={t.id} value={t.id.toString()}>
+                          {t.name} ({t.rate}%) {t.state ? `- ${t.state}` : ''}
+                        </SelectItem>
+                      ))}
+                      {(!taxTemplates || taxTemplates.length === 0) && (
+                        <SelectItem value="none" disabled>No tax templates available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormField
+                    control={form.control}
+                    name="taxRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tax Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input 
+                            type="number" 
+                            step="0.01" 
+                            min="0" 
+                            max="100"
+                            placeholder="0"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
@@ -825,31 +897,42 @@ export default function InvoiceForm() {
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleSaveDraft}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Save as Draft
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveAndSend}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              {isEditing && existingInvoice?.status !== 'draft' ? 'Save' : 'Save & Send'}
-            </Button>
+            <div className="flex">
+              <Button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isPending}
+                className="rounded-r-none"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    disabled={isPending}
+                    className="rounded-l-none border-l border-l-primary-foreground/20 px-2"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleSaveDraft}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save as Draft
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSaveAndSend}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Save & Send
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </form>
       </Form>
