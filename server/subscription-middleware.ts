@@ -12,7 +12,8 @@ export function requireActiveSubscription(storage: IStorage) {
       req.path.startsWith('/api/stripe') || 
       req.path.startsWith('/api/subscription') || 
       req.path === '/api/auth/session' ||
-      req.path === '/api/google-maps-key'
+      req.path === '/api/google-maps-key' ||
+      req.path.startsWith('/api/places')
     ) {
       return next();
     }

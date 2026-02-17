@@ -1692,6 +1692,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Places Autocomplete API endpoint - PUBLIC (server-side proxy)
+  app.get('/api/places/autocomplete', async (req, res) => {
+    try {
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.json({ predictions: [] });
+      }
+      const input = req.query.input as string;
+      if (!input || input.length < 2) {
+        return res.json({ predictions: [] });
+      }
+      
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:us&key=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === 'OK' || data.status === 'ZERO_RESULTS') {
+        return res.json({ predictions: data.predictions || [] });
+      }
+      console.error('Places Autocomplete error:', data.status, data.error_message);
+      return res.json({ predictions: [] });
+    } catch (error) {
+      console.error('Places Autocomplete fetch error:', error);
+      return res.json({ predictions: [] });
+    }
+  });
+
+  // Places Details API endpoint - PUBLIC (server-side proxy)
+  app.get('/api/places/details', async (req, res) => {
+    try {
+      const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+      if (!apiKey) {
+        return res.json({ result: null });
+      }
+      const placeId = req.query.place_id as string;
+      if (!placeId) {
+        return res.json({ result: null });
+      }
+      
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=formatted_address,geometry,address_components&key=${apiKey}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === 'OK') {
+        return res.json({ result: data.result });
+      }
+      console.error('Places Details error:', data.status, data.error_message);
+      return res.json({ result: null });
+    } catch (error) {
+      console.error('Places Details fetch error:', error);
+      return res.json({ result: null });
+    }
+  });
+
   // Google Geocoding API endpoint - PUBLIC
   // Uses Geocoding API to get full address with zip code and coordinates
   app.get('/api/places/geocode', async (req, res) => {
