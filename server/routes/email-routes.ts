@@ -46,16 +46,30 @@ router.get('/api/emails/by-project/:projectId', isAuthenticated, async (req: Req
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    const links = await storage.getEmailLinksByProject(projectId);
+    const emailMap = new Map<number, any>();
     
-    const emails = await Promise.all(
-      links.map(async (link) => {
+    const emailLinksResult = await storage.getEmailLinksByProject(projectId);
+    await Promise.all(
+      emailLinksResult.map(async (link) => {
         const email = await storage.getEmail(link.emailId);
-        return email ? { ...email, linkInfo: link } : null;
+        if (email && !emailMap.has(email.id)) {
+          emailMap.set(email.id, { ...email, linkInfo: link });
+        }
       })
     );
     
-    res.json(emails.filter(Boolean));
+    const commLinks = await storage.getCommunicationLinksByEntity('project', projectId);
+    const emailCommLinks = commLinks.filter(link => link.communicationType === 'email');
+    await Promise.all(
+      emailCommLinks.map(async (link) => {
+        const email = await storage.getEmail(link.communicationId);
+        if (email && !emailMap.has(email.id)) {
+          emailMap.set(email.id, { ...email, linkInfo: { id: link.id, linkType: 'project', isAutoLinked: link.linkSource === 'auto', confidence: link.confidence } });
+        }
+      })
+    );
+    
+    res.json(Array.from(emailMap.values()));
   } catch (error) {
     console.error('Error fetching project emails:', error);
     res.status(500).json({ error: 'Failed to fetch project emails' });
@@ -77,16 +91,30 @@ router.get('/api/emails/by-repair/:repairId', isAuthenticated, async (req: Reque
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    const links = await storage.getEmailLinksByRepair(repairId);
+    const emailMap = new Map<number, any>();
     
-    const emails = await Promise.all(
-      links.map(async (link) => {
+    const emailLinksResult = await storage.getEmailLinksByRepair(repairId);
+    await Promise.all(
+      emailLinksResult.map(async (link) => {
         const email = await storage.getEmail(link.emailId);
-        return email ? { ...email, linkInfo: link } : null;
+        if (email && !emailMap.has(email.id)) {
+          emailMap.set(email.id, { ...email, linkInfo: link });
+        }
       })
     );
     
-    res.json(emails.filter(Boolean));
+    const commLinks = await storage.getCommunicationLinksByEntity('repair', repairId);
+    const emailCommLinks = commLinks.filter(link => link.communicationType === 'email');
+    await Promise.all(
+      emailCommLinks.map(async (link) => {
+        const email = await storage.getEmail(link.communicationId);
+        if (email && !emailMap.has(email.id)) {
+          emailMap.set(email.id, { ...email, linkInfo: { id: link.id, linkType: 'repair', isAutoLinked: link.linkSource === 'auto', confidence: link.confidence } });
+        }
+      })
+    );
+    
+    res.json(Array.from(emailMap.values()));
   } catch (error) {
     console.error('Error fetching repair emails:', error);
     res.status(500).json({ error: 'Failed to fetch repair emails' });
@@ -103,16 +131,30 @@ router.get('/api/emails/by-client/:clientId', isAuthenticated, async (req: Reque
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    const links = await storage.getEmailLinksByClient(clientId);
+    const emailMap = new Map<number, any>();
     
-    const emails = await Promise.all(
-      links.map(async (link) => {
+    const emailLinksResult = await storage.getEmailLinksByClient(clientId);
+    await Promise.all(
+      emailLinksResult.map(async (link) => {
         const email = await storage.getEmail(link.emailId);
-        return email ? { ...email, linkInfo: link } : null;
+        if (email && !emailMap.has(email.id)) {
+          emailMap.set(email.id, { ...email, linkInfo: link });
+        }
       })
     );
     
-    res.json(emails.filter(Boolean));
+    const commLinks = await storage.getCommunicationLinksByEntity('client', clientId);
+    const emailCommLinks = commLinks.filter(link => link.communicationType === 'email');
+    await Promise.all(
+      emailCommLinks.map(async (link) => {
+        const email = await storage.getEmail(link.communicationId);
+        if (email && !emailMap.has(email.id)) {
+          emailMap.set(email.id, { ...email, linkInfo: { id: link.id, linkType: 'client', isAutoLinked: link.linkSource === 'auto', confidence: link.confidence } });
+        }
+      })
+    );
+    
+    res.json(Array.from(emailMap.values()));
   } catch (error) {
     console.error('Error fetching client emails:', error);
     res.status(500).json({ error: 'Failed to fetch client emails' });
