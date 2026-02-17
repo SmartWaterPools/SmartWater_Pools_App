@@ -259,17 +259,39 @@ export default function InvoiceForm() {
       const response = await apiRequest("POST", "/api/invoices", data.invoice);
       const createdInvoice = await response.json();
       
+      let sendResult = null;
       if (data.sendAfterSave) {
-        await apiRequest("POST", `/api/invoices/${createdInvoice.id}/send`);
+        try {
+          const sendResponse = await apiRequest("POST", `/api/invoices/${createdInvoice.id}/send`);
+          sendResult = await sendResponse.json();
+        } catch (sendError) {
+          sendResult = { emailSent: false, emailWarning: "Failed to send email. The invoice was saved but could not be sent." };
+        }
       }
       
-      return createdInvoice;
+      return { ...createdInvoice, sendResult, wasSendRequested: data.sendAfterSave };
     },
-    onSuccess: (invoice) => {
-      toast({
-        title: "Invoice created",
-        description: `Invoice ${invoice.invoiceNumber} has been created successfully.`,
-      });
+    onSuccess: (result) => {
+      const { sendResult, wasSendRequested, ...invoice } = result;
+      if (wasSendRequested && sendResult) {
+        if (sendResult.emailSent) {
+          toast({
+            title: "Invoice sent",
+            description: `Invoice ${invoice.invoiceNumber} has been created and emailed to the client.`,
+          });
+        } else {
+          toast({
+            title: "Invoice created",
+            description: sendResult.emailWarning || "Invoice was saved but the email could not be sent. Please check your Gmail connection in Settings.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Invoice created",
+          description: `Invoice ${invoice.invoiceNumber} has been saved as a draft.`,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/invoices'] });
       setLocation(`/invoices`);
     },
@@ -287,17 +309,39 @@ export default function InvoiceForm() {
       const response = await apiRequest("PATCH", `/api/invoices/${invoiceId}`, data.invoice);
       const updatedInvoice = await response.json();
       
+      let sendResult = null;
       if (data.sendAfterSave && existingInvoice?.status === 'draft') {
-        await apiRequest("POST", `/api/invoices/${invoiceId}/send`);
+        try {
+          const sendResponse = await apiRequest("POST", `/api/invoices/${invoiceId}/send`);
+          sendResult = await sendResponse.json();
+        } catch (sendError) {
+          sendResult = { emailSent: false, emailWarning: "Failed to send email. The invoice was saved but could not be sent." };
+        }
       }
       
-      return updatedInvoice;
+      return { ...updatedInvoice, sendResult, wasSendRequested: data.sendAfterSave };
     },
-    onSuccess: (invoice) => {
-      toast({
-        title: "Invoice updated",
-        description: `Invoice ${invoice.invoiceNumber} has been updated successfully.`,
-      });
+    onSuccess: (result) => {
+      const { sendResult, wasSendRequested, ...invoice } = result;
+      if (wasSendRequested && sendResult) {
+        if (sendResult.emailSent) {
+          toast({
+            title: "Invoice sent",
+            description: `Invoice ${invoice.invoiceNumber} has been updated and emailed to the client.`,
+          });
+        } else {
+          toast({
+            title: "Invoice updated",
+            description: sendResult.emailWarning || "Invoice was saved but the email could not be sent. Please check your Gmail connection in Settings.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Invoice updated",
+          description: `Invoice ${invoice.invoiceNumber} has been updated successfully.`,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/invoices'] });
       queryClient.invalidateQueries({ queryKey: ['/api/invoices', invoiceId] });
       setLocation(`/invoices`);

@@ -279,17 +279,39 @@ export default function EstimateForm() {
       const response = await apiRequest("POST", "/api/estimates", data.estimate);
       const createdEstimate = await response.json();
 
+      let sendResult = null;
       if (data.sendAfterSave) {
-        await apiRequest("POST", `/api/estimates/${createdEstimate.id}/send`);
+        try {
+          const sendResponse = await apiRequest("POST", `/api/estimates/${createdEstimate.id}/send`);
+          sendResult = await sendResponse.json();
+        } catch (sendError) {
+          sendResult = { emailSent: false, emailWarning: "Failed to send email. The estimate was saved but could not be sent." };
+        }
       }
 
-      return createdEstimate;
+      return { ...createdEstimate, sendResult, wasSendRequested: data.sendAfterSave };
     },
-    onSuccess: (estimate) => {
-      toast({
-        title: "Estimate created",
-        description: `Estimate ${estimate.estimateNumber} has been created successfully.`,
-      });
+    onSuccess: (result) => {
+      const { sendResult, wasSendRequested, ...estimate } = result;
+      if (wasSendRequested && sendResult) {
+        if (sendResult.emailSent) {
+          toast({
+            title: "Estimate sent",
+            description: `Estimate ${estimate.estimateNumber} has been created and emailed to the client.`,
+          });
+        } else {
+          toast({
+            title: "Estimate created",
+            description: sendResult.emailWarning || "Estimate was saved but the email could not be sent. Please check your Gmail connection in Settings.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Estimate created",
+          description: `Estimate ${estimate.estimateNumber} has been saved as a draft.`,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/estimates'] });
       setLocation(`/estimates`);
     },
@@ -307,17 +329,39 @@ export default function EstimateForm() {
       const response = await apiRequest("PATCH", `/api/estimates/${estimateId}`, data.estimate);
       const updatedEstimate = await response.json();
 
+      let sendResult = null;
       if (data.sendAfterSave && existingEstimate?.status === 'draft') {
-        await apiRequest("POST", `/api/estimates/${estimateId}/send`);
+        try {
+          const sendResponse = await apiRequest("POST", `/api/estimates/${estimateId}/send`);
+          sendResult = await sendResponse.json();
+        } catch (sendError) {
+          sendResult = { emailSent: false, emailWarning: "Failed to send email. The estimate was saved but could not be sent." };
+        }
       }
 
-      return updatedEstimate;
+      return { ...updatedEstimate, sendResult, wasSendRequested: data.sendAfterSave };
     },
-    onSuccess: (estimate) => {
-      toast({
-        title: "Estimate updated",
-        description: `Estimate ${estimate.estimateNumber} has been updated successfully.`,
-      });
+    onSuccess: (result) => {
+      const { sendResult, wasSendRequested, ...estimate } = result;
+      if (wasSendRequested && sendResult) {
+        if (sendResult.emailSent) {
+          toast({
+            title: "Estimate sent",
+            description: `Estimate ${estimate.estimateNumber} has been updated and emailed to the client.`,
+          });
+        } else {
+          toast({
+            title: "Estimate updated",
+            description: sendResult.emailWarning || "Estimate was saved but the email could not be sent. Please check your Gmail connection in Settings.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        toast({
+          title: "Estimate updated",
+          description: `Estimate ${estimate.estimateNumber} has been updated successfully.`,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ['/api/estimates'] });
       queryClient.invalidateQueries({ queryKey: ['/api/estimates', estimateId] });
       setLocation(`/estimates`);
