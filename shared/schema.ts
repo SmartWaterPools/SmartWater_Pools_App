@@ -1179,6 +1179,7 @@ export const estimates = pgTable("estimates", {
   repairId: integer("repair_id"),
   workOrderId: integer("work_order_id"),
   convertedInvoiceId: integer("converted_invoice_id"),
+  emailSent: boolean("email_sent").default(false),
   sentAt: timestamp("sent_at"),
   viewedAt: timestamp("viewed_at"),
   acceptedAt: timestamp("accepted_at"),
@@ -1271,6 +1272,7 @@ export const invoices = pgTable("invoices", {
   stripeCheckoutUrl: text("stripe_checkout_url"),
   
   // Tracking
+  emailSent: boolean("email_sent").default(false),
   sentDate: date("sent_date"),
   viewedDate: date("viewed_date"),
   createdBy: integer("created_by"),

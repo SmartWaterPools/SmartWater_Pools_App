@@ -51,6 +51,7 @@ import {
   List,
   Loader2,
   Search,
+  Mail,
 } from "lucide-react";
 import type { Invoice } from "@shared/schema";
 
@@ -252,12 +253,20 @@ export default function Invoices() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, emailSent?: boolean) => {
     const config = statusColors[status] || statusColors.draft;
     return (
-      <Badge variant={config.variant} className={config.className}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
+      <div className="flex items-center gap-1.5">
+        <Badge variant={config.variant} className={config.className}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </Badge>
+        {emailSent && (
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs px-1.5 py-0">
+            <Mail className="h-3 w-3 mr-0.5" />
+            Emailed
+          </Badge>
+        )}
+      </div>
     );
   };
 
@@ -539,7 +548,7 @@ export default function Invoices() {
                           <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                           <TableCell className="text-right">{formatCurrency(invoice.total || 0)}</TableCell>
                           <TableCell className="text-right">{formatCurrency(invoice.amountDue || 0)}</TableCell>
-                          <TableCell>{getStatusBadge(invoice.status || 'draft')}</TableCell>
+                          <TableCell>{getStatusBadge(invoice.status || 'draft', invoice.emailSent)}</TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
                               <Button

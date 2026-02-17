@@ -59,6 +59,7 @@ import {
   CreditCard,
   Receipt,
   BarChart3,
+  Mail,
 } from "lucide-react";
 import type { Estimate, EstimateItem } from "@shared/schema";
 
@@ -255,10 +256,17 @@ export default function EstimateDetail() {
     mutationFn: async () => {
       return apiRequest("POST", `/api/estimates/${estimateId}/send`);
     },
-    onSuccess: () => {
-      toast({ title: "Estimate sent", description: "The estimate status has been updated to sent." });
-      queryClient.invalidateQueries({ queryKey: ["/api/estimates", estimateId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/estimates"] });
+    onSuccess: async (response: Response) => {
+      const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ['/api/estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/estimates', estimateId] });
+      if (data.emailSent) {
+        toast({ title: "Estimate sent", description: "Estimate was emailed to the client successfully." });
+      } else if (data.emailWarning) {
+        toast({ title: "Estimate saved as sent", description: data.emailWarning, variant: "destructive" });
+      } else {
+        toast({ title: "Estimate marked as sent", description: "Status updated but email may not have been delivered." });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -408,6 +416,12 @@ export default function EstimateDetail() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{estimate.estimateNumber}</h1>
             <Badge className={statusStyle.className}>{estimate.status?.toUpperCase()}</Badge>
+            {estimate.emailSent && (
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                <Mail className="h-3.5 w-3.5 mr-1" />
+                Emailed
+              </Badge>
+            )}
             {isFullyBilled && (
               <Badge className="bg-emerald-100 text-emerald-700">FULLY BILLED</Badge>
             )}

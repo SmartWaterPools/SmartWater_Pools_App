@@ -712,8 +712,11 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
         </div>`;
 
         const subject = `Estimate ${estimate.estimateNumber} - ${formatCents(estimate.total)}`;
+        console.log(`[Estimate Send] Attempting to send estimate ${estimate.estimateNumber} to ${client.email} via Gmail`);
+        console.log(`[Estimate Send] User tokens present: access=${!!userTokens.gmailAccessToken}, refresh=${!!userTokens.gmailRefreshToken}, email=${userTokens.gmailConnectedEmail}`);
         const result = await sendGmailMessage(client.email, subject, htmlBody, true, userTokens);
         emailSent = result !== null;
+        console.log(`[Estimate Send] Email result: ${emailSent ? 'SUCCESS' : 'FAILED'}`);
         if (!emailSent) {
           emailWarning = "Failed to send email via Gmail. Estimate status updated but email delivery failed.";
         }
@@ -726,6 +729,7 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     const updatedEstimate = await storage.updateEstimate(estimateId, {
       status: 'sent',
       sentAt: new Date(),
+      emailSent: emailSent,
     });
     
     const updatedItems = await storage.getEstimateItems(estimateId);

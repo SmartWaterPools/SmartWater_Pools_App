@@ -54,6 +54,7 @@ import {
   Check,
   ArrowLeft,
   Loader2,
+  Mail,
 } from "lucide-react";
 import type { Invoice, InvoiceItem, InvoicePayment } from "@shared/schema";
 
@@ -178,10 +179,17 @@ export default function InvoiceDetail() {
     mutationFn: async () => {
       return apiRequest("POST", `/api/invoices/${invoiceId}/send`);
     },
-    onSuccess: () => {
-      toast({ title: "Invoice sent", description: "The invoice status has been updated to sent." });
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices", invoiceId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+    onSuccess: async (response: Response) => {
+      const data = await response.json();
+      queryClient.invalidateQueries({ queryKey: ['/api/invoices'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/invoices', invoiceId] });
+      if (data.emailSent) {
+        toast({ title: "Invoice sent", description: "Invoice was emailed to the client successfully." });
+      } else if (data.emailWarning) {
+        toast({ title: "Invoice saved as sent", description: data.emailWarning, variant: "destructive" });
+      } else {
+        toast({ title: "Invoice marked as sent", description: "Status updated but email may not have been delivered." });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -295,6 +303,12 @@ export default function InvoiceDetail() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{invoice.invoiceNumber}</h1>
             <Badge className={statusStyle.className}>{invoice.status?.toUpperCase()}</Badge>
+            {invoice.emailSent && (
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                <Mail className="h-3.5 w-3.5 mr-1" />
+                Emailed
+              </Badge>
+            )}
           </div>
           {client && (
             <div className="mt-2 text-muted-foreground">

@@ -49,6 +49,7 @@ import {
   List,
   Loader2,
   Search,
+  Mail,
 } from "lucide-react";
 import type { Estimate } from "@shared/schema";
 
@@ -224,12 +225,20 @@ export default function Estimates() {
     }
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, emailSent?: boolean) => {
     const config = statusColors[status] || statusColors.draft;
     return (
-      <Badge variant={config.variant} className={config.className}>
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </Badge>
+      <div className="flex items-center gap-1.5">
+        <Badge variant={config.variant} className={config.className}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </Badge>
+        {emailSent && (
+          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs px-1.5 py-0">
+            <Mail className="h-3 w-3 mr-0.5" />
+            Emailed
+          </Badge>
+        )}
+      </div>
     );
   };
 
@@ -519,7 +528,7 @@ export default function Estimates() {
                               {(estimate.depositAmount || 0) > 0 ? formatCurrency(estimate.depositAmount || 0) : '-'}
                             </TableCell>
                           )}
-                          <TableCell>{getStatusBadge(estimate.status || 'draft')}</TableCell>
+                          <TableCell>{getStatusBadge(estimate.status || 'draft', estimate.emailSent)}</TableCell>
                           <TableCell>
                             <div className="flex items-center justify-end gap-1">
                               <Button

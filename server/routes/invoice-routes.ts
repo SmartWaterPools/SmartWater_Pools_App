@@ -632,8 +632,11 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
         </div>`;
 
         const subject = `Invoice ${invoice.invoiceNumber} - ${formatCents(invoice.total)} due ${invoice.dueDate}`;
+        console.log(`[Invoice Send] Attempting to send invoice ${invoice.invoiceNumber} to ${client.email} via Gmail`);
+        console.log(`[Invoice Send] User tokens present: access=${!!userTokens.gmailAccessToken}, refresh=${!!userTokens.gmailRefreshToken}, email=${userTokens.gmailConnectedEmail}`);
         const result = await sendGmailMessage(client.email, subject, htmlBody, true, userTokens);
         emailSent = result !== null;
+        console.log(`[Invoice Send] Email result: ${emailSent ? 'SUCCESS' : 'FAILED'}`);
         if (!emailSent) {
           emailWarning = "Failed to send email via Gmail. Invoice status updated but email delivery failed.";
         }
@@ -646,6 +649,7 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     const updatedInvoice = await storage.updateInvoice(invoiceId, {
       status: 'sent',
       sentDate: new Date().toISOString().split('T')[0],
+      emailSent: emailSent,
     });
     
     res.json({ ...updatedInvoice, emailSent, emailWarning });
