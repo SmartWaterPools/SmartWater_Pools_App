@@ -150,6 +150,10 @@ export default function EstimateForm() {
     queryKey: ['/api/inventory/items'],
   });
 
+  const { data: allTaxTemplates } = useQuery<TaxTemplate[]>({
+    queryKey: ['/api/tax-templates'],
+  });
+
   const today = new Date();
   const defaultExpiryDate = addDays(today, 30);
 
@@ -276,7 +280,7 @@ export default function EstimateForm() {
       const createdEstimate = await response.json();
 
       if (data.sendAfterSave) {
-        await apiRequest("PATCH", `/api/estimates/${createdEstimate.id}`, { status: 'sent' });
+        await apiRequest("POST", `/api/estimates/${createdEstimate.id}/send`);
       }
 
       return createdEstimate;
@@ -304,7 +308,7 @@ export default function EstimateForm() {
       const updatedEstimate = await response.json();
 
       if (data.sendAfterSave && existingEstimate?.status === 'draft') {
-        await apiRequest("PATCH", `/api/estimates/${estimateId}`, { status: 'sent' });
+        await apiRequest("POST", `/api/estimates/${estimateId}/send`);
       }
 
       return updatedEstimate;
@@ -698,26 +702,51 @@ export default function EstimateForm() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <FormField
-                  control={form.control}
-                  name="taxRate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tax Rate (%)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max="100"
-                          placeholder="0"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div>
+                  <FormLabel className="text-sm font-medium">Tax Template</FormLabel>
+                  <Select
+                    onValueChange={(value) => {
+                      const template = allTaxTemplates?.find((t: any) => t.id.toString() === value);
+                      if (template) {
+                        form.setValue("taxRate", parseFloat(template.rate));
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="mb-2">
+                      <SelectValue placeholder="Select tax template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allTaxTemplates?.filter((t: any) => t.isActive !== false).map((t: any) => (
+                        <SelectItem key={t.id} value={t.id.toString()}>
+                          {t.name} ({t.rate}%) {t.state ? `- ${t.state}` : ''}
+                        </SelectItem>
+                      ))}
+                      {(!allTaxTemplates || allTaxTemplates.length === 0) && (
+                        <SelectItem value="none" disabled>No tax templates available</SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <FormField
+                    control={form.control}
+                    name="taxRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tax Rate (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}

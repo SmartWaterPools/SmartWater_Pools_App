@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, useLocation } from "wouter";
+import { useParams, useLocation, Link } from "wouter";
 import { format } from "date-fns";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -8,6 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import {
   Table,
   TableBody,
@@ -54,6 +57,8 @@ import {
   Loader2,
   ArrowRightLeft,
   CreditCard,
+  Receipt,
+  BarChart3,
 } from "lucide-react";
 import type { Estimate, EstimateItem } from "@shared/schema";
 
@@ -67,6 +72,38 @@ type Client = {
   user?: { name: string; email: string; phone?: string };
 };
 
+type BillingSummaryItem = {
+  id: number;
+  description: string;
+  totalQuantity: string;
+  billedQuantity: string;
+  remainingQuantity: string;
+  unitPrice: number;
+  totalAmount: number;
+  billedAmount: number;
+  remainingAmount: number;
+};
+
+type BillingSummary = {
+  items: BillingSummaryItem[];
+  totalEstimateAmount: number;
+  totalBilledAmount: number;
+  totalRemainingAmount: number;
+  linkedInvoiceCount: number;
+  isFullyBilled: boolean;
+};
+
+type LinkedInvoice = {
+  id: number;
+  invoiceNumber: string;
+  status: string;
+  issueDate: string;
+  total: number;
+  amountPaid: number;
+  amountDue: number;
+  items: any[];
+};
+
 const statusColors: Record<string, { className: string }> = {
   draft: { className: "bg-gray-100 text-gray-700" },
   sent: { className: "bg-blue-100 text-blue-700" },
@@ -75,6 +112,16 @@ const statusColors: Record<string, { className: string }> = {
   declined: { className: "bg-red-100 text-red-700" },
   expired: { className: "bg-orange-100 text-orange-700" },
   converted: { className: "bg-indigo-100 text-indigo-700" },
+};
+
+const invoiceStatusColors: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-700",
+  sent: "bg-blue-100 text-blue-700",
+  viewed: "bg-purple-100 text-purple-700",
+  paid: "bg-green-100 text-green-700",
+  partial: "bg-yellow-100 text-yellow-700",
+  overdue: "bg-red-100 text-red-700",
+  cancelled: "bg-gray-100 text-gray-500",
 };
 
 const paymentMethods = [
@@ -94,6 +141,11 @@ function formatCurrency(cents: number | null | undefined): string {
   }).format(cents / 100);
 }
 
+type SelectedItemState = {
+  checked: boolean;
+  quantity: string;
+};
+
 export default function EstimateDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -105,6 +157,7 @@ export default function EstimateDetail() {
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [depositDialogOpen, setDepositDialogOpen] = useState(false);
   const [depositPaymentMethod, setDepositPaymentMethod] = useState("bank_transfer");
+  const [selectedItems, setSelectedItems] = useState<Record<number, SelectedItemState>>({});
 
   const { data: estimate, isLoading: estimateLoading } = useQuery<EstimateWithDetails>({
     queryKey: ["/api/estimates", estimateId],
@@ -114,11 +167,93 @@ export default function EstimateDetail() {
     queryKey: ["/api/clients"],
   });
 
+  const { data: billingSummary } = useQuery<BillingSummary>({
+    queryKey: ["/api/estimates", estimateId, "billing-summary"],
+    enabled: !!estimate,
+  });
+
+  const { data: linkedInvoices = [] } = useQuery<LinkedInvoice[]>({
+    queryKey: ["/api/estimates", estimateId, "linked-invoices"],
+    enabled: !!estimate,
+  });
+
   const client = clients.find((c) => c.id === estimate?.clientId);
+
+  const initializeSelectedItems = () => {
+    if (!billingSummary || !estimate) return;
+    const items: Record<number, SelectedItemState> = {};
+    billingSummary.items.forEach((item) => {
+      const remaining = parseFloat(item.remainingQuantity);
+      items[item.id] = {
+        checked: remaining > 0,
+        quantity: remaining > 0 ? item.remainingQuantity : "0",
+      };
+    });
+    setSelectedItems(items);
+  };
+
+  const handleOpenConvertDialog = () => {
+    initializeSelectedItems();
+    setConvertDialogOpen(true);
+  };
+
+  const handleToggleItem = (itemId: number, checked: boolean) => {
+    setSelectedItems((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        checked,
+        quantity: checked ? (prev[itemId]?.quantity || "0") : "0",
+      },
+    }));
+  };
+
+  const handleQuantityChange = (itemId: number, quantity: string) => {
+    if (!billingSummary) return;
+    const item = billingSummary.items.find((i) => i.id === itemId);
+    if (!item) return;
+    
+    const remaining = parseFloat(item.remainingQuantity);
+    const qtyNum = parseFloat(quantity) || 0;
+    
+    let clampedQuantity = quantity;
+    if (qtyNum > remaining) {
+      clampedQuantity = item.remainingQuantity;
+    } else if (qtyNum < 0) {
+      clampedQuantity = "0";
+    }
+    
+    setSelectedItems((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...prev[itemId],
+        quantity: clampedQuantity,
+      },
+    }));
+  };
+
+  const conversionTotal = useMemo(() => {
+    if (!billingSummary) return 0;
+    let total = 0;
+    billingSummary.items.forEach((item) => {
+      const sel = selectedItems[item.id];
+      if (sel?.checked) {
+        const qty = parseFloat(sel.quantity) || 0;
+        total += qty * item.unitPrice;
+      }
+    });
+    return total;
+  }, [selectedItems, billingSummary]);
+
+  const hasSelectedItems = useMemo(() => {
+    return Object.values(selectedItems).some(
+      (s) => s.checked && parseFloat(s.quantity) > 0
+    );
+  }, [selectedItems]);
 
   const sendEstimateMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("PATCH", `/api/estimates/${estimateId}`, { status: 'sent' });
+      return apiRequest("POST", `/api/estimates/${estimateId}/send`);
     },
     onSuccess: () => {
       toast({ title: "Estimate sent", description: "The estimate status has been updated to sent." });
@@ -159,18 +294,30 @@ export default function EstimateDetail() {
   });
 
   const convertToInvoiceMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", `/api/estimates/${estimateId}/convert-to-invoice`);
+    mutationFn: async (items: { estimateItemId: number; quantity: number }[]) => {
+      return apiRequest("POST", `/api/estimates/${estimateId}/convert-to-invoice`, {
+        selectedItems: items,
+      });
     },
     onSuccess: () => {
-      toast({ title: "Converted to invoice", description: "The estimate has been converted to an invoice." });
+      toast({ title: "Invoice created", description: "A new invoice has been created from the selected items." });
       queryClient.invalidateQueries({ queryKey: ["/api/estimates", estimateId] });
       queryClient.invalidateQueries({ queryKey: ["/api/estimates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/estimates", estimateId, "linked-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/estimates", estimateId, "billing-summary"] });
       setConvertDialogOpen(false);
     },
-    onError: (error: Error) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    onError: (error: any) => {
+      let errorMessage = error.message || "Failed to convert estimate to invoice";
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      }
+      
+      toast({ title: "Error", description: errorMessage, variant: "destructive" });
     },
   });
 
@@ -203,6 +350,17 @@ export default function EstimateDetail() {
     },
   });
 
+  const handleConvert = () => {
+    const items = Object.entries(selectedItems)
+      .filter(([, s]) => s.checked && parseFloat(s.quantity) > 0)
+      .map(([id, s]) => ({
+        estimateItemId: parseInt(id),
+        quantity: parseFloat(s.quantity),
+      }));
+    if (items.length === 0) return;
+    convertToInvoiceMutation.mutate(items);
+  };
+
   if (estimateLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -230,6 +388,11 @@ export default function EstimateDetail() {
   }
 
   const statusStyle = statusColors[estimate.status || "draft"];
+  const isFullyBilled = billingSummary?.isFullyBilled ?? false;
+  const canConvert = ["accepted", "sent", "viewed"].includes(estimate.status || "");
+  const billedPercentage = billingSummary && billingSummary.totalEstimateAmount > 0
+    ? Math.round((billingSummary.totalBilledAmount / billingSummary.totalEstimateAmount) * 100)
+    : 0;
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -245,6 +408,9 @@ export default function EstimateDetail() {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold">{estimate.estimateNumber}</h1>
             <Badge className={statusStyle.className}>{estimate.status?.toUpperCase()}</Badge>
+            {isFullyBilled && (
+              <Badge className="bg-emerald-100 text-emerald-700">FULLY BILLED</Badge>
+            )}
           </div>
           {client && (
             <div className="mt-2 text-muted-foreground">
@@ -307,28 +473,26 @@ export default function EstimateDetail() {
               </Button>
             </>
           )}
-          {estimate.status === "accepted" && (
-            <>
-              <Button
-                size="sm"
-                variant="default"
-                className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => setConvertDialogOpen(true)}
-              >
-                <ArrowRightLeft className="h-4 w-4 mr-2" />
-                Convert to Invoice
-              </Button>
-              {(estimate.depositAmount || 0) > 0 && !estimate.depositPaid && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setDepositDialogOpen(true)}
-                >
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Record Deposit
-                </Button>
-              )}
-            </>
+          {canConvert && !isFullyBilled && (
+            <Button
+              size="sm"
+              variant="default"
+              className="bg-indigo-600 hover:bg-indigo-700"
+              onClick={handleOpenConvertDialog}
+            >
+              <ArrowRightLeft className="h-4 w-4 mr-2" />
+              Convert to Invoice
+            </Button>
+          )}
+          {estimate.status === "accepted" && (estimate.depositAmount || 0) > 0 && !estimate.depositPaid && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDepositDialogOpen(true)}
+            >
+              <CreditCard className="h-4 w-4 mr-2" />
+              Record Deposit
+            </Button>
           )}
           <Button variant="destructive" size="sm" onClick={() => setDeleteDialogOpen(true)}>
             <Trash2 className="h-4 w-4 mr-2" />
@@ -425,6 +589,67 @@ export default function EstimateDetail() {
         </Card>
       )}
 
+      {billingSummary && (billingSummary.linkedInvoiceCount > 0 || billingSummary.totalBilledAmount > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Billing Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Estimate</p>
+                <p className="text-lg font-semibold">{formatCurrency(billingSummary.totalEstimateAmount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Billed</p>
+                <p className="text-lg font-semibold text-green-600">{formatCurrency(billingSummary.totalBilledAmount)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Remaining</p>
+                <p className="text-lg font-semibold text-orange-600">{formatCurrency(billingSummary.totalRemainingAmount)}</p>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">{billedPercentage}% billed</span>
+                <span className="text-muted-foreground">{billingSummary.linkedInvoiceCount} invoice(s)</span>
+              </div>
+              <Progress value={billedPercentage} className="h-2" />
+            </div>
+            {billingSummary.items.length > 0 && (
+              <>
+                <Separator />
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item</TableHead>
+                      <TableHead className="text-right">Total Qty</TableHead>
+                      <TableHead className="text-right">Billed</TableHead>
+                      <TableHead className="text-right">Remaining</TableHead>
+                      <TableHead className="text-right">Billed Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {billingSummary.items.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{item.description}</TableCell>
+                        <TableCell className="text-right">{item.totalQuantity}</TableCell>
+                        <TableCell className="text-right">{item.billedQuantity}</TableCell>
+                        <TableCell className="text-right">{item.remainingQuantity}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(item.billedAmount)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Line Items</CardTitle>
@@ -481,6 +706,54 @@ export default function EstimateDetail() {
         </CardContent>
       </Card>
 
+      {linkedInvoices.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Receipt className="h-5 w-5" />
+              Linked Invoices ({linkedInvoices.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Invoice #</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Issue Date</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {linkedInvoices.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell>
+                      <Link href={`/invoices/${invoice.id}`} className="text-primary hover:underline font-medium">
+                        {invoice.invoiceNumber}
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={invoiceStatusColors[invoice.status] || "bg-gray-100 text-gray-700"}>
+                        {invoice.status?.toUpperCase()}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {invoice.issueDate ? format(new Date(invoice.issueDate), "MMM d, yyyy") : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">{formatCurrency(invoice.total)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <Separator className="my-4" />
+            <div className="flex justify-between font-medium">
+              <span>Total Billed</span>
+              <span>{formatCurrency(linkedInvoices.reduce((sum, inv) => sum + (inv.total || 0), 0))}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {(estimate.notes || estimate.terms) && (
         <Card>
           <CardHeader>
@@ -527,21 +800,78 @@ export default function EstimateDetail() {
       </AlertDialog>
 
       <Dialog open={convertDialogOpen} onOpenChange={setConvertDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Convert to Invoice</DialogTitle>
             <DialogDescription>
-              Are you sure you want to convert estimate {estimate.estimateNumber} to an invoice?
-              This will create a new invoice based on this estimate.
+              Select which line items and quantities to include in the new invoice for estimate {estimate.estimateNumber}.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-4 py-4">
+            {billingSummary?.items.map((item) => {
+              const remaining = parseFloat(item.remainingQuantity);
+              const sel = selectedItems[item.id];
+              const isChecked = sel?.checked ?? false;
+              const qty = sel?.quantity ?? "0";
+              const qtyNum = parseFloat(qty) || 0;
+              const lineTotal = qtyNum * item.unitPrice;
+              const exceedsRemaining = qtyNum > remaining;
+
+              return (
+                <div key={item.id} className={`border rounded-lg p-4 space-y-2 ${remaining <= 0 ? 'opacity-50' : ''}`}>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={(checked) => handleToggleItem(item.id, checked === true)}
+                      disabled={remaining <= 0}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{item.description}</p>
+                      <div className="flex gap-4 text-sm text-muted-foreground mt-1">
+                        <span>Total: {item.totalQuantity}</span>
+                        <span>Billed: {item.billedQuantity}</span>
+                        <span>Remaining: {item.remainingQuantity}</span>
+                        <span>@ {formatCurrency(item.unitPrice)}/unit</span>
+                      </div>
+                    </div>
+                  </div>
+                  {isChecked && remaining > 0 && (
+                    <div className="flex items-center gap-3 ml-7">
+                      <label className="text-sm text-muted-foreground whitespace-nowrap">Qty to bill:</label>
+                      <Input
+                        type="number"
+                        min="0.01"
+                        max={remaining}
+                        step="0.01"
+                        value={qty}
+                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                        className={`w-24 ${exceedsRemaining ? 'border-red-500' : ''}`}
+                      />
+                      <span className="text-sm text-muted-foreground">= {formatCurrency(lineTotal)}</span>
+                      {exceedsRemaining && (
+                        <span className="text-xs text-red-600 font-medium">Exceeds remaining</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <Separator />
+            <div className="space-y-2">
+              <div className="flex justify-between font-bold text-lg">
+                <span>Selected Items Subtotal</span>
+                <span>{formatCurrency(conversionTotal)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground italic">(Tax and discounts will be applied on the invoice)</p>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConvertDialogOpen(false)}>
               Cancel
             </Button>
             <Button
-              onClick={() => convertToInvoiceMutation.mutate()}
-              disabled={convertToInvoiceMutation.isPending}
+              onClick={handleConvert}
+              disabled={convertToInvoiceMutation.isPending || !hasSelectedItems}
               className="bg-indigo-600 hover:bg-indigo-700"
             >
               {convertToInvoiceMutation.isPending ? (
@@ -549,7 +879,7 @@ export default function EstimateDetail() {
               ) : (
                 <ArrowRightLeft className="h-4 w-4 mr-2" />
               )}
-              Convert
+              Create Invoice
             </Button>
           </DialogFooter>
         </DialogContent>

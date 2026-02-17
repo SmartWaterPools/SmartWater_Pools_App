@@ -4,6 +4,7 @@ import { isAuthenticated } from "../auth";
 import { insertInvoiceSchema, insertInvoiceItemSchema, insertInvoicePaymentSchema } from "@shared/schema";
 import { z } from "zod";
 import Stripe from 'stripe';
+import { sendGmailMessage, UserTokens } from "../services/gmail-client";
 
 const router = Router();
 
@@ -556,13 +557,98 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     if (invoice.organizationId !== user.organizationId) {
       return res.status(403).json({ error: "Access denied" });
     }
-    
+
+    const items = await storage.getInvoiceItems(invoiceId);
+    const client = await storage.getUser(invoice.clientId);
+
+    let emailSent = false;
+    let emailWarning: string | undefined;
+
+    if (!user.gmailAccessToken || !user.gmailRefreshToken) {
+      emailWarning = "Gmail is not connected. Invoice status updated but email was not sent.";
+    } else if (!client?.email) {
+      emailWarning = "Client does not have an email address on file. Invoice status updated but email was not sent.";
+    } else {
+      try {
+        const userTokens: UserTokens = {
+          userId: user.id,
+          gmailAccessToken: user.gmailAccessToken,
+          gmailRefreshToken: user.gmailRefreshToken,
+          gmailTokenExpiresAt: user.gmailTokenExpiresAt,
+          gmailConnectedEmail: user.gmailConnectedEmail,
+        };
+
+        const formatCents = (cents: number | null | undefined) => {
+          const val = (cents || 0) / 100;
+          return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+        };
+
+        const itemRows = items.map(item => {
+          const qty = parseFloat(item.quantity) || 1;
+          return `<tr>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb;">${item.description}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${qty}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatCents(item.unitPrice)}</td>
+            <td style="padding: 10px 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">${formatCents(item.amount)}</td>
+          </tr>`;
+        }).join('');
+
+        const htmlBody = `
+        <div style="font-family: Arial, sans-serif; max-width: 680px; margin: 0 auto; color: #1f2937;">
+          <div style="background-color: #2563eb; padding: 24px 32px; border-radius: 8px 8px 0 0;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Invoice ${invoice.invoiceNumber}</h1>
+            <p style="color: #dbeafe; margin: 4px 0 0 0; font-size: 14px;">From ${user.name || 'Your Service Provider'}</p>
+          </div>
+          <div style="border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; padding: 32px;">
+            <p style="margin: 0 0 4px 0; font-size: 15px;">Hello ${client.name || 'Valued Customer'},</p>
+            <p style="margin: 0 0 24px 0; font-size: 15px; color: #6b7280;">Please find your invoice details below.</p>
+            <table style="width: 100%; margin-bottom: 16px; font-size: 14px;">
+              <tr><td style="color: #6b7280; padding: 2px 0;">Invoice Number:</td><td style="font-weight: 600;">${invoice.invoiceNumber}</td></tr>
+              <tr><td style="color: #6b7280; padding: 2px 0;">Issue Date:</td><td>${invoice.issueDate}</td></tr>
+              <tr><td style="color: #6b7280; padding: 2px 0;">Due Date:</td><td style="font-weight: 600; color: #dc2626;">${invoice.dueDate}</td></tr>
+            </table>
+            <table style="width: 100%; border-collapse: collapse; margin: 24px 0; font-size: 14px;">
+              <thead>
+                <tr style="background-color: #f3f4f6;">
+                  <th style="padding: 10px 12px; text-align: left; font-weight: 600;">Description</th>
+                  <th style="padding: 10px 12px; text-align: center; font-weight: 600;">Qty</th>
+                  <th style="padding: 10px 12px; text-align: right; font-weight: 600;">Unit Price</th>
+                  <th style="padding: 10px 12px; text-align: right; font-weight: 600;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>${itemRows}</tbody>
+            </table>
+            <div style="margin-top: 16px; padding-top: 16px; border-top: 2px solid #e5e7eb;">
+              <table style="width: 100%; font-size: 14px;">
+                <tr><td style="padding: 4px 0; color: #6b7280;">Subtotal</td><td style="text-align: right; padding: 4px 0;">${formatCents(invoice.subtotal)}</td></tr>
+                ${(invoice.discountAmount && invoice.discountAmount > 0) ? `<tr><td style="padding: 4px 0; color: #6b7280;">Discount${invoice.discountPercent ? ` (${invoice.discountPercent}%)` : ''}</td><td style="text-align: right; padding: 4px 0; color: #dc2626;">-${formatCents(invoice.discountAmount)}</td></tr>` : ''}
+                ${(invoice.taxAmount && invoice.taxAmount > 0) ? `<tr><td style="padding: 4px 0; color: #6b7280;">Tax${invoice.taxRate ? ` (${invoice.taxRate}%)` : ''}</td><td style="text-align: right; padding: 4px 0;">${formatCents(invoice.taxAmount)}</td></tr>` : ''}
+                <tr style="font-size: 18px; font-weight: 700;"><td style="padding: 12px 0; border-top: 2px solid #1f2937;">Total Due</td><td style="text-align: right; padding: 12px 0; border-top: 2px solid #1f2937;">${formatCents(invoice.total)}</td></tr>
+              </table>
+            </div>
+            ${invoice.notes ? `<div style="margin-top: 24px; padding: 16px; background-color: #f9fafb; border-radius: 6px; font-size: 14px;"><strong>Notes:</strong><br/>${invoice.notes}</div>` : ''}
+            <p style="margin-top: 32px; font-size: 13px; color: #9ca3af;">If you have any questions about this invoice, please don't hesitate to reach out.</p>
+          </div>
+        </div>`;
+
+        const subject = `Invoice ${invoice.invoiceNumber} - ${formatCents(invoice.total)} due ${invoice.dueDate}`;
+        const result = await sendGmailMessage(client.email, subject, htmlBody, true, userTokens);
+        emailSent = result !== null;
+        if (!emailSent) {
+          emailWarning = "Failed to send email via Gmail. Invoice status updated but email delivery failed.";
+        }
+      } catch (emailError) {
+        console.error("Error sending invoice email:", emailError);
+        emailWarning = "Failed to send email via Gmail. Invoice status updated but email delivery failed.";
+      }
+    }
+
     const updatedInvoice = await storage.updateInvoice(invoiceId, {
       status: 'sent',
       sentDate: new Date().toISOString().split('T')[0],
     });
     
-    res.json(updatedInvoice);
+    res.json({ ...updatedInvoice, emailSent, emailWarning });
   } catch (error) {
     console.error("Error sending invoice:", error);
     res.status(500).json({ error: "Failed to send invoice" });
