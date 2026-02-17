@@ -65,6 +65,13 @@ const estimateFormSchema = z.object({
   depositAmount: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
   terms: z.string().optional(),
+  clientName: z.string().optional(),
+  clientEmail: z.string().email().optional().or(z.literal("")),
+  clientPhone: z.string().optional(),
+  clientAddress: z.string().optional(),
+  clientCity: z.string().optional(),
+  clientState: z.string().optional(),
+  clientZip: z.string().optional(),
   items: z.array(lineItemSchema).min(1, "At least one line item is required"),
 });
 
@@ -172,6 +179,13 @@ export default function EstimateForm() {
       depositAmount: undefined,
       notes: "",
       terms: "",
+      clientName: "",
+      clientEmail: "",
+      clientPhone: "",
+      clientAddress: "",
+      clientCity: "",
+      clientState: "",
+      clientZip: "",
       items: [{ inventoryItemId: undefined, description: "", quantity: 1, unitPrice: 0, itemType: "" }],
     },
   });
@@ -186,6 +200,11 @@ export default function EstimateForm() {
     return clients.find(c => c.id === watchedClientId);
   }, [clients, watchedClientId]);
 
+  const { data: selectedClientData } = useQuery<any>({
+    queryKey: ['/api/clients', watchedClientId],
+    enabled: !!watchedClientId && watchedClientId > 0,
+  });
+
   const { data: taxTemplates } = useQuery<TaxTemplate[]>({
     queryKey: ['/api/tax-templates/by-state', selectedClient?.billingState],
     enabled: !!selectedClient?.billingState,
@@ -199,6 +218,20 @@ export default function EstimateForm() {
       }
     }
   }, [taxTemplates, isEditing, form]);
+
+  useEffect(() => {
+    if (selectedClientData) {
+      const clientData = selectedClientData.client || selectedClientData;
+      const userData = selectedClientData.user || {};
+      form.setValue("clientName", userData.name || clientData.companyName || "");
+      form.setValue("clientEmail", userData.email || "");
+      form.setValue("clientPhone", userData.phone || "");
+      form.setValue("clientAddress", clientData.billingAddress || "");
+      form.setValue("clientCity", clientData.billingCity || "");
+      form.setValue("clientState", clientData.billingState || "");
+      form.setValue("clientZip", clientData.billingZip || "");
+    }
+  }, [selectedClientData, form]);
 
   useEffect(() => {
     if (nextNumber && !isEditing) {
@@ -282,7 +315,10 @@ export default function EstimateForm() {
       let sendResult = null;
       if (data.sendAfterSave) {
         try {
-          const sendResponse = await apiRequest("POST", `/api/estimates/${createdEstimate.id}/send`);
+          const sendResponse = await apiRequest("POST", `/api/estimates/${createdEstimate.id}/send`, {
+            clientEmail: data.estimate.clientEmail || undefined,
+            clientName: data.estimate.clientName || undefined,
+          });
           sendResult = await sendResponse.json();
         } catch (sendError) {
           sendResult = { emailSent: false, emailWarning: "Failed to send email. The estimate was saved but could not be sent." };
@@ -330,9 +366,12 @@ export default function EstimateForm() {
       const updatedEstimate = await response.json();
 
       let sendResult = null;
-      if (data.sendAfterSave && existingEstimate?.status === 'draft') {
+      if (data.sendAfterSave) {
         try {
-          const sendResponse = await apiRequest("POST", `/api/estimates/${estimateId}/send`);
+          const sendResponse = await apiRequest("POST", `/api/estimates/${estimateId}/send`, {
+            clientEmail: data.estimate.clientEmail || undefined,
+            clientName: data.estimate.clientName || undefined,
+          });
           sendResult = await sendResponse.json();
         } catch (sendError) {
           sendResult = { emailSent: false, emailWarning: "Failed to send email. The estimate was saved but could not be sent." };
@@ -396,6 +435,8 @@ export default function EstimateForm() {
       depositAmount: depositAmountCents,
       notes: values.notes || null,
       terms: values.terms || null,
+      clientEmail: values.clientEmail || null,
+      clientName: values.clientName || null,
       items: values.items.map(item => ({
         inventoryItemId: item.inventoryItemId || null,
         description: item.description,
@@ -586,6 +627,103 @@ export default function EstimateForm() {
               </div>
             </CardContent>
           </Card>
+
+          {selectedClientData && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Client Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="clientName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Client name" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="email" placeholder="Email address" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Phone number" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing Address</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Street address" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="City" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="State" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientZip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Zip Code</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Zip code" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

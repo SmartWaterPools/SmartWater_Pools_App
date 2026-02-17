@@ -643,14 +643,18 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     const items = await storage.getEstimateItems(estimateId);
     const clientRecord = await db.select().from(clients).where(eq(clients.id, estimate.clientId)).limit(1);
     const client = clientRecord.length > 0 ? await storage.getUser(clientRecord[0].userId) : null;
-    console.log(`[Estimate Send] Client lookup: clientId=${estimate.clientId}, clientRecord userId=${clientRecord[0]?.userId}, user email=${client?.email}`);
+    const overrideEmail = req.body?.clientEmail;
+    const overrideName = req.body?.clientName;
+    const recipientEmail = overrideEmail || client?.email;
+    const recipientName = overrideName || client?.name || 'Valued Customer';
+    console.log(`[Estimate Send] Client lookup: clientId=${estimate.clientId}, clientRecord userId=${clientRecord[0]?.userId}, user email=${client?.email}, override email=${overrideEmail}`);
 
     let emailSent = false;
     let emailWarning: string | undefined;
 
     if (!user.gmailAccessToken || !user.gmailRefreshToken) {
       emailWarning = "Gmail is not connected. Estimate status updated but email was not sent.";
-    } else if (!client?.email) {
+    } else if (!recipientEmail) {
       emailWarning = "Client does not have an email address on file. Estimate status updated but email was not sent.";
     } else {
       try {
@@ -684,7 +688,7 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
             <p style="color: #d1fae5; margin: 4px 0 0 0; font-size: 14px;">From ${user.name || 'Your Service Provider'}</p>
           </div>
           <div style="border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px; padding: 32px;">
-            <p style="margin: 0 0 4px 0; font-size: 15px;">Hello ${client.name || 'Valued Customer'},</p>
+            <p style="margin: 0 0 4px 0; font-size: 15px;">Hello ${recipientName},</p>
             <p style="margin: 0 0 24px 0; font-size: 15px; color: #6b7280;">Please find your estimate details below.</p>
             <table style="width: 100%; margin-bottom: 16px; font-size: 14px;">
               <tr><td style="color: #6b7280; padding: 2px 0;">Estimate Number:</td><td style="font-weight: 600;">${estimate.estimateNumber}</td></tr>
@@ -716,9 +720,9 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
         </div>`;
 
         const subject = `Estimate ${estimate.estimateNumber} - ${formatCents(estimate.total)}`;
-        console.log(`[Estimate Send] Attempting to send estimate ${estimate.estimateNumber} to ${client.email} via Gmail`);
+        console.log(`[Estimate Send] Attempting to send estimate ${estimate.estimateNumber} to ${recipientEmail} via Gmail`);
         console.log(`[Estimate Send] User tokens present: access=${!!userTokens.gmailAccessToken}, refresh=${!!userTokens.gmailRefreshToken}, email=${userTokens.gmailConnectedEmail}`);
-        const result = await sendGmailMessage(client.email, subject, htmlBody, true, userTokens);
+        const result = await sendGmailMessage(recipientEmail, subject, htmlBody, true, userTokens);
         emailSent = result !== null;
         console.log(`[Estimate Send] Email result: ${emailSent ? 'SUCCESS' : 'FAILED'}`);
         if (!emailSent) {

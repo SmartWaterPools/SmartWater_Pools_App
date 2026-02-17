@@ -68,6 +68,13 @@ const invoiceFormSchema = z.object({
   discountAmount: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
   terms: z.string().optional(),
+  clientName: z.string().optional(),
+  clientEmail: z.string().email().optional().or(z.literal("")),
+  clientPhone: z.string().optional(),
+  clientAddress: z.string().optional(),
+  clientCity: z.string().optional(),
+  clientState: z.string().optional(),
+  clientZip: z.string().optional(),
   items: z.array(lineItemSchema).min(1, "At least one line item is required"),
 });
 
@@ -163,6 +170,13 @@ export default function InvoiceForm() {
       discountAmount: undefined,
       notes: "",
       terms: "",
+      clientName: "",
+      clientEmail: "",
+      clientPhone: "",
+      clientAddress: "",
+      clientCity: "",
+      clientState: "",
+      clientZip: "",
       items: [{ inventoryItemId: undefined, description: "", quantity: 1, unitPrice: 0, itemType: "" }],
     },
   });
@@ -223,6 +237,20 @@ export default function InvoiceForm() {
     }
   }, [selectedClientData, isEditing, form]);
 
+  useEffect(() => {
+    if (selectedClientData) {
+      const clientData = selectedClientData.client || selectedClientData;
+      const userData = selectedClientData.user || {};
+      form.setValue("clientName", userData.name || clientData.companyName || "");
+      form.setValue("clientEmail", userData.email || "");
+      form.setValue("clientPhone", userData.phone || "");
+      form.setValue("clientAddress", clientData.billingAddress || "");
+      form.setValue("clientCity", clientData.billingCity || "");
+      form.setValue("clientState", clientData.billingState || "");
+      form.setValue("clientZip", clientData.billingZip || "");
+    }
+  }, [selectedClientData, form]);
+
   const watchedItems = form.watch("items");
   const watchedTaxRate = form.watch("taxRate");
   const watchedDiscountPercent = form.watch("discountPercent");
@@ -262,7 +290,10 @@ export default function InvoiceForm() {
       let sendResult = null;
       if (data.sendAfterSave) {
         try {
-          const sendResponse = await apiRequest("POST", `/api/invoices/${createdInvoice.id}/send`);
+          const sendResponse = await apiRequest("POST", `/api/invoices/${createdInvoice.id}/send`, {
+            clientEmail: data.invoice.clientEmail || undefined,
+            clientName: data.invoice.clientName || undefined,
+          });
           sendResult = await sendResponse.json();
         } catch (sendError) {
           sendResult = { emailSent: false, emailWarning: "Failed to send email. The invoice was saved but could not be sent." };
@@ -310,9 +341,12 @@ export default function InvoiceForm() {
       const updatedInvoice = await response.json();
       
       let sendResult = null;
-      if (data.sendAfterSave && existingInvoice?.status === 'draft') {
+      if (data.sendAfterSave) {
         try {
-          const sendResponse = await apiRequest("POST", `/api/invoices/${invoiceId}/send`);
+          const sendResponse = await apiRequest("POST", `/api/invoices/${invoiceId}/send`, {
+            clientEmail: data.invoice.clientEmail || undefined,
+            clientName: data.invoice.clientName || undefined,
+          });
           sendResult = await sendResponse.json();
         } catch (sendError) {
           sendResult = { emailSent: false, emailWarning: "Failed to send email. The invoice was saved but could not be sent." };
@@ -366,6 +400,8 @@ export default function InvoiceForm() {
       discountAmount: values.discountAmount ? Math.round(values.discountAmount * 100) : 0,
       notes: values.notes || null,
       terms: values.terms || null,
+      clientEmail: values.clientEmail || null,
+      clientName: values.clientName || null,
       items: values.items.map(item => ({
         inventoryItemId: item.inventoryItemId || null,
         description: item.description,
@@ -563,31 +599,92 @@ export default function InvoiceForm() {
                 <CardTitle className="text-base">Client Information</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Contact Details</h4>
-                    <div className="space-y-1 text-sm">
-                      <p className="font-medium">{selectedClientData.user?.name || selectedClientData.client?.companyName || 'N/A'}</p>
-                      {selectedClientData.client?.companyName && <p className="text-muted-foreground">{selectedClientData.client.companyName}</p>}
-                      {selectedClientData.user?.email && <p className="text-muted-foreground">{selectedClientData.user.email}</p>}
-                      {selectedClientData.user?.phone && <p className="text-muted-foreground">{selectedClientData.user.phone}</p>}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-muted-foreground mb-2">Billing Address</h4>
-                    <div className="space-y-1 text-sm">
-                      {selectedClientData.client?.billingAddress || selectedClientData.client?.billingCity || selectedClientData.client?.billingState ? (
-                        <>
-                          {selectedClientData.client?.billingAddress && <p>{selectedClientData.client.billingAddress}</p>}
-                          <p>
-                            {[selectedClientData.client?.billingCity, selectedClientData.client?.billingState, selectedClientData.client?.billingZip].filter(Boolean).join(', ')}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-muted-foreground italic">No billing address on file</p>
-                      )}
-                    </div>
-                  </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="clientName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Client name" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientEmail"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input {...field} type="email" placeholder="Email address" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Phone number" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing Address</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Street address" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="City" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>State</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="State" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="clientZip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Zip Code</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Zip code" />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </CardContent>
             </Card>
