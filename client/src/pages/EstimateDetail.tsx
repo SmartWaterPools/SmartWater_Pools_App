@@ -254,10 +254,10 @@ export default function EstimateDetail() {
 
   const sendEstimateMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/estimates/${estimateId}/send`);
+      const response = await apiRequest("POST", `/api/estimates/${estimateId}/send`);
+      return await response.json();
     },
-    onSuccess: async (response: Response) => {
-      const data = await response.json();
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/estimates'] });
       queryClient.invalidateQueries({ queryKey: ['/api/estimates', estimateId] });
       if (data.emailSent) {

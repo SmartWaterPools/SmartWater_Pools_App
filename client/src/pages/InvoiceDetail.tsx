@@ -177,10 +177,10 @@ export default function InvoiceDetail() {
 
   const sendInvoiceMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/invoices/${invoiceId}/send`);
+      const response = await apiRequest("POST", `/api/invoices/${invoiceId}/send`);
+      return await response.json();
     },
-    onSuccess: async (response: Response) => {
-      const data = await response.json();
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['/api/invoices'] });
       queryClient.invalidateQueries({ queryKey: ['/api/invoices', invoiceId] });
       if (data.emailSent) {
@@ -228,7 +228,7 @@ export default function InvoiceDetail() {
 
   const resetPaymentForm = () => {
     setPaymentForm({
-      amount: invoice ? (invoice.amountDue / 100).toFixed(2) : "",
+      amount: invoice ? ((invoice.amountDue || 0) / 100).toFixed(2) : "",
       paymentMethod: "bank_transfer",
       paymentDate: format(new Date(), "yyyy-MM-dd"),
       referenceNumber: "",
@@ -240,7 +240,7 @@ export default function InvoiceDetail() {
     if (invoice) {
       setPaymentForm((prev) => ({
         ...prev,
-        amount: (invoice.amountDue / 100).toFixed(2),
+        amount: ((invoice.amountDue || 0) / 100).toFixed(2),
       }));
     }
     setPaymentDialogOpen(true);
@@ -339,7 +339,7 @@ export default function InvoiceDetail() {
               Send
             </Button>
           )}
-          {invoice.amountDue > 0 && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+          {(invoice.amountDue || 0) > 0 && invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
             <Button
               size="sm"
               variant="default"
@@ -502,7 +502,7 @@ export default function InvoiceDetail() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoice.items.map((item) => (
+              {(invoice.items || []).map((item) => (
                 <TableRow key={item.id}>
                   <TableCell>{item.description}</TableCell>
                   <TableCell className="text-right">{item.quantity}</TableCell>
@@ -545,7 +545,7 @@ export default function InvoiceDetail() {
                 <span>{formatCurrency(invoice.amountPaid)}</span>
               </div>
             )}
-            {invoice.amountDue > 0 && (
+            {(invoice.amountDue || 0) > 0 && (
               <div className="flex justify-between font-bold">
                 <span>Amount Due</span>
                 <span>{formatCurrency(invoice.amountDue)}</span>
@@ -564,7 +564,7 @@ export default function InvoiceDetail() {
           </Button>
         </CardHeader>
         <CardContent>
-          {invoice.payments.length === 0 ? (
+          {(!invoice.payments || invoice.payments.length === 0) ? (
             <p className="text-muted-foreground text-center py-4">No payments recorded yet.</p>
           ) : (
             <Table>
@@ -578,7 +578,7 @@ export default function InvoiceDetail() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {invoice.payments.map((payment) => (
+                {(invoice.payments || []).map((payment) => (
                   <TableRow key={payment.id}>
                     <TableCell>{format(new Date(payment.paymentDate), "MMM d, yyyy")}</TableCell>
                     <TableCell>{formatCurrency(payment.amount)}</TableCell>
