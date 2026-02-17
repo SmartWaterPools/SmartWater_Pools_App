@@ -49,6 +49,7 @@ export interface FetchEmailsOptions {
   pageToken?: string | null;
   starredOnly?: boolean;
   includeSent?: boolean;
+  sentOnly?: boolean;
   searchQuery?: string | null;
 }
 
@@ -65,7 +66,7 @@ export async function fetchGmailEmailsTransient(
   userTokens: UserTokens,
   options: FetchEmailsOptions = {}
 ): Promise<FetchEmailsResult> {
-  const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false, searchQuery = null } = options;
+  const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false, sentOnly = false, searchQuery = null } = options;
   
   const result: FetchEmailsResult = {
     success: true,
@@ -91,18 +92,16 @@ export async function fetchGmailEmailsTransient(
     // - starredOnly=true: STARRED label (gets starred from anywhere)
     // - includeSent=true: INBOX + SENT labels
     // - Both true: STARRED label only (starred emails from anywhere)
-    if (searchQuery && searchQuery.trim()) {
-      // Use Gmail search query - this searches across all emails
+    if (sentOnly) {
+      listParams.labelIds = ['SENT'];
+    } else if (searchQuery && searchQuery.trim()) {
       listParams.q = searchQuery.trim();
       console.log('Searching Gmail with query:', listParams.q);
     } else if (starredOnly) {
-      // When starredOnly is true, use STARRED label (covers all starred emails)
       listParams.labelIds = ['STARRED'];
     } else if (includeSent) {
-      // Include both INBOX and SENT emails
       listParams.labelIds = ['INBOX', 'SENT'];
     } else {
-      // Default: INBOX only
       listParams.labelIds = ['INBOX'];
     }
 

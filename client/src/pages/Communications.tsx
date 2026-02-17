@@ -143,9 +143,16 @@ export default function Communications() {
   const [transientEmails, setTransientEmails] = useState<TransientEmail[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   
+  // Email sub-tab and sent emails state
+  const [emailSubTab, setEmailSubTab] = useState<"inbox" | "sent">("inbox");
+  const [sentEmails, setSentEmails] = useState<TransientEmail[]>([]);
+  const [sentCurrentPage, setSentCurrentPage] = useState(1);
+  const [sentNextPageToken, setSentNextPageToken] = useState<string | null>(null);
+  const [hasMoreSentEmails, setHasMoreSentEmails] = useState(false);
+  
   // Sync options
   const [starredOnly, setStarredOnly] = useState(false);
-  const [includeSent, setIncludeSent] = useState(false);
+
   
   // Send to client dialog
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
@@ -313,7 +320,7 @@ export default function Communications() {
         maxResults: 20,
         pageToken,
         starredOnly,
-        includeSent,
+        includeSent: false,
         searchQuery: queryToSearch
       });
       return { data: await response.json(), appendEmails };
@@ -355,6 +362,48 @@ export default function Communications() {
       } else {
         toast({ title: "Fetch Error", description: msg || 'Failed to fetch emails', variant: "destructive" });
       }
+    }
+  });
+
+  const fetchSentEmailsMutation = useMutation({
+    mutationFn: async ({ pageToken, appendEmails = false }: { pageToken?: string | null; appendEmails?: boolean }) => {
+      const response = await apiRequest('POST', '/api/emails/fetch', { 
+        maxResults: 20,
+        pageToken,
+        starredOnly: false,
+        includeSent: false,
+        sentOnly: true,
+        searchQuery: null
+      });
+      return { data: await response.json(), appendEmails };
+    },
+    onSuccess: ({ data, appendEmails }: { data: { emails: TransientEmail[]; nextPageToken?: string | null; hasMore: boolean; success?: boolean; errors?: string[] }; appendEmails: boolean }) => {
+      if (data.success === false || (data.errors && data.errors.length > 0)) {
+        toast({ 
+          title: "Fetch Error", 
+          description: data.errors?.join(', ') || 'Unknown error occurred',
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (appendEmails) {
+        setSentEmails(prev => [...prev, ...data.emails]);
+      } else {
+        setSentEmails(data.emails);
+        setSentCurrentPage(1);
+      }
+      
+      setSentNextPageToken(data.nextPageToken || null);
+      setHasMoreSentEmails(data.hasMore);
+      
+      toast({ 
+        title: "Sent Emails Loaded", 
+        description: `${data.emails.length} sent email${data.emails.length === 1 ? '' : 's'} fetched.`
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Fetch Error", description: error.message || 'Failed to fetch sent emails', variant: "destructive" });
     }
   });
 
@@ -560,6 +609,17 @@ export default function Communications() {
 
   const handleFetchMore = () => {
     handleFetchEmails(true, activeSearchQuery);
+  };
+
+  const sentTotalPages = Math.ceil(sentEmails.length / EMAILS_PER_PAGE);
+  const paginatedSentEmails = sentEmails.slice(
+    (sentCurrentPage - 1) * EMAILS_PER_PAGE,
+    sentCurrentPage * EMAILS_PER_PAGE
+  );
+
+  const handleFetchSentEmails = (loadMore: boolean = false) => {
+    const pageToken = loadMore ? sentNextPageToken : null;
+    fetchSentEmailsMutation.mutate({ pageToken, appendEmails: loadMore });
   };
 
   const handleSendToClient = (email: TransientEmail) => {
@@ -957,6 +1017,32 @@ export default function Communications() {
             </div>
           )}
         
+          <div className="flex items-center gap-1 border-b mb-4">
+            <button
+              onClick={() => setEmailSubTab("inbox")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                emailSubTab === "inbox"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Mail className="h-4 w-4 inline mr-1.5" />
+              Inbox
+            </button>
+            <button
+              onClick={() => setEmailSubTab("sent")}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                emailSubTab === "sent"
+                  ? "border-blue-600 text-blue-600"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Send className="h-4 w-4 inline mr-1.5" />
+              Sent
+            </button>
+          </div>
+
+          {emailSubTab === "inbox" && (
           <div className="flex flex-col gap-4 mb-4">
             <div className="flex justify-between">
               <div className="flex gap-2">
@@ -996,70 +1082,11 @@ export default function Communications() {
                   <RefreshCw className={`h-4 w-4 mr-2 ${fetchEmailsMutation.isPending ? 'animate-spin' : ''}`} />
                   {fetchEmailsMutation.isPending ? 'Fetching...' : 'Sync Emails'}
                 </Button>
-              <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
-                <DialogTrigger asChild>
-                  <Button disabled={!hasEmailProvider} data-testid="button-compose-email">
-                    <Mail className="h-4 w-4 mr-2" />
-                    Compose Email
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px]">
-                  <DialogHeader>
-                    <DialogTitle>Compose Email</DialogTitle>
-                    <DialogDescription>
-                      Send an email to a client or contact.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="to">To</Label>
-                      <Input 
-                        id="to" 
-                        type="email"
-                        placeholder="recipient@example.com"
-                        value={composeData.to}
-                        onChange={(e) => setComposeData({ ...composeData, to: e.target.value })}
-                        data-testid="input-compose-to"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="subject">Subject</Label>
-                      <Input 
-                        id="subject" 
-                        placeholder="Email subject"
-                        value={composeData.subject}
-                        onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
-                        data-testid="input-compose-subject"
-                      />
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="body">Message</Label>
-                      <Textarea 
-                        id="body" 
-                        placeholder="Type your message here..."
-                        rows={8}
-                        value={composeData.body}
-                        onChange={(e) => setComposeData({ ...composeData, body: e.target.value })}
-                        data-testid="textarea-compose-body"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setComposeOpen(false)} data-testid="button-compose-cancel">
-                      Cancel
-                    </Button>
-                    <Button 
-                      onClick={handleSendEmail} 
-                      disabled={sendEmailMutation.isPending}
-                      data-testid="button-compose-send"
-                    >
-                      <Send className="h-4 w-4 mr-2" />
-                      {sendEmailMutation.isPending ? 'Sending...' : 'Send Email'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
+                <Button disabled={!hasEmailProvider} onClick={() => setComposeOpen(true)} data-testid="button-compose-email">
+                  <Mail className="h-4 w-4 mr-2" />
+                  Compose Email
+                </Button>
+              </div>
             </div>
             
             <div className="flex items-center gap-6">
@@ -1072,18 +1099,11 @@ export default function Communications() {
                 />
                 <Label htmlFor="starredOnly" className="text-sm cursor-pointer">Starred only</Label>
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox 
-                  id="includeSent" 
-                  checked={includeSent}
-                  onCheckedChange={(checked) => setIncludeSent(checked === true)}
-                  data-testid="checkbox-include-sent"
-                />
-                <Label htmlFor="includeSent" className="text-sm cursor-pointer">Include sent</Label>
-              </div>
             </div>
           </div>
+          )}
           
+          {emailSubTab === "inbox" && (
           <Card>
             <CardHeader>
               <CardTitle>Recent Emails</CardTitle>
@@ -1133,406 +1153,71 @@ export default function Communications() {
                   </div>
                 </div>
               ) : (
-                <>
-                  <Table data-testid="emails-table">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-8"></TableHead>
-                        <TableHead>From</TableHead>
-                        <TableHead>Subject</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead className="w-32">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedEmails.map((email) => (
-                        <TableRow 
-                          key={email.externalId}
-                          className={`cursor-pointer hover:bg-muted/50 ${!email.isRead ? 'font-semibold' : ''}`}
-                          onClick={() => setSelectedEmail(email)}
-                          data-testid={`email-row-${email.externalId}`}
-                        >
-                          <TableCell>
-                            {email.isRead ? (
-                              <Circle className="h-3 w-3 text-muted-foreground" />
-                            ) : (
-                              <Circle className="h-3 w-3 fill-blue-500 text-blue-500" />
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-col">
-                              <span className={!email.isRead ? 'font-semibold' : ''}>{email.fromName || email.fromEmail}</span>
-                              {email.fromName && <span className="text-xs text-muted-foreground">{email.fromEmail}</span>}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <span className={!email.isRead ? 'font-semibold' : ''}>{email.subject || '(No Subject)'}</span>
-                              {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
-                              {email.isStarred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />}
-                            </div>
-                            {email.snippet && (
-                              <p className="text-xs text-muted-foreground truncate max-w-md">{email.snippet}</p>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {formatDate(email.receivedAt)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {email.isSent && <Badge variant="outline" className="text-xs">Sent</Badge>}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleSendToClient(email);
-                                }}
-                                data-testid={`button-send-to-client-${email.externalId}`}
-                              >
-                                <UserPlus className="h-4 w-4 mr-1" />
-                                Send to Client
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  
-                  <Dialog open={!!selectedEmail} onOpenChange={(open) => !open && setSelectedEmail(null)}>
-                    <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                          {selectedEmail?.subject || '(No Subject)'}
-                          {selectedEmail?.isStarred && <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />}
-                        </DialogTitle>
-                        <DialogDescription>
-                          From: {selectedEmail?.fromName || selectedEmail?.fromEmail} 
-                          {selectedEmail?.fromName && ` <${selectedEmail.fromEmail}>`}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="space-y-4" data-testid="email-detail-modal">
-                        <div className="text-sm text-muted-foreground space-y-1">
-                          <p>To: {selectedEmail?.toEmails?.join(', ') || '-'}</p>
-                          {selectedEmail?.ccEmails && selectedEmail.ccEmails.length > 0 && (
-                            <p>CC: {selectedEmail.ccEmails.join(', ')}</p>
-                          )}
-                          <p>Date: {formatDate(selectedEmail?.receivedAt || null)}</p>
-                        </div>
-                        <div className="border-t pt-4">
-                          {selectedEmail?.bodyHtml ? (
-                            <div 
-                              className="prose prose-sm max-w-none"
-                              dangerouslySetInnerHTML={{ __html: selectedEmail.bodyHtml }}
-                            />
+                <Table data-testid="emails-table">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-8"></TableHead>
+                      <TableHead>From</TableHead>
+                      <TableHead>Subject</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="w-32">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedEmails.map((email) => (
+                      <TableRow 
+                        key={email.externalId}
+                        className={`cursor-pointer hover:bg-muted/50 ${!email.isRead ? 'font-semibold' : ''}`}
+                        onClick={() => setSelectedEmail(email)}
+                        data-testid={`email-row-${email.externalId}`}
+                      >
+                        <TableCell>
+                          {email.isRead ? (
+                            <Circle className="h-3 w-3 text-muted-foreground" />
                           ) : (
-                            <p className="whitespace-pre-wrap">{selectedEmail?.bodyText || selectedEmail?.snippet || 'No content'}</p>
+                            <Circle className="h-3 w-3 fill-blue-500 text-blue-500" />
                           )}
-                        </div>
-                        <div className="border-t pt-4">
-                          <Button
-                            onClick={() => {
-                              if (selectedEmail) {
-                                handleSendToClient(selectedEmail);
-                                setSelectedEmail(null);
-                              }
-                            }}
-                            data-testid="button-send-to-client-modal"
-                          >
-                            <UserPlus className="h-4 w-4 mr-2" />
-                            Send to Client
-                          </Button>
-                        </div>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog open={linkDialogOpen} onOpenChange={(open) => {
-                    setLinkDialogOpen(open);
-                    if (!open) {
-                      setShowCreateEmailClient(false);
-                      setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
-                      setShowCreateEmailVendor(false);
-                      setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
-                    }
-                  }}>
-                    <DialogContent className="sm:max-w-[450px]">
-                      <DialogHeader>
-                        <DialogTitle>Link Email</DialogTitle>
-                        <DialogDescription>
-                          Select one or more entities to link this email.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="py-4 space-y-4">
-                        {!showCreateEmailClient ? (
-                          <>
-                            <div>
-                              <Label htmlFor="client-select">Client (optional)</Label>
-                              <Select 
-                                value={selectedClientId?.toString() || "none"} 
-                                onValueChange={(val) => setSelectedClientId(val && val !== "none" ? Number(val) : null)}
-                              >
-                                <SelectTrigger className="mt-2" data-testid="select-client">
-                                  <SelectValue placeholder="Choose a client..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">None</SelectItem>
-                                  {clients.map((client) => (
-                                    <SelectItem key={client.id} value={client.id.toString()}>
-                                      {client.user?.name || 'Unknown'} ({client.user?.email || 'No email'})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="mt-2 text-blue-600 hover:text-blue-700"
-                                onClick={handleOpenEmailCreateClient}
-                                data-testid="button-create-email-client"
-                              >
-                                <UserPlus className="h-4 w-4 mr-1" />
-                                Create New Client
-                              </Button>
-                            </div>
-
-                            <div>
-                              <Label htmlFor="email-vendor-select">Vendor (optional)</Label>
-                              <Select 
-                                value={selectedEmailVendorId?.toString() || "none"} 
-                                onValueChange={(val) => setSelectedEmailVendorId(val && val !== "none" ? Number(val) : null)}
-                              >
-                                <SelectTrigger className="mt-2" data-testid="select-email-vendor">
-                                  <SelectValue placeholder="Choose a vendor..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">None</SelectItem>
-                                  {vendors.map((vendor) => (
-                                    <SelectItem key={vendor.id} value={vendor.id.toString()}>
-                                      {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                              {!showCreateEmailVendor && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="mt-2 text-blue-600 hover:text-blue-700"
-                                  onClick={handleOpenEmailCreateVendor}
-                                  data-testid="button-create-email-vendor"
-                                >
-                                  <Building2 className="h-4 w-4 mr-1" />
-                                  Create New Vendor
-                                </Button>
-                              )}
-                              {showCreateEmailVendor && (
-                                <div className="space-y-3 p-3 border rounded-md bg-muted/30 mt-2">
-                                  <div className="flex items-center justify-between">
-                                    <Label className="font-medium">Create New Vendor</Label>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        setShowCreateEmailVendor(false);
-                                        setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
-                                      }}
-                                    >
-                                      Cancel
-                                    </Button>
-                                  </div>
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="new-email-vendor-name">Name *</Label>
-                                    <Input
-                                      id="new-email-vendor-name"
-                                      placeholder="Vendor name"
-                                      value={newEmailVendorForm.name}
-                                      onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, name: e.target.value })}
-                                      data-testid="input-new-email-vendor-name"
-                                    />
-                                  </div>
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="new-email-vendor-category">Category</Label>
-                                    <Select 
-                                      value={newEmailVendorForm.category} 
-                                      onValueChange={(val) => setNewEmailVendorForm({ ...newEmailVendorForm, category: val })}
-                                    >
-                                      <SelectTrigger data-testid="select-new-email-vendor-category">
-                                        <SelectValue placeholder="Select category..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        <SelectItem value="chemical supplier">Chemical Supplier</SelectItem>
-                                        <SelectItem value="equipment">Equipment</SelectItem>
-                                        <SelectItem value="parts">Parts</SelectItem>
-                                        <SelectItem value="service">Service</SelectItem>
-                                        <SelectItem value="tools">Tools</SelectItem>
-                                        <SelectItem value="office">Office</SelectItem>
-                                      </SelectContent>
-                                    </Select>
-                                  </div>
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="new-email-vendor-email">Email (optional)</Label>
-                                    <Input
-                                      id="new-email-vendor-email"
-                                      type="email"
-                                      placeholder="Email address"
-                                      value={newEmailVendorForm.email}
-                                      onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, email: e.target.value })}
-                                      data-testid="input-new-email-vendor-email"
-                                    />
-                                  </div>
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="new-email-vendor-phone">Phone (optional)</Label>
-                                    <Input
-                                      id="new-email-vendor-phone"
-                                      type="tel"
-                                      placeholder="Phone number"
-                                      value={newEmailVendorForm.phone}
-                                      onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, phone: e.target.value })}
-                                      data-testid="input-new-email-vendor-phone"
-                                    />
-                                  </div>
-                                  <Button
-                                    type="button"
-                                    onClick={handleCreateEmailVendor}
-                                    disabled={createVendorMutation.isPending}
-                                    className="w-full"
-                                    data-testid="button-submit-new-email-vendor"
-                                  >
-                                    {createVendorMutation.isPending ? 'Creating...' : 'Create Vendor'}
-                                  </Button>
-                                </div>
-                              )}
-                            </div>
-
-                            <div>
-                              <Label htmlFor="email-project-select">Project/Job (optional)</Label>
-                              <Select 
-                                value={selectedEmailProjectId?.toString() || "none"} 
-                                onValueChange={(val) => setSelectedEmailProjectId(val && val !== "none" ? Number(val) : null)}
-                              >
-                                <SelectTrigger className="mt-2" data-testid="select-email-project">
-                                  <SelectValue placeholder="Choose a project..." />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="none">None</SelectItem>
-                                  {projects.map((project) => (
-                                    <SelectItem key={project.id} value={project.id.toString()}>
-                                      {project.name} ({project.status})
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="space-y-3 p-3 border rounded-md bg-muted/30">
-                            <div className="flex items-center justify-between">
-                              <Label className="font-medium">Create New Client</Label>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setShowCreateEmailClient(false);
-                                  setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
-                                }}
-                              >
-                                Cancel
-                              </Button>
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="new-email-client-name">Name *</Label>
-                              <Input
-                                id="new-email-client-name"
-                                placeholder="Client name"
-                                value={newEmailClientForm.name}
-                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, name: e.target.value })}
-                                data-testid="input-new-email-client-name"
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="new-email-client-email">Email</Label>
-                              <Input
-                                id="new-email-client-email"
-                                type="email"
-                                placeholder="Email address"
-                                value={newEmailClientForm.email}
-                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, email: e.target.value })}
-                                data-testid="input-new-email-client-email"
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="new-email-client-phone">Phone (optional)</Label>
-                              <Input
-                                id="new-email-client-phone"
-                                type="tel"
-                                placeholder="Phone number"
-                                value={newEmailClientForm.phone}
-                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, phone: e.target.value })}
-                                data-testid="input-new-email-client-phone"
-                              />
-                            </div>
-                            <div className="grid gap-2">
-                              <Label htmlFor="new-email-client-address">Address (optional)</Label>
-                              <Input
-                                id="new-email-client-address"
-                                placeholder="Address"
-                                value={newEmailClientForm.address}
-                                onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, address: e.target.value })}
-                                data-testid="input-new-email-client-address"
-                              />
-                            </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className={!email.isRead ? 'font-semibold' : ''}>{email.fromName || email.fromEmail}</span>
+                            {email.fromName && <span className="text-xs text-muted-foreground">{email.fromEmail}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className={!email.isRead ? 'font-semibold' : ''}>{email.subject || '(No Subject)'}</span>
+                            {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                            {email.isStarred && <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />}
+                          </div>
+                          {email.snippet && (
+                            <p className="text-xs text-muted-foreground truncate max-w-md">{email.snippet}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(email.receivedAt)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {email.isSent && <Badge variant="outline" className="text-xs">Sent</Badge>}
                             <Button
-                              type="button"
-                              onClick={handleCreateEmailClient}
-                              disabled={createClientMutation.isPending}
-                              className="w-full"
-                              data-testid="button-submit-new-email-client"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSendToClient(email);
+                              }}
+                              data-testid={`button-send-to-client-${email.externalId}`}
                             >
-                              {createClientMutation.isPending ? 'Creating...' : 'Create Client'}
+                              <UserPlus className="h-4 w-4 mr-1" />
+                              Send to Client
                             </Button>
                           </div>
-                        )}
-
-                        {emailToLink && (
-                          <div className="p-3 bg-muted rounded-md text-sm">
-                            <p className="font-medium">{emailToLink.subject || '(No Subject)'}</p>
-                            <p className="text-muted-foreground">From: {emailToLink.fromEmail}</p>
-                          </div>
-                        )}
-
-                        {!showCreateEmailClient && (selectedClientId || selectedEmailVendorId || selectedEmailProjectId) && (
-                          <div className="text-sm text-muted-foreground">
-                            Linking to: {[
-                              selectedClientId && 'Client',
-                              selectedEmailVendorId && 'Vendor',
-                              selectedEmailProjectId && 'Project'
-                            ].filter(Boolean).join(', ')}
-                          </div>
-                        )}
-                      </div>
-                      {!showCreateEmailClient && (
-                        <DialogFooter>
-                          <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
-                            Cancel
-                          </Button>
-                          <Button 
-                            onClick={handleConfirmLink}
-                            disabled={(!selectedClientId && !selectedEmailVendorId && !selectedEmailProjectId) || linkEmailMutation.isPending}
-                            data-testid="button-confirm-link"
-                          >
-                            {linkEmailMutation.isPending ? 'Linking...' : 'Link'}
-                          </Button>
-                        </DialogFooter>
-                      )}
-                    </DialogContent>
-                  </Dialog>
-                </>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               )}
             </CardContent>
             <CardFooter className="border-t p-4">
@@ -1592,6 +1277,555 @@ export default function Communications() {
               </div>
             </CardFooter>
           </Card>
+          )}
+
+          {emailSubTab === "sent" && (
+          <>
+            <div className="flex justify-between mb-4">
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  disabled={!hasEmailProvider || fetchSentEmailsMutation.isPending}
+                  onClick={() => handleFetchSentEmails()}
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${fetchSentEmailsMutation.isPending ? 'animate-spin' : ''}`} />
+                  {fetchSentEmailsMutation.isPending ? 'Fetching...' : 'Sync Sent Emails'}
+                </Button>
+                <Button disabled={!hasEmailProvider} onClick={() => setComposeOpen(true)}>
+                  <Mail className="h-4 w-4 mr-2" />
+                  Compose Email
+                </Button>
+              </div>
+            </div>
+            
+            <Card>
+              <CardHeader>
+                <CardTitle>Sent Emails</CardTitle>
+                <CardDescription>
+                  Emails sent from your Gmail account, including invoices and estimates.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {fetchSentEmailsMutation.isPending ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <div key={i} className="flex items-center space-x-4 p-3 border rounded-lg">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-1/4" />
+                          <Skeleton className="h-3 w-3/4" />
+                        </div>
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    ))}
+                  </div>
+                ) : sentEmails.length === 0 ? (
+                  <div className="bg-muted rounded-md p-6 text-center">
+                    <Send className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-medium">No sent emails loaded</h3>
+                    <p className="text-sm text-muted-foreground max-w-md mx-auto mt-2">
+                      {hasEmailProvider 
+                        ? "Click 'Sync Sent Emails' to fetch your sent emails from Gmail. This includes invoices and estimates sent through the app."
+                        : "Connect your email account to view sent emails."}
+                    </p>
+                    {hasEmailProvider && (
+                      <Button 
+                        className="mt-4" 
+                        onClick={() => handleFetchSentEmails()}
+                        disabled={fetchSentEmailsMutation.isPending}
+                      >
+                        <RefreshCw className={`h-4 w-4 mr-2 ${fetchSentEmailsMutation.isPending ? 'animate-spin' : ''}`} />
+                        {fetchSentEmailsMutation.isPending ? 'Fetching...' : 'Sync Sent Emails Now'}
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>To</TableHead>
+                        <TableHead>Subject</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead className="w-20">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedSentEmails.map((email) => (
+                        <TableRow 
+                          key={email.externalId}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => setSelectedEmail(email)}
+                        >
+                          <TableCell>
+                            <span>{email.toEmails?.join(', ') || '-'}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <span>{email.subject || '(No Subject)'}</span>
+                              {email.hasAttachments && <Paperclip className="h-3 w-3 text-muted-foreground" />}
+                            </div>
+                            {email.snippet && (
+                              <p className="text-xs text-muted-foreground truncate max-w-md">{email.snippet}</p>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {formatDate(email.receivedAt)}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEmail(email);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+              {sentEmails.length > 0 && (
+                <CardFooter className="border-t p-4">
+                  <div className="flex w-full justify-between items-center">
+                    <div className="text-sm text-muted-foreground">
+                      Showing {(sentCurrentPage - 1) * EMAILS_PER_PAGE + 1}-{Math.min(sentCurrentPage * EMAILS_PER_PAGE, sentEmails.length)} of {sentEmails.length} sent emails{hasMoreSentEmails ? ' (more available)' : ''}
+                    </div>
+                    <div className="flex gap-2 items-center">
+                      {sentTotalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSentCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={sentCurrentPage === 1}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                          </Button>
+                          <span className="text-sm px-2">Page {sentCurrentPage} of {sentTotalPages}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSentCurrentPage(p => Math.min(sentTotalPages, p + 1))}
+                            disabled={sentCurrentPage === sentTotalPages}
+                          >
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                      {hasMoreSentEmails && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleFetchSentEmails(true)}
+                          disabled={fetchSentEmailsMutation.isPending}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-2 ${fetchSentEmailsMutation.isPending ? 'animate-spin' : ''}`} />
+                          Load More
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardFooter>
+              )}
+            </Card>
+          </>
+          )}
+
+          <Dialog open={!!selectedEmail} onOpenChange={(open) => !open && setSelectedEmail(null)}>
+            <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  {selectedEmail?.subject || '(No Subject)'}
+                  {selectedEmail?.isStarred && <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />}
+                </DialogTitle>
+                <DialogDescription>
+                  From: {selectedEmail?.fromName || selectedEmail?.fromEmail} 
+                  {selectedEmail?.fromName && ` <${selectedEmail.fromEmail}>`}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4" data-testid="email-detail-modal">
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>To: {selectedEmail?.toEmails?.join(', ') || '-'}</p>
+                  {selectedEmail?.ccEmails && selectedEmail.ccEmails.length > 0 && (
+                    <p>CC: {selectedEmail.ccEmails.join(', ')}</p>
+                  )}
+                  <p>Date: {formatDate(selectedEmail?.receivedAt || null)}</p>
+                </div>
+                <div className="border-t pt-4">
+                  {selectedEmail?.bodyHtml ? (
+                    <div 
+                      className="prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: selectedEmail.bodyHtml }}
+                    />
+                  ) : (
+                    <p className="whitespace-pre-wrap">{selectedEmail?.bodyText || selectedEmail?.snippet || 'No content'}</p>
+                  )}
+                </div>
+                <div className="border-t pt-4">
+                  <Button
+                    onClick={() => {
+                      if (selectedEmail) {
+                        handleSendToClient(selectedEmail);
+                        setSelectedEmail(null);
+                      }
+                    }}
+                    data-testid="button-send-to-client-modal"
+                  >
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    Send to Client
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={linkDialogOpen} onOpenChange={(open) => {
+            setLinkDialogOpen(open);
+            if (!open) {
+              setShowCreateEmailClient(false);
+              setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
+              setShowCreateEmailVendor(false);
+              setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
+            }
+          }}>
+            <DialogContent className="sm:max-w-[450px]">
+              <DialogHeader>
+                <DialogTitle>Link Email</DialogTitle>
+                <DialogDescription>
+                  Select one or more entities to link this email.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4 space-y-4">
+                {!showCreateEmailClient ? (
+                  <>
+                    <div>
+                      <Label htmlFor="client-select">Client (optional)</Label>
+                      <Select 
+                        value={selectedClientId?.toString() || "none"} 
+                        onValueChange={(val) => setSelectedClientId(val && val !== "none" ? Number(val) : null)}
+                      >
+                        <SelectTrigger className="mt-2" data-testid="select-client">
+                          <SelectValue placeholder="Choose a client..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {clients.map((client) => (
+                            <SelectItem key={client.id} value={client.id.toString()}>
+                              {client.user?.name || 'Unknown'} ({client.user?.email || 'No email'})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="mt-2 text-blue-600 hover:text-blue-700"
+                        onClick={handleOpenEmailCreateClient}
+                        data-testid="button-create-email-client"
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Create New Client
+                      </Button>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="email-vendor-select">Vendor (optional)</Label>
+                      <Select 
+                        value={selectedEmailVendorId?.toString() || "none"} 
+                        onValueChange={(val) => setSelectedEmailVendorId(val && val !== "none" ? Number(val) : null)}
+                      >
+                        <SelectTrigger className="mt-2" data-testid="select-email-vendor">
+                          <SelectValue placeholder="Choose a vendor..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {vendors.map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id.toString()}>
+                              {vendor.name} {vendor.category ? `(${vendor.category})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {!showCreateEmailVendor && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2 text-blue-600 hover:text-blue-700"
+                          onClick={handleOpenEmailCreateVendor}
+                          data-testid="button-create-email-vendor"
+                        >
+                          <Building2 className="h-4 w-4 mr-1" />
+                          Create New Vendor
+                        </Button>
+                      )}
+                      {showCreateEmailVendor && (
+                        <div className="space-y-3 p-3 border rounded-md bg-muted/30 mt-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="font-medium">Create New Vendor</Label>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setShowCreateEmailVendor(false);
+                                setNewEmailVendorForm({ name: "", category: "", email: "", phone: "" });
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-email-vendor-name">Name *</Label>
+                            <Input
+                              id="new-email-vendor-name"
+                              placeholder="Vendor name"
+                              value={newEmailVendorForm.name}
+                              onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, name: e.target.value })}
+                              data-testid="input-new-email-vendor-name"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-email-vendor-category">Category</Label>
+                            <Select 
+                              value={newEmailVendorForm.category} 
+                              onValueChange={(val) => setNewEmailVendorForm({ ...newEmailVendorForm, category: val })}
+                            >
+                              <SelectTrigger data-testid="select-new-email-vendor-category">
+                                <SelectValue placeholder="Select category..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="chemical supplier">Chemical Supplier</SelectItem>
+                                <SelectItem value="equipment">Equipment</SelectItem>
+                                <SelectItem value="parts">Parts</SelectItem>
+                                <SelectItem value="service">Service</SelectItem>
+                                <SelectItem value="tools">Tools</SelectItem>
+                                <SelectItem value="office">Office</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-email-vendor-email">Email (optional)</Label>
+                            <Input
+                              id="new-email-vendor-email"
+                              type="email"
+                              placeholder="Email address"
+                              value={newEmailVendorForm.email}
+                              onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, email: e.target.value })}
+                              data-testid="input-new-email-vendor-email"
+                            />
+                          </div>
+                          <div className="grid gap-2">
+                            <Label htmlFor="new-email-vendor-phone">Phone (optional)</Label>
+                            <Input
+                              id="new-email-vendor-phone"
+                              type="tel"
+                              placeholder="Phone number"
+                              value={newEmailVendorForm.phone}
+                              onChange={(e) => setNewEmailVendorForm({ ...newEmailVendorForm, phone: e.target.value })}
+                              data-testid="input-new-email-vendor-phone"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            onClick={handleCreateEmailVendor}
+                            disabled={createVendorMutation.isPending}
+                            className="w-full"
+                            data-testid="button-submit-new-email-vendor"
+                          >
+                            {createVendorMutation.isPending ? 'Creating...' : 'Create Vendor'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label htmlFor="email-project-select">Project/Job (optional)</Label>
+                      <Select 
+                        value={selectedEmailProjectId?.toString() || "none"} 
+                        onValueChange={(val) => setSelectedEmailProjectId(val && val !== "none" ? Number(val) : null)}
+                      >
+                        <SelectTrigger className="mt-2" data-testid="select-email-project">
+                          <SelectValue placeholder="Choose a project..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {projects.map((project) => (
+                            <SelectItem key={project.id} value={project.id.toString()}>
+                              {project.name} ({project.status})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-3 p-3 border rounded-md bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <Label className="font-medium">Create New Client</Label>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowCreateEmailClient(false);
+                          setNewEmailClientForm({ name: "", email: "", phone: "", address: "" });
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-email-client-name">Name *</Label>
+                      <Input
+                        id="new-email-client-name"
+                        placeholder="Client name"
+                        value={newEmailClientForm.name}
+                        onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, name: e.target.value })}
+                        data-testid="input-new-email-client-name"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-email-client-email">Email</Label>
+                      <Input
+                        id="new-email-client-email"
+                        type="email"
+                        placeholder="Email address"
+                        value={newEmailClientForm.email}
+                        onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, email: e.target.value })}
+                        data-testid="input-new-email-client-email"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-email-client-phone">Phone (optional)</Label>
+                      <Input
+                        id="new-email-client-phone"
+                        type="tel"
+                        placeholder="Phone number"
+                        value={newEmailClientForm.phone}
+                        onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, phone: e.target.value })}
+                        data-testid="input-new-email-client-phone"
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="new-email-client-address">Address (optional)</Label>
+                      <Input
+                        id="new-email-client-address"
+                        placeholder="Address"
+                        value={newEmailClientForm.address}
+                        onChange={(e) => setNewEmailClientForm({ ...newEmailClientForm, address: e.target.value })}
+                        data-testid="input-new-email-client-address"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      onClick={handleCreateEmailClient}
+                      disabled={createClientMutation.isPending}
+                      className="w-full"
+                      data-testid="button-submit-new-email-client"
+                    >
+                      {createClientMutation.isPending ? 'Creating...' : 'Create Client'}
+                    </Button>
+                  </div>
+                )}
+
+                {emailToLink && (
+                  <div className="p-3 bg-muted rounded-md text-sm">
+                    <p className="font-medium">{emailToLink.subject || '(No Subject)'}</p>
+                    <p className="text-muted-foreground">From: {emailToLink.fromEmail}</p>
+                  </div>
+                )}
+
+                {!showCreateEmailClient && (selectedClientId || selectedEmailVendorId || selectedEmailProjectId) && (
+                  <div className="text-sm text-muted-foreground">
+                    Linking to: {[
+                      selectedClientId && 'Client',
+                      selectedEmailVendorId && 'Vendor',
+                      selectedEmailProjectId && 'Project'
+                    ].filter(Boolean).join(', ')}
+                  </div>
+                )}
+              </div>
+              {!showCreateEmailClient && (
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleConfirmLink}
+                    disabled={(!selectedClientId && !selectedEmailVendorId && !selectedEmailProjectId) || linkEmailMutation.isPending}
+                    data-testid="button-confirm-link"
+                  >
+                    {linkEmailMutation.isPending ? 'Linking...' : 'Link'}
+                  </Button>
+                </DialogFooter>
+              )}
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={composeOpen} onOpenChange={setComposeOpen}>
+            <DialogContent className="sm:max-w-[600px]">
+              <DialogHeader>
+                <DialogTitle>Compose Email</DialogTitle>
+                <DialogDescription>
+                  Send an email to a client or contact.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="to">To</Label>
+                  <Input 
+                    id="to" 
+                    type="email"
+                    placeholder="recipient@example.com"
+                    value={composeData.to}
+                    onChange={(e) => setComposeData({ ...composeData, to: e.target.value })}
+                    data-testid="input-compose-to"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="subject">Subject</Label>
+                  <Input 
+                    id="subject" 
+                    placeholder="Email subject"
+                    value={composeData.subject}
+                    onChange={(e) => setComposeData({ ...composeData, subject: e.target.value })}
+                    data-testid="input-compose-subject"
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="body">Message</Label>
+                  <Textarea 
+                    id="body" 
+                    placeholder="Type your message here..."
+                    rows={8}
+                    value={composeData.body}
+                    onChange={(e) => setComposeData({ ...composeData, body: e.target.value })}
+                    data-testid="textarea-compose-body"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setComposeOpen(false)} data-testid="button-compose-cancel">
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSendEmail} 
+                  disabled={sendEmailMutation.isPending}
+                  data-testid="button-compose-send"
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  {sendEmailMutation.isPending ? 'Sending...' : 'Send Email'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
         
         <TabsContent value="sms" className="space-y-4">

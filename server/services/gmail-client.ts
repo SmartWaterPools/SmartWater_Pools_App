@@ -137,6 +137,7 @@ export async function sendGmailMessage(
   userTokens?: UserTokens
 ): Promise<gmail_v1.Schema$Message | null> {
   try {
+    console.log(`[Gmail Send] Sending email to: ${to}, subject: ${subject.substring(0, 50)}...`);
     const gmail = await getGmailClient(userTokens);
     
     const message = [
@@ -160,9 +161,10 @@ export async function sendGmailMessage(
       }
     });
 
+    console.log(`[Gmail Send] Email sent successfully, messageId: ${response.data.id}`);
     return response.data;
   } catch (error) {
-    console.error('Failed to send Gmail message:', error);
+    console.error('[Gmail Send] Failed to send Gmail message:', error);
     return null;
   }
 }

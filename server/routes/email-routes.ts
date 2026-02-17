@@ -286,7 +286,7 @@ router.post('/api/emails/sync', isAuthenticated, async (req: Request, res: Respo
 router.post('/api/emails/fetch', isAuthenticated, async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
-    const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false, searchQuery = null } = req.body;
+    const { maxResults = 10, pageToken = null, starredOnly = false, includeSent = false, sentOnly = false, searchQuery = null } = req.body;
 
     if (!user.gmailAccessToken) {
       return res.status(400).json({ error: 'Gmail not connected. Please connect Gmail in Settings.' });
@@ -305,6 +305,7 @@ router.post('/api/emails/fetch', isAuthenticated, async (req: Request, res: Resp
       pageToken,
       starredOnly,
       includeSent,
+      sentOnly,
       searchQuery
     });
 
