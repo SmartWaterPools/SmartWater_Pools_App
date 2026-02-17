@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useLocation, useRoute } from "wouter";
 import { format, addDays } from "date-fns";
-import { CalendarIcon, Loader2, Plus, Trash2, ArrowLeft, Send, Save } from "lucide-react";
+import { CalendarIcon, Loader2, Plus, Trash2, ArrowLeft, Send, Save, ChevronDown } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,12 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const lineItemSchema = z.object({
   inventoryItemId: z.coerce.number().optional(),
@@ -1155,31 +1161,42 @@ export default function EstimateForm() {
             >
               Cancel
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleSaveDraft}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Save className="h-4 w-4 mr-2" />
-              )}
-              Save as Draft
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveAndSend}
-              disabled={isPending}
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              {isEditing && existingEstimate?.status !== 'draft' ? 'Save' : 'Save & Send'}
-            </Button>
+            <div className="flex">
+              <Button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isPending}
+                className="rounded-r-none"
+              >
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4 mr-2" />
+                )}
+                Save
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    disabled={isPending}
+                    className="rounded-l-none border-l border-l-primary-foreground/20 px-2"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleSaveDraft}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save as Draft
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSaveAndSend}>
+                    <Send className="h-4 w-4 mr-2" />
+                    Save & Send
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </form>
       </Form>
