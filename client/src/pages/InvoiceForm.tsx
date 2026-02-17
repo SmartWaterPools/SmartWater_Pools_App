@@ -39,6 +39,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 
 const lineItemSchema = z.object({
+  inventoryItemId: z.coerce.number().optional(),
   description: z.string().min(1, "Description is required"),
   quantity: z.coerce.number().min(0.01, "Quantity must be greater than 0").default(1),
   unitPrice: z.coerce.number().min(0, "Unit price must be 0 or greater").default(0),
@@ -133,6 +134,10 @@ export default function InvoiceForm() {
     enabled: !!isEditing,
   });
 
+  const { data: inventoryItems } = useQuery<any[]>({
+    queryKey: ['/api/inventory/items'],
+  });
+
   const today = new Date();
   const defaultDueDate = addDays(today, 30);
 
@@ -148,7 +153,7 @@ export default function InvoiceForm() {
       discountAmount: undefined,
       notes: "",
       terms: "",
-      items: [{ description: "", quantity: 1, unitPrice: 0, itemType: "" }],
+      items: [{ inventoryItemId: undefined, description: "", quantity: 1, unitPrice: 0, itemType: "" }],
     },
   });
 
@@ -176,6 +181,7 @@ export default function InvoiceForm() {
         notes: existingInvoice.notes || "",
         terms: existingInvoice.terms || "",
         items: existingInvoice.items.map(item => ({
+          inventoryItemId: item.inventoryItemId || undefined,
           description: item.description,
           quantity: parseFloat(item.quantity),
           unitPrice: item.unitPrice / 100,
@@ -306,6 +312,7 @@ export default function InvoiceForm() {
       notes: values.notes || null,
       terms: values.terms || null,
       items: values.items.map(item => ({
+        inventoryItemId: item.inventoryItemId || null,
         description: item.description,
         quantity: item.quantity.toString(),
         unitPrice: Math.round(item.unitPrice * 100),
@@ -502,10 +509,11 @@ export default function InvoiceForm() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="hidden md:grid md:grid-cols-12 gap-2 text-sm font-medium text-muted-foreground px-2">
-                <div className="col-span-5">Description</div>
+                <div className="col-span-3">Item</div>
+                <div className="col-span-3">Description</div>
                 <div className="col-span-2">Quantity</div>
                 <div className="col-span-2">Unit Price ($)</div>
-                <div className="col-span-2 text-right">Amount</div>
+                <div className="col-span-1 text-right">Amount</div>
                 <div className="col-span-1"></div>
               </div>
 
@@ -516,11 +524,44 @@ export default function InvoiceForm() {
 
                 return (
                   <div key={field.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-2 border rounded-md">
+                    <div className="col-span-1 md:col-span-3">
+                      <FormLabel className="md:hidden">Item</FormLabel>
+                      <Select
+                        value={form.watch(`items.${index}.inventoryItemId`)?.toString() || ""}
+                        onValueChange={(value) => {
+                          if (value === "custom") {
+                            form.setValue(`items.${index}.inventoryItemId`, undefined);
+                            return;
+                          }
+                          const itemId = parseInt(value);
+                          form.setValue(`items.${index}.inventoryItemId`, itemId);
+                          const selectedItem = inventoryItems?.find((item: any) => item.id === itemId);
+                          if (selectedItem) {
+                            form.setValue(`items.${index}.description`, selectedItem.name + (selectedItem.description ? ` - ${selectedItem.description}` : ''));
+                            form.setValue(`items.${index}.unitPrice`, selectedItem.unitPrice ? selectedItem.unitPrice / 100 : 0);
+                            form.setValue(`items.${index}.itemType`, selectedItem.category || 'product');
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select item..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="custom">Custom Item</SelectItem>
+                          {inventoryItems?.filter((item: any) => item.isActive !== false).map((item: any) => (
+                            <SelectItem key={item.id} value={item.id.toString()}>
+                              {item.name} {item.sku ? `(${item.sku})` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
                     <FormField
                       control={form.control}
                       name={`items.${index}.description`}
                       render={({ field }) => (
-                        <FormItem className="col-span-1 md:col-span-5">
+                        <FormItem className="col-span-1 md:col-span-3">
                           <FormLabel className="md:hidden">Description *</FormLabel>
                           <FormControl>
                             <Input placeholder="Item description" {...field} />
@@ -570,7 +611,7 @@ export default function InvoiceForm() {
                       )}
                     />
 
-                    <div className="col-span-1 md:col-span-2 flex items-center justify-end md:h-10">
+                    <div className="col-span-1 md:col-span-1 flex items-center justify-end md:h-10">
                       <span className="text-sm font-medium">{formatCurrency(lineAmount)}</span>
                     </div>
 
@@ -593,7 +634,7 @@ export default function InvoiceForm() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => append({ description: "", quantity: 1, unitPrice: 0, itemType: "" })}
+                onClick={() => append({ inventoryItemId: undefined, description: "", quantity: 1, unitPrice: 0, itemType: "" })}
                 className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />
