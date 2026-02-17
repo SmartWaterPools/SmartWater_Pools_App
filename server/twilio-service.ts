@@ -29,6 +29,20 @@ export function replaceTemplateVariables(template: string, variables: Record<str
   return result;
 }
 
+export function normalizePhoneNumber(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (phone.startsWith('+')) {
+    return '+' + digits;
+  }
+  if (digits.length === 10) {
+    return '+1' + digits;
+  }
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return '+' + digits;
+  }
+  return '+' + digits;
+}
+
 export class TwilioService {
   async getOrganizationProvider(organizationId: number): Promise<CommunicationProvider | undefined> {
     const providers = await db.select()
@@ -109,8 +123,8 @@ export class TwilioService {
 
         const twilioMessage = await client.messages.create({
           body: message,
-          from: provider.phoneNumber,
-          to,
+          from: normalizePhoneNumber(provider.phoneNumber),
+          to: normalizePhoneNumber(to),
         });
 
         await db.update(smsMessages)
@@ -134,17 +148,26 @@ export class TwilioService {
       } catch (sendError: any) {
         console.error('Twilio API error:', sendError);
 
+        let friendlyError = sendError.message || 'Failed to send SMS';
+        if (sendError.code === 20003 || (sendError.message && sendError.message.includes('Authenticate'))) {
+          friendlyError = 'Twilio authentication failed. Please verify your Account SID and Auth Token in Settings > Communication Providers.';
+        } else if (sendError.code === 21211) {
+          friendlyError = 'Invalid phone number format. Please use a valid phone number.';
+        } else if (sendError.code === 21606) {
+          friendlyError = 'This phone number is not verified with your Twilio trial account.';
+        }
+
         await db.update(smsMessages)
           .set({
             status: 'failed',
-            errorMessage: sendError.message || 'Failed to send SMS',
+            errorMessage: friendlyError,
           })
           .where(eq(smsMessages.id, insertedMessage.id));
 
         return {
           success: false,
           messageId: insertedMessage.id,
-          error: sendError.message || 'Failed to send SMS',
+          error: friendlyError,
         };
       }
     } catch (error: any) {
@@ -177,12 +200,16 @@ export class TwilioService {
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : (process.env.APP_URL || 'https://localhost:5000');
 
-      const twimlUrl = `${baseUrl}/api/twilio/voice/connect?customerPhone=${encodeURIComponent(customerPhone)}`;
+      const normalizedCallerPhone = normalizePhoneNumber(callerPhone);
+      const normalizedCustomerPhone = normalizePhoneNumber(customerPhone);
+      const normalizedProviderPhone = normalizePhoneNumber(provider.phoneNumber);
+
+      const twimlUrl = `${baseUrl}/api/twilio/voice/connect?customerPhone=${encodeURIComponent(normalizedCustomerPhone)}`;
 
       const call = await client.calls.create({
         url: twimlUrl,
-        to: callerPhone,
-        from: provider.phoneNumber,
+        to: normalizedCallerPhone,
+        from: normalizedProviderPhone,
       });
 
       const callLogRecord: InsertCallLog = {
@@ -215,7 +242,15 @@ export class TwilioService {
       };
     } catch (error: any) {
       console.error('Error initiating Twilio call:', error);
-      return { success: false, error: error.message || 'Failed to initiate call' };
+      let friendlyError = error.message || 'Failed to initiate call';
+      if (error.code === 20003 || (error.message && error.message.includes('Authenticate'))) {
+        friendlyError = 'Twilio authentication failed. Please verify your Account SID and Auth Token in Settings > Communication Providers.';
+      } else if (error.code === 21211) {
+        friendlyError = 'Invalid phone number format. Please use a valid phone number.';
+      } else if (error.code === 21606) {
+        friendlyError = 'This phone number is not verified with your Twilio trial account.';
+      }
+      return { success: false, error: friendlyError };
     }
   }
 

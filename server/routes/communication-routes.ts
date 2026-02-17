@@ -3,6 +3,8 @@ import { storage } from '../storage';
 import { isAuthenticated } from '../auth';
 import { insertCommunicationProviderSchema, type User, type CommunicationProvider } from '@shared/schema';
 import { z } from 'zod';
+import twilio from 'twilio';
+import { normalizePhoneNumber } from '../twilio-service';
 
 const router = express.Router();
 
@@ -81,6 +83,23 @@ router.post('/communication-providers', isAuthenticated, async (req: Request, re
       });
     }
 
+    if (validationResult.data.type === 'twilio' && validationResult.data.accountSid && validationResult.data.authToken) {
+      try {
+        const testClient = twilio(validationResult.data.accountSid, validationResult.data.authToken);
+        await testClient.api.accounts(validationResult.data.accountSid).fetch();
+      } catch (twilioError: any) {
+        console.error('Twilio credential validation failed:', twilioError.message);
+        return res.status(400).json({ 
+          error: 'Invalid Twilio credentials. Please verify your Account SID and Auth Token are correct.',
+          details: twilioError.message
+        });
+      }
+    }
+
+    if (validationResult.data.type === 'twilio' && validationResult.data.phoneNumber) {
+      validationResult.data.phoneNumber = normalizePhoneNumber(validationResult.data.phoneNumber);
+    }
+
     const provider = await storage.createCommunicationProvider(validationResult.data);
     res.status(201).json(maskSensitiveFields(provider));
   } catch (error) {
@@ -118,6 +137,27 @@ router.patch('/communication-providers/:id', isAuthenticated, async (req: Reques
         error: 'Validation error', 
         details: validationResult.error.errors 
       });
+    }
+
+    const effectiveType = validationResult.data.type || existingProvider.type;
+    const effectiveSid = validationResult.data.accountSid || existingProvider.accountSid;
+    const effectiveToken = validationResult.data.authToken || existingProvider.authToken;
+
+    if (effectiveType === 'twilio' && (validationResult.data.accountSid || validationResult.data.authToken) && effectiveSid && effectiveToken) {
+      try {
+        const testClient = twilio(effectiveSid, effectiveToken);
+        await testClient.api.accounts(effectiveSid).fetch();
+      } catch (twilioError: any) {
+        console.error('Twilio credential validation failed:', twilioError.message);
+        return res.status(400).json({ 
+          error: 'Invalid Twilio credentials. Please verify your Account SID and Auth Token are correct.',
+          details: twilioError.message
+        });
+      }
+    }
+
+    if (effectiveType === 'twilio' && validationResult.data.phoneNumber) {
+      validationResult.data.phoneNumber = normalizePhoneNumber(validationResult.data.phoneNumber);
     }
 
     const updatedProvider = await storage.updateCommunicationProvider(id, validationResult.data);

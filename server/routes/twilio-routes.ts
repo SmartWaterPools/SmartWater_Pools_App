@@ -1,5 +1,5 @@
 import express, { Request, Response } from 'express';
-import { twilioService } from '../twilio-service';
+import { twilioService, normalizePhoneNumber } from '../twilio-service';
 import { storage } from '../storage';
 import { db } from '../db';
 import { isAuthenticated } from '../auth';
@@ -7,6 +7,21 @@ import { type User, callLogs } from '@shared/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import twilio from 'twilio';
+
+function getTwilioErrorMessage(error: any): string {
+  const code = error.code;
+  const message = error.message || '';
+  if (code === 20003 || message.includes('Authenticate')) {
+    return 'Twilio authentication failed. Please verify your Account SID and Auth Token in Settings > Communication Providers.';
+  }
+  if (code === 21211) {
+    return 'Invalid phone number format. Please use a valid phone number.';
+  }
+  if (code === 21606) {
+    return 'This phone number is not verified with your Twilio trial account.';
+  }
+  return message || 'An unknown Twilio error occurred';
+}
 
 const router = express.Router();
 
@@ -79,9 +94,10 @@ router.post('/send-sms', isAuthenticated, async (req: Request, res: Response) =>
         messageId: result.messageId,
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending SMS via Twilio:', error);
-    res.status(500).json({ error: 'Failed to send SMS' });
+    const friendlyMessage = getTwilioErrorMessage(error);
+    res.status(500).json({ success: false, error: friendlyMessage });
   }
 });
 
@@ -149,9 +165,10 @@ router.post('/call', isAuthenticated, async (req: Request, res: Response) => {
         error: result.error,
       });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error initiating Twilio call:', error);
-    res.status(500).json({ error: 'Failed to initiate call' });
+    const friendlyMessage = getTwilioErrorMessage(error);
+    res.status(500).json({ success: false, error: friendlyMessage });
   }
 });
 
@@ -182,10 +199,11 @@ router.post('/voice/connect', async (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedPhone = normalizePhoneNumber(customerPhone);
     const VoiceResponse = twilio.twiml.VoiceResponse;
     const twiml = new VoiceResponse();
     twiml.say({ voice: 'alice' }, 'Connecting you now.');
-    twiml.dial(customerPhone);
+    twiml.dial(normalizedPhone);
 
     res.type('text/xml');
     res.send(twiml.toString());
