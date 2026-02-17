@@ -1209,6 +1209,7 @@ export const estimateItems = pgTable("estimate_items", {
   maintenanceId: integer("maintenance_id"),
   inventoryItemId: integer("inventory_item_id"),
   sortOrder: integer("sort_order").default(0),
+  billedQuantity: numeric("billed_quantity").default("0"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
 });
 
@@ -1262,6 +1263,7 @@ export const invoices = pgTable("invoices", {
   projectId: integer("project_id"),
   repairId: integer("repair_id"),
   workOrderId: integer("work_order_id"),
+  estimateId: integer("estimate_id"),
   
   // Stripe payment
   stripeInvoiceId: text("stripe_invoice_id"),
