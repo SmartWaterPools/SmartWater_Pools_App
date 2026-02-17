@@ -77,6 +77,10 @@ export const clients = pgTable("clients", {
   poolType: text("pool_type"),
   latitude: doublePrecision("latitude"),
   longitude: doublePrecision("longitude"),
+  billingAddress: text("billing_address"),
+  billingCity: text("billing_city"),
+  billingState: text("billing_state"),
+  billingZip: text("billing_zip"),
 });
 
 export const projects = pgTable("projects", {
@@ -1118,8 +1122,103 @@ export const inventoryAdjustments = pgTable("inventory_adjustments", {
   performedByUserId: integer("performed_by_user_id").notNull(),
   maintenanceId: integer("maintenance_id"),
   repairId: integer("repair_id"),
+  invoiceId: integer("invoice_id"),
+  estimateId: integer("estimate_id"),
   notes: text("notes"),
 });
+
+export const taxTemplates = pgTable("tax_templates", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  name: text("name").notNull(),
+  rate: numeric("rate").notNull(),
+  state: text("state"),
+  region: text("region"),
+  isDefault: boolean("is_default").default(false),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertTaxTemplateSchema = createInsertSchema(taxTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTaxTemplate = z.infer<typeof insertTaxTemplateSchema>;
+export type TaxTemplate = typeof taxTemplates.$inferSelect;
+
+export const ESTIMATE_STATUSES = ['draft', 'sent', 'viewed', 'accepted', 'declined', 'expired', 'converted'] as const;
+export type EstimateStatus = (typeof ESTIMATE_STATUSES)[number];
+
+export const estimates = pgTable("estimates", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  clientId: integer("client_id").notNull(),
+  estimateNumber: text("estimate_number").notNull(),
+  status: text("status").notNull().default("draft"),
+  issueDate: date("issue_date").notNull(),
+  expiryDate: date("expiry_date"),
+  subtotal: integer("subtotal").notNull().default(0),
+  taxRate: numeric("tax_rate").default("0"),
+  taxAmount: integer("tax_amount").default(0),
+  discountAmount: integer("discount_amount").default(0),
+  discountPercent: numeric("discount_percent"),
+  total: integer("total").notNull().default(0),
+  depositType: text("deposit_type").default("none"),
+  depositPercent: numeric("deposit_percent"),
+  depositAmount: integer("deposit_amount").default(0),
+  depositPaid: boolean("deposit_paid").default(false),
+  depositPaidDate: date("deposit_paid_date"),
+  depositPaymentMethod: text("deposit_payment_method"),
+  notes: text("notes"),
+  terms: text("terms"),
+  footer: text("footer"),
+  projectId: integer("project_id"),
+  repairId: integer("repair_id"),
+  workOrderId: integer("work_order_id"),
+  convertedInvoiceId: integer("converted_invoice_id"),
+  sentAt: timestamp("sent_at"),
+  viewedAt: timestamp("viewed_at"),
+  acceptedAt: timestamp("accepted_at"),
+  declinedAt: timestamp("declined_at"),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertEstimateSchema = createInsertSchema(estimates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertEstimate = z.infer<typeof insertEstimateSchema>;
+export type Estimate = typeof estimates.$inferSelect;
+
+export const estimateItems = pgTable("estimate_items", {
+  id: serial("id").primaryKey(),
+  estimateId: integer("estimate_id").notNull(),
+  description: text("description").notNull(),
+  quantity: numeric("quantity").notNull().default("1"),
+  unitPrice: integer("unit_price").notNull(),
+  amount: integer("amount").notNull(),
+  itemType: text("item_type"),
+  workOrderId: integer("work_order_id"),
+  maintenanceId: integer("maintenance_id"),
+  inventoryItemId: integer("inventory_item_id"),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertEstimateItemSchema = createInsertSchema(estimateItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEstimateItem = z.infer<typeof insertEstimateItemSchema>;
+export type EstimateItem = typeof estimateItems.$inferSelect;
 
 // Invoice statuses
 export const INVOICE_STATUSES = ['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled'] as const;

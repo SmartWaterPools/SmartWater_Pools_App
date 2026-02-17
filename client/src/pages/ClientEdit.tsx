@@ -42,6 +42,10 @@ const clientFormSchema = z.object({
   companyName: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  billingAddress: z.string().optional().nullable(),
+  billingCity: z.string().optional().nullable(),
+  billingState: z.string().optional().nullable(),
+  billingZip: z.string().optional().nullable(),
   contractType: z.string()
     .transform(val => {
       if (!val) return "residential";
@@ -77,6 +81,10 @@ export default function ClientEdit() {
       companyName: "",
       latitude: null,
       longitude: null,
+      billingAddress: "",
+      billingCity: "",
+      billingState: "",
+      billingZip: "",
       contractType: "residential",
     },
   });
@@ -98,6 +106,10 @@ export default function ClientEdit() {
         address: data.address || null,
         companyName: data.companyName || null,
         contractType: normalizedContractType,
+        billingAddress: data.billingAddress || null,
+        billingCity: data.billingCity || null,
+        billingState: data.billingState || null,
+        billingZip: data.billingZip || null,
       };
 
       // Add coordinates if available (will be saved as addressLat/addressLng in users table)
@@ -147,6 +159,10 @@ export default function ClientEdit() {
         companyName: client.companyName || client.client?.companyName || "",
         latitude: client.client?.latitude || null,
         longitude: client.client?.longitude || null,
+        billingAddress: client.client?.billingAddress || "",
+        billingCity: client.client?.billingCity || "",
+        billingState: client.client?.billingState || "",
+        billingZip: client.client?.billingZip || "",
         contractType: contractTypeValue,
       });
     }
@@ -315,6 +331,66 @@ export default function ClientEdit() {
                             <SelectItem value="maintenance">Maintenance</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Billing Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="billingAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="123 Main St" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="billingCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="billingState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing State</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State" {...field} value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="billingZip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing Zip</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Zip Code" {...field} value={field.value || ""} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

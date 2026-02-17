@@ -413,6 +413,22 @@ export default function ClientDetails() {
                     />
                   </div>
                   
+                  {(client.client?.billingAddress || client.client?.billingCity || client.client?.billingState || client.client?.billingZip) && (
+                    <div className="pt-2 border-t mt-2">
+                      <p className="text-sm font-medium text-gray-500 mb-1">Billing Address</p>
+                      <div className="flex items-start">
+                        <MapPin className="h-5 w-5 mr-2 text-gray-500 mt-0.5" />
+                        <div>
+                          {client.client?.billingAddress && <p>{client.client.billingAddress}</p>}
+                          <p>
+                            {[client.client?.billingCity, client.client?.billingState].filter(Boolean).join(', ')}
+                            {client.client?.billingZip ? ` ${client.client.billingZip}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Google Maps integration */}
                   {client.user.address && (
                     <div className="mt-4 pt-3 border-t border-gray-100">

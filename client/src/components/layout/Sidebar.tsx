@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useRoute, useLocation } from "wouter";
 import { 
   LayoutDashboard, 
@@ -24,7 +24,10 @@ import {
   ClipboardList,
   FileText,
   Package,
-  CalendarRange
+  CalendarRange,
+  DollarSign,
+  Calculator,
+  ChevronDown
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -66,6 +69,17 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnBusiness] = useRoute("/business");
   const [isOnReports] = useRoute("/reports");
   const [isOnInvoices] = useRoute("/invoices");
+  const [isOnEstimates] = useRoute("/estimates");
+  const isOnBilling = isOnInvoices || isOnEstimates || location.startsWith('/invoices') || location.startsWith('/estimates');
+  const [isBillingExpanded, setIsBillingExpanded] = useState(() => {
+    return location.startsWith('/invoices') || location.startsWith('/estimates');
+  });
+
+  useEffect(() => {
+    if (location.startsWith('/invoices') || location.startsWith('/estimates')) {
+      setIsBillingExpanded(true);
+    }
+  }, [location]);
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
   const [isOnWorkOrders] = useRoute("/work-orders");
@@ -113,7 +127,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
       case '/reports':
         return 'Reports';
       case '/invoices':
-        return 'Invoices';
+        return 'Billing';
+      case '/estimates':
+        return 'Estimates';
       case '/settings':
         return 'Settings';
       case '/inventory':
@@ -150,7 +166,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
       case '/reports':
         return <FileText className="h-4 w-4" />;
       case '/invoices':
-        return <FileText className="h-4 w-4" />;
+        return <DollarSign className="h-4 w-4" />;
+      case '/estimates':
+        return <Calculator className="h-4 w-4" />;
       case '/settings':
         return <Settings className="h-4 w-4" />;
       case '/inventory':
@@ -596,37 +614,76 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             )}
           </div>
           
-          {/* Invoices */}
-          <div
-            onClick={(e) => handleSidebarNavigation(e, "/invoices")}
-            className={cn(
-              "flex cursor-pointer",
-              isCollapsed 
-                ? "flex-col items-center justify-center p-2" 
-                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
-            )}
-          >
-            <div className={cn(
-              "flex items-center justify-center",
-              isCollapsed ? "p-1 rounded-md" : "mr-3",
-              isOnInvoices ? "text-primary" : "text-gray-500"
-            )}>
-              <FileText className="h-5 w-5" />
+          {/* Billing */}
+          <div>
+            <div
+              onClick={() => {
+                if (isCollapsed) {
+                  handleSidebarNavigation({preventDefault: () => {}} as any, "/invoices");
+                } else {
+                  setIsBillingExpanded(!isBillingExpanded);
+                }
+              }}
+              className={cn(
+                "flex cursor-pointer",
+                isCollapsed 
+                  ? "flex-col items-center justify-center p-2" 
+                  : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+              )}
+            >
+              <div className={cn(
+                "flex items-center justify-center",
+                isCollapsed ? "p-1 rounded-md" : "mr-3",
+                isOnBilling ? "text-primary" : "text-gray-500"
+              )}>
+                <DollarSign className="h-5 w-5" />
+              </div>
+              {!isCollapsed ? (
+                <div className="flex items-center justify-between flex-1">
+                  <span className={cn(
+                    "text-sm font-medium",
+                    isOnBilling ? "text-primary" : "text-gray-700"
+                  )}>
+                    Billing
+                  </span>
+                  <ChevronDown className={cn(
+                    "h-4 w-4 transition-transform",
+                    isBillingExpanded ? "rotate-180" : "",
+                    isOnBilling ? "text-primary" : "text-gray-400"
+                  )} />
+                </div>
+              ) : (
+                <span className={cn(
+                  "text-xs mt-0.5",
+                  isOnBilling ? "text-primary font-medium" : "text-gray-500"
+                )}>
+                  Billing
+                </span>
+              )}
             </div>
-            {!isCollapsed ? (
-              <span className={cn(
-                "text-sm font-medium",
-                isOnInvoices ? "text-primary" : "text-gray-700"
-              )}>
-                Invoices
-              </span>
-            ) : (
-              <span className={cn(
-                "text-xs mt-0.5",
-                isOnInvoices ? "text-primary font-medium" : "text-gray-500"
-              )}>
-                Invoices
-              </span>
+            {!isCollapsed && isBillingExpanded && (
+              <div className="ml-8 mt-1 space-y-1">
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/invoices")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    isOnInvoices ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Invoices</span>
+                </div>
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/estimates")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    isOnEstimates ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <Calculator className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Estimates</span>
+                </div>
+              </div>
             )}
           </div>
           
@@ -1011,10 +1068,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           onClick={(e) => handleSidebarNavigation(e, "/invoices")}
           className="flex flex-col items-center px-3 py-1"
         >
-          <div className={cn("p-1 rounded-md", isOnInvoices ? "text-primary" : "text-gray-500")}>
-            <FileText className="h-5 w-5" />
+          <div className={cn("p-1 rounded-md", isOnBilling ? "text-primary" : "text-gray-500")}>
+            <DollarSign className="h-5 w-5" />
           </div>
-          <span className={cn("text-xs mt-0.5", isOnInvoices ? "text-primary font-medium" : "text-gray-500")}>Invoices</span>
+          <span className={cn("text-xs mt-0.5", isOnBilling ? "text-primary font-medium" : "text-gray-500")}>Billing</span>
         </div>
         
         <div 

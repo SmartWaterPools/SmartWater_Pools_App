@@ -38,6 +38,9 @@ import MaintenanceOrders from "@/pages/MaintenanceOrders";
 import Invoices from "@/pages/Invoices";
 import InvoiceForm from "@/pages/InvoiceForm";
 import InvoiceDetail from "@/pages/InvoiceDetail";
+import Estimates from "@/pages/Estimates";
+import EstimateForm from "@/pages/EstimateForm";
+import EstimateDetail from "@/pages/EstimateDetail";
 import DispatchBoard from "@/pages/DispatchBoard";
 import ServiceReportView from "@/pages/ServiceReportView";
 import Reports from "@/pages/Reports";
@@ -108,6 +111,10 @@ function Router() {
       <Route path="/invoices/:id/edit" component={() => <ProtectedRoute component={InvoiceForm} />} />
       <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} />} />
       <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} />} />
+      <Route path="/estimates/new" component={() => <ProtectedRoute component={EstimateForm} />} />
+      <Route path="/estimates/:id/edit" component={() => <ProtectedRoute component={EstimateForm} />} />
+      <Route path="/estimates/:id" component={() => <ProtectedRoute component={EstimateDetail} />} />
+      <Route path="/estimates" component={() => <ProtectedRoute component={Estimates} />} />
       <Route path="/business" component={() => <ProtectedRoute component={Business} />} />
       <Route path="/inventory" component={() => <ProtectedRoute component={InventoryManagement} />} />
       <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />

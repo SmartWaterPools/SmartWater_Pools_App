@@ -39,6 +39,10 @@ const clientFormSchema = z.object({
   address: z.string().optional(),
   companyName: z.string().optional(),
   contractType: z.string().optional(),
+  billingAddress: z.string().optional(),
+  billingCity: z.string().optional(),
+  billingState: z.string().optional(),
+  billingZip: z.string().optional(),
   username: z.string().min(4, { message: "Username must be at least 4 characters" }),
   password: z.string().min(6, { message: "Password must be at least 6 characters" }),
   role: z.string().default("client"),
@@ -83,7 +87,11 @@ export default function ClientAdd() {
           companyName: data.companyName || null,
           contractType: data.contractType || null,
           latitude: data.latitude || null,
-          longitude: data.longitude || null
+          longitude: data.longitude || null,
+          billingAddress: data.billingAddress || null,
+          billingCity: data.billingCity || null,
+          billingState: data.billingState || null,
+          billingZip: data.billingZip || null
         }
       };
 
@@ -303,6 +311,66 @@ export default function ClientAdd() {
                             <SelectItem value="maintenance">Maintenance</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <Separator />
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium">Billing Address</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="billingAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="123 Main St" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="billingCity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="billingState"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing State</FormLabel>
+                        <FormControl>
+                          <Input placeholder="State" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="billingZip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Billing Zip</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Zip Code" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

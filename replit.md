@@ -43,9 +43,14 @@ Preferred communication style: Simple, everyday language.
 - **Features**: CRUD operations, search/filter, inline stock adjustment, integration with work orders for automatic deduction, integration with vendor invoices for stock updates.
 - **Standalone Page**: Full-featured `/inventory` hub with tabs for Items, Warehouses, Vehicles, Transfers, and Reports. Includes comprehensive CRUD for all related entities.
 
-### Invoicing Platform
-- **Purpose**: Client invoicing with online payment processing.
-- **Features**: Auto-generated invoice numbers, detailed line items, manual payment recording, Stripe integration, webhook handling.
+### Billing Platform (Invoices & Estimates)
+- **Purpose**: Client invoicing and estimates with online payment processing.
+- **Navigation**: "Billing" section in sidebar with expandable sub-items for Invoices and Estimates.
+- **Invoicing Features**: Auto-generated invoice numbers, detailed line items, manual payment recording, Stripe integration, webhook handling, inventory deduction on finalization.
+- **Estimates Features**: Auto-generated estimate numbers, detailed line items, deposit support (fixed or percentage), accept/decline workflow, convert-to-invoice functionality, inventory deduction on acceptance.
+- **Tax Templates**: Saveable tax templates in Settings (name, rate, state/region), auto-imported based on client billing address when creating invoices/estimates.
+- **Inventory Integration**: When invoices are sent or estimates are accepted, inventory items referenced in line items are automatically deducted with full audit trail in inventory adjustments.
+- **Client Billing Address**: Clients have billing address fields (address, city, state, zip) used for tax template auto-import.
 
 ### Work Order & Maintenance Order System
 - **Purpose**: Comprehensive order management for one-time jobs (Work Orders) and recurring schedules (Maintenance Orders).

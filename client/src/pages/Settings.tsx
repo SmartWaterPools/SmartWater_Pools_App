@@ -12,7 +12,8 @@ import { NotificationSettings } from "@/components/settings/NotificationSettings
 import { PermissionSettings } from "@/components/settings/PermissionSettings";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
-import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail, Settings as SettingsIcon, Server, User, UserPlus } from "lucide-react";
+import { TaxTemplates } from "@/components/settings/TaxTemplates";
+import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail, Settings as SettingsIcon, Server, User, UserPlus, Receipt } from "lucide-react";
 
 export default function Settings() {
   const [, params] = useLocation();
@@ -70,6 +71,10 @@ export default function Settings() {
               <LayoutGrid className="h-4 w-4" />
               <span className="whitespace-nowrap">Appearance</span>
             </TabsTrigger>
+            <TabsTrigger value="tax-templates" className="flex gap-2 items-center px-4 py-2">
+              <Receipt className="h-4 w-4" />
+              <span className="whitespace-nowrap">Tax Templates</span>
+            </TabsTrigger>
             <TabsTrigger value="advanced" className="flex gap-2 items-center px-4 py-2">
               <SettingsIcon className="h-4 w-4" />
               <span className="whitespace-nowrap">Advanced</span>
@@ -107,6 +112,10 @@ export default function Settings() {
 
         <TabsContent value="appearance" className="space-y-4">
           <AppearanceSettings />
+        </TabsContent>
+
+        <TabsContent value="tax-templates" className="space-y-4">
+          <TaxTemplates />
         </TabsContent>
         
         <TabsContent value="advanced" className="space-y-4">

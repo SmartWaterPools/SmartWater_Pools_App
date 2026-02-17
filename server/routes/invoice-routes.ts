@@ -7,6 +7,43 @@ import Stripe from 'stripe';
 
 const router = Router();
 
+async function deductInventoryForItems(items: any[], sourceType: 'invoice' | 'estimate', sourceId: number, userId: number) {
+  for (const item of items) {
+    if (item.inventoryItemId) {
+      const inventoryItem = await storage.getInventoryItem(item.inventoryItemId);
+      if (inventoryItem) {
+        const currentQty = parseFloat(inventoryItem.quantity || "0");
+        const deductQty = parseFloat(item.quantity) || 1;
+        const newQty = Math.max(0, currentQty - deductQty);
+        
+        await storage.updateInventoryItem(item.inventoryItemId, {
+          quantity: newQty.toString(),
+          updatedAt: new Date(),
+        });
+        
+        const adjustmentData: any = {
+          adjustmentDate: new Date(),
+          locationType: 'global',
+          locationId: 0,
+          inventoryItemId: item.inventoryItemId,
+          previousQuantity: Math.round(currentQty),
+          newQuantity: Math.round(newQty),
+          reason: `${sourceType === 'invoice' ? 'Invoice' : 'Estimate'} #${sourceId} - ${item.description || 'Line item'}`,
+          performedByUserId: userId,
+        };
+        
+        if (sourceType === 'invoice') {
+          adjustmentData.invoiceId = sourceId;
+        } else {
+          adjustmentData.estimateId = sourceId;
+        }
+        
+        await storage.createInventoryAdjustment(adjustmentData);
+      }
+    }
+  }
+}
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16'
 });
@@ -153,27 +190,52 @@ router.post("/", isAuthenticated, async (req, res) => {
     const user = req.user as any;
     const { items: itemsData, ...invoiceData } = req.body;
     
+    if (!invoiceData.clientId || invoiceData.clientId === 0) {
+      return res.status(400).json({ error: "Client is required" });
+    }
+    if (!invoiceData.issueDate) {
+      return res.status(400).json({ error: "Issue date is required" });
+    }
+    if (!invoiceData.dueDate) {
+      return res.status(400).json({ error: "Due date is required" });
+    }
+
+    const safeInvoiceData = {
+      ...invoiceData,
+      issueDate: typeof invoiceData.issueDate === 'string' ? invoiceData.issueDate : new Date(invoiceData.issueDate).toISOString().split('T')[0],
+      dueDate: typeof invoiceData.dueDate === 'string' ? invoiceData.dueDate : new Date(invoiceData.dueDate).toISOString().split('T')[0],
+    };
+
     const totals = calculateInvoiceTotals(
       itemsData || [],
-      invoiceData.taxRate || "0",
-      invoiceData.discountPercent,
-      invoiceData.discountAmount || 0
+      safeInvoiceData.taxRate || "0",
+      safeInvoiceData.discountPercent,
+      safeInvoiceData.discountAmount || 0
     );
     
-    const invoiceNumber = invoiceData.invoiceNumber || await storage.getNextInvoiceNumber(user.organizationId);
+    const invoiceNumber = safeInvoiceData.invoiceNumber || await storage.getNextInvoiceNumber(user.organizationId);
     
-    const parsedInvoice = insertInvoiceSchema.parse({
-      ...invoiceData,
-      organizationId: user.organizationId,
-      invoiceNumber,
-      subtotal: totals.subtotal,
-      taxAmount: totals.taxAmount,
-      discountAmount: totals.discountAmount,
-      total: totals.total,
-      amountDue: totals.total,
-      amountPaid: 0,
-      createdBy: user.id,
-    });
+    let parsedInvoice;
+    try {
+      parsedInvoice = insertInvoiceSchema.parse({
+        ...safeInvoiceData,
+        organizationId: user.organizationId,
+        invoiceNumber,
+        subtotal: totals.subtotal,
+        taxAmount: totals.taxAmount,
+        discountAmount: totals.discountAmount,
+        total: totals.total,
+        amountDue: totals.total,
+        amountPaid: 0,
+        createdBy: user.id,
+      });
+    } catch (validationError) {
+      if (validationError instanceof z.ZodError) {
+        console.error("Invoice schema validation error:", JSON.stringify(validationError.errors));
+        return res.status(400).json({ error: "Invalid invoice data", details: validationError.errors });
+      }
+      throw validationError;
+    }
     
     const invoice = await storage.createInvoice(parsedInvoice);
     
@@ -197,9 +259,11 @@ router.post("/", isAuthenticated, async (req, res) => {
     res.status(201).json({ ...invoice, items, payments: [] });
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.error("Invoice validation error:", JSON.stringify(error.errors));
       return res.status(400).json({ error: "Invalid invoice data", details: error.errors });
     }
-    console.error("Error creating invoice:", error);
+    console.error("Error creating invoice:", error instanceof Error ? error.message : error);
+    console.error("Error stack:", error instanceof Error ? error.stack : '');
     res.status(500).json({ error: "Failed to create invoice" });
   }
 });
@@ -251,6 +315,12 @@ router.patch("/:id", isAuthenticated, async (req, res) => {
     }
     
     const invoice = await storage.updateInvoice(id, updateData);
+
+    if (existingInvoice.status === 'draft' && req.body.status && req.body.status !== 'draft') {
+      const items = await storage.getInvoiceItems(id);
+      await deductInventoryForItems(items, 'invoice', id, user.id);
+    }
+
     const items = await storage.getInvoiceItems(id);
     const payments = await storage.getInvoicePayments(id);
     

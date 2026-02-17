@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql, gte } from "drizzle-orm";
 
@@ -253,6 +253,32 @@ export interface IStorage {
   getInvoicePayments(invoiceId: number): Promise<InvoicePayment[]>;
   createInvoicePayment(payment: InsertInvoicePayment): Promise<InvoicePayment>;
   deleteInvoicePayment(id: number): Promise<boolean>;
+
+  // Estimate operations
+  getEstimates(organizationId: number): Promise<Estimate[]>;
+  getEstimate(id: number): Promise<Estimate | undefined>;
+  getEstimatesByClient(clientId: number): Promise<Estimate[]>;
+  getEstimatesByStatus(status: string, organizationId: number): Promise<Estimate[]>;
+  createEstimate(estimate: InsertEstimate): Promise<Estimate>;
+  updateEstimate(id: number, data: Partial<Estimate>): Promise<Estimate | undefined>;
+  deleteEstimate(id: number): Promise<boolean>;
+  getNextEstimateNumber(organizationId: number): Promise<string>;
+
+  // Estimate Item operations
+  getEstimateItems(estimateId: number): Promise<EstimateItem[]>;
+  createEstimateItem(item: InsertEstimateItem): Promise<EstimateItem>;
+  updateEstimateItem(id: number, data: Partial<EstimateItem>): Promise<EstimateItem | undefined>;
+  deleteEstimateItem(id: number): Promise<boolean>;
+  deleteEstimateItemsByEstimate(estimateId: number): Promise<boolean>;
+
+  // Tax Template operations
+  getTaxTemplates(organizationId: number): Promise<TaxTemplate[]>;
+  getTaxTemplate(id: number): Promise<TaxTemplate | undefined>;
+  getTaxTemplatesByState(state: string, organizationId: number): Promise<TaxTemplate[]>;
+  getDefaultTaxTemplate(organizationId: number): Promise<TaxTemplate | undefined>;
+  createTaxTemplate(template: InsertTaxTemplate): Promise<TaxTemplate>;
+  updateTaxTemplate(id: number, data: Partial<TaxTemplate>): Promise<TaxTemplate | undefined>;
+  deleteTaxTemplate(id: number): Promise<boolean>;
 
   // Work Order Request operations
   getWorkOrderRequests(organizationId?: number): Promise<WorkOrderRequest[]>;
@@ -2078,6 +2104,172 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBazzaMaintenanceAssignment(id: number): Promise<boolean> {
     const result = await db.delete(bazzaMaintenanceAssignments).where(eq(bazzaMaintenanceAssignments.id, id)).returning();
+    return result.length > 0;
+  }
+
+  // Estimate operations
+  async getEstimates(organizationId: number): Promise<Estimate[]> {
+    return await db.select()
+      .from(estimates)
+      .where(eq(estimates.organizationId, organizationId))
+      .orderBy(desc(estimates.createdAt));
+  }
+
+  async getEstimate(id: number): Promise<Estimate | undefined> {
+    const result = await db.select()
+      .from(estimates)
+      .where(eq(estimates.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getEstimatesByClient(clientId: number): Promise<Estimate[]> {
+    return await db.select()
+      .from(estimates)
+      .where(eq(estimates.clientId, clientId))
+      .orderBy(desc(estimates.createdAt));
+  }
+
+  async getEstimatesByStatus(status: string, organizationId: number): Promise<Estimate[]> {
+    return await db.select()
+      .from(estimates)
+      .where(and(
+        eq(estimates.status, status),
+        eq(estimates.organizationId, organizationId)
+      ))
+      .orderBy(desc(estimates.createdAt));
+  }
+
+  async createEstimate(estimate: InsertEstimate): Promise<Estimate> {
+    const result = await db.insert(estimates).values(estimate).returning();
+    return result[0];
+  }
+
+  async updateEstimate(id: number, data: Partial<Estimate>): Promise<Estimate | undefined> {
+    const result = await db.update(estimates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(estimates.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteEstimate(id: number): Promise<boolean> {
+    const result = await db.delete(estimates)
+      .where(eq(estimates.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getNextEstimateNumber(organizationId: number): Promise<string> {
+    const result = await db.select()
+      .from(estimates)
+      .where(eq(estimates.organizationId, organizationId))
+      .orderBy(desc(estimates.estimateNumber))
+      .limit(1);
+    
+    if (result.length === 0 || !result[0].estimateNumber) {
+      return 'EST-00001';
+    }
+    
+    const lastNumber = result[0].estimateNumber;
+    const match = lastNumber.match(/EST-(\d+)/);
+    if (!match) {
+      return 'EST-00001';
+    }
+    
+    const nextNum = parseInt(match[1], 10) + 1;
+    return `EST-${nextNum.toString().padStart(5, '0')}`;
+  }
+
+  // Estimate Item operations
+  async getEstimateItems(estimateId: number): Promise<EstimateItem[]> {
+    return await db.select()
+      .from(estimateItems)
+      .where(eq(estimateItems.estimateId, estimateId))
+      .orderBy(estimateItems.sortOrder);
+  }
+
+  async createEstimateItem(item: InsertEstimateItem): Promise<EstimateItem> {
+    const result = await db.insert(estimateItems).values(item).returning();
+    return result[0];
+  }
+
+  async updateEstimateItem(id: number, data: Partial<EstimateItem>): Promise<EstimateItem | undefined> {
+    const result = await db.update(estimateItems)
+      .set(data)
+      .where(eq(estimateItems.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteEstimateItem(id: number): Promise<boolean> {
+    const result = await db.delete(estimateItems)
+      .where(eq(estimateItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async deleteEstimateItemsByEstimate(estimateId: number): Promise<boolean> {
+    await db.delete(estimateItems)
+      .where(eq(estimateItems.estimateId, estimateId));
+    return true;
+  }
+
+  // Tax Template operations
+  async getTaxTemplates(organizationId: number): Promise<TaxTemplate[]> {
+    return await db.select()
+      .from(taxTemplates)
+      .where(eq(taxTemplates.organizationId, organizationId))
+      .orderBy(taxTemplates.name);
+  }
+
+  async getTaxTemplate(id: number): Promise<TaxTemplate | undefined> {
+    const result = await db.select()
+      .from(taxTemplates)
+      .where(eq(taxTemplates.id, id))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async getTaxTemplatesByState(state: string, organizationId: number): Promise<TaxTemplate[]> {
+    return await db.select()
+      .from(taxTemplates)
+      .where(and(
+        eq(taxTemplates.state, state),
+        eq(taxTemplates.organizationId, organizationId),
+        eq(taxTemplates.isActive, true)
+      ));
+  }
+
+  async getDefaultTaxTemplate(organizationId: number): Promise<TaxTemplate | undefined> {
+    const result = await db.select()
+      .from(taxTemplates)
+      .where(and(
+        eq(taxTemplates.organizationId, organizationId),
+        eq(taxTemplates.isDefault, true),
+        eq(taxTemplates.isActive, true)
+      ))
+      .limit(1);
+    return result[0] || undefined;
+  }
+
+  async createTaxTemplate(template: InsertTaxTemplate): Promise<TaxTemplate> {
+    const result = await db.insert(taxTemplates).values(template).returning();
+    return result[0];
+  }
+
+  async updateTaxTemplate(id: number, data: Partial<TaxTemplate>): Promise<TaxTemplate | undefined> {
+    const result = await db.update(taxTemplates)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(taxTemplates.id, id))
+      .returning();
+    return result[0] || undefined;
+  }
+
+  async deleteTaxTemplate(id: number): Promise<boolean> {
+    const result = await db.delete(taxTemplates)
+      .where(eq(taxTemplates.id, id))
+      .returning();
     return result.length > 0;
   }
 

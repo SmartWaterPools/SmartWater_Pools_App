@@ -24,6 +24,8 @@ import maintenanceOrderRoutes from "./routes/maintenance-order-routes";
 import registerInventoryRoutes from "./routes/inventory-routes";
 import dispatchRoutes from "./routes/dispatch-routes";
 import serviceReportRoutes from "./routes/service-report-routes";
+import estimateRoutes from "./routes/estimate-routes";
+import taxTemplateRoutes from "./routes/tax-template-routes";
 import { isAuthenticated } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users } from "@shared/schema";
 
@@ -112,6 +114,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount invoice routes
   app.use('/api/invoices', invoiceRoutes);
+
+  // Mount estimate routes
+  app.use('/api/estimates', estimateRoutes);
+
+  // Mount tax template routes
+  app.use('/api/tax-templates', taxTemplateRoutes);
 
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();
@@ -374,7 +382,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new client endpoint
   app.post('/api/clients', isAuthenticated, async (req, res) => {
     try {
-      const { name, email, phone, address, addressLat, addressLng, companyName, contractType } = req.body;
+      // Support both flat and nested body formats
+      const userData = req.body.user || req.body;
+      const clientData = req.body.client || req.body;
+      
+      const { name, email, phone, address, username: providedUsername, password } = userData;
+      const { addressLat, addressLng, companyName, contractType, billingAddress, billingCity, billingState, billingZip } = clientData;
       
       // Require organization ID from authenticated user
       const user = req.user as User;
@@ -383,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate unique username - handle potential duplicates
-      let username = email.split('@')[0];
+      let username = providedUsername || email.split('@')[0];
       let suffix = 0;
       let uniqueUsername = username;
       
@@ -405,8 +418,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: 'client',
         organizationId: user.organizationId,
         active: true,
-        authProvider: 'local'
+        authProvider: 'local',
+        ...(password ? { password } : {})
       });
+      
+      // Create client record with billing fields if any client-specific data provided
+      if (companyName || contractType || billingAddress || billingCity || billingState || billingZip) {
+        try {
+          await db.insert(clients).values({
+            userId: newClient.id,
+            organizationId: user.organizationId,
+            companyName: companyName || null,
+            contractType: contractType || null,
+            billingAddress: billingAddress || null,
+            billingCity: billingCity || null,
+            billingState: billingState || null,
+            billingZip: billingZip || null,
+            latitude: clientData.latitude || null,
+            longitude: clientData.longitude || null,
+          });
+        } catch (clientErr) {
+          console.error('Failed to create client record:', clientErr);
+        }
+      }
       
       // Sanitize the response - remove sensitive fields
       const sanitizedClient = {
@@ -646,14 +680,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Explicitly exclude: password, googleId, photoUrl
       };
       
+      // Fetch the client record from the clients table for billing fields
+      const clientRecords = await db.select().from(clients).where(eq(clients.userId, client.id));
+      const clientRecord = clientRecords[0] || null;
+      
       // Return client data in the expected format
       res.json({
         client: {
-          id: client.id,
-          companyName: null, // Will need to add this field to users table later
-          contractType: 'residential', // Default value for now
-          latitude: client.addressLat ? parseFloat(client.addressLat) : null,
-          longitude: client.addressLng ? parseFloat(client.addressLng) : null
+          id: clientRecord?.id || client.id,
+          companyName: clientRecord?.companyName || null,
+          contractType: clientRecord?.contractType || 'residential',
+          latitude: clientRecord?.latitude || (client.addressLat ? parseFloat(client.addressLat) : null),
+          longitude: clientRecord?.longitude || (client.addressLng ? parseFloat(client.addressLng) : null),
+          billingAddress: clientRecord?.billingAddress || null,
+          billingCity: clientRecord?.billingCity || null,
+          billingState: clientRecord?.billingState || null,
+          billingZip: clientRecord?.billingZip || null,
         },
         user: sanitizedClient,
         // Add convenience fields
@@ -683,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      const { name, email, phone, address, addressLat, addressLng, companyName, contractType } = req.body;
+      const { name, email, phone, address, addressLat, addressLng, companyName, contractType, billingAddress, billingCity, billingState, billingZip } = req.body;
       
       // Build update object with only provided fields
       const updateData: Partial<User> = {};
@@ -703,14 +745,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: 'Failed to update client' });
       }
       
+      // Update billing fields in the clients table
+      const clientRecords = await db.select().from(clients).where(eq(clients.userId, clientId));
+      let clientRecord = clientRecords[0] || null;
+      
+      const clientUpdateData: Record<string, any> = {};
+      if (companyName !== undefined) clientUpdateData.companyName = companyName;
+      if (contractType !== undefined) clientUpdateData.contractType = contractType;
+      if (billingAddress !== undefined) clientUpdateData.billingAddress = billingAddress;
+      if (billingCity !== undefined) clientUpdateData.billingCity = billingCity;
+      if (billingState !== undefined) clientUpdateData.billingState = billingState;
+      if (billingZip !== undefined) clientUpdateData.billingZip = billingZip;
+      
+      if (clientRecord && Object.keys(clientUpdateData).length > 0) {
+        await db.update(clients).set(clientUpdateData).where(eq(clients.id, clientRecord.id));
+      } else if (!clientRecord && Object.keys(clientUpdateData).length > 0) {
+        const insertData = { userId: clientId, ...clientUpdateData };
+        const inserted = await db.insert(clients).values(insertData).returning();
+        clientRecord = inserted[0] || null;
+      }
+      
+      // Re-fetch client record for response
+      const updatedClientRecords = await db.select().from(clients).where(eq(clients.userId, clientId));
+      const updatedClientRecord = updatedClientRecords[0] || null;
+      
       // Return updated client data in the expected format
       res.json({
         client: {
-          id: updatedClient.id,
-          companyName: companyName || null,
-          contractType: contractType || 'residential',
-          latitude: updatedClient.addressLat ? parseFloat(updatedClient.addressLat) : null,
-          longitude: updatedClient.addressLng ? parseFloat(updatedClient.addressLng) : null
+          id: updatedClientRecord?.id || updatedClient.id,
+          companyName: updatedClientRecord?.companyName || companyName || null,
+          contractType: updatedClientRecord?.contractType || contractType || 'residential',
+          latitude: updatedClientRecord?.latitude || (updatedClient.addressLat ? parseFloat(updatedClient.addressLat) : null),
+          longitude: updatedClientRecord?.longitude || (updatedClient.addressLng ? parseFloat(updatedClient.addressLng) : null),
+          billingAddress: updatedClientRecord?.billingAddress || null,
+          billingCity: updatedClientRecord?.billingCity || null,
+          billingState: updatedClientRecord?.billingState || null,
+          billingZip: updatedClientRecord?.billingZip || null,
         },
         user: {
           id: updatedClient.id,

@@ -45,48 +45,53 @@ const lineItemSchema = z.object({
   itemType: z.string().optional(),
 });
 
-const invoiceFormSchema = z.object({
+const estimateFormSchema = z.object({
   clientId: z.coerce.number({
     required_error: "Client is required",
   }).min(1, "Please select a client"),
-  invoiceNumber: z.string().min(1, "Invoice number is required"),
+  estimateNumber: z.string().min(1, "Estimate number is required"),
   issueDate: z.date({
     required_error: "Issue date is required",
   }),
-  dueDate: z.date({
-    required_error: "Due date is required",
+  expiryDate: z.date({
+    required_error: "Expiry date is required",
   }),
   taxRate: z.coerce.number().min(0).max(100).default(0),
   discountPercent: z.coerce.number().min(0).max(100).optional(),
   discountAmount: z.coerce.number().min(0).optional(),
+  depositType: z.string().default("none"),
+  depositPercent: z.coerce.number().min(0).max(100).optional(),
+  depositAmount: z.coerce.number().min(0).optional(),
   notes: z.string().optional(),
   terms: z.string().optional(),
   items: z.array(lineItemSchema).min(1, "At least one line item is required"),
 });
 
-type InvoiceFormValues = z.infer<typeof invoiceFormSchema>;
+type EstimateFormValues = z.infer<typeof estimateFormSchema>;
 
 type Client = {
   id: number;
   userId: number;
+  billingState?: string | null;
   user?: { name: string; email: string };
 };
 
-type InvoiceWithItems = {
+type EstimateWithItems = {
   id: number;
   clientId: number;
-  invoiceNumber: string;
+  estimateNumber: string;
   status: string;
   issueDate: string;
-  dueDate: string;
+  expiryDate: string | null;
   taxRate: string | null;
   discountPercent: string | null;
   discountAmount: number | null;
   subtotal: number;
   taxAmount: number | null;
   total: number;
-  amountPaid: number | null;
-  amountDue: number;
+  depositType: string | null;
+  depositPercent: string | null;
+  depositAmount: number | null;
   notes: string | null;
   terms: string | null;
   items: {
@@ -99,53 +104,63 @@ type InvoiceWithItems = {
   }[];
 };
 
+type TaxTemplate = {
+  id: number;
+  name: string;
+  state: string;
+  rate: string;
+};
+
 const statusColors: Record<string, string> = {
   draft: "bg-gray-100 text-gray-700",
   sent: "bg-blue-100 text-blue-700",
   viewed: "bg-purple-100 text-purple-700",
-  partial: "bg-yellow-100 text-yellow-700",
-  paid: "bg-green-100 text-green-700",
-  overdue: "bg-red-100 text-red-700",
-  cancelled: "bg-gray-100 text-gray-500 line-through",
+  accepted: "bg-green-100 text-green-700",
+  declined: "bg-red-100 text-red-700",
+  expired: "bg-orange-100 text-orange-700",
+  converted: "bg-indigo-100 text-indigo-700",
 };
 
-export default function InvoiceForm() {
+export default function EstimateForm() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const params = useParams<{ id?: string }>();
-  const [isEditMode] = useRoute("/invoices/:id/edit");
-  
-  const invoiceId = params.id ? parseInt(params.id) : undefined;
-  const isEditing = isEditMode && invoiceId;
+  const [isEditMode] = useRoute("/estimates/:id/edit");
+
+  const estimateId = params.id ? parseInt(params.id) : undefined;
+  const isEditing = isEditMode && estimateId;
 
   const { data: clients = [], isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['/api/clients'],
   });
 
-  const { data: nextNumber } = useQuery<{ invoiceNumber: string }>({
-    queryKey: ['/api/invoices/next-number'],
+  const { data: nextNumber } = useQuery<{ estimateNumber: string }>({
+    queryKey: ['/api/estimates/next-number'],
     enabled: !isEditing,
   });
 
-  const { data: existingInvoice, isLoading: invoiceLoading } = useQuery<InvoiceWithItems>({
-    queryKey: ['/api/invoices', invoiceId],
+  const { data: existingEstimate, isLoading: estimateLoading } = useQuery<EstimateWithItems>({
+    queryKey: ['/api/estimates', estimateId],
     enabled: !!isEditing,
   });
 
   const today = new Date();
-  const defaultDueDate = addDays(today, 30);
+  const defaultExpiryDate = addDays(today, 30);
 
-  const form = useForm<InvoiceFormValues>({
-    resolver: zodResolver(invoiceFormSchema),
+  const form = useForm<EstimateFormValues>({
+    resolver: zodResolver(estimateFormSchema),
     defaultValues: {
       clientId: 0,
-      invoiceNumber: "",
+      estimateNumber: "",
       issueDate: today,
-      dueDate: defaultDueDate,
+      expiryDate: defaultExpiryDate,
       taxRate: 0,
       discountPercent: undefined,
       discountAmount: undefined,
+      depositType: "none",
+      depositPercent: undefined,
+      depositAmount: undefined,
       notes: "",
       terms: "",
       items: [{ description: "", quantity: 1, unitPrice: 0, itemType: "" }],
@@ -157,25 +172,47 @@ export default function InvoiceForm() {
     name: "items",
   });
 
+  const watchedClientId = form.watch("clientId");
+  const selectedClient = useMemo(() => {
+    return clients.find(c => c.id === watchedClientId);
+  }, [clients, watchedClientId]);
+
+  const { data: taxTemplates } = useQuery<TaxTemplate[]>({
+    queryKey: ['/api/tax-templates/by-state', selectedClient?.billingState],
+    enabled: !!selectedClient?.billingState,
+  });
+
+  useEffect(() => {
+    if (taxTemplates && taxTemplates.length > 0 && !isEditing) {
+      const rate = parseFloat(taxTemplates[0].rate || "0");
+      if (rate > 0) {
+        form.setValue("taxRate", rate);
+      }
+    }
+  }, [taxTemplates, isEditing, form]);
+
   useEffect(() => {
     if (nextNumber && !isEditing) {
-      form.setValue("invoiceNumber", nextNumber.invoiceNumber);
+      form.setValue("estimateNumber", nextNumber.estimateNumber);
     }
   }, [nextNumber, isEditing, form]);
 
   useEffect(() => {
-    if (existingInvoice && isEditing) {
+    if (existingEstimate && isEditing) {
       form.reset({
-        clientId: existingInvoice.clientId,
-        invoiceNumber: existingInvoice.invoiceNumber,
-        issueDate: new Date(existingInvoice.issueDate),
-        dueDate: new Date(existingInvoice.dueDate),
-        taxRate: parseFloat(existingInvoice.taxRate || "0"),
-        discountPercent: existingInvoice.discountPercent ? parseFloat(existingInvoice.discountPercent) : undefined,
-        discountAmount: existingInvoice.discountAmount ? existingInvoice.discountAmount / 100 : undefined,
-        notes: existingInvoice.notes || "",
-        terms: existingInvoice.terms || "",
-        items: existingInvoice.items.map(item => ({
+        clientId: existingEstimate.clientId,
+        estimateNumber: existingEstimate.estimateNumber,
+        issueDate: new Date(existingEstimate.issueDate),
+        expiryDate: existingEstimate.expiryDate ? new Date(existingEstimate.expiryDate) : defaultExpiryDate,
+        taxRate: parseFloat(existingEstimate.taxRate || "0"),
+        discountPercent: existingEstimate.discountPercent ? parseFloat(existingEstimate.discountPercent) : undefined,
+        discountAmount: existingEstimate.discountAmount ? existingEstimate.discountAmount / 100 : undefined,
+        depositType: existingEstimate.depositType || "none",
+        depositPercent: existingEstimate.depositPercent ? parseFloat(existingEstimate.depositPercent) : undefined,
+        depositAmount: existingEstimate.depositAmount ? existingEstimate.depositAmount / 100 : undefined,
+        notes: existingEstimate.notes || "",
+        terms: existingEstimate.terms || "",
+        items: existingEstimate.items.map(item => ({
           description: item.description,
           quantity: parseFloat(item.quantity),
           unitPrice: item.unitPrice / 100,
@@ -183,33 +220,15 @@ export default function InvoiceForm() {
         })),
       });
     }
-  }, [existingInvoice, isEditing, form]);
-
-  const watchedClientId = form.watch("clientId");
-
-  const { data: selectedClientData } = useQuery<any>({
-    queryKey: ['/api/clients', watchedClientId],
-    enabled: !!watchedClientId && watchedClientId > 0,
-  });
-
-  useEffect(() => {
-    if (selectedClientData?.billingState && !isEditing) {
-      fetch(`/api/tax-templates/by-state/${selectedClientData.billingState}`, { credentials: 'include' })
-        .then(res => res.json())
-        .then(templates => {
-          if (templates && templates.length > 0) {
-            const defaultTemplate = templates.find((t: any) => t.isDefault) || templates[0];
-            form.setValue("taxRate", parseFloat(defaultTemplate.rate));
-          }
-        })
-        .catch(() => {});
-    }
-  }, [selectedClientData?.billingState, isEditing, form]);
+  }, [existingEstimate, isEditing, form]);
 
   const watchedItems = form.watch("items");
   const watchedTaxRate = form.watch("taxRate");
   const watchedDiscountPercent = form.watch("discountPercent");
   const watchedDiscountAmount = form.watch("discountAmount");
+  const watchedDepositType = form.watch("depositType");
+  const watchedDepositPercent = form.watch("depositPercent");
+  const watchedDepositAmount = form.watch("depositAmount");
 
   const calculatedTotals = useMemo(() => {
     const subtotal = watchedItems.reduce((sum, item) => {
@@ -229,80 +248,98 @@ export default function InvoiceForm() {
     const taxAmount = afterDiscount * ((watchedTaxRate || 0) / 100);
     const total = afterDiscount + taxAmount;
 
+    let depositCalc = 0;
+    if (watchedDepositType === "percentage" && watchedDepositPercent) {
+      depositCalc = total * (watchedDepositPercent / 100);
+    } else if (watchedDepositType === "fixed" && watchedDepositAmount) {
+      depositCalc = watchedDepositAmount;
+    }
+
     return {
       subtotal,
       discount,
       taxAmount,
       total,
+      depositCalc,
     };
-  }, [watchedItems, watchedTaxRate, watchedDiscountPercent, watchedDiscountAmount]);
+  }, [watchedItems, watchedTaxRate, watchedDiscountPercent, watchedDiscountAmount, watchedDepositType, watchedDepositPercent, watchedDepositAmount]);
 
   const createMutation = useMutation({
-    mutationFn: async (data: { invoice: any; sendAfterSave: boolean }) => {
-      const response = await apiRequest("POST", "/api/invoices", data.invoice);
-      const createdInvoice = await response.json();
-      
+    mutationFn: async (data: { estimate: any; sendAfterSave: boolean }) => {
+      const response = await apiRequest("POST", "/api/estimates", data.estimate);
+      const createdEstimate = await response.json();
+
       if (data.sendAfterSave) {
-        await apiRequest("POST", `/api/invoices/${createdInvoice.id}/send`);
+        await apiRequest("PATCH", `/api/estimates/${createdEstimate.id}`, { status: 'sent' });
       }
-      
-      return createdInvoice;
+
+      return createdEstimate;
     },
-    onSuccess: (invoice) => {
+    onSuccess: (estimate) => {
       toast({
-        title: "Invoice created",
-        description: `Invoice ${invoice.invoiceNumber} has been created successfully.`,
+        title: "Estimate created",
+        description: `Estimate ${estimate.estimateNumber} has been created successfully.`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/invoices'] });
-      setLocation(`/invoices`);
+      queryClient.invalidateQueries({ queryKey: ['/api/estimates'] });
+      setLocation(`/estimates`);
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: `Failed to create invoice: ${error.message}`,
+        description: `Failed to create estimate: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { invoice: any; sendAfterSave: boolean }) => {
-      const response = await apiRequest("PATCH", `/api/invoices/${invoiceId}`, data.invoice);
-      const updatedInvoice = await response.json();
-      
-      if (data.sendAfterSave && existingInvoice?.status === 'draft') {
-        await apiRequest("POST", `/api/invoices/${invoiceId}/send`);
+    mutationFn: async (data: { estimate: any; sendAfterSave: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/estimates/${estimateId}`, data.estimate);
+      const updatedEstimate = await response.json();
+
+      if (data.sendAfterSave && existingEstimate?.status === 'draft') {
+        await apiRequest("PATCH", `/api/estimates/${estimateId}`, { status: 'sent' });
       }
-      
-      return updatedInvoice;
+
+      return updatedEstimate;
     },
-    onSuccess: (invoice) => {
+    onSuccess: (estimate) => {
       toast({
-        title: "Invoice updated",
-        description: `Invoice ${invoice.invoiceNumber} has been updated successfully.`,
+        title: "Estimate updated",
+        description: `Estimate ${estimate.estimateNumber} has been updated successfully.`,
       });
-      queryClient.invalidateQueries({ queryKey: ['/api/invoices'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/invoices', invoiceId] });
-      setLocation(`/invoices`);
+      queryClient.invalidateQueries({ queryKey: ['/api/estimates'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/estimates', estimateId] });
+      setLocation(`/estimates`);
     },
     onError: (error: Error) => {
       toast({
         title: "Error",
-        description: `Failed to update invoice: ${error.message}`,
+        description: `Failed to update estimate: ${error.message}`,
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (values: InvoiceFormValues, sendAfterSave: boolean = false) => {
-    const invoiceData = {
+  const onSubmit = (values: EstimateFormValues, sendAfterSave: boolean = false) => {
+    let depositAmountCents = 0;
+    if (values.depositType === "percentage" && values.depositPercent) {
+      depositAmountCents = Math.round(calculatedTotals.total * (values.depositPercent / 100) * 100);
+    } else if (values.depositType === "fixed" && values.depositAmount) {
+      depositAmountCents = Math.round(values.depositAmount * 100);
+    }
+
+    const estimateData = {
       clientId: values.clientId,
-      invoiceNumber: values.invoiceNumber,
+      estimateNumber: values.estimateNumber,
       issueDate: format(values.issueDate, "yyyy-MM-dd"),
-      dueDate: format(values.dueDate, "yyyy-MM-dd"),
+      expiryDate: format(values.expiryDate, "yyyy-MM-dd"),
       taxRate: values.taxRate?.toString() || "0",
       discountPercent: values.discountPercent?.toString() || null,
       discountAmount: values.discountAmount ? Math.round(values.discountAmount * 100) : 0,
+      depositType: values.depositType || "none",
+      depositPercent: values.depositPercent?.toString() || null,
+      depositAmount: depositAmountCents,
       notes: values.notes || null,
       terms: values.terms || null,
       items: values.items.map(item => ({
@@ -314,9 +351,9 @@ export default function InvoiceForm() {
     };
 
     if (isEditing) {
-      updateMutation.mutate({ invoice: invoiceData, sendAfterSave });
+      updateMutation.mutate({ estimate: estimateData, sendAfterSave });
     } else {
-      createMutation.mutate({ invoice: invoiceData, sendAfterSave });
+      createMutation.mutate({ estimate: estimateData, sendAfterSave });
     }
   };
 
@@ -334,7 +371,7 @@ export default function InvoiceForm() {
 
   const isPending = createMutation.isPending || updateMutation.isPending;
 
-  if (isEditing && invoiceLoading) {
+  if (isEditing && estimateLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -345,23 +382,23 @@ export default function InvoiceForm() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => setLocation('/invoices')}>
+        <Button variant="ghost" size="icon" onClick={() => setLocation('/estimates')}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold tracking-tight">
-            {isEditing ? "Edit Invoice" : "New Invoice"}
+            {isEditing ? "Edit Estimate" : "New Estimate"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {isEditing 
-              ? `Editing invoice ${existingInvoice?.invoiceNumber}`
-              : "Create a new invoice for your client"
+            {isEditing
+              ? `Editing estimate ${existingEstimate?.estimateNumber}`
+              : "Create a new estimate for your client"
             }
           </p>
         </div>
-        {isEditing && existingInvoice && (
-          <Badge className={statusColors[existingInvoice.status || 'draft']}>
-            {existingInvoice.status?.charAt(0).toUpperCase() + existingInvoice.status?.slice(1)}
+        {isEditing && existingEstimate && (
+          <Badge className={statusColors[existingEstimate.status || 'draft']}>
+            {existingEstimate.status?.charAt(0).toUpperCase() + existingEstimate.status?.slice(1)}
           </Badge>
         )}
       </div>
@@ -370,8 +407,8 @@ export default function InvoiceForm() {
         <form className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Invoice Details</CardTitle>
-              <CardDescription>Basic invoice information</CardDescription>
+              <CardTitle>Estimate Details</CardTitle>
+              <CardDescription>Basic estimate information</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -406,13 +443,13 @@ export default function InvoiceForm() {
 
                 <FormField
                   control={form.control}
-                  name="invoiceNumber"
+                  name="estimateNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Invoice Number *</FormLabel>
+                      <FormLabel>Estimate Number *</FormLabel>
                       <FormControl>
-                        <Input 
-                          {...field} 
+                        <Input
+                          {...field}
                           readOnly={isEditing}
                           className={isEditing ? "bg-muted" : ""}
                         />
@@ -459,10 +496,10 @@ export default function InvoiceForm() {
 
                 <FormField
                   control={form.control}
-                  name="dueDate"
+                  name="expiryDate"
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
-                      <FormLabel>Due Date *</FormLabel>
+                      <FormLabel>Expiry Date *</FormLabel>
                       <Popover>
                         <PopoverTrigger asChild>
                           <FormControl>
@@ -498,7 +535,7 @@ export default function InvoiceForm() {
           <Card>
             <CardHeader>
               <CardTitle>Line Items</CardTitle>
-              <CardDescription>Add products or services to this invoice</CardDescription>
+              <CardDescription>Add products or services to this estimate</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="hidden md:grid md:grid-cols-12 gap-2 text-sm font-medium text-muted-foreground px-2">
@@ -537,10 +574,10 @@ export default function InvoiceForm() {
                         <FormItem className="col-span-1 md:col-span-2">
                           <FormLabel className="md:hidden">Quantity</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="number" 
-                              step="0.01" 
-                              min="0.01" 
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0.01"
                               placeholder="1"
                               {...field}
                             />
@@ -557,10 +594,10 @@ export default function InvoiceForm() {
                         <FormItem className="col-span-1 md:col-span-2">
                           <FormLabel className="md:hidden">Unit Price ($)</FormLabel>
                           <FormControl>
-                            <Input 
-                              type="number" 
-                              step="0.01" 
-                              min="0" 
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
                               placeholder="0.00"
                               {...field}
                             />
@@ -627,10 +664,10 @@ export default function InvoiceForm() {
                     <FormItem>
                       <FormLabel>Tax Rate (%)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          min="0" 
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
                           max="100"
                           placeholder="0"
                           {...field}
@@ -648,10 +685,10 @@ export default function InvoiceForm() {
                     <FormItem>
                       <FormLabel>Discount (%)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
-                          min="0" 
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
                           max="100"
                           placeholder="0"
                           {...field}
@@ -671,9 +708,9 @@ export default function InvoiceForm() {
                     <FormItem>
                       <FormLabel>Discount Amount ($)</FormLabel>
                       <FormControl>
-                        <Input 
-                          type="number" 
-                          step="0.01" 
+                        <Input
+                          type="number"
+                          step="0.01"
                           min="0"
                           placeholder="0.00"
                           {...field}
@@ -712,18 +749,6 @@ export default function InvoiceForm() {
                     <span>Total</span>
                     <span>{formatCurrency(calculatedTotals.total)}</span>
                   </div>
-                  {isEditing && existingInvoice && (existingInvoice.amountPaid || 0) > 0 && (
-                    <>
-                      <div className="flex justify-between text-sm text-green-600">
-                        <span>Amount Paid</span>
-                        <span>-{formatCurrency((existingInvoice.amountPaid || 0) / 100)}</span>
-                      </div>
-                      <div className="flex justify-between text-lg font-bold text-primary">
-                        <span>Amount Due</span>
-                        <span>{formatCurrency(existingInvoice.amountDue / 100)}</span>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
             </CardContent>
@@ -731,8 +756,102 @@ export default function InvoiceForm() {
 
           <Card>
             <CardHeader>
+              <CardTitle>Deposit</CardTitle>
+              <CardDescription>Configure deposit requirements for this estimate</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField
+                  control={form.control}
+                  name="depositType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Deposit Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value || "none"}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select deposit type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="none">No Deposit</SelectItem>
+                          <SelectItem value="percentage">Percentage</SelectItem>
+                          <SelectItem value="fixed">Fixed Amount</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {watchedDepositType === "percentage" && (
+                  <FormField
+                    control={form.control}
+                    name="depositPercent"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deposit Percentage (%)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            max="100"
+                            placeholder="0"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {watchedDepositType === "fixed" && (
+                  <FormField
+                    control={form.control}
+                    name="depositAmount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Deposit Amount ($)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            placeholder="0.00"
+                            {...field}
+                            value={field.value ?? ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+              </div>
+
+              {watchedDepositType !== "none" && calculatedTotals.depositCalc > 0 && (
+                <div className="flex justify-end">
+                  <div className="w-full md:w-80 p-3 bg-muted rounded-md">
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>Calculated Deposit</span>
+                      <span>{formatCurrency(calculatedTotals.depositCalc)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Notes & Terms</CardTitle>
-              <CardDescription>Additional information for this invoice</CardDescription>
+              <CardDescription>Additional information for this estimate</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -743,7 +862,7 @@ export default function InvoiceForm() {
                     <FormItem>
                       <FormLabel>Notes</FormLabel>
                       <FormControl>
-                        <Textarea 
+                        <Textarea
                           placeholder="Notes visible to the client..."
                           rows={4}
                           {...field}
@@ -761,7 +880,7 @@ export default function InvoiceForm() {
                     <FormItem>
                       <FormLabel>Terms & Conditions</FormLabel>
                       <FormControl>
-                        <Textarea 
+                        <Textarea
                           placeholder="Payment terms, policies, etc..."
                           rows={4}
                           {...field}
@@ -779,7 +898,7 @@ export default function InvoiceForm() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setLocation('/invoices')}
+              onClick={() => setLocation('/estimates')}
               disabled={isPending}
             >
               Cancel
@@ -807,7 +926,7 @@ export default function InvoiceForm() {
               ) : (
                 <Send className="h-4 w-4 mr-2" />
               )}
-              {isEditing && existingInvoice?.status !== 'draft' ? 'Save' : 'Save & Send'}
+              {isEditing && existingEstimate?.status !== 'draft' ? 'Save' : 'Save & Send'}
             </Button>
           </div>
         </form>
