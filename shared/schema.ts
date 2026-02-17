@@ -1231,25 +1231,27 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 // Invoices table - main invoice records
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  organizationId: integer("organization_id").notNull(),
+  organizationId: integer("organization_id").notNull().default(1),
   clientId: integer("client_id").notNull(),
-  invoiceNumber: text("invoice_number").notNull(),
-  status: text("status").notNull().default("draft"),
+  invoiceNumber: text("invoice_number"),
+  status: text("status").notNull().default("pending"),
+  amount: integer("amount").notNull(),
+  description: text("description").notNull(),
   
   // Dates
-  issueDate: date("issue_date").notNull(),
+  issueDate: date("issue_date").notNull().default(sql`now()`),
   dueDate: date("due_date").notNull(),
   paidDate: date("paid_date"),
   
   // Amounts (stored in cents)
-  subtotal: integer("subtotal").notNull().default(0),
+  subtotal: integer("subtotal").default(0),
   taxRate: numeric("tax_rate").default("0"),
   taxAmount: integer("tax_amount").default(0),
   discountAmount: integer("discount_amount").default(0),
   discountPercent: numeric("discount_percent"),
-  total: integer("total").notNull().default(0),
+  total: integer("total").default(0),
   amountPaid: integer("amount_paid").default(0),
-  amountDue: integer("amount_due").notNull().default(0),
+  amountDue: integer("amount_due").default(0),
   
   // Additional info
   notes: text("notes"),
@@ -1262,14 +1264,15 @@ export const invoices = pgTable("invoices", {
   workOrderId: integer("work_order_id"),
   
   // Stripe payment
+  stripeInvoiceId: text("stripe_invoice_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
-  stripePaymentUrl: text("stripe_payment_url"),
+  stripeCheckoutUrl: text("stripe_checkout_url"),
   
   // Tracking
-  sentAt: timestamp("sent_at"),
-  viewedAt: timestamp("viewed_at"),
+  sentDate: date("sent_date"),
+  viewedDate: date("viewed_date"),
   createdBy: integer("created_by"),
-  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  createdAt: timestamp("created_at").default(sql`now()`),
   updatedAt: timestamp("updated_at").default(sql`now()`),
 });
 

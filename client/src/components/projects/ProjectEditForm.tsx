@@ -99,9 +99,9 @@ export function ProjectEditForm({
   // Mutation for updating the project
   const mutation = useMutation({
     mutationFn: async (values: ProjectEditValues) => {
-      return await apiRequest<ProjectWithDetails>(
-        `/api/projects/${project.id}`,
+      return await apiRequest(
         "PATCH",
+        `/api/projects/${project.id}`,
         values
       );
     },

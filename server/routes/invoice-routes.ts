@@ -227,6 +227,8 @@ router.post("/", isAuthenticated, async (req, res) => {
         total: totals.total,
         amountDue: totals.total,
         amountPaid: 0,
+        amount: totals.total,
+        description: safeInvoiceData.description || `Invoice ${invoiceNumber}`,
         createdBy: user.id,
       });
     } catch (validationError) {
@@ -523,7 +525,7 @@ router.delete("/:id/payments/:paymentId", isAuthenticated, async (req, res) => {
     
     let newStatus = invoice.status;
     if (newAmountPaid <= 0) {
-      newStatus = invoice.sentAt ? 'sent' : 'draft';
+      newStatus = invoice.sentDate ? 'sent' : 'draft';
     } else if (newAmountDue > 0) {
       newStatus = 'partial';
     }
@@ -557,7 +559,7 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
     
     const updatedInvoice = await storage.updateInvoice(invoiceId, {
       status: 'sent',
-      sentAt: new Date(),
+      sentDate: new Date().toISOString().split('T')[0],
     });
     
     res.json(updatedInvoice);
@@ -611,7 +613,7 @@ router.post("/:id/create-payment-link", isAuthenticated, async (req, res) => {
     
     await storage.updateInvoice(id, {
       stripePaymentIntentId: session.payment_intent as string || session.id,
-      stripePaymentUrl: session.url,
+      stripeCheckoutUrl: session.url,
     });
     
     res.json({ url: session.url });
