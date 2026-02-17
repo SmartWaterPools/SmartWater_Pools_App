@@ -1253,24 +1253,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getNextInvoiceNumber(organizationId: number): Promise<string> {
-    const result = await db.select()
+    const result = await db.select({ invoiceNumber: invoices.invoiceNumber })
       .from(invoices)
       .where(eq(invoices.organizationId, organizationId))
-      .orderBy(desc(invoices.invoiceNumber))
-      .limit(1);
+      .orderBy(desc(invoices.id));
     
-    if (result.length === 0 || !result[0].invoiceNumber) {
-      return 'INV-00001';
+    let maxNum = 0;
+    for (const row of result) {
+      if (!row.invoiceNumber) continue;
+      const match = row.invoiceNumber.match(/INV-(\d+)/);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxNum) maxNum = num;
+      }
     }
     
-    const lastNumber = result[0].invoiceNumber;
-    const match = lastNumber.match(/INV-(\d+)/);
-    if (!match) {
-      return 'INV-00001';
-    }
-    
-    const nextNum = parseInt(match[1], 10) + 1;
-    return `INV-${nextNum.toString().padStart(5, '0')}`;
+    return `INV-${(maxNum + 1).toString().padStart(5, '0')}`;
   }
 
   // Invoice Item operations
