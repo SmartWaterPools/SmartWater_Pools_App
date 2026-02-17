@@ -3,6 +3,8 @@ import session from "express-session";
 import passport from "passport";
 import cookieParser from "cookie-parser";
 import path from "path";
+import pgSession from "connect-pg-simple";
+import pg from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { configurePassport } from "./auth";
@@ -10,7 +12,6 @@ import { storage } from "./storage";
 
 const app = express();
 
-// Trust proxy for Replit environment (important for OAuth callbacks)
 if (process.env.REPL_ID) {
   app.set('trust proxy', true);
   console.log('Trust proxy enabled for Replit environment');
@@ -19,36 +20,36 @@ if (process.env.REPL_ID) {
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// Serve uploaded files statically
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
-// Add cookie-parser middleware BEFORE session middleware
 app.use(cookieParser());
 
-// Require SESSION_SECRET for security
 if (!process.env.SESSION_SECRET) {
   throw new Error('SESSION_SECRET environment variable is required for secure sessions');
 }
 
-// Configure session middleware
-// Special handling for Replit environment which uses HTTPS even in development
 const isReplit = !!process.env.REPL_ID;
 const isHttps = isReplit || process.env.NODE_ENV === 'production';
 
+const PgStore = pgSession(session);
+const sessionPool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } });
+
 app.use(session({
+  store: new PgStore({
+    pool: sessionPool,
+    tableName: 'user_sessions',
+    createTableIfMissing: true,
+  }),
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: isHttps, // Enable secure cookies on Replit (HTTPS) even in dev mode
+    secure: isHttps,
     httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: 'lax' // Important for OAuth callbacks
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    sameSite: 'lax'
   },
-  // Trust proxy for proper HTTPS detection in Replit
   proxy: isReplit
-  // TODO: In production, use a persistent session store like Redis or PostgreSQL
-  // instead of the default MemoryStore for better scalability and reliability
 }));
 
 // Initialize Passport
