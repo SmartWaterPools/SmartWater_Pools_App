@@ -75,6 +75,29 @@ Preferred communication style: Simple, everyday language.
 - **Features**: Work order requests, parts & labor tracking (with inventory integration), time tracking, team assignment, service templates, recurrence scheduling, route planning.
 - **Integration**: Maintenance orders generate work orders, repair jobs and projects link to work orders, inventory deductions from global and vehicle stock.
 - **Frontend Pages**: Scheduling Hub (List/Calendar/Board/Routes views), Maintenance Orders dashboard, interactive Maintenance Map with multiple filter views, Projects, Repairs, Technicians, and Routes Tab for drag-and-drop route management.
+- **Technician Guided Workflow** (Feb 2026): Step-by-step maintenance checklist wizard (`TechnicianWorkflow` component) activated from WorkOrderDetail. Features include:
+  - Progress tracking with completion percentage and step dots navigation
+  - Per-step notes persistence
+  - Pre-start confirmation and completion flow with duration tracking
+  - Quick-access buttons: Pool Wizard (client pool info), Barcode Scanner (inventory lookup), LSI Calculator (water chemistry)
+  - Photo/video capture and gallery (`WorkOrderPhotos` component) - upload via multer to `/uploads/work-order-photos/`
+  - Chemical usage recording (`WorkOrderChemicals` component) - pulls prices from Chemical Pricing table, persists to `chemicalsApplied` JSON field on work order, auto-updates `materialsCost`
+- **Default Service Templates**: 8 seeded templates (Weekly Pool Service, Monthly Chemical Balance, Filter Clean, Pool Opening, Pool Closing, Equipment Inspection, Green Pool Recovery, Leak Detection) with detailed step-by-step checklist items.
+
+### Chemical Pricing Management (Feb 2026)
+- **Purpose**: Organization-level chemical pricing for cost tracking on service visits.
+- **Schema**: `chemicalPrices` table (organizationId, chemicalType, name, unit, unitCostCents, inventoryItemId, isActive).
+- **Frontend**: `/chemical-pricing` management page with CRUD operations, linked from sidebar.
+- **API**: `GET/POST/PATCH/DELETE /api/chemical-prices` routes.
+- **Chemical Types**: liquid_chlorine, tablets, muriatic_acid, soda_ash, sodium_bicarbonate, calcium_chloride, stabilizer, algaecide, salt, phosphate_remover, other.
+- **Integration**: WorkOrderChemicals component auto-fills unit costs from pricing table when technicians record chemical usage.
+
+### LSI Calculator (Feb 2026)
+- **Purpose**: Langelier Saturation Index calculator for assessing pool water balance.
+- **Component**: `client/src/components/pool/LSICalculator.tsx` - standalone calculator with compact/full modes.
+- **Inputs**: pH, temperature (°F), calcium hardness, total alkalinity, TDS, cyanuric acid.
+- **Features**: Auto-calculation, CYA-adjusted alkalinity, color-coded results with visual gauge, recommendations.
+- **Integration**: Available in technician workflow via dialog button.
 
 ### Vendor Invoice Management System
 - **Purpose**: Automated invoice processing from vendor emails with PDF parsing and routing to inventory/expenses.

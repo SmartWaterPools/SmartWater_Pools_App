@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,15 +32,12 @@ function formatCents(cents: number): string {
 
 export function WorkOrderChemicals({ workOrderId, workOrder, compact = false }: WorkOrderChemicalsProps) {
   const { toast } = useToast();
-  const storageKey = `wo-chemicals-${workOrderId}`;
 
   const [chemicals, setChemicals] = useState<ChemicalEntry[]>(() => {
     try {
-      const stored = localStorage.getItem(storageKey);
+      const stored = workOrder?.chemicalsApplied;
       return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   });
 
   const [showAddForm, setShowAddForm] = useState(false);
@@ -53,27 +50,18 @@ export function WorkOrderChemicals({ workOrderId, workOrder, compact = false }: 
 
   const activePrices = chemicalPrices?.filter((p) => p.isActive) || [];
 
-  useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify(chemicals));
-  }, [chemicals, storageKey]);
-
-  const saveMaterialsCost = useMutation({
-    mutationFn: async (totalCents: number) => {
-      return apiRequest("PATCH", `/api/work-orders/${workOrderId}`, { materialsCost: totalCents });
+  const saveChemicals = useMutation({
+    mutationFn: async (updatedChemicals: ChemicalEntry[]) => {
+      const totalCents = updatedChemicals.reduce((sum, c) => sum + c.totalCostCents, 0);
+      return apiRequest("PATCH", `/api/work-orders/${workOrderId}`, {
+        materialsCost: totalCents,
+        chemicalsApplied: JSON.stringify(updatedChemicals),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/work-orders", workOrderId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/work-orders/${workOrderId}`] });
     },
   });
-
-  const syncMaterialsCost = useCallback(
-    (updatedChemicals: ChemicalEntry[]) => {
-      const total = updatedChemicals.reduce((sum, c) => sum + c.totalCostCents, 0);
-      saveMaterialsCost.mutate(total);
-    },
-    [workOrderId],
-  );
 
   const handleAddChemical = () => {
     if (!selectedPriceId || !quantity) return;
@@ -99,7 +87,7 @@ export function WorkOrderChemicals({ workOrderId, workOrder, compact = false }: 
 
     const updated = [...chemicals, entry];
     setChemicals(updated);
-    syncMaterialsCost(updated);
+    saveChemicals.mutate(updated);
     setSelectedPriceId("");
     setQuantity("1");
     setShowAddForm(false);
@@ -109,7 +97,7 @@ export function WorkOrderChemicals({ workOrderId, workOrder, compact = false }: 
   const handleRemoveChemical = (id: string) => {
     const updated = chemicals.filter((c) => c.id !== id);
     setChemicals(updated);
-    syncMaterialsCost(updated);
+    saveChemicals.mutate(updated);
   };
 
   const totalCostCents = chemicals.reduce((sum, c) => sum + c.totalCostCents, 0);
@@ -197,9 +185,9 @@ export function WorkOrderChemicals({ workOrderId, workOrder, compact = false }: 
                   size="sm"
                   className="flex-1"
                   onClick={handleAddChemical}
-                  disabled={!selectedPriceId || !quantity || saveMaterialsCost.isPending}
+                  disabled={!selectedPriceId || !quantity || saveChemicals.isPending}
                 >
-                  {saveMaterialsCost.isPending ? (
+                  {saveChemicals.isPending ? (
                     <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
                   ) : (
                     <Plus className="h-3.5 w-3.5 mr-1" />

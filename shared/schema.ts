@@ -795,6 +795,7 @@ export const workOrders = pgTable("work_orders", {
   
   // Checklist - stored as JSON array
   checklist: text("checklist"), // JSON array of checklist items with completion status
+  chemicalsApplied: text("chemicals_applied"), // JSON array: [{id, chemicalPriceId, name, chemicalType, quantity, unit, unitCostCents, totalCostCents}]
   
   // Photos/attachments
   photos: text("photos").array(), // Array of photo URLs
