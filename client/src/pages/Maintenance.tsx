@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy, useEffect } from "react";
+import { useState, Suspense, lazy, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { 
@@ -108,104 +108,34 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
     retry: 1,
   });
 
-  // Google Calendar sync mutation
-  const syncToCalendarMutation = useMutation({
-    mutationFn: async (workOrder: any) => {
-      return await apiRequest('POST', '/api/google-calendar/sync-work-order', {
-        id: workOrder.id,
-        title: workOrder.workOrderTitle || workOrder.title || 'Maintenance',
-        description: workOrder.notes || workOrder.description || '',
-        scheduledDate: workOrder.scheduleDate,
-        location: workOrder.client?.user?.address || '',
-        clientName: workOrder.client?.user?.name || 'N/A'
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Synced to Google Calendar",
-        description: "Maintenance event has been added to your Google Calendar.",
-      });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Sync Failed",
-        description: error.message || "Could not sync to Google Calendar.",
-        variant: "destructive",
-      });
-    }
-  });
+  // State for tracking calendar sync progress
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
 
   // Fetch technicians
   const { 
     data: technicians, 
-    isLoading: techniciansLoading, 
-    error: techniciansError 
   } = useQuery<any[]>({
     queryKey: ["/api/technicians-with-users"],
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 2, // Only retry twice to avoid infinite loops if authentication fails
-    retryDelay: 1000, // Wait 1 second between retries,
-    select: (data) => {
-      console.log("Raw technicians data from API:", data);
-      if (Array.isArray(data)) {
-        console.log("Received technician count:", data.length);
-        console.log("Technician data example:", 
-          data.slice(0, 2).map(tech => ({
-            id: tech.id,
-            name: tech?.user?.name, 
-            active: tech.active,
-            hasUser: !!tech.user,
-            userId: tech.userId
-          }))
-        );
-      }
-      return data;
-    }
+    retry: 2,
+    retryDelay: 1000,
   });
   
-  // Log technician data loading status separately to avoid TypeScript errors
-  useEffect(() => {
-    if (technicians) {
-      console.log("Successfully loaded technicians:", technicians?.length || 0);
-      
-      // Add more detailed logging to inspect the technician data structure
-      if (Array.isArray(technicians) && technicians.length > 0) {
-        console.log("First technician object (full):", technicians[0]);
-        
-        // Log all technicians in a more compact format
-        console.log("All technicians summary:", 
-          technicians.map(t => ({
-            id: t.id, 
-            userId: t.userId,
-            user: t.user ? {
-              id: t.user.id,
-              name: t.user.name || "[No name]",
-              email: t.user.email || "[No email]"
-            } : "[No user]",
-            active: t.active
-          }))
-        );
-      } else {
-        console.log("Technician data not in expected array format or empty");
-      }
-    }
-    if (techniciansError) {
-      console.error("Error loading technicians:", techniciansError);
-      // Don't show toast here - it creates a poor UX when not logged in
-    }
-  }, [technicians, techniciansError]);
-  
-  // Debug technicians loading
-  useEffect(() => {
-    console.log("Technicians data:", { 
-      loading: techniciansLoading, 
-      count: Array.isArray(technicians) ? technicians.length : 0,
-      error: techniciansError ? (techniciansError as Error).message : null 
-    });
-  }, [technicians, techniciansLoading, techniciansError]);
-
   const { routes } = useBazzaRoutes();
+
+  // Memoized transformation of technicians with filtering and name fallback
+  const transformedTechnicians = useMemo(() => {
+    if (!Array.isArray(technicians)) return [];
+    return technicians
+      .filter((t: any) => t && t.active !== false)
+      .map((t: any) => ({
+        id: t.id,
+        name: t.user?.name || `Technician ${t.id}`,
+        userId: t.userId,
+        active: t.active,
+      }));
+  }, [technicians]);
 
   const { data: allWorkOrders } = useQuery<any[]>({
     queryKey: ['/api/work-orders'],
@@ -217,23 +147,15 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
   const { data: maintenanceWorkOrders, isLoading, error: workOrdersError } = useQuery<any[]>({
     queryKey: ["/api/work-orders", { category: "maintenance" }],
     queryFn: async () => {
-      console.log('[Maintenance] Fetching work orders...');
       const response = await fetch("/api/work-orders?category=maintenance", {
         credentials: "include"
       });
-      console.log('[Maintenance] Response status:', response.status);
       if (!response.ok) throw new Error("Failed to fetch maintenance work orders");
       const data = await response.json();
-      console.log('[Maintenance] Received', data?.length || 0, 'work orders:', data);
       return data;
     }
   });
   
-  // Log any errors
-  if (workOrdersError) {
-    console.error('[Maintenance] Error fetching work orders:', workOrdersError);
-  }
-
   // Convert work orders to MaintenanceWithDetails format for display in all views
   const allMaintenances: MaintenanceWithDetails[] = (maintenanceWorkOrders || []).map((wo: any) => ({
     id: wo.id,
@@ -282,18 +204,15 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
   const filteredMaintenances = allMaintenances?.filter(maintenance => {
     // Apply status filter if not set to "all"
     if (statusFilter !== "all" && maintenance.status !== statusFilter) {
-      console.log(`Status filter excluded maintenance #${maintenance.id} - status ${maintenance.status} != ${statusFilter}`);
       return false;
     }
     
     // Apply search filter to client name (with null guards for work orders)
     const clientName = maintenance.client?.user?.name || maintenance.notes || '';
     if (searchTerm && !clientName.toLowerCase().includes(searchTerm.toLowerCase())) {
-      console.log(`Search filter excluded maintenance #${maintenance.id} - name doesn't match "${searchTerm}"`);
       return false;
     }
     
-    console.log(`Maintenance #${maintenance.id} passed all filters`);
     return true;
   });
 
@@ -408,7 +327,7 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem 
-                    onClick={() => {
+                    onClick={async () => {
                       if (allMaintenances.length === 0) {
                         toast({
                           title: "No maintenance items",
@@ -416,11 +335,33 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
                         });
                         return;
                       }
-                      allMaintenances.forEach(m => syncToCalendarMutation.mutate(m));
+                      setIsSyncingCalendar(true);
+                      let successCount = 0;
+                      let failCount = 0;
+                      for (const m of allMaintenances) {
+                        try {
+                          await apiRequest('POST', '/api/google-calendar/sync-work-order', {
+                            id: m.id,
+                            title: (m as any).workOrderTitle || (m as any).title || 'Maintenance',
+                            description: m.notes || '',
+                            scheduledDate: m.scheduleDate,
+                            location: m.client?.user?.address || '',
+                            clientName: m.client?.user?.name || 'N/A'
+                          });
+                          successCount++;
+                        } catch {
+                          failCount++;
+                        }
+                      }
+                      setIsSyncingCalendar(false);
+                      toast({
+                        title: "Calendar Sync Complete",
+                        description: `${successCount} synced successfully${failCount > 0 ? `, ${failCount} failed` : ''}.`,
+                      });
                     }}
-                    disabled={syncToCalendarMutation.isPending}
+                    disabled={isSyncingCalendar}
                   >
-                    {syncToCalendarMutation.isPending ? (
+                    {isSyncingCalendar ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                         Syncing...
@@ -539,21 +480,7 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
           <Card>
             <CardContent className="p-6">
               <TechnicianRoutesView 
-                technicians={(() => {
-                  // Filter and map technicians with proper name handling
-                  const filteredTechs = Array.isArray(technicians) ? 
-                    technicians
-                      .filter((t: any) => t && (t.active !== false))
-                      .map((t: any) => ({
-                        id: t.id,
-                        name: t.user?.name || `Technician ${t.id}`,
-                        userId: t.userId,
-                        active: t.active
-                      })) : [];
-                      
-                  console.log("Properly transformed techs for routes view:", filteredTechs);
-                  return filteredTechs;
-                })()}
+                technicians={transformedTechnicians}
                 maintenances={filteredMaintenances || []}
                 selectedTechnicianId={selectedTechnician}
                 onTechnicianSelect={setSelectedTechnician}
@@ -566,18 +493,8 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
                   });
                 }}
                 onAddRouteClick={() => {
-                  try {
-                    console.log("Add Route button clicked - opening form dialog");
-                    setRoute(undefined);
-                    setIsRouteFormOpen(true);
-                  } catch (error) {
-                    console.error("Error opening route form:", error);
-                    toast({
-                      title: "Error",
-                      description: "There was an error opening the route form. Please try again.",
-                      variant: "destructive",
-                    });
-                  }
+                  setRoute(undefined);
+                  setIsRouteFormOpen(true);
                 }}
               />
             </CardContent>
@@ -629,29 +546,7 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
           isOpen={isRouteFormOpen}
           onClose={() => setIsRouteFormOpen(false)}
           route={route}
-          technicians={Array.isArray(technicians) 
-            ? technicians
-                .filter((t: any) => t && (t.active !== false))
-                .map((t: any) => {
-                  // Debug each technician object
-                  console.log(`Processing technician for route form: ${t.id}`, t);
-                  
-                  // Always prioritize getting name from user object
-                  const name = (t.user && typeof t.user === 'object' && t.user.name) 
-                    ? t.user.name 
-                    : (t.name || `Technician ${t.id}`);
-                  
-                  console.log(`Technician ${t.id} name resolved as: "${name}"`);
-                  
-                  return {
-                    id: t.id,
-                    name: name,
-                    userId: t.userId,
-                    active: t.active
-                  };
-                })
-            : []
-          }
+          technicians={transformedTechnicians}
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes"] });
             queryClient.invalidateQueries({ queryKey: ["/api/bazza/routes/technician"] });

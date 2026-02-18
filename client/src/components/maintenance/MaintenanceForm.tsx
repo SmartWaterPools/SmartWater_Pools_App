@@ -71,7 +71,7 @@ interface MaintenanceFormProps {
   onSuccess?: () => void;
 }
 
-export function MaintenanceForm({ open, onOpenChange, initialDate }: MaintenanceFormProps) {
+export function MaintenanceForm({ open, onOpenChange, initialDate, onSuccess }: MaintenanceFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -98,7 +98,6 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
   // Create maintenance work order mutation
   const createMaintenanceMutation = useMutation({
     mutationFn: async (values: MaintenanceSubmitValues) => {
-      console.log("Creating maintenance work order with values:", values);
       const maintenanceTypeLabel = values.type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
       const descriptionWithType = values.notes 
         ? `[Maintenance Type: ${maintenanceTypeLabel}]\n\n${values.notes}`
@@ -116,15 +115,18 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
       return await apiRequest('POST', '/api/work-orders', workOrderData);
     },
     onSuccess: (data) => {
-      console.log("Maintenance work order created successfully:", data);
-      queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-      toast({
-        title: "Maintenance scheduled",
-        description: "The maintenance work order has been created successfully.",
-      });
       form.reset();
-      onOpenChange(false);
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/work-orders"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
+        toast({
+          title: "Maintenance scheduled",
+          description: "The maintenance work order has been created successfully.",
+        });
+        onOpenChange(false);
+      }
     },
     onError: (error) => {
       toast({
@@ -155,8 +157,6 @@ export function MaintenanceForm({ open, onOpenChange, initialDate }: Maintenance
         type: data.type,
         notes: data.notes
       };
-      
-      console.log("Submitting maintenance with data:", formattedData);
       
       setIsSubmitting(true);
       createMaintenanceMutation.mutate(formattedData, {

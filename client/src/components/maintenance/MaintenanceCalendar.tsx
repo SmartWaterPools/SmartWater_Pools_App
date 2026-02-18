@@ -3,6 +3,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isToday, isSameMon
 import { useLocation } from "wouter";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { normalizeDateString, parseDateSafe } from "@/lib/date-utils";
 import {
   Card,
   CardContent,
@@ -60,50 +61,6 @@ export function MaintenanceCalendar({
   const [selectedDay, setSelectedDay] = useState<Date | null>(parseISO(todayStr));
   const [serviceReportOpen, setServiceReportOpen] = useState(false);
   const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
-  const [debugMode, setDebugMode] = useState<boolean>(false); // Disable debugging for production
-  
-  
-  // This will run on first render to help diagnose data issues
-  useEffect(() => {
-    if (debugMode) {
-      console.log("MaintenanceCalendar component mounted");
-      console.log("Today's date:", todayStr);
-      console.log("Total maintenance records received:", maintenances.length);
-      console.log("First 3 maintenance records:", maintenances.slice(0, 3));
-      
-      // Enhanced debug: Show all dates that should appear on the calendar
-      const allDates = maintenances.map(m => m.scheduleDate);
-      console.log("All schedule dates:", allDates);
-      
-      // Show which records are for March 9th specifically - using more flexible matching
-      const march9Records = maintenances.filter(m => {
-        const dateStr = m.scheduleDate || '';
-        // More flexible matching for both exact and ISO format strings
-        return typeof dateStr === 'string' && (
-          dateStr === '2025-03-09' || 
-          dateStr.includes('2025-03-09')
-        );
-      });
-      console.log("March 9, 2025 records:", march9Records);
-      
-      // Test date parsing for each maintenance record
-      maintenances.forEach((m, index) => {
-        try {
-          // Use parseISO for safer date parsing without timezone issues
-          const dateStr = m.scheduleDate || '';
-          const parsedDate = parseISO(dateStr);
-          console.log(`Maintenance #${m.id} date parse test:`, 
-            `Original: "${dateStr}"`, 
-            `Parsed ISO: ${parsedDate.toISOString()}`,
-            `Formatted back: ${format(parsedDate, "yyyy-MM-dd")}`
-          );
-        } catch (e) {
-          console.error(`Failed to parse date for maintenance #${m.id}:`, m.scheduleDate || 'date not available', e);
-        }
-      });
-    }
-  }, [maintenances, debugMode, todayStr]);
-  
   // Ensure selectedDay remains in sync with month changes
   useEffect(() => {
     // When month changes, if selected day is not in that month, reset to the 1st of new month
@@ -112,245 +69,42 @@ export function MaintenanceCalendar({
       const firstOfMonthStr = format(new Date(month.getFullYear(), month.getMonth(), 1), "yyyy-MM-dd");
       const firstOfMonth = parseISO(firstOfMonthStr);
       setSelectedDay(firstOfMonth);
-      if (debugMode) console.log("Month changed, resetting selected day to:", firstOfMonthStr);
     }
-  }, [month, selectedDay, debugMode]);
+  }, [month, selectedDay]);
   
   // Get days in month
   const monthStart = startOfMonth(month);
   const monthEnd = endOfMonth(month);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   
-  // Special debugging for March 9 - find if we have any records for the day
-  if (debugMode) {
-    const march9Records = maintenances.filter(m => {
-      const dateStr = m.scheduleDate || '';
-      return typeof dateStr === 'string' && dateStr.includes('2025-03-09');
-    });
-    console.log(`March 9 records detected in main data (raw filter): ${march9Records.length}`);
-    
-    // Check if any of the days in our current month is March 9
-    const hasMarch9 = days.some(day => format(day, 'yyyy-MM-dd') === '2025-03-09');
-    console.log(`Current month contains March 9: ${hasMarch9}`);
-    
-    // Explicitly check for March 9 maintenances to verify data
-    if (format(month, 'yyyy-MM') === '2025-03') {
-      console.log("CRITICAL DEBUG: March 2025 calendar is being displayed");
-      console.log("Checking for March 9 records in raw data:");
-      
-      maintenances.forEach(m => {
-        const dateStr = m.scheduleDate || '';
-        if (typeof dateStr === 'string' && (dateStr === '2025-03-09' || dateStr.includes('2025-03-09'))) {
-          console.log(`🔍 Found March 9 record ID ${m.id} in raw data: ${dateStr}`);
-        }
-      });
-    }
-  }
-  
   // Get weekday names
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   
-  // Filter maintenances for selected day
-  // Use a standardized approach to match dates across all components
   const selectedDayMaintenances = selectedDay
     ? maintenances.filter((m) => {
-        if (!m.scheduleDate) return false;
-        
-        // Get the selected day formatted as YYYY-MM-DD for string comparison
-        const selectedDayStr = format(selectedDay, "yyyy-MM-dd");
-        
-        // Normalize maintenance date to YYYY-MM-DD format for consistent comparison
-        let maintenanceDateStr = '';
-        
-        try {
-          // Handle different date formats
-          if (typeof m.scheduleDate === 'string' && m.scheduleDate.includes('T')) {
-            // ISO format with timestamp (2025-03-09T04:00:00.000Z)
-            maintenanceDateStr = m.scheduleDate.split('T')[0]; // Extract YYYY-MM-DD part
-          } 
-          else if (typeof m.scheduleDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(m.scheduleDate)) {
-            // Already in YYYY-MM-DD format
-            maintenanceDateStr = m.scheduleDate;
-          }
-          else if (typeof m.scheduleDate === 'object' && m.scheduleDate !== null && 'toISOString' in m.scheduleDate) {
-            // It's a Date object
-            maintenanceDateStr = format(m.scheduleDate as Date, 'yyyy-MM-dd');
-          }
-          else {
-            // Try to parse any other string format
-            maintenanceDateStr = format(parseISO(String(m.scheduleDate)), 'yyyy-MM-dd');
-          }
-        } catch (e) {
-          // If date parsing fails, try a more flexible approach for specific known dates
-          // This ensures backward compatibility with special dates that were treated differently
-          
-          const dateStr = String(m.scheduleDate);
-          
-          // Special handling for dates that consistently need explicit checks
-          if (selectedDayStr === '2025-03-09' && dateStr.includes('2025-03-09')) {
-            return true;
-          }
-          
-          if (selectedDayStr === '2025-04-07' && dateStr.includes('2025-04-07')) {
-            return true;
-          }
-          
-          return false; // Skip records with unparseable dates
-        }
-        
-        // Compare the normalized dates
-        return maintenanceDateStr === selectedDayStr;
+        return normalizeDateString(m.scheduleDate) === format(selectedDay, "yyyy-MM-dd");
       })
     : [];
   
-  // Calculate which days have maintenance scheduled
-  // Using parseISO to avoid timezone issues when converting strings to dates
-  const maintenanceDays = maintenances.map((m) => {
-    if (!m.scheduleDate) return new Date(); // Fallback to today to avoid crashes
-    
-    try {
-      // Use a standard date normalization function
-      let formattedDateStr = '';
-      
-      // Handle different formats consistently
-      if (typeof m.scheduleDate === 'string') {
-        if (m.scheduleDate.includes('T')) {
-          // ISO format with timestamp
-          formattedDateStr = m.scheduleDate.split('T')[0];
-        } else if (/^\d{4}-\d{2}-\d{2}$/.test(m.scheduleDate)) {
-          // Already in YYYY-MM-DD format
-          formattedDateStr = m.scheduleDate;
-        } else {
-          // Try to parse other string formats
-          const parsedDate = parseISO(m.scheduleDate);
-          formattedDateStr = format(parsedDate, 'yyyy-MM-dd');
-        }
-      } else if (typeof m.scheduleDate === 'object' && m.scheduleDate !== null) {
-        // It's a Date object
-        formattedDateStr = format(m.scheduleDate as Date, 'yyyy-MM-dd');
-      }
-      
-      // Special case handling for known problematic dates
-      if (formattedDateStr.includes('2025-03-09')) {
-        return parseISO('2025-03-09');
-      }
-      
-      if (formattedDateStr.includes('2025-04-07')) {
-        return parseISO('2025-04-07');
-      }
-      
-      return parseISO(formattedDateStr);
-    } catch (e) {
-      // Special case handling for dates that cause parsing errors
-      const dateStr = String(m.scheduleDate);
-      
-      if (dateStr.includes('2025-03-09')) {
-        return parseISO('2025-03-09');
-      }
-      
-      if (dateStr.includes('2025-04-07')) {
-        return parseISO('2025-04-07');
-      }
-      
-      return new Date(); // Fallback to today to avoid crashes
-    }
-  });
+  const maintenanceDays = maintenances.map((m) => parseDateSafe(m.scheduleDate));
   
-  // Count maintenances by day for badge display
   const maintenanceCountByDay = maintenances.reduce((acc, m) => {
-    try {
-      // First, we normalize the date value
-      const dateValue = m.scheduleDate || '';
-      
-      // Validate the maintenance data has a date
-      if (!dateValue) {
-        return acc;
-      }
-      
-      // Normalize to YYYY-MM-DD format for consistent key usage regardless of source format
-      let dayStr = '';
-      
-      // Handle string dates in ISO format with timestamp (2025-03-09T04:00:00.000Z)
-      if (typeof dateValue === 'string' && dateValue.includes('T')) {
-        const datePart = dateValue.split('T')[0]; // Extract YYYY-MM-DD part
-        dayStr = datePart;
-      }
-      // Check if it's already in the expected YYYY-MM-DD format (fast path)
-      else if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
-        dayStr = dateValue;
-      } 
-      // Handle Date objects directly
-      else if (typeof dateValue === 'object' && dateValue !== null && 'toISOString' in dateValue) {
-        dayStr = format(dateValue as Date, 'yyyy-MM-dd');
-      }
-      // Handle string dates that need parsing
-      else {
-        try {
-          const dateObj = parseISO(String(dateValue));
-          dayStr = format(dateObj, 'yyyy-MM-dd');
-        } catch (parseErr) {
-          return acc; // Skip this record if we can't parse the date
-        }
-      }
-      
-      // Initialize the counter for this day if it doesn't exist
-      if (!acc[dayStr]) {
-        acc[dayStr] = { total: 0, statusCounts: {} };
-      }
-      
-      // Increment total count
-      acc[dayStr].total += 1;
-      
-      // Initialize and increment status counter
-      if (!acc[dayStr].statusCounts[m.status]) {
-        acc[dayStr].statusCounts[m.status] = 0;
-      }
-      acc[dayStr].statusCounts[m.status] += 1;
-      
-    } catch (e) {
-      // Silent error handling for production
+    const dayStr = normalizeDateString(m.scheduleDate);
+    if (!dayStr) return acc;
+    
+    if (!acc[dayStr]) {
+      acc[dayStr] = { total: 0, statusCounts: {} };
     }
+    
+    acc[dayStr].total += 1;
+    
+    if (!acc[dayStr].statusCounts[m.status]) {
+      acc[dayStr].statusCounts[m.status] = 0;
+    }
+    acc[dayStr].statusCounts[m.status] += 1;
     
     return acc;
   }, {} as Record<string, { total: number, statusCounts: Record<string, number> }>);
-  
-  // Process all maintenance records and ensure each one is counted correctly
-  // We'll do this by iterating through all maintenance records again and double-checking
-  // that each date is properly accounted for in our maintenanceCountByDay
-  
-  maintenances.forEach(maintenance => {
-    if (!maintenance.scheduleDate) return;
-    
-    try {
-      // Normalize the date to YYYY-MM-DD format
-      let formattedDate = '';
-      
-      if (typeof maintenance.scheduleDate === 'string' && maintenance.scheduleDate.includes('T')) {
-        // Handle ISO format with timestamp
-        formattedDate = maintenance.scheduleDate.split('T')[0];
-      } else if (typeof maintenance.scheduleDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(maintenance.scheduleDate)) {
-        // Already in YYYY-MM-DD format
-        formattedDate = maintenance.scheduleDate;
-      } else if (typeof maintenance.scheduleDate === 'object' && maintenance.scheduleDate !== null) {
-        // It's a Date object
-        formattedDate = format(maintenance.scheduleDate as Date, 'yyyy-MM-dd');
-      } else {
-        // Try to parse any other string format
-        formattedDate = format(parseISO(String(maintenance.scheduleDate)), 'yyyy-MM-dd');
-      }
-      
-      // If this date is not in our count map, add it
-      if (!maintenanceCountByDay[formattedDate]) {
-        maintenanceCountByDay[formattedDate] = {
-          total: 1,
-          statusCounts: { [maintenance.status]: 1 }
-        };
-      }
-      
-    } catch (e) {
-      // Silently handle any parsing errors
-    }
-  });
   
   
   // Format the maintenance type for display
@@ -369,19 +123,19 @@ export function MaintenanceCalendar({
     if (!counts) return "";
     
     if (counts.statusCounts["completed"] === counts.total) {
-      return "bg-green-50 border-green-200";
+      return "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-800";
     }
     
     if (counts.statusCounts["in_progress"] > 0) {
-      return "bg-blue-50 border-blue-200";
+      return "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800";
     }
     
     if (counts.statusCounts["scheduled"] > 0) {
-      return "bg-yellow-50 border-yellow-200";
+      return "bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800";
     }
     
     if (counts.statusCounts["cancelled"] === counts.total) {
-      return "bg-gray-50 border-gray-200";
+      return "bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700";
     }
     
     return "";
@@ -402,7 +156,7 @@ export function MaintenanceCalendar({
       
       <div className="flex flex-col space-y-6">
         {/* Calendar grid */}
-        <div className="bg-white rounded-lg border shadow-sm overflow-x-auto">
+        <div className="bg-white dark:bg-gray-900 rounded-lg border dark:border-gray-700 shadow-sm overflow-x-auto">
           {/* Calendar header */}
           <div className="p-2 sm:p-4 border-b">
             <div className="grid grid-cols-7 gap-1 text-center text-xs sm:text-sm font-medium min-w-[490px]">
@@ -424,16 +178,6 @@ export function MaintenanceCalendar({
               {days.map((day) => {
                 // Check if this day has maintenance
                 const dateStr = format(day, "yyyy-MM-dd");
-                // Better debug logging to help diagnose the issue
-                if (debugMode) {
-                  console.log("Calendar day:", dateStr);
-                  console.log("- All maintenance dates:", maintenances.map(m => m.scheduleDate || ''));
-                  console.log("- maintenanceCountByDay keys:", Object.keys(maintenanceCountByDay));
-                  console.log("- Has maintenance for this day:", !!maintenanceCountByDay[dateStr]);
-                  if (maintenanceCountByDay[dateStr]) {
-                    console.log("- Count for this day:", maintenanceCountByDay[dateStr].total);
-                  }
-                }
                 const dayMaintenances = maintenanceCountByDay[dateStr];
                 const hasMaintenances = !!dayMaintenances;
                 // Format dates for comparison to avoid timezone issues
@@ -531,16 +275,16 @@ export function MaintenanceCalendar({
                       
                       {/* If this is a completed maintenance with a report, show a summary */}
                       {hasServiceReport && maintenance.notes && (
-                        <div className="mt-3 text-sm p-2 bg-blue-50 rounded border border-blue-100">
-                          <div className="font-medium text-blue-700 mb-1">Maintenance Report Summary</div>
+                        <div className="mt-3 text-sm p-2 bg-blue-50 dark:bg-blue-900/30 rounded border border-blue-100 dark:border-blue-800">
+                          <div className="font-medium text-blue-700 dark:text-blue-300 mb-1">Maintenance Report Summary</div>
                           <div className="space-y-1 text-xs">
                             {maintenance.notes.split('\n').slice(0, 3).map((line, i) => (
-                              <div key={i} className="text-gray-600">
+                              <div key={i} className="text-gray-600 dark:text-gray-400">
                                 {line.length > 60 ? line.substring(0, 60) + '...' : line}
                               </div>
                             ))}
                             {maintenance.notes.split('\n').length > 3 && (
-                              <div className="text-blue-600 cursor-pointer" onClick={() => navigate(`/work-orders/${maintenance.id}`)}>
+                              <div className="text-blue-600 dark:text-blue-400 cursor-pointer" onClick={() => navigate(`/work-orders/${maintenance.id}`)}>
                                 View full report...
                               </div>
                             )}

@@ -2,6 +2,25 @@ import { Router } from "express";
 import { storage } from "../storage";
 import { isAuthenticated, requirePermission } from "../auth";
 import { type User, insertMaintenanceOrderSchema } from "@shared/schema";
+import { z } from "zod";
+
+const updateMaintenanceOrderSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  serviceTemplateId: z.number().nullable().optional(),
+  clientId: z.number().optional(),
+  technicianId: z.number().nullable().optional(),
+  frequency: z.string().optional(),
+  dayOfWeek: z.string().optional(),
+  preferredTime: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  pricePerVisit: z.number().nullable().optional(),
+  estimatedDuration: z.number().nullable().optional(),
+  address: z.string().optional(),
+  notes: z.string().optional(),
+  status: z.string().optional(),
+}).strict();
 
 const router = Router();
 
@@ -78,10 +97,14 @@ router.patch('/:id', isAuthenticated, requirePermission('maintenance', 'edit'), 
     if (order.organizationId && order.organizationId !== user.organizationId) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const updatedOrder = await storage.updateMaintenanceOrder(id, req.body);
+    const validatedData = updateMaintenanceOrderSchema.parse(req.body);
+    const updatedOrder = await storage.updateMaintenanceOrder(id, validatedData);
     res.json(updatedOrder);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating maintenance order:', error);
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     res.status(500).json({ error: 'Failed to update maintenance order' });
   }
 });
@@ -204,19 +227,34 @@ function generateRecurringDates(
     }
   }
 
-  const intervalDays: Record<string, number> = {
+  const dayIntervals: Record<string, number> = {
     weekly: 7,
     bi_weekly: 14,
-    monthly: 30,
-    bi_monthly: 60,
-    quarterly: 90,
   };
 
-  const interval = intervalDays[frequency] || 7;
+  const monthIntervals: Record<string, number> = {
+    monthly: 1,
+    bi_monthly: 2,
+    quarterly: 3,
+  };
 
-  while (current <= endDate) {
-    dates.push(new Date(current));
-    current.setDate(current.getDate() + interval);
+  if (dayIntervals[frequency]) {
+    const interval = dayIntervals[frequency];
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + interval);
+    }
+  } else if (monthIntervals[frequency]) {
+    const months = monthIntervals[frequency];
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setMonth(current.getMonth() + months);
+    }
+  } else {
+    while (current <= endDate) {
+      dates.push(new Date(current));
+      current.setDate(current.getDate() + 7);
+    }
   }
 
   return dates;
