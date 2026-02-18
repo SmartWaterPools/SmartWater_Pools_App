@@ -7,12 +7,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Flag, Clock, AlertCircle, ClipboardCheck, Droplets, Barcode } from "lucide-react";
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Flag, Clock, AlertCircle, ClipboardCheck, Droplets, Barcode, Calculator } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PoolInformationWizard } from "@/components/pool/PoolInformationWizard";
 import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { WorkOrderPhotos } from "./WorkOrderPhotos";
 import { WorkOrderChemicals } from "./WorkOrderChemicals";
+import { LSICalculator } from "@/components/pool/LSICalculator";
 
 interface TechnicianWorkflowProps {
   workOrderId: number;
@@ -44,6 +45,7 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
   const [items, setItems] = useState<ChecklistItemWithNotes[]>([]);
   const [showPoolWizard, setShowPoolWizard] = useState(false);
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [showLSICalculator, setShowLSICalculator] = useState(false);
   const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
 
   useEffect(() => {
@@ -374,6 +376,15 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
         <Barcode className="h-5 w-5 mr-2 text-purple-500" />
         Scan Barcode
       </Button>
+      <Button
+        variant="outline"
+        size="lg"
+        className="flex-1 py-4"
+        onClick={() => setShowLSICalculator(true)}
+      >
+        <Calculator className="h-5 w-5 mr-2 text-green-500" />
+        LSI Calc
+      </Button>
     </div>
 
     <div className="mt-4">
@@ -393,6 +404,15 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
           clientId={workOrder.clientId || 0}
           onComplete={() => setShowPoolWizard(false)}
         />
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showLSICalculator} onOpenChange={setShowLSICalculator}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>LSI Calculator</DialogTitle>
+        </DialogHeader>
+        <LSICalculator compact />
       </DialogContent>
     </Dialog>
 
