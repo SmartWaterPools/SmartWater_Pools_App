@@ -106,6 +106,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     }
   }, [location]);
 
+  const [isOnChemicalPricing] = useRoute("/chemical-pricing");
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
   const [isOnWorkOrders] = useRoute("/work-orders");
@@ -162,6 +163,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Settings';
       case '/inventory':
         return 'Inventory';
+      case '/chemical-pricing':
+        return 'Chemical Pricing';
       case '/admin':
         return 'Admin Dashboard';
       case '/fleetmatics/vehicle-tracking':
@@ -207,6 +210,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return <Settings className="h-4 w-4" />;
       case '/inventory':
         return <Package className="h-4 w-4" />;
+      case '/chemical-pricing':
+        return <DollarSign className="h-4 w-4" />;
       case '/admin':
         return <ShieldCheck className="h-4 w-4" />;
       case '/fleetmatics/vehicle-tracking':
@@ -641,6 +646,42 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           )}
           
+          {/* Chemical Pricing */}
+          {canView('settings') && (
+          <div
+            onClick={(e) => handleSidebarNavigation(e, "/chemical-pricing")}
+            className={cn(
+              "flex cursor-pointer",
+              isCollapsed 
+                ? "flex-col items-center justify-center p-2" 
+                : "items-center py-2 px-3 rounded-md hover:bg-gray-50"
+            )}
+          >
+            <div className={cn(
+              "flex items-center justify-center",
+              isCollapsed ? "p-1 rounded-md" : "mr-3",
+              isOnChemicalPricing ? "text-primary" : "text-gray-500"
+            )}>
+              <DollarSign className="h-5 w-5" />
+            </div>
+            {!isCollapsed ? (
+              <span className={cn(
+                "text-sm font-medium",
+                isOnChemicalPricing ? "text-primary" : "text-gray-700"
+              )}>
+                Chemical Pricing
+              </span>
+            ) : (
+              <span className={cn(
+                "text-xs mt-0.5",
+                isOnChemicalPricing ? "text-primary font-medium" : "text-gray-500"
+              )}>
+                Pricing
+              </span>
+            )}
+          </div>
+          )}
+
           {/* Reports */}
           {canView('reports') && (
           <div

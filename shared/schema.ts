@@ -1783,3 +1783,25 @@ export const insertServiceReportSchema = createInsertSchema(serviceReports).omit
 
 export type InsertServiceReport = z.infer<typeof insertServiceReportSchema>;
 export type ServiceReport = typeof serviceReports.$inferSelect;
+
+export const chemicalPrices = pgTable("chemical_prices", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  chemicalType: text("chemical_type").notNull(),
+  name: text("name").notNull(),
+  unit: text("unit").notNull(),
+  unitCostCents: integer("unit_cost_cents").notNull(),
+  inventoryItemId: integer("inventory_item_id"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
+});
+
+export const insertChemicalPriceSchema = createInsertSchema(chemicalPrices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertChemicalPrice = z.infer<typeof insertChemicalPriceSchema>;
+export type ChemicalPrice = typeof chemicalPrices.$inferSelect;

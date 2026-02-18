@@ -1882,6 +1882,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Chemical Pricing Management
+  app.get('/api/chemical-prices', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const organizationId = (req as any).organizationId || user.organizationId;
+      if (!organizationId) return res.status(400).json({ error: 'Organization required' });
+      const prices = await storage.getChemicalPricesByOrganization(organizationId);
+      res.json(prices);
+    } catch (error) {
+      console.error('Error fetching chemical prices:', error);
+      res.status(500).json({ error: 'Failed to fetch chemical prices' });
+    }
+  });
+
+  app.post('/api/chemical-prices', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const organizationId = (req as any).organizationId || user.organizationId;
+      if (!organizationId) return res.status(400).json({ error: 'Organization required' });
+      
+      const priceData = { ...req.body, organizationId };
+      const price = await storage.createChemicalPrice(priceData);
+      res.status(201).json(price);
+    } catch (error) {
+      console.error('Error creating chemical price:', error);
+      res.status(500).json({ error: 'Failed to create chemical price' });
+    }
+  });
+
+  app.patch('/api/chemical-prices/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const price = await storage.updateChemicalPrice(id, req.body);
+      res.json(price);
+    } catch (error) {
+      console.error('Error updating chemical price:', error);
+      res.status(500).json({ error: 'Failed to update chemical price' });
+    }
+  });
+
+  app.delete('/api/chemical-prices/:id', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteChemicalPrice(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting chemical price:', error);
+      res.status(500).json({ error: 'Failed to delete chemical price' });
+    }
+  });
+
   // Health check endpoint
   app.get('/api/health', (req, res) => {
     res.json({ 

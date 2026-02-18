@@ -45,6 +45,7 @@ import EstimateDetail from "@/pages/EstimateDetail";
 import DispatchBoard from "@/pages/DispatchBoard";
 import ServiceReportView from "@/pages/ServiceReportView";
 import Reports from "@/pages/Reports";
+import ChemicalPricing from "./pages/ChemicalPricing";
 
 type ResourceType = 'clients' | 'technicians' | 'projects' | 'maintenance' | 'repairs' | 'invoices' | 'inventory' | 'reports' | 'settings' | 'vehicles' | 'communications' | 'users' | 'organization';
 
@@ -125,6 +126,7 @@ function Router() {
       <Route path="/reports" component={() => <ProtectedRoute component={Reports} requiredPermission="reports" />} />
       <Route path="/reports/:id" component={() => <ProtectedRoute component={ServiceReportView} requiredPermission="reports" />} />
       <Route path="/admin" component={() => <ProtectedRoute component={Admin} requiredPermission="users" />} />
+      <Route path="/chemical-pricing" component={() => <ProtectedRoute component={ChemicalPricing} requiredPermission="settings" />} />
       <Route path="/settings" component={() => <ProtectedRoute component={Settings} requiredPermission="settings" />} />
       
       {/* Fallback to 404 */}

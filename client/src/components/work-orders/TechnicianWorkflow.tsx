@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PoolInformationWizard } from "@/components/pool/PoolInformationWizard";
 import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { WorkOrderPhotos } from "./WorkOrderPhotos";
+import { WorkOrderChemicals } from "./WorkOrderChemicals";
 
 interface TechnicianWorkflowProps {
   workOrderId: number;
@@ -377,6 +378,10 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
 
     <div className="mt-4">
       <WorkOrderPhotos workOrderId={workOrderId} photos={workOrder.photos} compact />
+    </div>
+
+    <div className="mt-4">
+      <WorkOrderChemicals workOrderId={workOrderId} workOrder={workOrder} compact />
     </div>
 
     <Dialog open={showPoolWizard} onOpenChange={setShowPoolWizard}>

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { TechnicianWorkflow } from "@/components/work-orders/TechnicianWorkflow";
 import { WorkOrderPhotos } from "@/components/work-orders/WorkOrderPhotos";
+import { WorkOrderChemicals } from "@/components/work-orders/WorkOrderChemicals";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -893,6 +894,8 @@ export default function WorkOrderDetail() {
           )}
 
           <WorkOrderPhotos workOrderId={workOrderId} photos={workOrder.photos} />
+
+          <WorkOrderChemicals workOrderId={workOrderId} workOrder={workOrder} />
 
           <WorkOrderItemsSection workOrderId={workOrderId} />
 
