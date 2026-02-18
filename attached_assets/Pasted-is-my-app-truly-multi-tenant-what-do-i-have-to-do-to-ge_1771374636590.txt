@@ -1,0 +1,116 @@
+is my app truly multi tenant ? what do i have to do to get it there
+Copy
+Short answer: you are partially multi-tenant, but not “truly” tenant-isolated yet.
+
+Verdict
+Your app has solid tenant-aware patterns (many routes scope queries by organizationId), but it still has critical cross-tenant exposure paths and lacks DB-enforced isolation. So I’d call it:
+
+“Application-level multi-tenant in progress, not fully hardened multi-tenant.”
+
+Why I say that (evidence)
+What’s good already
+New user registration creates a new organization and assigns the user to it (good tenant bootstrap).
+
+Many business routes explicitly filter by organizationId and prevent reassignment on update (good defensive coding).
+
+A lot of tables include an organizationId field (good direction).
+
+What prevents “true” multitenancy today
+isAuthenticated only checks logged-in status; it does not enforce tenant ownership by itself. Every route must do it manually, which is easy to miss.
+
+/api/users routes expose cross-tenant data:
+
+GET /api/users returns all users for any authenticated user via getAllUsers().
+
+GET /api/users/:id fetches any user by ID with no org check.
+
+GET /api/users/organization/:organizationId trusts path param instead of current user org (IDOR risk).
+
+Those routes are mounted at /api/users (not just admin namespace), widening exposure.
+
+Some core domain tables don’t carry organizationId directly (projects, repairs), relying on indirect joins/filters; this is workable but easier to get wrong over time.
+
+App frequently pulls broad datasets then filters in app code (getUsersByRole('client') then filter). If a filter is missed once, data leaks across tenants.
+
+At least one table defaults tenant to org 1 (invoices.organizationId default(1)), which is dangerous for accidental data placement in the wrong tenant.
+
+I see no database Row-Level Security (RLS) enforcement layer in DB setup, so isolation relies entirely on app logic.
+
+What to do to get to “truly multi-tenant”
+1) Lock down the obvious leaks first (high priority)
+Restrict /api/users*:
+
+non-admin: only self
+
+org_admin/admin: only users in req.user.organizationId
+
+system_admin: global access only if truly needed
+
+Never trust :organizationId from URL unless system-admin.
+
+2) Enforce tenant scoping centrally
+Add a tenant-scoped data access layer (e.g., tenantStorage(req.user.organizationId)) so queries are auto-scoped.
+
+Eliminate broad methods like getAllUsers() from normal runtime paths, or make them system-admin-only.
+
+3) Add DB-level isolation (RLS) for true defense-in-depth
+In Postgres, enable RLS on tenant tables.
+
+Set a session variable per request (e.g., app.current_organization_id) and policy organization_id = current_setting(...)::int.
+
+This makes cross-tenant leaks much harder even if a route bug slips in.
+
+4) Normalize schema for consistent tenancy
+Add organizationId to every tenant-owned table (including core entities that currently infer org via other tables).
+
+Remove dangerous defaults like default(1) for tenant IDs.
+
+5) Add automated cross-tenant security tests
+Two-org test fixture:
+
+Org A user cannot read/update/delete Org B entities by ID.
+
+Include negative tests for list endpoints, nested routes, and param-based org routes.
+
+Make these part of CI so regressions fail fast.
+
+6) Consider tenant boundary strategy explicitly
+If you need stronger isolation/compliance: move from shared-schema to per-schema/per-db tenants later.
+
+For most SaaS, shared DB + strict RLS + disciplined app scoping is enough.
+
+Practical maturity target
+To confidently say “truly multi-tenant” for a shared DB app, you should have:
+
+No cross-tenant app routes,
+
+Centralized tenant scoping,
+
+RLS on tenant tables,
+
+Automated cross-tenant tests in CI.
+
+You are close on (1) in many modules, but currently blocked by user/org endpoints and lack of DB-enforced guarantees.
+
+Checks run
+✅ pwd && rg --files | head
+
+✅ find .. -name AGENTS.md -print
+
+✅ rg -n "tenant|multi[- ]tenant|organization_id|org_id|workspace_id|company_id|account_id|RLS|row level" server shared client/src | head -n 200
+
+✅ rg -n "organizationId|requireAuth|tenant|org" server/routes server/services server/*.ts | head -n 250
+
+✅ sed -n '120,260p' server/routes/auth-routes.ts
+
+✅ nl -ba shared/schema.ts | sed -n '1,220p'
+
+✅ nl -ba shared/schema.ts | sed -n '1210,1265p'
+
+✅ nl -ba server/auth.ts | sed -n '520,590p'
+
+✅ nl -ba server/routes/user-org-routes.ts | sed -n '1,220p'
+
+✅ nl -ba server/routes.ts | sed -n '1540,1610p'
+
+✅ nl -ba server/db.ts | sed -n '1,180p'
