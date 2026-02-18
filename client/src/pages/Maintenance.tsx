@@ -46,7 +46,6 @@ import { useBazzaRoutes } from "../hooks/useBazzaRoutes";
 import TechnicianRoutesView from "../components/bazza/FixedTechnicianRoutesView";
 import { RouteFormDialog } from "../components/bazza/RouteFormDialog";
 import { MaintenanceForm } from "../components/maintenance/MaintenanceForm";
-import { MaintenanceReportForm } from "../components/maintenance/MaintenanceReportForm";
 import { 
   MaintenanceWithDetails, 
   formatDate, 
@@ -73,8 +72,6 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMaintenance, setSelectedMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
-  const [maintenanceReportOpen, setMaintenanceReportOpen] = useState(false);
-  const [selectedReportMaintenance, setSelectedReportMaintenance] = useState<MaintenanceWithDetails | null>(null);
   const [selectedTechnician, setSelectedTechnician] = useState<number | null>(null);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [isRouteFormOpen, setIsRouteFormOpen] = useState(false);
@@ -520,26 +517,6 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
         />
       )}
       
-      {/* Maintenance Report Form Dialog */}
-      {maintenanceReportOpen && selectedReportMaintenance && (
-        <MaintenanceReportForm
-          open={maintenanceReportOpen}
-          onOpenChange={setMaintenanceReportOpen}
-          maintenanceId={selectedReportMaintenance.id}
-          clientId={selectedReportMaintenance.clientId}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/maintenances/upcoming"] });
-            queryClient.invalidateQueries({ queryKey: ["/api/dashboard/summary"] });
-            setMaintenanceReportOpen(false);
-            toast({
-              title: "Maintenance report submitted",
-              description: "The maintenance report has been submitted successfully.",
-            });
-          }}
-        />
-      )}
-
       {/* Route Form Dialog */}
       {isRouteFormOpen && (
         <RouteFormDialog

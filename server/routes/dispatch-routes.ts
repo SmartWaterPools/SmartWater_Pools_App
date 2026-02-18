@@ -3,7 +3,7 @@ import { storage } from "../storage";
 import { isAuthenticated, requirePermission } from "../auth";
 import { db } from "../db";
 import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
-import { bazzaRoutes, bazzaRouteStops, bazzaMaintenanceAssignments, technicians, users, clients, maintenances } from "@shared/schema";
+import { bazzaRoutes, bazzaRouteStops, bazzaMaintenanceAssignments, technicians, users, clients, workOrders } from "@shared/schema";
 
 const router = Router();
 
@@ -99,8 +99,8 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
 
     const dayMaintenances = await db
       .select()
-      .from(maintenances)
-      .where(eq(maintenances.scheduleDate, dateStr));
+      .from(workOrders)
+      .where(and(eq(workOrders.scheduledDate, dateStr), eq(workOrders.category, 'maintenance')));
 
     const assignedMaintenanceIds = new Set(assignments.map(a => a.maintenanceId));
     const unassignedJobs = dayMaintenances.filter(m => !assignedMaintenanceIds.has(m.id));
@@ -519,10 +519,11 @@ router.post("/bulk-assign-client-stops", isAuthenticated, requirePermission('mai
       return res.status(404).json({ error: "Route not found" });
     }
 
-    const allMaintenances = await db.select().from(maintenances)
+    const allMaintenances = await db.select().from(workOrders)
       .where(and(
-        eq(maintenances.clientId, clientId),
-        eq(maintenances.status, "scheduled")
+        eq(workOrders.clientId, clientId),
+        eq(workOrders.status, "pending"),
+        eq(workOrders.category, "maintenance")
       ));
 
     if (allMaintenances.length === 0) {
@@ -549,15 +550,15 @@ router.post("/bulk-assign-client-stops", isAuthenticated, requirePermission('mai
         clientId,
         orderIndex: nextOrder++,
         estimatedDuration: 30,
-        customInstructions: m.notes || null,
+        customInstructions: m.description || null,
       });
 
       await storage.createBazzaMaintenanceAssignment({
         routeId,
         maintenanceId: m.id,
-        date: m.scheduleDate ? new Date(m.scheduleDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+        date: m.scheduledDate ? new Date(m.scheduledDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         status: "scheduled",
-        notes: m.notes || null,
+        notes: m.description || null,
       });
 
       stopsCreated++;

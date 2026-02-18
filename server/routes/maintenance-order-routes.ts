@@ -134,7 +134,7 @@ router.delete('/:id', isAuthenticated, requirePermission('maintenance', 'delete'
 router.get('/:id/work-orders', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const visits = await storage.getMaintenancesByMaintenanceOrder(id);
+    const visits = await storage.getWorkOrdersByMaintenanceOrder(id);
     res.json(visits);
   } catch (error) {
     console.error('Error fetching maintenance visits for maintenance order:', error);
@@ -164,8 +164,8 @@ router.post('/:id/generate-visits', isAuthenticated, requirePermission('maintena
     const startDate = new Date(fromDate || order.startDate);
     const endDate = new Date(toDate || order.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000));
 
-    const existingVisits = await storage.getMaintenancesByMaintenanceOrder(id);
-    const existingDates = new Set(existingVisits.map(v => v.scheduleDate));
+    const existingVisits = await storage.getWorkOrdersByMaintenanceOrder(id);
+    const existingDates = new Set(existingVisits.map(v => v.scheduledDate));
 
     const visitDates = generateRecurringDates(
       startDate,
@@ -180,19 +180,22 @@ router.post('/:id/generate-visits', isAuthenticated, requirePermission('maintena
       if (existingDates.has(dateStr)) continue;
 
       try {
-        console.log(`[Generate Visits] Creating maintenance visit for date ${dateStr}, clientId=${order.clientId}, techId=${order.technicianId}`);
-        const maintenance = await storage.createMaintenance({
-          clientId: order.clientId,
+        const workOrder = await storage.createWorkOrder({
+          organizationId: user.organizationId,
+          title: order.title || 'Maintenance Service',
+          description: order.description || null,
+          category: 'maintenance',
+          status: 'pending',
+          priority: 'medium',
+          scheduledDate: dateStr,
           technicianId: order.technicianId || null,
+          clientId: order.clientId,
           maintenanceOrderId: order.id,
-          scheduleDate: dateStr,
-          type: order.title || 'maintenance',
-          status: 'scheduled',
-          notes: order.description || null,
-          routeName: null,
-          routeOrder: null,
+          serviceTemplateId: order.serviceTemplateId || null,
+          location: order.address || null,
+          estimatedDuration: order.estimatedDuration || null,
         });
-        newVisits.push(maintenance);
+        newVisits.push(workOrder);
       } catch (visitError) {
         console.error(`[Generate Visits] Failed to create visit for date ${dateStr}:`, visitError);
       }

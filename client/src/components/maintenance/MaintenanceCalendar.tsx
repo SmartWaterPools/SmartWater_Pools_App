@@ -33,8 +33,6 @@ import {
 } from "lucide-react";
 import { MaintenanceWithDetails } from "../../lib/types";
 import { getStatusClasses } from "../../lib/types";
-import { MaintenanceReportForm } from "../../components/maintenance/MaintenanceReportForm";
-
 interface MaintenanceCalendarProps {
   maintenances: MaintenanceWithDetails[];
   month: Date;
@@ -59,8 +57,6 @@ export function MaintenanceCalendar({
   const todayStr = format(today, "yyyy-MM-dd"); // Format as YYYY-MM-DD string
   // Use parseISO to create a date at midnight for consistent date handling
   const [selectedDay, setSelectedDay] = useState<Date | null>(parseISO(todayStr));
-  const [serviceReportOpen, setServiceReportOpen] = useState(false);
-  const [selectedServiceMaintenance, setSelectedServiceMaintenance] = useState<MaintenanceWithDetails | null>(null);
   // Ensure selectedDay remains in sync with month changes
   useEffect(() => {
     // When month changes, if selected day is not in that month, reset to the 1st of new month
@@ -394,12 +390,6 @@ export function MaintenanceCalendar({
         </div>
       </div>
 
-      {/* Maintenance Report Form */}
-      <MaintenanceReportForm 
-        open={serviceReportOpen} 
-        onOpenChange={setServiceReportOpen}
-        maintenance={selectedServiceMaintenance}
-      />
     </div>
   );
 }

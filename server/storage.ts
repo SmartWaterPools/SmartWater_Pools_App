@@ -1958,7 +1958,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getWorkOrdersByMaintenanceOrder(maintenanceOrderId: number): Promise<WorkOrder[]> {
-    return await db.select().from(workOrders).where(eq(workOrders.maintenanceOrderId, maintenanceOrderId)).orderBy(desc(workOrders.createdAt));
+    return await db.select().from(workOrders).where(eq(workOrders.maintenanceOrderId, maintenanceOrderId)).orderBy(workOrders.scheduledDate);
   }
 
   async getMaintenancesByMaintenanceOrder(maintenanceOrderId: number): Promise<Maintenance[]> {

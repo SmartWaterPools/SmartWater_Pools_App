@@ -60,7 +60,6 @@ import {
 } from "@/components/ui/form";
 import {
   MaintenanceOrder,
-  Maintenance,
   WorkOrder,
   ServiceTemplate,
   MAINTENANCE_ORDER_FREQUENCIES,
@@ -586,7 +585,7 @@ function GenerateVisitsDialog({
 }
 
 function VisitsPanel({ orderId }: { orderId: number }) {
-  const { data: visits, isLoading } = useQuery<Maintenance[]>({
+  const { data: visits, isLoading } = useQuery<any[]>({
     queryKey: ["/api/maintenance-orders", orderId, "work-orders"],
     queryFn: async () => {
       const res = await fetch(`/api/maintenance-orders/${orderId}/work-orders`, { credentials: "include" });
@@ -622,7 +621,7 @@ function VisitsPanel({ orderId }: { orderId: number }) {
           <div className="flex items-center gap-3">
             <Calendar className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-gray-900 dark:text-gray-100">
-              {visit.scheduleDate ?? "Unscheduled"}
+              {visit.scheduledDate ?? "Unscheduled"}
             </span>
           </div>
           <div className="flex items-center gap-2">
