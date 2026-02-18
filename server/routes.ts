@@ -1692,34 +1692,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Places Autocomplete API endpoint - PUBLIC (server-side proxy)
+  // Places Autocomplete API endpoint - PUBLIC (server-side proxy, uses new Places API)
   app.get('/api/places/autocomplete', async (req, res) => {
     try {
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
-        return res.json({ predictions: [] });
+        return res.json({ suggestions: [] });
       }
       const input = req.query.input as string;
       if (!input || input.length < 2) {
-        return res.json({ predictions: [] });
+        return res.json({ suggestions: [] });
       }
-      
-      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&types=address&components=country:us&key=${apiKey}`;
-      const response = await fetch(url);
+
+      const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+        },
+        body: JSON.stringify({
+          input,
+          includedPrimaryTypes: ['street_address', 'subpremise', 'premise', 'route'],
+          includedRegionCodes: ['us'],
+        }),
+      });
       const data = await response.json();
-      
-      if (data.status === 'OK' || data.status === 'ZERO_RESULTS') {
-        return res.json({ predictions: data.predictions || [] });
+
+      if (data.error) {
+        console.error('Places Autocomplete (New) error:', data.error.message);
+        return res.json({ suggestions: [] });
       }
-      console.error('Places Autocomplete error:', data.status, data.error_message);
-      return res.json({ predictions: [] });
+
+      const suggestions = (data.suggestions || []).map((s: any) => ({
+        placeId: s.placePrediction?.placeId || '',
+        mainText: s.placePrediction?.structuredFormat?.mainText?.text || '',
+        secondaryText: s.placePrediction?.structuredFormat?.secondaryText?.text || '',
+        fullText: s.placePrediction?.text?.text || '',
+      }));
+
+      return res.json({ suggestions });
     } catch (error) {
       console.error('Places Autocomplete fetch error:', error);
-      return res.json({ predictions: [] });
+      return res.json({ suggestions: [] });
     }
   });
 
-  // Places Details API endpoint - PUBLIC (server-side proxy)
+  // Places Details API endpoint - PUBLIC (server-side proxy, uses new Places API)
   app.get('/api/places/details', async (req, res) => {
     try {
       const apiKey = process.env.GOOGLE_MAPS_API_KEY;
@@ -1730,16 +1748,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!placeId) {
         return res.json({ result: null });
       }
-      
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(placeId)}&fields=formatted_address,geometry,address_components&key=${apiKey}`;
-      const response = await fetch(url);
+
+      const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'formattedAddress,location,addressComponents',
+        },
+      });
       const data = await response.json();
-      
-      if (data.status === 'OK') {
-        return res.json({ result: data.result });
+
+      if (data.error) {
+        console.error('Places Details (New) error:', data.error.message);
+        return res.json({ result: null });
       }
-      console.error('Places Details error:', data.status, data.error_message);
-      return res.json({ result: null });
+
+      return res.json({
+        result: {
+          formatted_address: data.formattedAddress || '',
+          lat: data.location?.latitude,
+          lng: data.location?.longitude,
+          address_components: (data.addressComponents || []).map((c: any) => ({
+            long_name: c.longText || '',
+            short_name: c.shortText || '',
+            types: c.types || [],
+          })),
+        },
+      });
     } catch (error) {
       console.error('Places Details fetch error:', error);
       return res.json({ result: null });

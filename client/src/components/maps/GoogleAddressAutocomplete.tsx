@@ -11,13 +11,11 @@ interface GoogleAddressAutocompleteProps {
   'data-testid'?: string;
 }
 
-interface Prediction {
-  place_id: string;
-  description: string;
-  structured_formatting?: {
-    main_text: string;
-    secondary_text: string;
-  };
+interface Suggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  fullText: string;
 }
 
 export function GoogleAddressAutocomplete({
@@ -29,7 +27,7 @@ export function GoogleAddressAutocomplete({
   'data-testid': dataTestId
 }: GoogleAddressAutocompleteProps) {
   const [inputValue, setInputValue] = useState(value || '');
-  const [predictions, setPredictions] = useState<Prediction[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -50,9 +48,9 @@ export function GoogleAddressAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const fetchPredictions = useCallback(async (input: string) => {
+  const fetchSuggestions = useCallback(async (input: string) => {
     if (input.length < 2) {
-      setPredictions([]);
+      setSuggestions([]);
       setShowDropdown(false);
       return;
     }
@@ -60,11 +58,12 @@ export function GoogleAddressAutocomplete({
     try {
       const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(input)}`);
       const data = await res.json();
-      setPredictions(data.predictions || []);
-      setShowDropdown((data.predictions || []).length > 0);
+      const items = data.suggestions || [];
+      setSuggestions(items);
+      setShowDropdown(items.length > 0);
       setActiveIndex(-1);
     } catch {
-      setPredictions([]);
+      setSuggestions([]);
       setShowDropdown(false);
     } finally {
       setLoading(false);
@@ -77,50 +76,50 @@ export function GoogleAddressAutocomplete({
 
     if (!newValue) {
       onChange('', undefined, undefined);
-      setPredictions([]);
+      setSuggestions([]);
       setShowDropdown(false);
       return;
     }
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => fetchPredictions(newValue), 300);
+    debounceRef.current = setTimeout(() => fetchSuggestions(newValue), 300);
   };
 
-  const handleSelect = async (prediction: Prediction) => {
+  const handleSelect = async (suggestion: Suggestion) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    setInputValue(prediction.description);
+    setInputValue(suggestion.fullText);
     setShowDropdown(false);
-    setPredictions([]);
+    setSuggestions([]);
 
     try {
-      const res = await fetch(`/api/places/details?place_id=${encodeURIComponent(prediction.place_id)}`);
+      const res = await fetch(`/api/places/details?place_id=${encodeURIComponent(suggestion.placeId)}`);
       const data = await res.json();
       if (data.result) {
-        const address = data.result.formatted_address || prediction.description;
-        const lat = data.result.geometry?.location?.lat;
-        const lng = data.result.geometry?.location?.lng;
+        const address = data.result.formatted_address || suggestion.fullText;
+        const lat = data.result.lat;
+        const lng = data.result.lng;
         setInputValue(address);
         onChange(address, lat, lng);
       } else {
-        onChange(prediction.description, undefined, undefined);
+        onChange(suggestion.fullText, undefined, undefined);
       }
     } catch {
-      onChange(prediction.description, undefined, undefined);
+      onChange(suggestion.fullText, undefined, undefined);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showDropdown || predictions.length === 0) return;
+    if (!showDropdown || suggestions.length === 0) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setActiveIndex(prev => (prev < predictions.length - 1 ? prev + 1 : 0));
+      setActiveIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setActiveIndex(prev => (prev > 0 ? prev - 1 : predictions.length - 1));
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
     } else if (e.key === 'Enter' && activeIndex >= 0) {
       e.preventDefault();
-      handleSelect(predictions[activeIndex]);
+      handleSelect(suggestions[activeIndex]);
     } else if (e.key === 'Escape') {
       setShowDropdown(false);
     }
@@ -134,7 +133,7 @@ export function GoogleAddressAutocomplete({
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         onFocus={() => {
-          if (predictions.length > 0) setShowDropdown(true);
+          if (suggestions.length > 0) setShowDropdown(true);
         }}
         placeholder={placeholder}
         disabled={disabled}
@@ -146,11 +145,11 @@ export function GoogleAddressAutocomplete({
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         </div>
       )}
-      {showDropdown && predictions.length > 0 && (
+      {showDropdown && suggestions.length > 0 && (
         <ul className="absolute z-50 mt-1 w-full rounded-md border border-border bg-white dark:bg-gray-800 shadow-lg max-h-60 overflow-auto">
-          {predictions.map((prediction, index) => (
+          {suggestions.map((suggestion, index) => (
             <li
-              key={prediction.place_id}
+              key={suggestion.placeId}
               className={`flex items-start gap-2 px-3 py-2 cursor-pointer text-sm transition-colors ${
                 index === activeIndex
                   ? 'bg-accent text-accent-foreground'
@@ -158,18 +157,18 @@ export function GoogleAddressAutocomplete({
               }`}
               onMouseDown={(e) => {
                 e.preventDefault();
-                handleSelect(prediction);
+                handleSelect(suggestion);
               }}
               onMouseEnter={() => setActiveIndex(index)}
             >
               <MapPin className="h-4 w-4 mt-0.5 shrink-0 text-muted-foreground" />
               <div className="flex flex-col min-w-0">
                 <span className="font-medium truncate">
-                  {prediction.structured_formatting?.main_text || prediction.description}
+                  {suggestion.mainText || suggestion.fullText}
                 </span>
-                {prediction.structured_formatting?.secondary_text && (
+                {suggestion.secondaryText && (
                   <span className="text-xs text-muted-foreground truncate">
-                    {prediction.structured_formatting.secondary_text}
+                    {suggestion.secondaryText}
                   </span>
                 )}
               </div>
