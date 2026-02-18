@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Flag, Clock, AlertCircle, ClipboardCheck } from "lucide-react";
+import { WorkOrderPhotos } from "./WorkOrderPhotos";
 
 interface TechnicianWorkflowProps {
   workOrderId: number;
@@ -222,6 +223,7 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
   }
 
   return (
+    <>
     <Card>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between mb-2">
@@ -343,5 +345,10 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
         </div>
       </CardContent>
     </Card>
+
+    <div className="mt-4">
+      <WorkOrderPhotos workOrderId={workOrderId} photos={workOrder.photos} compact />
+    </div>
+    </>
   );
 }

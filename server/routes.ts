@@ -1,6 +1,9 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { Router } from "express";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, desc, inArray } from "drizzle-orm";
@@ -28,6 +31,34 @@ import estimateRoutes from "./routes/estimate-routes";
 import taxTemplateRoutes from "./routes/tax-template-routes";
 import { isAuthenticated, requirePermission } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users } from "@shared/schema";
+
+const workOrderPhotoStorage = multer.diskStorage({
+  destination: function (req: any, file: any, cb: any) {
+    const uploadPath = path.join(process.cwd(), "uploads", "work-order-photos");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: function (req: any, file: any, cb: any) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, uniqueSuffix + ext);
+  }
+});
+
+const workOrderPhotoUpload = multer({
+  storage: workOrderPhotoStorage,
+  fileFilter: (req: any, file: any, cb: any) => {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/heic", "video/mp4", "video/quicktime"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only images and videos are allowed"), false);
+    }
+  },
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
@@ -84,6 +115,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Mount work order routes
   app.use('/api/work-orders', workOrderRoutes);
+
+  // Work Order Photo Upload
+  app.post('/api/work-orders/:id/photos', isAuthenticated, workOrderPhotoUpload.array('photos', 10), async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const workOrder = await storage.getWorkOrder(id);
+      if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: 'No files uploaded' });
+      }
+
+      const newPhotoUrls = files.map(f => `/uploads/work-order-photos/${f.filename}`);
+      const existingPhotos = workOrder.photos || [];
+      const allPhotos = [...existingPhotos, ...newPhotoUrls];
+
+      await storage.updateWorkOrder(id, { photos: allPhotos });
+      res.json({ success: true, photos: allPhotos });
+    } catch (error) {
+      console.error('Error uploading work order photos:', error);
+      res.status(500).json({ error: 'Failed to upload photos' });
+    }
+  });
+
+  app.delete('/api/work-orders/:id/photos', isAuthenticated, async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { photoUrl } = req.body;
+      
+      const workOrder = await storage.getWorkOrder(id);
+      if (!workOrder) return res.status(404).json({ error: 'Work order not found' });
+
+      if (!(workOrder.photos || []).includes(photoUrl)) {
+        return res.status(400).json({ error: 'Photo not found in work order' });
+      }
+
+      const updatedPhotos = (workOrder.photos || []).filter(p => p !== photoUrl);
+      await storage.updateWorkOrder(id, { photos: updatedPhotos });
+
+      const safeName = path.basename(photoUrl);
+      const filePath = path.join(process.cwd(), 'uploads', 'work-order-photos', safeName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+
+      res.json({ success: true, photos: updatedPhotos });
+    } catch (error) {
+      console.error('Error deleting work order photo:', error);
+      res.status(500).json({ error: 'Failed to delete photo' });
+    }
+  });
 
   // Mount work order request routes
   app.use('/api/work-order-requests', workOrderRequestRoutes);

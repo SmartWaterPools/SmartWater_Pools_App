@@ -22,6 +22,7 @@ import {
   ClipboardCheck
 } from "lucide-react";
 import { TechnicianWorkflow } from "@/components/work-orders/TechnicianWorkflow";
+import { WorkOrderPhotos } from "@/components/work-orders/WorkOrderPhotos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -890,6 +891,8 @@ export default function WorkOrderDetail() {
               </CardContent>
             </Card>
           )}
+
+          <WorkOrderPhotos workOrderId={workOrderId} photos={workOrder.photos} />
 
           <WorkOrderItemsSection workOrderId={workOrderId} />
 
