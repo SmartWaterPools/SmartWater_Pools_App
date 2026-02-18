@@ -42,8 +42,8 @@ interface SidebarProps {
 
 export function Sidebar({ user: propUser }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [location] = useLocation();
-  const { addTab, navigateToTab } = useTabs(); // Get tab functions from our tab context
+  const [location, setLocation] = useLocation();
+  const { addTab, navigateToTab, getTabByPath } = useTabs();
   const { user, logout } = useAuth(); // Get user and logout function from auth context
   
   // Use either the prop user (for backward compatibility) or the authenticated user
@@ -114,14 +114,17 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Handle sidebar navigation - single click navigates directly
   const handleSidebarNavigation = (e: React.MouseEvent, path: string) => {
-    e.preventDefault(); // Prevent the default navigation
+    e.preventDefault();
     
-    // Single click - create the tab and navigate to it immediately
-    const title = getTitleForPath(path);
-    const newTabId = addTab(path, title, true);
-    navigateToTab(newTabId);
+    const existingTab = getTabByPath(path);
+    if (existingTab) {
+      navigateToTab(existingTab.id);
+    } else {
+      const title = getTitleForPath(path);
+      addTab(path, title, true);
+      setLocation(path);
+    }
   };
   
   // Helper functions to get title and icon for the path
