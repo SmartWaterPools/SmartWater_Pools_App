@@ -56,7 +56,7 @@ const userFormSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   name: z.string().min(2, "Name is required"),
   email: z.string().email("Invalid email address"),
-  role: z.enum(["system_admin", "org_admin", "manager", "technician", "client", "office_staff"]),
+  role: z.enum(["system_admin", "org_admin", "manager", "technician", "client", "office_staff", "vendor"]),
   active: z.boolean().default(true),
   organizationId: z.number().min(1, "Organization is required"),
   password: z
@@ -100,19 +100,16 @@ export function UserManagement() {
     queryFn: async () => {
       try {
         const response = await apiRequest('GET', '/api/organizations');
-        console.log("Organizations API response:", response);
+        const data = await response.json();
         
-        // Return actual organization data if available
-        if (response && Array.isArray(response)) {
-          return response as Organization[];
+        if (data && Array.isArray(data)) {
+          return data as Organization[];
         }
         
-        // Return empty array if no data (don't use fallback data)
-        console.log("No organizations found or empty array returned");
         return [] as Organization[];
       } catch (error) {
         console.error("Error fetching organizations:", error);
-        throw error; // Let react-query handle the error
+        throw error;
       }
     },
     retry: 1,
@@ -224,7 +221,7 @@ export function UserManagement() {
       username: user.username,
       name: user.name,
       email: user.email || "",
-      role: user.role as "system_admin" | "org_admin" | "manager" | "office_staff" | "technician" | "client",
+      role: user.role as "system_admin" | "org_admin" | "manager" | "office_staff" | "technician" | "client" | "vendor",
       active: user.active,
       organizationId: user.organizationId || (organizations.length > 0 ? organizations[0].id : 1), // Use first available org or default
     });
@@ -373,6 +370,7 @@ export function UserManagement() {
                             <SelectItem value="office_staff">Office Staff</SelectItem>
                             <SelectItem value="technician">Technician</SelectItem>
                             <SelectItem value="client">Client</SelectItem>
+                            <SelectItem value="vendor">Vendor</SelectItem>
                           </SelectContent>
                         </Select>
                         <FormDescription>

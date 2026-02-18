@@ -6,6 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { UserManagement } from "@/components/settings/UserManagement";
 import { OrganizationManagement } from "@/components/settings/OrganizationManagement";
 import { Shield, Users, Building, Loader2 } from "lucide-react";
+import { PermissionsManagement } from "@/components/settings/PermissionsManagement";
 
 export default function Admin() {
   const [, setLocation] = useLocation();
@@ -123,17 +124,7 @@ export default function Admin() {
         </TabsContent>
         
         <TabsContent value="permissions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Permissions</CardTitle>
-              <CardDescription>
-                Configure role-based permissions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p>Permission management will be implemented here.</p>
-            </CardContent>
-          </Card>
+          <PermissionsManagement />
         </TabsContent>
       </Tabs>
     </div>

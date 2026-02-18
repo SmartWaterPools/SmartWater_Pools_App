@@ -35,6 +35,13 @@ Preferred communication style: Simple, everyday language.
 - `getUsersByRoleAndOrganization(role, orgId)` replaces broad `getUsersByRole()` calls for tenant-scoped role queries.
 - RLS policies on all tenant tables act as database-level defense-in-depth.
 - `system_admin` role bypasses all tenant restrictions for cross-org administration.
+- **SmartWater Admin bypass**: Users with admin-level roles (`admin`, `system_admin`, `org_admin`) AND `@smartwaterpools.com` email can manage all organizations and users cross-org. This is enforced in `server/routes/user-org-routes.ts` via `isSmartWaterAdmin` checks on all CRUD operations.
+
+## Admin Dashboard (Feb 2026)
+- **Access Control**: Admin dashboard at `/admin` restricted to users with admin roles AND `@smartwaterpools.com` email domain.
+- **Tabs**: Users, Organizations, Permissions.
+- **Roles**: `system_admin`, `org_admin`, `admin`, `manager`, `office_staff`, `technician`, `client`, `vendor`.
+- **Permissions Management**: Client-side permissions matrix at `client/src/components/settings/PermissionsManagement.tsx` showing feature access per role with toggle switches. Currently client-side only (no backend persistence yet).
 
 ## Deployment
 - **Build Process**: Vite for frontend, esbuild for server.

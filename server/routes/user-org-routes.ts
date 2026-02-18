@@ -20,7 +20,9 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
         const currentUser = req.user as any;
         console.log("GET /api/users - Retrieving users");
         let usersList;
-        if (currentUser.role === 'system_admin') {
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        if (currentUser.role === 'system_admin' || isSmartWaterAdmin) {
           usersList = await storage.getAllUsers();
         } else {
           usersList = await storage.getUsersByOrganizationId(currentUser.organizationId);
@@ -47,7 +49,10 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
           return res.status(404).json({ error: "User not found" });
         }
 
-        if (currentUser.role !== 'system_admin' && fetchedUser.organizationId !== currentUser.organizationId) {
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        
+        if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin && fetchedUser.organizationId !== currentUser.organizationId) {
           return res.status(403).json({ error: "Access denied: user belongs to a different organization" });
         }
         
@@ -70,7 +75,10 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
           return res.status(400).json({ error: "Missing required fields" });
         }
 
-        if (currentUser.role !== 'system_admin') {
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        
+        if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin) {
           req.body.organizationId = currentUser.organizationId;
         }
         
@@ -118,7 +126,10 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
           return res.status(404).json({ error: "User not found" });
         }
 
-        if (currentUser.role !== 'system_admin') {
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        
+        if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin) {
           if (existingUser.organizationId !== currentUser.organizationId) {
             return res.status(403).json({ error: "Access denied: user belongs to a different organization" });
           }
@@ -158,7 +169,10 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
           return res.status(404).json({ error: "User not found" });
         }
 
-        if (currentUser.role !== 'system_admin' && existingUser.organizationId !== currentUser.organizationId) {
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        
+        if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin && existingUser.organizationId !== currentUser.organizationId) {
           return res.status(403).json({ error: "Access denied: user belongs to a different organization" });
         }
         

@@ -477,8 +477,9 @@ export function OrganizationManagement() {
   const { data: organizations, isLoading, error } = useQuery({
     queryKey: ['/api/organizations'],
     queryFn: async () => {
-      const response = await apiRequest('/api/organizations');
-      return response as Organization[];
+      const response = await apiRequest('GET', '/api/organizations');
+      const data = await response.json();
+      return data as Organization[];
     },
   });
   
