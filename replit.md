@@ -27,6 +27,14 @@ Preferred communication style: Simple, everyday language.
 - **ORM**: Drizzle ORM with PostgreSQL and Drizzle Kit for migrations.
 - **Schema**: Relational schema for users, organizations, projects, inventory, work orders, maintenance orders, vendor invoices, and service reports.
 - **Architecture**: Multi-tenant, organization-based data isolation with role-based permissions. All monetary amounts are stored in cents.
+- **Row-Level Security (RLS)**: Enabled on all 36 tables with `organization_id` column. Policies use `app.current_organization_id` session variable. Use `withTenantScope(orgId, fn)` from `server/db.ts` to activate RLS within a transaction.
+
+## Multi-Tenancy (Feb 2026)
+- All user/org routes enforce tenant scoping: non-system_admin users can only access their own organization's data.
+- Storage methods (`getWorkOrders`, `getMaintenanceOrders`, `getServiceTemplates`, etc.) require `organizationId` as a mandatory parameter - no unscoped fallbacks.
+- `getUsersByRoleAndOrganization(role, orgId)` replaces broad `getUsersByRole()` calls for tenant-scoped role queries.
+- RLS policies on all tenant tables act as database-level defense-in-depth.
+- `system_admin` role bypasses all tenant restrictions for cross-org administration.
 
 ## Deployment
 - **Build Process**: Vite for frontend, esbuild for server.

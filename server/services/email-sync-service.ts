@@ -354,8 +354,7 @@ async function autoLinkEmail(email: Email, organizationId: number): Promise<numb
       ? extractEmailAddress(email.toEmails[0]) 
       : '';
     
-    const allClients = await storage.getUsersByRole('client');
-    const clients = allClients.filter(c => c.organizationId === organizationId);
+    const clients = await storage.getUsersByRoleAndOrganization('client', organizationId);
     const clientIds = clients.map(c => c.id);
     
     for (const client of clients) {

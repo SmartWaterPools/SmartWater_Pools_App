@@ -131,8 +131,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const organizationId = user?.organizationId || 0;
       
       // Get all clients from the current organization
-      const allClients = await storage.getUsersByRole('client');
-      const organizationClients = allClients.filter(c => c.organizationId === organizationId);
+      const organizationClients = await storage.getUsersByRoleAndOrganization('client', organizationId);
       const clientIds = organizationClients.map(c => c.id);
       
       // Get all projects for these clients
@@ -335,12 +334,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/clients', isAuthenticated, async (req, res) => {
     try {
       // Get all users with role 'client' from the current organization
-      const clients = await storage.getUsersByRole('client');
+      const user = req.user as User;
+      const clients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
       
       // Format clients in the expected structure with sanitized data
-      const user = req.user as User;
       const formattedClients = clients
-        .filter(c => c.organizationId === user?.organizationId) // Filter by current org
         .map(client => {
           // Sanitize client data - remove sensitive fields
           const sanitizedClient = {
@@ -495,8 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/clients/export', isAuthenticated, async (req, res) => {
     try {
       const user = req.user as User;
-      const clients = await storage.getUsersByRole('client');
-      const orgClients = clients.filter(c => c.organizationId === user?.organizationId);
+      const orgClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
       
       // Create CSV header and rows
       const csvHeader = 'name,email,phone,address\n';
@@ -809,16 +806,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/projects', isAuthenticated, async (req, res) => {
     try {
       // Get all clients from the current organization
-      const organizationClients = await storage.getUsersByRole('client');
-      const orgClientIds = organizationClients
-        // @ts-ignore - TypeScript issue with organizationId
-        .filter(c => c.organizationId === req.user?.organizationId)
-        .map(c => c.id);
+      const user = req.user as User;
+      const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
+      const orgClientIds = organizationClients.map(c => c.id);
       
       // Get all projects for these clients
       const projectsList = await storage.getProjectsByOrganization(
-        // @ts-ignore - TypeScript issue with organizationId
-        req.user?.organizationId || 0, 
+        user.organizationId, 
         orgClientIds
       );
       
@@ -1383,8 +1377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const user = req.user as User;
       
-      const allClients = await storage.getUsersByRole('client');
-      const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
+      const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
       const clientIds = organizationClients.map(c => c.id);
       
       const organizationMaintenances = await storage.getMaintenancesByClientIds(clientIds);
@@ -1503,8 +1496,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.user as User;
       
       // Get all clients from the current organization
-      const allClients = await storage.getUsersByRole('client');
-      const organizationClients = allClients.filter(c => c.organizationId === user?.organizationId);
+      const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
       const clientIds = organizationClients.map(c => c.id);
       
       // Get all repairs and filter by organization's clients

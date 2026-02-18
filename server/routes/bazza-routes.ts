@@ -29,10 +29,15 @@ const insertBazzaMaintenanceAssignmentSchema = createInsertSchema(bazzaMaintenan
 // Get bazza routes by technician ID - specific route MUST come before generic routes
 router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const technicianId = parseInt(req.params.technicianId);
     
-    // Track problem technicians for extra logging - identify known issues
-    const isKnownProblemTechnician = technicianId === 10; // Travis Donald is technician ID 10
+    const isKnownProblemTechnician = technicianId === 10;
     
     if (isKnownProblemTechnician) {
       console.log(`[BAZZA ROUTES API] Enhanced handling for known problem technician (ID: ${technicianId})`);
@@ -40,26 +45,23 @@ router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Requ
       console.log(`[BAZZA ROUTES API] Processing request for bazza routes for technician ID: ${technicianId}`);
     }
     
-    // Fetch routes from storage
     const routes = await storage.getBazzaRoutesByTechnicianId(technicianId);
+    const orgRoutes = routes.filter((r: any) => r.organizationId === organizationId);
     
-    // Enhanced logging for any empty results or known problem technicians
-    if (routes.length === 0 || isKnownProblemTechnician) {
-      console.log(`[BAZZA ROUTES API] Found ${routes.length} routes for technician ID: ${technicianId}`);
+    if (orgRoutes.length === 0 || isKnownProblemTechnician) {
+      console.log(`[BAZZA ROUTES API] Found ${orgRoutes.length} routes for technician ID: ${technicianId}`);
     }
     
-    // Universal fallback for any technician with no routes
-    if (routes.length === 0) {
+    if (orgRoutes.length === 0) {
       console.log(`[BAZZA ROUTES API] No routes found in direct query - attempting universal fallback`);
       
       try {
-        // Get all routes as a fallback
         const allRoutes = await storage.getAllBazzaRoutes();
-        console.log(`[BAZZA ROUTES API] Found ${allRoutes.length} total routes in system`);
+        const orgAllRoutes = allRoutes.filter((r: any) => r.organizationId === organizationId);
+        console.log(`[BAZZA ROUTES API] Found ${orgAllRoutes.length} total routes in org`);
         
-        // Filter routes for the requested technician
-        const technicianRoutes = allRoutes.filter(route => route.technicianId === technicianId);
-        console.log(`[BAZZA ROUTES API] Found ${technicianRoutes.length} routes for technician ID ${technicianId} in all routes`);
+        const technicianRoutes = orgAllRoutes.filter(route => route.technicianId === technicianId);
+        console.log(`[BAZZA ROUTES API] Found ${technicianRoutes.length} routes for technician ID ${technicianId} in org routes`);
         
         if (technicianRoutes.length > 0) {
           console.log(`[BAZZA ROUTES API] Using fallback routes for technician ID ${technicianId}`);
@@ -71,19 +73,20 @@ router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Requ
       }
     }
     
-    // Return the routes found through the direct query if fallback wasn't used or didn't find anything
-    res.json(routes);
+    res.json(orgRoutes);
   } catch (error) {
     console.error(`[BAZZA ROUTES API] Error fetching bazza routes for technician ${req.params.technicianId}:`, error);
     
-    // Try one last fallback approach in case of error
     try {
+      const user = req.user as any;
+      const organizationId = user?.organizationId;
       console.log(`[BAZZA ROUTES API] Attempting emergency fallback on error for technician ID ${req.params.technicianId}`);
       const allRoutes = await storage.getAllBazzaRoutes();
+      const orgAllRoutes = allRoutes.filter((r: any) => r.organizationId === organizationId);
       const technicianId = parseInt(req.params.technicianId);
       
       if (!isNaN(technicianId)) {
-        const technicianRoutes = allRoutes.filter(route => route.technicianId === technicianId);
+        const technicianRoutes = orgAllRoutes.filter(route => route.technicianId === technicianId);
         
         if (technicianRoutes.length > 0) {
           console.log(`[BAZZA ROUTES API] Emergency fallback successful - found ${technicianRoutes.length} routes`);
@@ -95,7 +98,6 @@ router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Requ
       console.error(`[BAZZA ROUTES API] Emergency fallback also failed:`, fallbackError);
     }
     
-    // If all fallbacks fail, return error
     res.status(500).json({ error: "Failed to fetch bazza routes for technician" });
   }
 });
@@ -103,11 +105,18 @@ router.get("/routes/technician/:technicianId", isAuthenticated, async (req: Requ
 // Get bazza routes by day of week - specific route MUST come before generic routes
 router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const dayOfWeek = req.params.dayOfWeek;
     console.log(`[BAZZA ROUTES API] Processing request for bazza routes for day: ${dayOfWeek}`);
     
     const routes = await storage.getBazzaRoutesByDayOfWeek(dayOfWeek);
-    res.json(routes);
+    const orgRoutes = routes.filter((r: any) => r.organizationId === organizationId);
+    res.json(orgRoutes);
   } catch (error) {
     console.error(`[BAZZA ROUTES API] Error fetching bazza routes for day ${req.params.dayOfWeek}:`, error);
     res.status(500).json({ error: "Failed to fetch bazza routes for day" });
@@ -117,9 +126,20 @@ router.get("/routes/day/:dayOfWeek", isAuthenticated, async (req: Request, res: 
 // Get route stops for a specific route - specific route MUST come before generic routes
 router.get("/routes/:routeId/stops", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const routeId = parseInt(req.params.routeId);
     console.log(`[BAZZA ROUTES API] Processing request for stops for bazza route ID: ${routeId}`);
     
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
+      return res.status(404).json({ error: "Bazza route not found" });
+    }
+
     const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
     res.json(stops);
   } catch (error) {
@@ -131,9 +151,20 @@ router.get("/routes/:routeId/stops", isAuthenticated, async (req: Request, res: 
 // Get maintenance assignments for a specific route - specific route MUST come before generic routes
 router.get("/routes/:routeId/assignments", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const routeId = parseInt(req.params.routeId);
     console.log(`[BAZZA ROUTES API] Processing request for assignments for bazza route ID: ${routeId}`);
     
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
+      return res.status(404).json({ error: "Bazza route not found" });
+    }
+
     const assignments = await storage.getBazzaMaintenanceAssignmentsByRouteId(routeId);
     res.json(assignments);
   } catch (error) {
@@ -145,9 +176,16 @@ router.get("/routes/:routeId/assignments", isAuthenticated, async (req: Request,
 // Get all bazza routes - generic endpoint should come after specific routes
 router.get("/routes", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     console.log("[BAZZA ROUTES API] Processing request for all bazza routes");
     const routes = await storage.getAllBazzaRoutes();
-    res.json(routes);
+    const orgRoutes = routes.filter((r: any) => r.organizationId === organizationId);
+    res.json(orgRoutes);
   } catch (error) {
     console.error("[BAZZA ROUTES API] Error fetching all bazza routes:", error);
     res.status(500).json({ error: "Failed to fetch bazza routes" });
@@ -157,6 +195,13 @@ router.get("/routes", isAuthenticated, async (req: Request, res: Response) => {
 // Create a new bazza route
 router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+    req.body.organizationId = organizationId;
+
     console.log("[BAZZA ROUTES API] Processing request to create new bazza route");
     console.log("[BAZZA ROUTES API] Request body:", JSON.stringify(req.body));
     
@@ -244,12 +289,17 @@ router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
 // Update a bazza route
 router.put("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const id = parseInt(req.params.id);
     console.log(`[BAZZA ROUTES API] Processing request to update bazza route ID: ${id}`);
     
-    // Check if route exists
     const existingRoute = await storage.getBazzaRoute(id);
-    if (!existingRoute) {
+    if (!existingRoute || (existingRoute as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Bazza route not found" });
     }
     
@@ -272,11 +322,17 @@ router.put("/routes/:id", isAuthenticated, async (req: Request, res: Response) =
 // Get a specific bazza route by ID - MUST come after more specific routes
 router.get("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const id = parseInt(req.params.id);
     console.log(`[BAZZA ROUTES API] Processing request for bazza route ID: ${id}`);
     
     const route = await storage.getBazzaRoute(id);
-    if (!route) {
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Bazza route not found" });
     }
     
@@ -290,12 +346,17 @@ router.get("/routes/:id", isAuthenticated, async (req: Request, res: Response) =
 // Delete a bazza route
 router.delete("/routes/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const id = parseInt(req.params.id);
     console.log(`[BAZZA ROUTES API] Processing request to delete bazza route ID: ${id}`);
     
-    // Check if route exists
     const existingRoute = await storage.getBazzaRoute(id);
-    if (!existingRoute) {
+    if (!existingRoute || (existingRoute as any).organizationId !== organizationId) {
       console.log(`[BAZZA ROUTES API] Route ID ${id} not found for deletion`);
       return res.status(404).json({ error: "Bazza route not found" });
     }
@@ -332,9 +393,21 @@ router.delete("/routes/:id", isAuthenticated, async (req: Request, res: Response
 // Create a new route stop
 router.post("/stops", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
+    if (req.body.routeId) {
+      const route = await storage.getBazzaRoute(req.body.routeId);
+      if (!route || (route as any).organizationId !== organizationId) {
+        return res.status(404).json({ error: "Bazza route not found" });
+      }
+    }
+
     console.log("[BAZZA ROUTES API] Processing request to create new bazza route stop, body:", JSON.stringify(req.body));
     
-    // Validate request body
     const validationResult = insertBazzaRouteStopSchema.safeParse(req.body);
     if (!validationResult.success) {
       return res.status(400).json({ 
@@ -355,12 +428,22 @@ router.post("/stops", isAuthenticated, async (req: Request, res: Response) => {
 // Update a route stop
 router.put("/stops/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const id = parseInt(req.params.id);
     console.log(`[BAZZA ROUTES API] Processing request to update bazza route stop ID: ${id}`);
     
-    // Check if stop exists
     const existingStop = await storage.getBazzaRouteStop(id);
     if (!existingStop) {
+      return res.status(404).json({ error: "Bazza route stop not found" });
+    }
+
+    const route = await storage.getBazzaRoute(existingStop.routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Bazza route stop not found" });
     }
     
@@ -375,13 +458,23 @@ router.put("/stops/:id", isAuthenticated, async (req: Request, res: Response) =>
 // Delete a route stop
 router.delete("/stops/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const id = parseInt(req.params.id);
     console.log(`[BAZZA ROUTES API] Processing request to delete bazza route stop ID: ${id}`);
     
-    // Check if stop exists
     const existingStop = await storage.getBazzaRouteStop(id);
     if (!existingStop) {
       console.log(`[BAZZA ROUTES API] Route stop ID ${id} not found for deletion`);
+      return res.status(404).json({ error: "Bazza route stop not found" });
+    }
+
+    const route = await storage.getBazzaRoute(existingStop.routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Bazza route stop not found" });
     }
     
@@ -416,6 +509,12 @@ router.delete("/stops/:id", isAuthenticated, async (req: Request, res: Response)
 // Get route stops for a specific client
 router.get("/stops/client/:clientId", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const clientId = parseInt(req.params.clientId);
     console.log(`[BAZZA ROUTES API] Processing request for stops for client ID: ${clientId}`);
     
@@ -430,7 +529,19 @@ router.get("/stops/client/:clientId", isAuthenticated, async (req: Request, res:
 // Reorder route stops
 router.post("/routes/:routeId/reorder-stops", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const routeId = parseInt(req.params.routeId);
+
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
+      return res.status(404).json({ error: "Bazza route not found" });
+    }
+
     console.log(`[BAZZA ROUTES API] Processing request to reorder stops for bazza route ID: ${routeId}`);
     
     // Validate request body
@@ -451,6 +562,12 @@ router.post("/routes/:routeId/reorder-stops", isAuthenticated, async (req: Reque
 // Get maintenance assignments for a specific maintenance
 router.get("/assignments/maintenance/:maintenanceId", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const maintenanceId = parseInt(req.params.maintenanceId);
     console.log(`[BAZZA ROUTES API] Processing request for assignments for maintenance ID: ${maintenanceId}`);
     
@@ -465,6 +582,12 @@ router.get("/assignments/maintenance/:maintenanceId", isAuthenticated, async (re
 // Get maintenance assignments for a specific date
 router.get("/assignments/date/:date", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const dateStr = req.params.date;
     console.log(`[BAZZA ROUTES API] Processing request for assignments for date: ${dateStr}`);
     
@@ -485,6 +608,12 @@ router.get("/assignments/date/:date", isAuthenticated, async (req: Request, res:
 // Get maintenance assignments for a technician within a date range
 router.get("/assignments/technician/:technicianId/date-range", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const technicianId = parseInt(req.params.technicianId);
     const { startDate, endDate } = req.query;
     
@@ -521,9 +650,21 @@ router.get("/assignments/technician/:technicianId/date-range", isAuthenticated, 
 // Create a new maintenance assignment
 router.post("/assignments", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
+    if (req.body.routeId) {
+      const route = await storage.getBazzaRoute(req.body.routeId);
+      if (!route || (route as any).organizationId !== organizationId) {
+        return res.status(404).json({ error: "Bazza route not found" });
+      }
+    }
+
     console.log("[BAZZA ROUTES API] Processing request to create new bazza maintenance assignment");
     
-    // Validate request body
     const validationResult = insertBazzaMaintenanceAssignmentSchema.safeParse(req.body);
     if (!validationResult.success) {
       return res.status(400).json({ 
@@ -545,12 +686,22 @@ router.post("/assignments", isAuthenticated, async (req: Request, res: Response)
 // Update a maintenance assignment
 router.put("/assignments/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const id = parseInt(req.params.id);
     console.log(`[BAZZA ROUTES API] Processing request to update bazza maintenance assignment ID: ${id}`);
     
-    // Check if assignment exists
     const existingAssignment = await storage.getBazzaMaintenanceAssignment(id);
     if (!existingAssignment) {
+      return res.status(404).json({ error: "Bazza maintenance assignment not found" });
+    }
+
+    const route = await storage.getBazzaRoute(existingAssignment.routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Bazza maintenance assignment not found" });
     }
     
@@ -565,13 +716,23 @@ router.put("/assignments/:id", isAuthenticated, async (req: Request, res: Respon
 // Delete a maintenance assignment
 router.delete("/assignments/:id", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const id = parseInt(req.params.id);
     console.log(`[BAZZA ROUTES API] Processing request to delete bazza maintenance assignment ID: ${id}`);
     
-    // Check if assignment exists
     const existingAssignment = await storage.getBazzaMaintenanceAssignment(id);
     if (!existingAssignment) {
       console.log(`[BAZZA ROUTES API] Maintenance assignment ID ${id} not found for deletion`);
+      return res.status(404).json({ error: "Bazza maintenance assignment not found" });
+    }
+
+    const route = await storage.getBazzaRoute(existingAssignment.routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Bazza maintenance assignment not found" });
     }
     

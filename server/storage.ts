@@ -11,6 +11,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, data: Partial<User>): Promise<User | undefined>;
   getUsersByRole(role: string): Promise<User[]>;
+  getUsersByRoleAndOrganization(role: string, organizationId: number): Promise<User[]>;
   getUsersByOrganization(organizationId: number): Promise<User[]>;
   getUsersByOrganizationId(organizationId: number): Promise<User[]>; // Alias for getUsersByOrganization
   getAllUsers(): Promise<User[]>;
@@ -179,7 +180,7 @@ export interface IStorage {
 
   // Scheduled Email operations
   createScheduledEmail(email: InsertScheduledEmail): Promise<ScheduledEmail>;
-  getPendingScheduledEmails(before: Date, organizationId?: number): Promise<ScheduledEmail[]>;
+  getPendingScheduledEmails(before: Date, organizationId: number): Promise<ScheduledEmail[]>;
   updateScheduledEmailStatus(id: number, status: string, error?: string): Promise<ScheduledEmail | undefined>;
 
   // Vendor operations
@@ -199,7 +200,7 @@ export interface IStorage {
   deleteCommunicationLinksByCommunication(communicationType: string, communicationId: number): Promise<boolean>;
 
   // Work Order operations
-  getWorkOrders(organizationId?: number): Promise<WorkOrder[]>;
+  getWorkOrders(organizationId: number): Promise<WorkOrder[]>;
   getWorkOrder(id: number): Promise<WorkOrder | undefined>;
   getWorkOrdersByProject(projectId: number): Promise<WorkOrder[]>;
   getWorkOrdersByPhase(phaseId: number): Promise<WorkOrder[]>;
@@ -207,8 +208,8 @@ export interface IStorage {
   getWorkOrdersByMaintenance(maintenanceId: number): Promise<WorkOrder[]>;
   getWorkOrdersByTechnician(technicianId: number): Promise<WorkOrder[]>;
   getWorkOrdersByClient(clientId: number): Promise<WorkOrder[]>;
-  getWorkOrdersByCategory(category: string, organizationId?: number): Promise<WorkOrder[]>;
-  getWorkOrdersByStatus(status: string, organizationId?: number): Promise<WorkOrder[]>;
+  getWorkOrdersByCategory(category: string, organizationId: number): Promise<WorkOrder[]>;
+  getWorkOrdersByStatus(status: string, organizationId: number): Promise<WorkOrder[]>;
   createWorkOrder(workOrder: InsertWorkOrder): Promise<WorkOrder>;
   updateWorkOrder(id: number, data: Partial<WorkOrder>): Promise<WorkOrder | undefined>;
   deleteWorkOrder(id: number): Promise<boolean>;
@@ -223,10 +224,10 @@ export interface IStorage {
   createWorkOrderAuditLog(log: InsertWorkOrderAuditLog): Promise<WorkOrderAuditLog>;
 
   // Service Template operations
-  getServiceTemplates(organizationId?: number): Promise<ServiceTemplate[]>;
+  getServiceTemplates(organizationId: number): Promise<ServiceTemplate[]>;
   getServiceTemplate(id: number): Promise<ServiceTemplate | undefined>;
-  getServiceTemplatesByType(type: string, organizationId?: number): Promise<ServiceTemplate[]>;
-  getDefaultServiceTemplate(type: string, organizationId?: number): Promise<ServiceTemplate | undefined>;
+  getServiceTemplatesByType(type: string, organizationId: number): Promise<ServiceTemplate[]>;
+  getDefaultServiceTemplate(type: string, organizationId: number): Promise<ServiceTemplate | undefined>;
   createServiceTemplate(template: InsertServiceTemplate): Promise<ServiceTemplate>;
   updateServiceTemplate(id: number, data: Partial<ServiceTemplate>): Promise<ServiceTemplate | undefined>;
   deleteServiceTemplate(id: number): Promise<boolean>;
@@ -282,10 +283,10 @@ export interface IStorage {
   deleteTaxTemplate(id: number): Promise<boolean>;
 
   // Work Order Request operations
-  getWorkOrderRequests(organizationId?: number): Promise<WorkOrderRequest[]>;
+  getWorkOrderRequests(organizationId: number): Promise<WorkOrderRequest[]>;
   getWorkOrderRequest(id: number): Promise<WorkOrderRequest | undefined>;
   getWorkOrderRequestsByClient(clientId: number): Promise<WorkOrderRequest[]>;
-  getWorkOrderRequestsByStatus(status: string, organizationId?: number): Promise<WorkOrderRequest[]>;
+  getWorkOrderRequestsByStatus(status: string, organizationId: number): Promise<WorkOrderRequest[]>;
   createWorkOrderRequest(request: InsertWorkOrderRequest): Promise<WorkOrderRequest>;
   updateWorkOrderRequest(id: number, data: Partial<WorkOrderRequest>): Promise<WorkOrderRequest | undefined>;
   deleteWorkOrderRequest(id: number): Promise<boolean>;
@@ -362,11 +363,11 @@ export interface IStorage {
   deleteVendorParsingTemplate(id: number): Promise<boolean>;
 
   // Maintenance Order operations
-  getMaintenanceOrders(organizationId?: number): Promise<MaintenanceOrder[]>;
+  getMaintenanceOrders(organizationId: number): Promise<MaintenanceOrder[]>;
   getMaintenanceOrder(id: number): Promise<MaintenanceOrder | undefined>;
   getMaintenanceOrdersByClient(clientId: number): Promise<MaintenanceOrder[]>;
   getMaintenanceOrdersByTechnician(technicianId: number): Promise<MaintenanceOrder[]>;
-  getMaintenanceOrdersByStatus(status: string, organizationId?: number): Promise<MaintenanceOrder[]>;
+  getMaintenanceOrdersByStatus(status: string, organizationId: number): Promise<MaintenanceOrder[]>;
   createMaintenanceOrder(order: InsertMaintenanceOrder): Promise<MaintenanceOrder>;
   updateMaintenanceOrder(id: number, data: Partial<MaintenanceOrder>): Promise<MaintenanceOrder | undefined>;
   deleteMaintenanceOrder(id: number): Promise<boolean>;
@@ -408,6 +409,10 @@ export class DatabaseStorage implements IStorage {
 
   async getUsersByRole(role: string): Promise<User[]> {
     return await db.select().from(users).where(eq(users.role, role));
+  }
+
+  async getUsersByRoleAndOrganization(role: string, organizationId: number): Promise<User[]> {
+    return await db.select().from(users).where(and(eq(users.role, role), eq(users.organizationId, organizationId)));
   }
 
   async getUsersByOrganization(organizationId: number): Promise<User[]> {
@@ -831,19 +836,14 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async getPendingScheduledEmails(before: Date, organizationId?: number): Promise<ScheduledEmail[]> {
-    const conditions = [
-      eq(scheduledEmails.status, 'pending'),
-      lte(scheduledEmails.scheduledFor, before)
-    ];
-    
-    if (organizationId !== undefined) {
-      conditions.push(eq(scheduledEmails.organizationId, organizationId));
-    }
-    
+  async getPendingScheduledEmails(before: Date, organizationId: number): Promise<ScheduledEmail[]> {
     return await db.select()
       .from(scheduledEmails)
-      .where(and(...conditions))
+      .where(and(
+        eq(scheduledEmails.status, 'pending'),
+        lte(scheduledEmails.scheduledFor, before),
+        eq(scheduledEmails.organizationId, organizationId)
+      ))
       .orderBy(scheduledEmails.scheduledFor);
   }
 
@@ -963,15 +963,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Order operations
-  async getWorkOrders(organizationId?: number): Promise<WorkOrder[]> {
-    if (organizationId) {
-      return await db.select()
-        .from(workOrders)
-        .where(eq(workOrders.organizationId, organizationId))
-        .orderBy(desc(workOrders.createdAt));
-    }
+  async getWorkOrders(organizationId: number): Promise<WorkOrder[]> {
     return await db.select()
       .from(workOrders)
+      .where(eq(workOrders.organizationId, organizationId))
       .orderBy(desc(workOrders.createdAt));
   }
 
@@ -1025,35 +1020,23 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(workOrders.createdAt));
   }
 
-  async getWorkOrdersByCategory(category: string, organizationId?: number): Promise<WorkOrder[]> {
-    if (organizationId) {
-      return await db.select()
-        .from(workOrders)
-        .where(and(
-          eq(workOrders.category, category),
-          eq(workOrders.organizationId, organizationId)
-        ))
-        .orderBy(desc(workOrders.createdAt));
-    }
+  async getWorkOrdersByCategory(category: string, organizationId: number): Promise<WorkOrder[]> {
     return await db.select()
       .from(workOrders)
-      .where(eq(workOrders.category, category))
+      .where(and(
+        eq(workOrders.category, category),
+        eq(workOrders.organizationId, organizationId)
+      ))
       .orderBy(desc(workOrders.createdAt));
   }
 
-  async getWorkOrdersByStatus(status: string, organizationId?: number): Promise<WorkOrder[]> {
-    if (organizationId) {
-      return await db.select()
-        .from(workOrders)
-        .where(and(
-          eq(workOrders.status, status),
-          eq(workOrders.organizationId, organizationId)
-        ))
-        .orderBy(desc(workOrders.createdAt));
-    }
+  async getWorkOrdersByStatus(status: string, organizationId: number): Promise<WorkOrder[]> {
     return await db.select()
       .from(workOrders)
-      .where(eq(workOrders.status, status))
+      .where(and(
+        eq(workOrders.status, status),
+        eq(workOrders.organizationId, organizationId)
+      ))
       .orderBy(desc(workOrders.createdAt));
   }
 
@@ -1111,15 +1094,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Service Template operations
-  async getServiceTemplates(organizationId?: number): Promise<ServiceTemplate[]> {
-    if (organizationId) {
-      return await db.select()
-        .from(serviceTemplates)
-        .where(eq(serviceTemplates.organizationId, organizationId))
-        .orderBy(desc(serviceTemplates.createdAt));
-    }
+  async getServiceTemplates(organizationId: number): Promise<ServiceTemplate[]> {
     return await db.select()
       .from(serviceTemplates)
+      .where(eq(serviceTemplates.organizationId, organizationId))
       .orderBy(desc(serviceTemplates.createdAt));
   }
 
@@ -1131,38 +1109,22 @@ export class DatabaseStorage implements IStorage {
     return result[0] || undefined;
   }
 
-  async getServiceTemplatesByType(type: string, organizationId?: number): Promise<ServiceTemplate[]> {
-    if (organizationId) {
-      return await db.select()
-        .from(serviceTemplates)
-        .where(and(
-          eq(serviceTemplates.type, type),
-          eq(serviceTemplates.organizationId, organizationId)
-        ))
-        .orderBy(desc(serviceTemplates.createdAt));
-    }
+  async getServiceTemplatesByType(type: string, organizationId: number): Promise<ServiceTemplate[]> {
     return await db.select()
       .from(serviceTemplates)
-      .where(eq(serviceTemplates.type, type))
+      .where(and(
+        eq(serviceTemplates.type, type),
+        eq(serviceTemplates.organizationId, organizationId)
+      ))
       .orderBy(desc(serviceTemplates.createdAt));
   }
 
-  async getDefaultServiceTemplate(type: string, organizationId?: number): Promise<ServiceTemplate | undefined> {
-    if (organizationId) {
-      const result = await db.select()
-        .from(serviceTemplates)
-        .where(and(
-          eq(serviceTemplates.type, type),
-          eq(serviceTemplates.organizationId, organizationId),
-          eq(serviceTemplates.isDefault, true)
-        ))
-        .limit(1);
-      return result[0] || undefined;
-    }
+  async getDefaultServiceTemplate(type: string, organizationId: number): Promise<ServiceTemplate | undefined> {
     const result = await db.select()
       .from(serviceTemplates)
       .where(and(
         eq(serviceTemplates.type, type),
+        eq(serviceTemplates.organizationId, organizationId),
         eq(serviceTemplates.isDefault, true)
       ))
       .limit(1);
@@ -1334,15 +1296,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Work Order Request operations
-  async getWorkOrderRequests(organizationId?: number): Promise<WorkOrderRequest[]> {
-    if (organizationId) {
-      return await db.select()
-        .from(workOrderRequests)
-        .where(eq(workOrderRequests.organizationId, organizationId))
-        .orderBy(desc(workOrderRequests.createdAt));
-    }
+  async getWorkOrderRequests(organizationId: number): Promise<WorkOrderRequest[]> {
     return await db.select()
       .from(workOrderRequests)
+      .where(eq(workOrderRequests.organizationId, organizationId))
       .orderBy(desc(workOrderRequests.createdAt));
   }
 
@@ -1361,19 +1318,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(workOrderRequests.createdAt));
   }
 
-  async getWorkOrderRequestsByStatus(status: string, organizationId?: number): Promise<WorkOrderRequest[]> {
-    if (organizationId) {
-      return await db.select()
-        .from(workOrderRequests)
-        .where(and(
-          eq(workOrderRequests.status, status),
-          eq(workOrderRequests.organizationId, organizationId)
-        ))
-        .orderBy(desc(workOrderRequests.createdAt));
-    }
+  async getWorkOrderRequestsByStatus(status: string, organizationId: number): Promise<WorkOrderRequest[]> {
     return await db.select()
       .from(workOrderRequests)
-      .where(eq(workOrderRequests.status, status))
+      .where(and(
+        eq(workOrderRequests.status, status),
+        eq(workOrderRequests.organizationId, organizationId)
+      ))
       .orderBy(desc(workOrderRequests.createdAt));
   }
 
@@ -1932,11 +1883,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Maintenance Order operations
-  async getMaintenanceOrders(organizationId?: number): Promise<MaintenanceOrder[]> {
-    if (organizationId) {
-      return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.organizationId, organizationId)).orderBy(desc(maintenanceOrders.createdAt));
-    }
-    return await db.select().from(maintenanceOrders).orderBy(desc(maintenanceOrders.createdAt));
+  async getMaintenanceOrders(organizationId: number): Promise<MaintenanceOrder[]> {
+    return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.organizationId, organizationId)).orderBy(desc(maintenanceOrders.createdAt));
   }
 
   async getMaintenanceOrder(id: number): Promise<MaintenanceOrder | undefined> {
@@ -1952,11 +1900,8 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.technicianId, technicianId)).orderBy(desc(maintenanceOrders.createdAt));
   }
 
-  async getMaintenanceOrdersByStatus(status: string, organizationId?: number): Promise<MaintenanceOrder[]> {
-    if (organizationId) {
-      return await db.select().from(maintenanceOrders).where(and(eq(maintenanceOrders.status, status), eq(maintenanceOrders.organizationId, organizationId))).orderBy(desc(maintenanceOrders.createdAt));
-    }
-    return await db.select().from(maintenanceOrders).where(eq(maintenanceOrders.status, status)).orderBy(desc(maintenanceOrders.createdAt));
+  async getMaintenanceOrdersByStatus(status: string, organizationId: number): Promise<MaintenanceOrder[]> {
+    return await db.select().from(maintenanceOrders).where(and(eq(maintenanceOrders.status, status), eq(maintenanceOrders.organizationId, organizationId))).orderBy(desc(maintenanceOrders.createdAt));
   }
 
   async createMaintenanceOrder(order: InsertMaintenanceOrder): Promise<MaintenanceOrder> {

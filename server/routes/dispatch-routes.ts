@@ -19,6 +19,12 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
 
 router.get("/daily-board", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const dateStr = (req.query.date as string) || new Date().toISOString().split("T")[0];
     const requestedDate = new Date(dateStr);
     const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -31,12 +37,13 @@ router.get("/daily-board", isAuthenticated, async (req: Request, res: Response) 
         name: users.name,
       })
       .from(technicians)
-      .innerJoin(users, eq(technicians.userId, users.id));
+      .innerJoin(users, eq(technicians.userId, users.id))
+      .where(eq(users.organizationId, organizationId));
 
     const dayRoutes = await db
       .select()
       .from(bazzaRoutes)
-      .where(eq(bazzaRoutes.dayOfWeek, dayOfWeek));
+      .where(and(eq(bazzaRoutes.dayOfWeek, dayOfWeek), eq(bazzaRoutes.organizationId, organizationId)));
 
     const routeIds = dayRoutes.map(r => r.id);
 
@@ -158,6 +165,12 @@ router.get("/daily-board", isAuthenticated, async (req: Request, res: Response) 
 
 router.post("/reassign-route", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const { routeId, fromTechnicianId, toTechnicianId, date } = req.body;
 
     if (!routeId || !fromTechnicianId || !toTechnicianId || !date) {
@@ -165,7 +178,7 @@ router.post("/reassign-route", isAuthenticated, async (req: Request, res: Respon
     }
 
     const route = await storage.getBazzaRoute(routeId);
-    if (!route) {
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Route not found" });
     }
 
@@ -183,10 +196,21 @@ router.post("/reassign-route", isAuthenticated, async (req: Request, res: Respon
 
 router.post("/add-emergency-stop", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const { routeId, clientId, notes, position } = req.body;
 
     if (!routeId || !clientId) {
       return res.status(400).json({ error: "Missing required fields: routeId, clientId" });
+    }
+
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
+      return res.status(404).json({ error: "Route not found" });
     }
 
     const existingStops = await storage.getBazzaRouteStopsByRouteId(routeId);
@@ -225,6 +249,12 @@ router.post("/add-emergency-stop", isAuthenticated, async (req: Request, res: Re
 
 router.get("/technician-workload", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const weekStart = req.query.weekStart as string;
     if (!weekStart) {
       return res.status(400).json({ error: "Missing required query param: weekStart" });
@@ -241,7 +271,8 @@ router.get("/technician-workload", isAuthenticated, async (req: Request, res: Re
         name: users.name,
       })
       .from(technicians)
-      .innerJoin(users, eq(technicians.userId, users.id));
+      .innerJoin(users, eq(technicians.userId, users.id))
+      .where(eq(users.organizationId, organizationId));
 
     const daysOfWeek = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const weekDayNames = [];
@@ -251,7 +282,7 @@ router.get("/technician-workload", isAuthenticated, async (req: Request, res: Re
       weekDayNames.push(daysOfWeek[d.getUTCDay()]);
     }
 
-    const allRoutes = await db.select().from(bazzaRoutes);
+    const allRoutes = await db.select().from(bazzaRoutes).where(eq(bazzaRoutes.organizationId, organizationId));
     const allRouteIds = allRoutes.map(r => r.id);
 
     let allStops: any[] = [];
@@ -296,13 +327,19 @@ router.get("/technician-workload", isAuthenticated, async (req: Request, res: Re
 
 router.post("/optimize-route/:routeId", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const routeId = parseInt(req.params.routeId);
     if (isNaN(routeId)) {
       return res.status(400).json({ error: "Invalid route ID" });
     }
 
     const route = await storage.getBazzaRoute(routeId);
-    if (!route) {
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Route not found" });
     }
 
@@ -370,10 +407,21 @@ router.post("/optimize-route/:routeId", isAuthenticated, async (req: Request, re
 
 router.post("/reorder-stop", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const { routeId, stopId, direction } = req.body;
 
     if (!routeId || !stopId || !direction) {
       return res.status(400).json({ error: "Missing required fields: routeId, stopId, direction" });
+    }
+
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
+      return res.status(404).json({ error: "Route not found" });
     }
 
     const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
@@ -402,10 +450,21 @@ router.post("/reorder-stop", isAuthenticated, async (req: Request, res: Response
 
 router.post("/assign-job", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const { maintenanceId, routeId } = req.body;
 
     if (!maintenanceId || !routeId) {
       return res.status(400).json({ error: "Missing required fields: maintenanceId, routeId" });
+    }
+
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
+      return res.status(404).json({ error: "Route not found" });
     }
 
     const maintenance = await storage.getMaintenance(maintenanceId);
@@ -444,13 +503,19 @@ router.post("/assign-job", isAuthenticated, async (req: Request, res: Response) 
 
 router.post("/bulk-assign-client-stops", isAuthenticated, async (req: Request, res: Response) => {
   try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
     const { clientId, routeId } = req.body;
     if (!clientId || !routeId) {
       return res.status(400).json({ error: "Missing required fields: clientId, routeId" });
     }
 
     const route = await storage.getBazzaRoute(routeId);
-    if (!route) {
+    if (!route || (route as any).organizationId !== organizationId) {
       return res.status(404).json({ error: "Route not found" });
     }
 

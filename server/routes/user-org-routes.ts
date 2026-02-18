@@ -17,10 +17,16 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // GET all users
     router.get("/", isAuthenticated, async (req: Request, res: Response) => {
       try {
-        console.log("GET /api/users - Retrieving all users");
-        const users = await storage.getAllUsers();
-        console.log(`Retrieved ${users.length} users`);
-        res.json(users);
+        const currentUser = req.user as any;
+        console.log("GET /api/users - Retrieving users");
+        let usersList;
+        if (currentUser.role === 'system_admin') {
+          usersList = await storage.getAllUsers();
+        } else {
+          usersList = await storage.getUsersByOrganizationId(currentUser.organizationId);
+        }
+        console.log(`Retrieved ${usersList.length} users`);
+        res.json(usersList);
       } catch (error) {
         console.error("Error retrieving users:", error);
         res.status(500).json({ error: "Failed to retrieve users" });
@@ -30,17 +36,22 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // GET user by ID
     router.get("/:id", isAuthenticated, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
         const userId = parseInt(req.params.id);
         if (isNaN(userId)) {
           return res.status(400).json({ error: "Invalid user ID" });
         }
         
-        const user = await storage.getUser(userId);
-        if (!user) {
+        const fetchedUser = await storage.getUser(userId);
+        if (!fetchedUser) {
           return res.status(404).json({ error: "User not found" });
         }
+
+        if (currentUser.role !== 'system_admin' && fetchedUser.organizationId !== currentUser.organizationId) {
+          return res.status(403).json({ error: "Access denied: user belongs to a different organization" });
+        }
         
-        res.json(user);
+        res.json(fetchedUser);
       } catch (error) {
         console.error(`Error retrieving user ${req.params.id}:`, error);
         res.status(500).json({ error: "Failed to retrieve user" });
@@ -50,12 +61,17 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // POST create new user
     router.post("/", isAdmin, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
         console.log("POST /api/users - Creating new user");
         console.log("Request body:", req.body);
         
         // Basic validation
         if (!req.body.username || !req.body.email || !req.body.name) {
           return res.status(400).json({ error: "Missing required fields" });
+        }
+
+        if (currentUser.role !== 'system_admin') {
+          req.body.organizationId = currentUser.organizationId;
         }
         
         // Check if username or email already exists
@@ -88,6 +104,7 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // PATCH update user
     router.patch("/:id", isAdmin, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
         const userId = parseInt(req.params.id);
         if (isNaN(userId)) {
           return res.status(400).json({ error: "Invalid user ID" });
@@ -99,6 +116,13 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
         const existingUser = await storage.getUser(userId);
         if (!existingUser) {
           return res.status(404).json({ error: "User not found" });
+        }
+
+        if (currentUser.role !== 'system_admin') {
+          if (existingUser.organizationId !== currentUser.organizationId) {
+            return res.status(403).json({ error: "Access denied: user belongs to a different organization" });
+          }
+          delete req.body.organizationId;
         }
         
         // Update user
@@ -118,6 +142,7 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // DELETE user (deactivate or permanently delete)
     router.delete("/:id", isAdmin, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
         const userId = parseInt(req.params.id);
         if (isNaN(userId)) {
           return res.status(400).json({ error: "Invalid user ID" });
@@ -131,6 +156,10 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
         const existingUser = await storage.getUser(userId);
         if (!existingUser) {
           return res.status(404).json({ error: "User not found" });
+        }
+
+        if (currentUser.role !== 'system_admin' && existingUser.organizationId !== currentUser.organizationId) {
+          return res.status(403).json({ error: "Access denied: user belongs to a different organization" });
         }
         
         // Prevent self-deletion
@@ -169,15 +198,20 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // GET users by organization
     router.get("/organization/:organizationId", isAuthenticated, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
         const organizationId = parseInt(req.params.organizationId);
         if (isNaN(organizationId)) {
           return res.status(400).json({ error: "Invalid organization ID" });
         }
+
+        if (currentUser.role !== 'system_admin' && currentUser.organizationId !== organizationId) {
+          return res.status(403).json({ error: "Access denied: cannot access users from a different organization" });
+        }
         
         console.log(`GET /api/users/organization/${organizationId} - Retrieving users for organization`);
-        const users = await storage.getUsersByOrganizationId(organizationId);
-        console.log(`Retrieved ${users.length} users for organization ${organizationId}`);
-        res.json(users);
+        const usersList = await storage.getUsersByOrganizationId(organizationId);
+        console.log(`Retrieved ${usersList.length} users for organization ${organizationId}`);
+        res.json(usersList);
       } catch (error) {
         console.error(`Error retrieving users for organization ${req.params.organizationId}:`, error);
         res.status(500).json({ error: "Failed to retrieve users" });
@@ -190,10 +224,17 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // GET all organizations
     router.get("/", isAuthenticated, async (req: Request, res: Response) => {
       try {
-        console.log("GET /api/organizations - Retrieving all organizations");
-        const organizations = await storage.getAllOrganizations();
-        console.log(`Retrieved ${organizations.length} organizations`);
-        res.json(organizations);
+        const currentUser = req.user as any;
+        console.log("GET /api/organizations - Retrieving organizations");
+        let organizationsList;
+        if (currentUser.role === 'system_admin') {
+          organizationsList = await storage.getAllOrganizations();
+        } else {
+          const userOrg = await storage.getOrganization(currentUser.organizationId);
+          organizationsList = userOrg ? [userOrg] : [];
+        }
+        console.log(`Retrieved ${organizationsList.length} organizations`);
+        res.json(organizationsList);
       } catch (error) {
         console.error("Error retrieving organizations:", error);
         res.status(500).json({ error: "Failed to retrieve organizations" });
@@ -203,9 +244,14 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     // GET organization by ID
     router.get("/:id", isAuthenticated, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
         const organizationId = parseInt(req.params.id);
         if (isNaN(organizationId)) {
           return res.status(400).json({ error: "Invalid organization ID" });
+        }
+
+        if (currentUser.role !== 'system_admin' && currentUser.organizationId !== organizationId) {
+          return res.status(403).json({ error: "Access denied: cannot access a different organization" });
         }
         
         const organization = await storage.getOrganization(organizationId);

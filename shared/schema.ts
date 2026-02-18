@@ -1233,7 +1233,7 @@ export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 // Invoices table - main invoice records
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  organizationId: integer("organization_id").notNull().default(1),
+  organizationId: integer("organization_id").notNull(),
   clientId: integer("client_id").notNull(),
   invoiceNumber: text("invoice_number"),
   status: text("status").notNull().default("pending"),
