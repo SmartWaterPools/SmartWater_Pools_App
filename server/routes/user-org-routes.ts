@@ -227,7 +227,9 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
         const currentUser = req.user as any;
         console.log("GET /api/organizations - Retrieving organizations");
         let organizationsList;
-        if (currentUser.role === 'system_admin') {
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        if (currentUser.role === 'system_admin' || isSmartWaterAdmin) {
           organizationsList = await storage.getAllOrganizations();
         } else {
           const userOrg = await storage.getOrganization(currentUser.organizationId);
@@ -250,7 +252,9 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
           return res.status(400).json({ error: "Invalid organization ID" });
         }
 
-        if (currentUser.role !== 'system_admin' && currentUser.organizationId !== organizationId) {
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin && currentUser.organizationId !== organizationId) {
           return res.status(403).json({ error: "Access denied: cannot access a different organization" });
         }
         
@@ -267,8 +271,14 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     });
 
     // POST create new organization
-    router.post("/", isSystemAdmin, async (req: Request, res: Response) => {
+    router.post("/", isAdmin, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin) {
+          return res.status(403).json({ error: "Forbidden: Only SmartWater Pools administrators can create organizations" });
+        }
         console.log("POST /api/organizations - Creating new organization");
         console.log("Request body:", req.body);
         
@@ -300,8 +310,14 @@ export default function registerUserOrgRoutes(router: Router, storage: IStorage,
     });
 
     // PATCH update organization
-    router.patch("/:id", isSystemAdmin, async (req: Request, res: Response) => {
+    router.patch("/:id", isAdmin, async (req: Request, res: Response) => {
       try {
+        const currentUser = req.user as any;
+        const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+          currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+        if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin) {
+          return res.status(403).json({ error: "Forbidden: Only SmartWater Pools administrators can update organizations" });
+        }
         const organizationId = parseInt(req.params.id);
         if (isNaN(organizationId)) {
           return res.status(400).json({ error: "Invalid organization ID" });

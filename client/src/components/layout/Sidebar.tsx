@@ -55,8 +55,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     role: "Not logged in"
   });
   
-  // Check if user has admin-level permissions (system_admin, org_admin, or admin)
-  const isAdminUser = user && ['system_admin', 'org_admin', 'admin'].includes(user.role);
+  // Check if user has admin-level permissions (system_admin, org_admin, or admin) AND has @smartwaterpools.com email
+  const isAdminUser = user && ['system_admin', 'org_admin', 'admin'].includes(user.role) && user.email?.toLowerCase().endsWith('@smartwaterpools.com');
   
   const [isOnDashboard] = useRoute("/");
   const [isOnDispatch] = useRoute("/dispatch");

@@ -29,15 +29,24 @@ export default function Admin() {
         return;
       }
       
-      // If authenticated but not admin, redirect to unauthorized
-      if (user && !['admin', 'system_admin', 'org_admin'].includes(user.role)) {
+      // If authenticated but not admin or wrong email domain, redirect
+      const hasAdminRole = user && ['admin', 'system_admin', 'org_admin'].includes(user.role);
+      const hasSmartWaterEmail = user?.email?.toLowerCase().endsWith('@smartwaterpools.com');
+      
+      if (user && !hasAdminRole) {
         console.log("Admin page: Unauthorized role, redirecting");
         setLocation('/unauthorized');
         return;
       }
       
-      // If authenticated and has admin role, verify access
-      if (isAuthenticated && user && ['admin', 'system_admin', 'org_admin'].includes(user.role)) {
+      if (user && hasAdminRole && !hasSmartWaterEmail) {
+        console.log("Admin page: Admin role but wrong email domain, redirecting to dashboard");
+        setLocation('/dashboard');
+        return;
+      }
+      
+      // If authenticated and has admin role with correct email, verify access
+      if (isAuthenticated && user && hasAdminRole && hasSmartWaterEmail) {
         console.log("Admin page: Access verified");
         
         // Add a deliberate delay before showing content to avoid flashing

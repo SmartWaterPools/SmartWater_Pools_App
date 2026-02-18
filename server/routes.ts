@@ -1549,16 +1549,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Basic organizations endpoint
-  app.get('/api/organizations', isAuthenticated, async (req, res) => {
-    try {
-      // Return empty array for now - prevents connection errors
-      res.json([]);
-    } catch (error) {
-      console.error('Organizations error:', error);
-      res.status(500).json({ error: 'Failed to load organizations' });
-    }
-  });
+  // Mount Organization Management routes
+  const orgRouter = Router();
+  registerUserOrgRoutes(orgRouter, storage, false);
+  app.use('/api/organizations', orgRouter);
 
   // Mount Admin User Management routes
   const adminUsersRouter = Router();
