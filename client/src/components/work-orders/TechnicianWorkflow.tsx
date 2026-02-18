@@ -7,7 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Flag, Clock, AlertCircle, ClipboardCheck } from "lucide-react";
+import { CheckCircle2, Circle, ChevronLeft, ChevronRight, Play, Flag, Clock, AlertCircle, ClipboardCheck, Droplets, Barcode } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PoolInformationWizard } from "@/components/pool/PoolInformationWizard";
+import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { WorkOrderPhotos } from "./WorkOrderPhotos";
 
 interface TechnicianWorkflowProps {
@@ -38,6 +41,9 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [items, setItems] = useState<ChecklistItemWithNotes[]>([]);
+  const [showPoolWizard, setShowPoolWizard] = useState(false);
+  const [showBarcodeScanner, setShowBarcodeScanner] = useState(false);
+  const [scannedBarcode, setScannedBarcode] = useState<string | null>(null);
 
   useEffect(() => {
     setItems(parseChecklist(workOrder?.checklist));
@@ -346,9 +352,69 @@ export function TechnicianWorkflow({ workOrderId, workOrder, onComplete }: Techn
       </CardContent>
     </Card>
 
+    <div className="mt-4 flex gap-3">
+      {workOrder.clientId && (
+        <Button
+          variant="outline"
+          size="lg"
+          className="flex-1 py-4"
+          onClick={() => setShowPoolWizard(true)}
+        >
+          <Droplets className="h-5 w-5 mr-2 text-blue-500" />
+          Pool Wizard
+        </Button>
+      )}
+      <Button
+        variant="outline"
+        size="lg"
+        className="flex-1 py-4"
+        onClick={() => setShowBarcodeScanner(true)}
+      >
+        <Barcode className="h-5 w-5 mr-2 text-purple-500" />
+        Scan Barcode
+      </Button>
+    </div>
+
     <div className="mt-4">
       <WorkOrderPhotos workOrderId={workOrderId} photos={workOrder.photos} compact />
     </div>
+
+    <Dialog open={showPoolWizard} onOpenChange={setShowPoolWizard}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Pool Information</DialogTitle>
+        </DialogHeader>
+        <PoolInformationWizard
+          clientId={workOrder.clientId || 0}
+          onComplete={() => setShowPoolWizard(false)}
+        />
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={showBarcodeScanner} onOpenChange={setShowBarcodeScanner}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Scan Inventory Barcode</DialogTitle>
+        </DialogHeader>
+        <BarcodeScanner
+          onScan={(result) => {
+            setScannedBarcode(result);
+            setShowBarcodeScanner(false);
+            toast({
+              title: "Barcode scanned",
+              description: `Scanned: ${result}`,
+            });
+          }}
+          onClose={() => setShowBarcodeScanner(false)}
+          showClose={false}
+        />
+        {scannedBarcode && (
+          <p className="text-sm text-muted-foreground mt-2">
+            Last scanned: <span className="font-mono font-medium">{scannedBarcode}</span>
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
