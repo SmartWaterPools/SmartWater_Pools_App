@@ -18,8 +18,10 @@ import {
   History,
   FileText,
   Wrench,
-  ExternalLink
+  ExternalLink,
+  ClipboardCheck
 } from "lucide-react";
+import { TechnicianWorkflow } from "@/components/work-orders/TechnicianWorkflow";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -704,6 +706,9 @@ export default function WorkOrderDetail() {
 
   const checklistItems = parseChecklist(workOrder.checklist);
   const completedCount = checklistItems.filter(item => item.completed).length;
+  const [showGuidedWorkflow, setShowGuidedWorkflow] = useState(false);
+  const hasChecklist = checklistItems.length > 0;
+  const isActiveOrPending = ['pending', 'scheduled', 'in_progress'].includes(workOrder.status);
 
   return (
     <div className="space-y-6">
@@ -730,6 +735,17 @@ export default function WorkOrderDetail() {
           </div>
         </div>
         <div className="flex gap-2">
+          {hasChecklist && isActiveOrPending && (
+            <Button
+              variant={showGuidedWorkflow ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowGuidedWorkflow(!showGuidedWorkflow)}
+              className={showGuidedWorkflow ? "bg-blue-600 hover:bg-blue-700" : ""}
+            >
+              <ClipboardCheck className="h-4 w-4 mr-2" />
+              {showGuidedWorkflow ? "Standard View" : "Guided Workflow"}
+            </Button>
+          )}
           {existingReport ? (
             <Button 
               variant="default" 
@@ -796,6 +812,16 @@ export default function WorkOrderDetail() {
         </div>
       </div>
 
+      {showGuidedWorkflow && hasChecklist ? (
+        <TechnicianWorkflow
+          workOrderId={workOrderId}
+          workOrder={workOrder}
+          onComplete={() => {
+            setShowGuidedWorkflow(false);
+            queryClient.invalidateQueries({ queryKey: ['/api/work-orders', workOrderId] });
+          }}
+        />
+      ) : (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card>
@@ -1063,6 +1089,7 @@ export default function WorkOrderDetail() {
           </Card>
         </div>
       </div>
+      )}
 
       {workOrder && (
         <FieldServiceReportForm
