@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { db } from "../db";
-import { isAuthenticated } from "../auth";
+import { isAuthenticated, requirePermission } from "../auth";
 import { type User, insertWorkOrderSchema, insertWorkOrderNoteSchema, clients } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { ZodError } from "zod";
@@ -71,7 +71,7 @@ async function geocodeAddress(address: string): Promise<{ lat: number; lng: numb
 
 const router = Router();
 
-router.get('/', isAuthenticated, async (req, res) => {
+router.get('/', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const user = req.user as User;
     const { category, status, technicianId, projectId, repairId, includeClient, clientId } = req.query;
@@ -211,7 +211,7 @@ router.get('/', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/technician-hours/summary', isAuthenticated, async (req, res) => {
+router.get('/technician-hours/summary', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const user = req.user as User;
     const { startDate, endDate, technicianId } = req.query;
@@ -276,7 +276,7 @@ router.get('/technician-hours/summary', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/:id', isAuthenticated, async (req, res) => {
+router.get('/:id', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const workOrder = await storage.getWorkOrder(id);
@@ -349,7 +349,7 @@ router.get('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/', isAuthenticated, async (req, res) => {
+router.post('/', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
     const requestBody = { ...req.body };
@@ -388,7 +388,7 @@ router.post('/', isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch('/:id', isAuthenticated, async (req, res) => {
+router.patch('/:id', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const user = req.user as User;
@@ -472,7 +472,7 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/:id/notes', isAuthenticated, async (req, res) => {
+router.get('/:id/notes', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const workOrderId = parseInt(req.params.id);
     const notes = await storage.getWorkOrderNotes(workOrderId);
@@ -483,7 +483,7 @@ router.get('/:id/notes', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/:id/notes', isAuthenticated, async (req, res) => {
+router.post('/:id/notes', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
     const workOrderId = parseInt(req.params.id);
@@ -502,7 +502,7 @@ router.post('/:id/notes', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/:id/audit-logs', isAuthenticated, async (req, res) => {
+router.get('/:id/audit-logs', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const workOrderId = parseInt(req.params.id);
     const logs = await storage.getWorkOrderAuditLogs(workOrderId);
@@ -524,7 +524,7 @@ router.get('/:id/audit-logs', isAuthenticated, async (req, res) => {
 });
 
 // Work Order Items (Parts & Labor) routes
-router.get('/:id/items', isAuthenticated, async (req, res) => {
+router.get('/:id/items', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const workOrderId = parseInt(req.params.id);
     const items = await storage.getWorkOrderItems(workOrderId);
@@ -535,7 +535,7 @@ router.get('/:id/items', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/:id/items', isAuthenticated, async (req, res) => {
+router.post('/:id/items', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const workOrderId = parseInt(req.params.id);
     
@@ -569,7 +569,7 @@ router.post('/:id/items', isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch('/:id/items/:itemId', isAuthenticated, async (req, res) => {
+router.patch('/:id/items/:itemId', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
   try {
     const itemId = parseInt(req.params.itemId);
     
@@ -697,7 +697,7 @@ router.delete('/:id/items/:itemId', isAuthenticated, async (req, res) => {
 });
 
 // Work Order Time Entries routes
-router.get('/:id/time-entries', isAuthenticated, async (req, res) => {
+router.get('/:id/time-entries', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const workOrderId = parseInt(req.params.id);
     const entries = await storage.getWorkOrderTimeEntries(workOrderId);
@@ -718,7 +718,7 @@ router.get('/:id/time-entries', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/:id/time-entries', isAuthenticated, async (req, res) => {
+router.post('/:id/time-entries', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
     const workOrderId = parseInt(req.params.id);
@@ -737,7 +737,7 @@ router.post('/:id/time-entries', isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch('/:id/time-entries/:entryId', isAuthenticated, async (req, res) => {
+router.patch('/:id/time-entries/:entryId', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
   try {
     const entryId = parseInt(req.params.entryId);
     const updateData: Record<string, unknown> = { ...req.body };
@@ -793,7 +793,7 @@ router.delete('/:id/time-entries/:entryId', isAuthenticated, async (req, res) =>
 });
 
 // Work Order Team Members routes
-router.get('/:id/team', isAuthenticated, async (req, res) => {
+router.get('/:id/team', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const workOrderId = parseInt(req.params.id);
     const members = await storage.getWorkOrderTeamMembers(workOrderId);
@@ -816,7 +816,7 @@ router.get('/:id/team', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/:id/team', isAuthenticated, async (req, res) => {
+router.post('/:id/team', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const workOrderId = parseInt(req.params.id);
     
@@ -832,7 +832,7 @@ router.post('/:id/team', isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch('/:id/team/:memberId', isAuthenticated, async (req, res) => {
+router.patch('/:id/team/:memberId', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
   try {
     const memberId = parseInt(req.params.memberId);
     const member = await storage.updateWorkOrderTeamMember(memberId, req.body);
@@ -865,7 +865,7 @@ router.delete('/:id/team/:memberId', isAuthenticated, async (req, res) => {
 });
 
 // Clock in/out convenience endpoints
-router.post('/:id/clock-in', isAuthenticated, async (req, res) => {
+router.post('/:id/clock-in', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
     const workOrderId = parseInt(req.params.id);
@@ -884,7 +884,7 @@ router.post('/:id/clock-in', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/:id/clock-out', isAuthenticated, async (req, res) => {
+router.post('/:id/clock-out', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
     const workOrderId = parseInt(req.params.id);

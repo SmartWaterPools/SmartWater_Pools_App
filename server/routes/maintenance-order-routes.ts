@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../auth";
+import { isAuthenticated, requirePermission } from "../auth";
 import { type User, insertMaintenanceOrderSchema } from "@shared/schema";
 
 const router = Router();
 
-router.get('/', isAuthenticated, async (req, res) => {
+router.get('/', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const user = req.user as User;
     const { status, clientId, technicianId } = req.query;
@@ -29,7 +29,7 @@ router.get('/', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/:id', isAuthenticated, async (req, res) => {
+router.get('/:id', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const order = await storage.getMaintenanceOrder(id);
@@ -47,7 +47,7 @@ router.get('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/', isAuthenticated, async (req, res) => {
+router.post('/', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
     const data = insertMaintenanceOrderSchema.parse({
@@ -67,7 +67,7 @@ router.post('/', isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch('/:id', isAuthenticated, async (req, res) => {
+router.patch('/:id', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
   try {
     const user = req.user as User;
     const id = parseInt(req.params.id);
@@ -86,7 +86,7 @@ router.patch('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-router.delete('/:id', isAuthenticated, async (req, res) => {
+router.delete('/:id', isAuthenticated, requirePermission('maintenance', 'delete'), async (req, res) => {
   try {
     const user = req.user as User;
     const id = parseInt(req.params.id);
@@ -108,7 +108,7 @@ router.delete('/:id', isAuthenticated, async (req, res) => {
   }
 });
 
-router.get('/:id/work-orders', isAuthenticated, async (req, res) => {
+router.get('/:id/work-orders', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const visits = await storage.getMaintenancesByMaintenanceOrder(id);
@@ -119,7 +119,7 @@ router.get('/:id/work-orders', isAuthenticated, async (req, res) => {
   }
 });
 
-router.post('/:id/generate-visits', isAuthenticated, async (req, res) => {
+router.post('/:id/generate-visits', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
     const id = parseInt(req.params.id);

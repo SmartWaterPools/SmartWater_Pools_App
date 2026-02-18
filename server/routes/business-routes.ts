@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { isAuthenticated } from "../auth";
+import { isAuthenticated, requirePermission } from "../auth";
 import { db } from "../db";
 import { eq, and, gte, desc, sql, inArray } from "drizzle-orm";
 import {
@@ -18,7 +18,7 @@ import {
 
 const router = Router();
 
-router.get("/dashboard", isAuthenticated, async (req, res) => {
+router.get("/dashboard", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const timeRange = (req.query.timeRange as string) || 'month';
@@ -157,7 +157,7 @@ router.get("/dashboard", isAuthenticated, async (req, res) => {
 
 // ============ EXPENSES ============
 
-router.get("/expenses", isAuthenticated, async (req, res) => {
+router.get("/expenses", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(expenses).where(eq(expenses.organizationId, organizationId));
@@ -168,7 +168,7 @@ router.get("/expenses", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/expenses/:id", isAuthenticated, async (req, res) => {
+router.get("/expenses/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -185,7 +185,7 @@ router.get("/expenses/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/expenses", isAuthenticated, async (req, res) => {
+router.post("/expenses", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(expenses).values({
@@ -199,7 +199,7 @@ router.post("/expenses", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/expenses/:id", isAuthenticated, async (req, res) => {
+router.patch("/expenses/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -249,7 +249,7 @@ router.delete("/expenses/:id", isAuthenticated, async (req, res) => {
 
 // ============ TIME ENTRIES ============
 
-router.get("/time-entries", isAuthenticated, async (req, res) => {
+router.get("/time-entries", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(timeEntries).where(eq(timeEntries.organizationId, organizationId));
@@ -260,7 +260,7 @@ router.get("/time-entries", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/time-entries/:id", isAuthenticated, async (req, res) => {
+router.get("/time-entries/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -277,7 +277,7 @@ router.get("/time-entries/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/time-entries", isAuthenticated, async (req, res) => {
+router.post("/time-entries", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(timeEntries).values({
@@ -291,7 +291,7 @@ router.post("/time-entries", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/time-entries/:id", isAuthenticated, async (req, res) => {
+router.patch("/time-entries/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -341,7 +341,7 @@ router.delete("/time-entries/:id", isAuthenticated, async (req, res) => {
 
 // ============ POOL REPORTS ============
 
-router.get("/reports", isAuthenticated, async (req, res) => {
+router.get("/reports", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(poolReports).where(eq(poolReports.organizationId, organizationId));
@@ -352,7 +352,7 @@ router.get("/reports", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/reports/:id", isAuthenticated, async (req, res) => {
+router.get("/reports/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -369,7 +369,7 @@ router.get("/reports/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/reports", isAuthenticated, async (req, res) => {
+router.post("/reports", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(poolReports).values({
@@ -383,7 +383,7 @@ router.post("/reports", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/reports/:id", isAuthenticated, async (req, res) => {
+router.patch("/reports/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -432,7 +432,7 @@ router.delete("/reports/:id", isAuthenticated, async (req, res) => {
 });
 
 // Pool Reports alias endpoints
-router.get("/pool-reports", isAuthenticated, async (req, res) => {
+router.get("/pool-reports", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(poolReports).where(eq(poolReports.organizationId, organizationId));
@@ -443,7 +443,7 @@ router.get("/pool-reports", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/pool-reports/:id", isAuthenticated, async (req, res) => {
+router.get("/pool-reports/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -460,7 +460,7 @@ router.get("/pool-reports/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/pool-reports", isAuthenticated, async (req, res) => {
+router.post("/pool-reports", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(poolReports).values({
@@ -474,7 +474,7 @@ router.post("/pool-reports", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/pool-reports/:id", isAuthenticated, async (req, res) => {
+router.patch("/pool-reports/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -524,7 +524,7 @@ router.delete("/pool-reports/:id", isAuthenticated, async (req, res) => {
 
 // ============ PURCHASE ORDERS ============
 
-router.get("/purchase-orders", isAuthenticated, async (req, res) => {
+router.get("/purchase-orders", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(purchaseOrders).where(eq(purchaseOrders.organizationId, organizationId));
@@ -535,7 +535,7 @@ router.get("/purchase-orders", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/purchase-orders/:id", isAuthenticated, async (req, res) => {
+router.get("/purchase-orders/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -552,7 +552,7 @@ router.get("/purchase-orders/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/purchase-orders", isAuthenticated, async (req, res) => {
+router.post("/purchase-orders", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const userId = (req.user as any).id;
@@ -568,7 +568,7 @@ router.post("/purchase-orders", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/purchase-orders/:id", isAuthenticated, async (req, res) => {
+router.patch("/purchase-orders/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -618,7 +618,7 @@ router.delete("/purchase-orders/:id", isAuthenticated, async (req, res) => {
 
 // ============ INVENTORY ============
 
-router.get("/inventory", isAuthenticated, async (req, res) => {
+router.get("/inventory", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(inventoryItems)
@@ -630,7 +630,7 @@ router.get("/inventory", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/inventory/:id", isAuthenticated, async (req, res) => {
+router.get("/inventory/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -647,7 +647,7 @@ router.get("/inventory/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/inventory", isAuthenticated, async (req, res) => {
+router.post("/inventory", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(inventoryItems).values({
@@ -661,7 +661,7 @@ router.post("/inventory", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/inventory/:id", isAuthenticated, async (req, res) => {
+router.patch("/inventory/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -711,7 +711,7 @@ router.delete("/inventory/:id", isAuthenticated, async (req, res) => {
 
 // ============ LICENSES ============
 
-router.get("/licenses", isAuthenticated, async (req, res) => {
+router.get("/licenses", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(licenses).where(eq(licenses.organizationId, organizationId));
@@ -722,7 +722,7 @@ router.get("/licenses", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/licenses/:id", isAuthenticated, async (req, res) => {
+router.get("/licenses/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -739,7 +739,7 @@ router.get("/licenses/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/licenses", isAuthenticated, async (req, res) => {
+router.post("/licenses", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(licenses).values({
@@ -753,7 +753,7 @@ router.post("/licenses", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/licenses/:id", isAuthenticated, async (req, res) => {
+router.patch("/licenses/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -803,7 +803,7 @@ router.delete("/licenses/:id", isAuthenticated, async (req, res) => {
 
 // ============ INSURANCE ============
 
-router.get("/insurance", isAuthenticated, async (req, res) => {
+router.get("/insurance", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.select().from(insurancePolicies).where(eq(insurancePolicies.organizationId, organizationId));
@@ -814,7 +814,7 @@ router.get("/insurance", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/insurance/:id", isAuthenticated, async (req, res) => {
+router.get("/insurance/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -831,7 +831,7 @@ router.get("/insurance/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/insurance", isAuthenticated, async (req, res) => {
+router.post("/insurance", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(insurancePolicies).values({
@@ -845,7 +845,7 @@ router.post("/insurance", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/insurance/:id", isAuthenticated, async (req, res) => {
+router.patch("/insurance/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { isAuthenticated } from "../auth";
+import { isAuthenticated, requirePermission } from "../auth";
 import { db } from "../db";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import {
@@ -10,7 +10,7 @@ import {
 
 const router = Router();
 
-router.get("/", isAuthenticated, async (req, res) => {
+router.get("/", isAuthenticated, requirePermission('reports', 'view'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const { clientId, technicianId, workOrderId, maintenanceId, status, startDate, endDate } = req.query;
@@ -40,11 +40,16 @@ router.get("/", isAuthenticated, async (req, res) => {
       .where(and(...conditions))
       .orderBy(desc(serviceReports.serviceDate));
 
-    const reports = result.map((r) => ({
+    let reports = result.map((r) => ({
       ...r.report,
       clientName: r.clientName,
       technicianName: r.technicianName,
     }));
+
+    const user = req.user as any;
+    if (user.role === 'client') {
+      reports = reports.filter((r: any) => r.clientId === user.id);
+    }
 
     res.json(reports);
   } catch (error) {
@@ -53,9 +58,10 @@ router.get("/", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/summary", isAuthenticated, async (req, res) => {
+router.get("/summary", isAuthenticated, requirePermission('reports', 'view'), async (req, res) => {
   try {
-    const organizationId = (req.user as any).organizationId;
+    const user = req.user as any;
+    const organizationId = user.organizationId;
     const period = (req.query.period as string) || "month";
 
     const now = new Date();
@@ -79,15 +85,19 @@ router.get("/summary", isAuthenticated, async (req, res) => {
 
     const startDateStr = startDate.toISOString().split("T")[0];
 
+    const conditions: any[] = [
+      eq(serviceReports.organizationId, organizationId),
+      gte(serviceReports.serviceDate, startDateStr),
+    ];
+
+    if (user.role === 'client') {
+      conditions.push(eq(serviceReports.clientId, user.id));
+    }
+
     const reports = await db
       .select()
       .from(serviceReports)
-      .where(
-        and(
-          eq(serviceReports.organizationId, organizationId),
-          gte(serviceReports.serviceDate, startDateStr)
-        )
-      );
+      .where(and(...conditions));
 
     const totalReports = reports.length;
     const completedReports = reports.filter((r) => r.status === "completed" || r.status === "sent_to_client" || r.status === "reviewed");
@@ -158,9 +168,10 @@ router.get("/summary", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/by-work-order/:workOrderId", isAuthenticated, async (req, res) => {
+router.get("/by-work-order/:workOrderId", isAuthenticated, requirePermission('reports', 'view'), async (req, res) => {
   try {
-    const organizationId = (req.user as any).organizationId;
+    const user = req.user as any;
+    const organizationId = user.organizationId;
     const workOrderId = parseInt(req.params.workOrderId);
 
     const result = await db
@@ -177,6 +188,10 @@ router.get("/by-work-order/:workOrderId", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Service report not found for this work order" });
     }
 
+    if (user.role === 'client' && result[0].clientId !== user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
     res.json(result[0]);
   } catch (error) {
     console.error("Error fetching service report by work order:", error);
@@ -184,10 +199,15 @@ router.get("/by-work-order/:workOrderId", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/by-client/:clientId", isAuthenticated, async (req, res) => {
+router.get("/by-client/:clientId", isAuthenticated, requirePermission('reports', 'view'), async (req, res) => {
   try {
-    const organizationId = (req.user as any).organizationId;
+    const user = req.user as any;
+    const organizationId = user.organizationId;
     const clientId = parseInt(req.params.clientId);
+
+    if (user.role === 'client' && clientId !== user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
 
     const result = await db
       .select()
@@ -207,7 +227,7 @@ router.get("/by-client/:clientId", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/:id", isAuthenticated, async (req, res) => {
+router.get("/:id", isAuthenticated, requirePermission('reports', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -232,6 +252,11 @@ router.get("/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Service report not found" });
     }
 
+    const user = req.user as any;
+    if (user.role === 'client' && result[0].report.clientId !== user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
     const report = {
       ...result[0].report,
       clientName: result[0].clientName,
@@ -245,7 +270,7 @@ router.get("/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/", isAuthenticated, async (req, res) => {
+router.post("/", isAuthenticated, requirePermission('reports', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
 
@@ -269,7 +294,7 @@ router.post("/", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/:id", isAuthenticated, async (req, res) => {
+router.patch("/:id", isAuthenticated, requirePermission('reports', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;

@@ -26,7 +26,7 @@ import dispatchRoutes from "./routes/dispatch-routes";
 import serviceReportRoutes from "./routes/service-report-routes";
 import estimateRoutes from "./routes/estimate-routes";
 import taxTemplateRoutes from "./routes/tax-template-routes";
-import { isAuthenticated } from "./auth";
+import { isAuthenticated, requirePermission } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users } from "@shared/schema";
 
 async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
@@ -130,9 +130,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = req.user as User;
       const organizationId = user?.organizationId || 0;
       
-      // Get all clients from the current organization
-      const organizationClients = await storage.getUsersByRoleAndOrganization('client', organizationId);
-      const clientIds = organizationClients.map(c => c.id);
+      let clientIds: number[];
+      if (user.role === 'client') {
+        clientIds = [user.id];
+      } else {
+        const organizationClients = await storage.getUsersByRoleAndOrganization('client', organizationId);
+        clientIds = organizationClients.map(c => c.id);
+      }
       
       // Get all projects for these clients
       const allProjects = await storage.getProjectsByOrganization(organizationId, clientIds);
@@ -331,7 +335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/dashboard', dashboardRouter);
 
   // Basic clients endpoint
-  app.get('/api/clients', isAuthenticated, async (req, res) => {
+  app.get('/api/clients', isAuthenticated, requirePermission('clients', 'view'), async (req, res) => {
     try {
       // Get all users with role 'client' from the current organization
       const user = req.user as User;
@@ -378,7 +382,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new client endpoint
-  app.post('/api/clients', isAuthenticated, async (req, res) => {
+  app.post('/api/clients', isAuthenticated, requirePermission('clients', 'create'), async (req, res) => {
     try {
       // Support both flat and nested body formats
       const userData = req.body.user || req.body;
@@ -468,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/clients/client-records', isAuthenticated, async (req, res) => {
+  app.get('/api/clients/client-records', isAuthenticated, requirePermission('clients', 'view'), async (req, res) => {
     try {
       const user = req.user as User;
       const records = await db.select({
@@ -490,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Export clients as CSV
-  app.get('/api/clients/export', isAuthenticated, async (req, res) => {
+  app.get('/api/clients/export', isAuthenticated, requirePermission('clients', 'view'), async (req, res) => {
     try {
       const user = req.user as User;
       const orgClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
@@ -520,7 +524,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Import clients from CSV
-  app.post('/api/clients/import', isAuthenticated, async (req, res) => {
+  app.post('/api/clients/import', isAuthenticated, requirePermission('clients', 'create'), async (req, res) => {
     try {
       const user = req.user as User;
       if (!user?.organizationId) {
@@ -644,7 +648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get single client endpoint  
-  app.get('/api/clients/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/clients/:id', isAuthenticated, requirePermission('clients', 'view'), async (req, res) => {
     try {
       const clientId = parseInt(req.params.id);
       const client = await storage.getUser(clientId);
@@ -706,7 +710,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH single client - update client data including address coordinates
-  app.patch('/api/clients/:id', isAuthenticated, async (req, res) => {
+  app.patch('/api/clients/:id', isAuthenticated, requirePermission('clients', 'edit'), async (req, res) => {
     try {
       const clientId = parseInt(req.params.id);
       const client = await storage.getUser(clientId);
@@ -803,18 +807,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Basic projects endpoint  
-  app.get('/api/projects', isAuthenticated, async (req, res) => {
+  app.get('/api/projects', isAuthenticated, requirePermission('projects', 'view'), async (req, res) => {
     try {
-      // Get all clients from the current organization
       const user = req.user as User;
-      const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
-      const orgClientIds = organizationClients.map(c => c.id);
       
-      // Get all projects for these clients
-      const projectsList = await storage.getProjectsByOrganization(
-        user.organizationId, 
-        orgClientIds
-      );
+      let projectsList;
+      if (user.role === 'client') {
+        const allProjects = await storage.getProjects();
+        projectsList = allProjects.filter(p => p.clientId === user.id);
+      } else {
+        const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
+        const orgClientIds = organizationClients.map(c => c.id);
+        projectsList = await storage.getProjectsByOrganization(
+          user.organizationId, 
+          orgClientIds
+        );
+      }
       
       // Format projects with client details
       const formattedProjects = await Promise.all(projectsList.map(async (project) => {
@@ -859,7 +867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get single project endpoint
-  app.get('/api/projects/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/projects/:id', isAuthenticated, requirePermission('projects', 'view'), async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
       const project = await storage.getProject(projectId);
@@ -878,6 +886,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Verify the client belongs to the user's organization (security check)
       const authUser = req.user as User;
       if (client.organizationId !== authUser?.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      
+      // Client-role users can only view their own projects
+      if (authUser.role === 'client' && project.clientId !== authUser.id) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
@@ -922,7 +935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get project phases endpoint
-  app.get('/api/projects/:id/phases', isAuthenticated, async (req, res) => {
+  app.get('/api/projects/:id/phases', isAuthenticated, requirePermission('projects', 'view'), async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
       
@@ -956,7 +969,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get project work orders endpoint
-  app.get('/api/projects/:id/work-orders', isAuthenticated, async (req, res) => {
+  app.get('/api/projects/:id/work-orders', isAuthenticated, requirePermission('projects', 'view'), async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
       
@@ -984,7 +997,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create project endpoint
-  app.post('/api/projects', isAuthenticated, async (req, res) => {
+  app.post('/api/projects', isAuthenticated, requirePermission('projects', 'create'), async (req, res) => {
     try {
       const { 
         clientId, 
@@ -1044,7 +1057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update project endpoint
-  app.patch('/api/projects/:id', isAuthenticated, async (req, res) => {
+  app.patch('/api/projects/:id', isAuthenticated, requirePermission('projects', 'edit'), async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
       console.log(`PATCH /api/projects/${projectId} - Starting update`, { body: req.body });
@@ -1094,7 +1107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get project deletion preview - shows what will be deleted
-  app.get('/api/projects/:id/deletion-preview', isAuthenticated, async (req, res) => {
+  app.get('/api/projects/:id/deletion-preview', isAuthenticated, requirePermission('projects', 'delete'), async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
       
@@ -1122,7 +1135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete project endpoint
-  app.delete('/api/projects/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/projects/:id', isAuthenticated, requirePermission('projects', 'delete'), async (req, res) => {
     try {
       const projectId = parseInt(req.params.id);
       console.log(`DELETE /api/projects/${projectId} - Starting delete`);
@@ -1373,12 +1386,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Basic maintenances endpoint - returns actual pool service maintenances
-  app.get('/api/maintenances', isAuthenticated, async (req, res) => {
+  app.get('/api/maintenances', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
     try {
       const user = req.user as User;
       
-      const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
-      const clientIds = organizationClients.map(c => c.id);
+      let clientIds: number[];
+      if (user.role === 'client') {
+        clientIds = [user.id];
+      } else {
+        const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
+        clientIds = organizationClients.map(c => c.id);
+      }
       
       const organizationMaintenances = await storage.getMaintenancesByClientIds(clientIds);
       
@@ -1456,7 +1474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update technician assignment for maintenance
-  app.patch('/api/maintenances/:id/technician', isAuthenticated, async (req, res) => {
+  app.patch('/api/maintenances/:id/technician', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
     try {
       const maintenanceId = parseInt(req.params.id);
       const { technicianId } = req.body;
@@ -1491,17 +1509,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Basic repairs endpoint
-  app.get('/api/repairs', isAuthenticated, async (req, res) => {
+  app.get('/api/repairs', isAuthenticated, requirePermission('repairs', 'view'), async (req, res) => {
     try {
       const user = req.user as User;
       
-      // Get all clients from the current organization
-      const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
-      const clientIds = organizationClients.map(c => c.id);
-      
-      // Get all repairs and filter by organization's clients
-      const allRepairs = await storage.getRepairs();
-      const organizationRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+      let organizationRepairs;
+      if (user.role === 'client') {
+        const allRepairs = await storage.getRepairs();
+        organizationRepairs = allRepairs.filter(r => r.clientId === user.id);
+      } else {
+        const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
+        const clientIds = organizationClients.map(c => c.id);
+        const allRepairs = await storage.getRepairs();
+        organizationRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+      }
       
       // Format repairs with proper client and technician details matching ClientWithUser structure
       const formattedRepairs = await Promise.all(organizationRepairs.map(async (repair) => {
@@ -1619,7 +1640,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use('/api/users', usersRouter);
 
   // Basic technicians endpoint
-  app.get('/api/technicians', isAuthenticated, async (req, res) => {
+  app.get('/api/technicians', isAuthenticated, requirePermission('technicians', 'view'), async (req, res) => {
     try {
       const user = req.user as User;
       
@@ -1662,7 +1683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Technicians with user details endpoint - required by frontend
-  app.get('/api/technicians-with-users', isAuthenticated, async (req, res) => {
+  app.get('/api/technicians-with-users', isAuthenticated, requirePermission('technicians', 'view'), async (req, res) => {
     try {
       const user = req.user as User;
       

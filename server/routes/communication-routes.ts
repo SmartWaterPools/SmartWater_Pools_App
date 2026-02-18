@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import { storage } from '../storage';
-import { isAuthenticated } from '../auth';
+import { isAuthenticated, requirePermission } from '../auth';
 import { insertCommunicationProviderSchema, type User, type CommunicationProvider } from '@shared/schema';
 import { z } from 'zod';
 import twilio from 'twilio';
@@ -20,7 +20,7 @@ function maskSensitiveFields(provider: CommunicationProvider): CommunicationProv
   return masked;
 }
 
-router.get('/communication-providers', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/communication-providers', isAuthenticated, requirePermission('communications', 'view'), async (req: Request, res: Response) => {
   try {
     const user = req.user as User;
     if (!user?.organizationId) {
@@ -36,7 +36,7 @@ router.get('/communication-providers', isAuthenticated, async (req: Request, res
   }
 });
 
-router.get('/communication-providers/:id', isAuthenticated, async (req: Request, res: Response) => {
+router.get('/communication-providers/:id', isAuthenticated, requirePermission('communications', 'view'), async (req: Request, res: Response) => {
   try {
     const user = req.user as User;
     if (!user?.organizationId) {
@@ -64,7 +64,7 @@ router.get('/communication-providers/:id', isAuthenticated, async (req: Request,
   }
 });
 
-router.post('/communication-providers', isAuthenticated, async (req: Request, res: Response) => {
+router.post('/communication-providers', isAuthenticated, requirePermission('communications', 'create'), async (req: Request, res: Response) => {
   try {
     const user = req.user as User;
     if (!user?.organizationId) {

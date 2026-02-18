@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { X, Droplet, Home, Activity, Briefcase, UserCircle, Users, Settings, LogOut, Wrench, Phone, MessageSquare, Barcode, CalendarCheck, CalendarRange, ChevronDown, Truck, MapPin, Cog, DollarSign, FileText, Calculator } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 import { Link, useLocation } from "wouter";
 
 interface MobileSidebarProps {
@@ -10,6 +11,7 @@ interface MobileSidebarProps {
 
 export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
   const { user, logout } = useAuth();
+  const { canView } = usePermissions();
   const [location] = useLocation();
   const [isMaintenanceExpanded, setIsMaintenanceExpanded] = useState(() => location.startsWith('/maintenance'));
   const [isBillingExpanded, setIsBillingExpanded] = useState(() => location.startsWith('/invoices') || location.startsWith('/estimates'));
@@ -90,6 +92,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
             </Link>
             
             {/* Projects */}
+            {canView('projects') && (
             <Link href="/projects" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/projects') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -98,8 +101,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Projects
               </div>
             </Link>
+            )}
             
             {/* Maintenance Group */}
+            {canView('maintenance') && (
             <div>
               <div
                 onClick={() => setIsMaintenanceExpanded(!isMaintenanceExpanded)}
@@ -134,8 +139,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 </div>
               )}
             </div>
+            )}
             
             {/* Repairs */}
+            {canView('repairs') && (
             <Link href="/repairs" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/repairs') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -144,8 +151,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Repairs
               </div>
             </Link>
+            )}
             
             {/* Clients */}
+            {canView('clients') && (
             <Link href="/clients" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/clients') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -154,8 +163,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Clients
               </div>
             </Link>
+            )}
             
             {/* Technicians */}
+            {canView('technicians') && (
             <Link href="/technicians" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/technicians') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -164,8 +175,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Technicians
               </div>
             </Link>
+            )}
             
             {/* Communications */}
+            {canView('communications') && (
             <Link href="/communications" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/communications') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -174,8 +187,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Communications
               </div>
             </Link>
+            )}
             
             {/* Business */}
+            {canView('settings') && (
             <Link href="/business" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/business') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -184,8 +199,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Business
               </div>
             </Link>
+            )}
             
             {/* Reports */}
+            {canView('reports') && (
             <Link href="/reports" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/reports') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -194,8 +211,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Reports
               </div>
             </Link>
+            )}
             
             {/* Billing Group */}
+            {canView('invoices') && (
             <div>
               <div
                 onClick={() => setIsBillingExpanded(!isBillingExpanded)}
@@ -230,8 +249,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 </div>
               )}
             </div>
+            )}
             
             {/* Fleet Group */}
+            {canView('vehicles') && (
             <div>
               <div
                 onClick={() => setIsFleetExpanded(!isFleetExpanded)}
@@ -274,8 +295,10 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 </div>
               )}
             </div>
+            )}
             
             {/* Barcode Scanner Demo */}
+            {canView('inventory') && (
             <Link href="/inventory/barcode-demo" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/inventory/barcode-demo') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
@@ -284,12 +307,14 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Barcode Scanner
               </div>
             </Link>
+            )}
           </div>
         </nav>
         
         {/* Footer actions */}
         <div className="border-t border-gray-200 p-4 bg-gray-50">
           <div className="space-y-1">
+            {canView('settings') && (
             <Link href="/settings" onClick={onClose}>
               <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
                 isActive('/settings') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-gray-100'
@@ -298,6 +323,7 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 Settings
               </div>
             </Link>
+            )}
             
             <button 
               onClick={handleLogout} 

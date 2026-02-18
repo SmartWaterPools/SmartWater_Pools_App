@@ -5,7 +5,7 @@
  * technician vehicles, and inventory transfers.
  */
 import { Router, Request, Response } from 'express';
-import { isAuthenticated, isAdmin, checkOrganizationAccess } from '../auth';
+import { isAuthenticated, isAdmin, checkOrganizationAccess, requirePermission } from '../auth';
 import { IStorage } from '../storage';
 import * as z from 'zod';
 
@@ -14,7 +14,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory summary statistics
    * GET /api/inventory/summary
    */
-  router.get('/summary', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/summary', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user.organizationId;
       
@@ -50,7 +50,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all inventory items
    * GET /api/inventory/items
    */
-  router.get('/items', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/items', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       // Only return items for the user's organization
       const organizationId = req.user.organizationId;
@@ -66,7 +66,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory item by ID
    * GET /api/inventory/items/:id
    */
-  router.get('/items/:id', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/items/:id', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -89,7 +89,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create a new inventory item
    * POST /api/inventory/items
    */
-  router.post('/items', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/items', isAuthenticated, isAdmin, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       // Validate request body
       const item = {
@@ -110,7 +110,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Update an inventory item
    * PATCH /api/inventory/items/:id
    */
-  router.patch('/items/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.patch('/items/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'edit'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -135,7 +135,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Delete an inventory item
    * DELETE /api/inventory/items/:id
    */
-  router.delete('/items/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.delete('/items/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'delete'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -164,7 +164,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory items by category
    * GET /api/inventory/items/category/:category
    */
-  router.get('/items/category/:category', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/items/category/:category', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const category = req.params.category;
       const items = await storage.getInventoryItemsByCategory(category);
@@ -179,7 +179,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get low stock inventory items
    * GET /api/inventory/items/low-stock
    */
-  router.get('/items/low-stock', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/items/low-stock', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user.organizationId;
       const allItems = await storage.getInventoryItemsByOrganizationId(organizationId);
@@ -201,7 +201,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all warehouses
    * GET /api/inventory/warehouses
    */
-  router.get('/warehouses', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/warehouses', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       // Only return warehouses for the user's organization
       const organizationId = req.user.organizationId;
@@ -217,7 +217,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get warehouse by ID
    * GET /api/inventory/warehouses/:id
    */
-  router.get('/warehouses/:id', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/warehouses/:id', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -240,7 +240,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create a new warehouse
    * POST /api/inventory/warehouses
    */
-  router.post('/warehouses', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/warehouses', isAuthenticated, isAdmin, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       // Validate request body
       const warehouse = {
@@ -261,7 +261,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Update a warehouse
    * PATCH /api/inventory/warehouses/:id
    */
-  router.patch('/warehouses/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.patch('/warehouses/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'edit'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -286,7 +286,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Delete a warehouse
    * DELETE /api/inventory/warehouses/:id
    */
-  router.delete('/warehouses/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.delete('/warehouses/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'delete'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -315,7 +315,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all technician vehicles
    * GET /api/inventory/technician-vehicles
    */
-  router.get('/technician-vehicles', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/technician-vehicles', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       // Only return vehicles for the user's organization
       const organizationId = req.user.organizationId;
@@ -331,7 +331,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get technician vehicle by ID
    * GET /api/inventory/technician-vehicles/:id
    */
-  router.get('/technician-vehicles/:id', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/technician-vehicles/:id', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -354,7 +354,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get technician vehicles by technician ID
    * GET /api/inventory/technician-vehicles/technician/:id
    */
-  router.get('/technician-vehicles/technician/:id', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/technician-vehicles/technician/:id', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const technicianId = parseInt(req.params.id);
       if (isNaN(technicianId)) {
@@ -373,7 +373,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create a new technician vehicle
    * POST /api/inventory/technician-vehicles
    */
-  router.post('/technician-vehicles', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/technician-vehicles', isAuthenticated, isAdmin, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       // Add organization ID to the vehicle data
       const vehicle = {
@@ -394,7 +394,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Update a technician vehicle
    * PATCH /api/inventory/technician-vehicles/:id
    */
-  router.patch('/technician-vehicles/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.patch('/technician-vehicles/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'edit'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -419,7 +419,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Delete a technician vehicle
    * DELETE /api/inventory/technician-vehicles/:id
    */
-  router.delete('/technician-vehicles/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.delete('/technician-vehicles/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'delete'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -448,7 +448,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get warehouse inventory
    * GET /api/inventory/warehouse-inventory/:warehouseId
    */
-  router.get('/warehouse-inventory/:warehouseId', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/warehouse-inventory/:warehouseId', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const warehouseId = parseInt(req.params.warehouseId);
       if (isNaN(warehouseId)) {
@@ -467,7 +467,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create warehouse inventory
    * POST /api/inventory/warehouse-inventory
    */
-  router.post('/warehouse-inventory', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/warehouse-inventory', isAuthenticated, isAdmin, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       // Add organization ID to the inventory data
       const inventory = {
@@ -487,7 +487,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Update warehouse inventory
    * PATCH /api/inventory/warehouse-inventory/:id
    */
-  router.patch('/warehouse-inventory/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.patch('/warehouse-inventory/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'edit'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -511,7 +511,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get vehicle inventory
    * GET /api/inventory/vehicle-inventory/:vehicleId
    */
-  router.get('/vehicle-inventory/:vehicleId', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/vehicle-inventory/:vehicleId', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const vehicleId = parseInt(req.params.vehicleId);
       if (isNaN(vehicleId)) {
@@ -530,7 +530,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create vehicle inventory
    * POST /api/inventory/vehicle-inventory
    */
-  router.post('/vehicle-inventory', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/vehicle-inventory', isAuthenticated, isAdmin, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       // Add organization ID to the inventory data
       const inventory = {
@@ -550,7 +550,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Update vehicle inventory
    * PATCH /api/inventory/vehicle-inventory/:id
    */
-  router.patch('/vehicle-inventory/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.patch('/vehicle-inventory/:id', isAuthenticated, isAdmin, requirePermission('inventory', 'edit'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -574,7 +574,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all inventory transfers
    * GET /api/inventory/transfers
    */
-  router.get('/transfers', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/transfers', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       // Only return transfers for the user's organization
       const organizationId = req.user.organizationId;
@@ -590,7 +590,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory transfer by ID
    * GET /api/inventory/transfers/:id
    */
-  router.get('/transfers/:id', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/transfers/:id', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -613,7 +613,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create a new inventory transfer
    * POST /api/inventory/transfers
    */
-  router.post('/transfers', isAuthenticated, async (req: Request, res: Response) => {
+  router.post('/transfers', isAuthenticated, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       // Get user ID from session
       const userId = (req.user as any)?.id;
@@ -643,7 +643,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Update inventory transfer status
    * PATCH /api/inventory/transfers/:id/status
    */
-  router.patch('/transfers/:id/status', isAuthenticated, async (req: Request, res: Response) => {
+  router.patch('/transfers/:id/status', isAuthenticated, requirePermission('inventory', 'edit'), async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -688,7 +688,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory transfers by status
    * GET /api/inventory/transfers/status/:status
    */
-  router.get('/transfers/status/:status', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/transfers/status/:status', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const status = req.params.status;
       if (!['pending', 'in_transit', 'completed', 'cancelled'].includes(status)) {
@@ -712,7 +712,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory transfers by date range
    * GET /api/inventory/transfers/date-range
    */
-  router.get('/transfers/date-range', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/transfers/date-range', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
       
@@ -738,7 +738,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create inventory transfer items
    * POST /api/inventory/transfer-items
    */
-  router.post('/transfer-items', isAuthenticated, async (req: Request, res: Response) => {
+  router.post('/transfer-items', isAuthenticated, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       const { transferId, items } = req.body;
       
@@ -779,7 +779,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory transfer items by transfer ID
    * GET /api/inventory/transfer-items/:transferId
    */
-  router.get('/transfer-items/:transferId', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/transfer-items/:transferId', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const transferId = parseInt(req.params.transferId);
       if (isNaN(transferId)) {
@@ -811,7 +811,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Create inventory adjustment
    * POST /api/inventory/adjustments
    */
-  router.post('/adjustments', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/adjustments', isAuthenticated, isAdmin, requirePermission('inventory', 'create'), async (req: Request, res: Response) => {
     try {
       // Get user ID from session
       const userId = (req.user as any)?.id;
@@ -840,7 +840,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get all inventory adjustments
    * GET /api/inventory/adjustments
    */
-  router.get('/adjustments', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/adjustments', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       // Only return adjustments for the user's organization
       const organizationId = req.user.organizationId;
@@ -856,7 +856,7 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
    * Get inventory adjustments by date range
    * GET /api/inventory/adjustments/date-range
    */
-  router.get('/adjustments/date-range', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/adjustments/date-range', isAuthenticated, requirePermission('inventory', 'view'), async (req: Request, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
       

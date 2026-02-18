@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../auth";
+import { isAuthenticated, requirePermission } from "../auth";
 import { insertInvoiceSchema, insertInvoiceItemSchema, insertInvoicePaymentSchema, clients } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
@@ -69,7 +69,7 @@ function calculateInvoiceTotals(items: { quantity: string; unitPrice: number }[]
   return { subtotal, taxAmount, total, discountAmount: discount };
 }
 
-router.get("/next-number", isAuthenticated, async (req, res) => {
+router.get("/next-number", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const nextNumber = await storage.getNextInvoiceNumber(user.organizationId);
@@ -80,7 +80,7 @@ router.get("/next-number", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/", isAuthenticated, async (req, res) => {
+router.get("/", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const { status, clientId } = req.query;
@@ -93,6 +93,10 @@ router.get("/", isAuthenticated, async (req, res) => {
       invoices = invoices.filter(inv => inv.organizationId === user.organizationId);
     } else {
       invoices = await storage.getInvoices(user.organizationId);
+    }
+    
+    if (user.role === 'client') {
+      invoices = invoices.filter((inv: any) => inv.clientId === user.id);
     }
     
     res.json(invoices);
@@ -165,7 +169,7 @@ router.post("/webhook", async (req, res) => {
   res.json({ received: true });
 });
 
-router.get("/:id", isAuthenticated, async (req, res) => {
+router.get("/:id", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -175,6 +179,9 @@ router.get("/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Invoice not found" });
     }
     if (invoice.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (user.role === 'client' && invoice.clientId !== user.id) {
       return res.status(403).json({ error: "Access denied" });
     }
     
@@ -188,7 +195,7 @@ router.get("/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/", isAuthenticated, async (req, res) => {
+router.post("/", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const { items: itemsData, ...invoiceData } = req.body;
@@ -273,7 +280,7 @@ router.post("/", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/:id", isAuthenticated, async (req, res) => {
+router.patch("/:id", isAuthenticated, requirePermission('invoices', 'edit'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -336,7 +343,7 @@ router.patch("/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.delete("/:id", isAuthenticated, async (req, res) => {
+router.delete("/:id", isAuthenticated, requirePermission('invoices', 'delete'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -363,7 +370,7 @@ router.delete("/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/items", isAuthenticated, async (req, res) => {
+router.post("/:id/items", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const invoiceId = parseInt(req.params.id);
@@ -414,7 +421,7 @@ router.post("/:id/items", isAuthenticated, async (req, res) => {
   }
 });
 
-router.delete("/:id/items/:itemId", isAuthenticated, async (req, res) => {
+router.delete("/:id/items/:itemId", isAuthenticated, requirePermission('invoices', 'delete'), async (req, res) => {
   try {
     const user = req.user as any;
     const invoiceId = parseInt(req.params.id);
@@ -452,7 +459,7 @@ router.delete("/:id/items/:itemId", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/payments", isAuthenticated, async (req, res) => {
+router.post("/:id/payments", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const invoiceId = parseInt(req.params.id);
@@ -501,7 +508,7 @@ router.post("/:id/payments", isAuthenticated, async (req, res) => {
   }
 });
 
-router.delete("/:id/payments/:paymentId", isAuthenticated, async (req, res) => {
+router.delete("/:id/payments/:paymentId", isAuthenticated, requirePermission('invoices', 'delete'), async (req, res) => {
   try {
     const user = req.user as any;
     const invoiceId = parseInt(req.params.id);
@@ -547,7 +554,7 @@ router.delete("/:id/payments/:paymentId", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/send", isAuthenticated, async (req, res) => {
+router.post("/:id/send", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const invoiceId = parseInt(req.params.id);
@@ -667,7 +674,7 @@ router.post("/:id/send", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/create-payment-link", isAuthenticated, async (req, res) => {
+router.post("/:id/create-payment-link", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);

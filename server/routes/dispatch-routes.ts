@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../auth";
+import { isAuthenticated, requirePermission } from "../auth";
 import { db } from "../db";
 import { eq, and, inArray, gte, lte, desc } from "drizzle-orm";
 import { bazzaRoutes, bazzaRouteStops, bazzaMaintenanceAssignments, technicians, users, clients, maintenances } from "@shared/schema";
@@ -17,7 +17,7 @@ function haversineDistance(lat1: number, lng1: number, lat2: number, lng2: numbe
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-router.get("/daily-board", isAuthenticated, async (req: Request, res: Response) => {
+router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'view'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;
@@ -163,7 +163,7 @@ router.get("/daily-board", isAuthenticated, async (req: Request, res: Response) 
   }
 });
 
-router.post("/reassign-route", isAuthenticated, async (req: Request, res: Response) => {
+router.post("/reassign-route", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;
@@ -194,7 +194,7 @@ router.post("/reassign-route", isAuthenticated, async (req: Request, res: Respon
   }
 });
 
-router.post("/add-emergency-stop", isAuthenticated, async (req: Request, res: Response) => {
+router.post("/add-emergency-stop", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;
@@ -247,7 +247,7 @@ router.post("/add-emergency-stop", isAuthenticated, async (req: Request, res: Re
   }
 });
 
-router.get("/technician-workload", isAuthenticated, async (req: Request, res: Response) => {
+router.get("/technician-workload", isAuthenticated, requirePermission('maintenance', 'view'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;
@@ -325,7 +325,7 @@ router.get("/technician-workload", isAuthenticated, async (req: Request, res: Re
   }
 });
 
-router.post("/optimize-route/:routeId", isAuthenticated, async (req: Request, res: Response) => {
+router.post("/optimize-route/:routeId", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;
@@ -405,7 +405,7 @@ router.post("/optimize-route/:routeId", isAuthenticated, async (req: Request, re
   }
 });
 
-router.post("/reorder-stop", isAuthenticated, async (req: Request, res: Response) => {
+router.post("/reorder-stop", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;
@@ -448,7 +448,7 @@ router.post("/reorder-stop", isAuthenticated, async (req: Request, res: Response
   }
 });
 
-router.post("/assign-job", isAuthenticated, async (req: Request, res: Response) => {
+router.post("/assign-job", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;
@@ -501,7 +501,7 @@ router.post("/assign-job", isAuthenticated, async (req: Request, res: Response) 
   }
 });
 
-router.post("/bulk-assign-client-stops", isAuthenticated, async (req: Request, res: Response) => {
+router.post("/bulk-assign-client-stops", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;
     const organizationId = user?.organizationId;

@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { storage } from "../storage";
-import { isAuthenticated } from "../auth";
+import { isAuthenticated, requirePermission } from "../auth";
 import { insertEstimateSchema, insertEstimateItemSchema, insertInvoiceSchema, insertInvoiceItemSchema, clients } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
@@ -64,7 +64,7 @@ function calculateEstimateTotals(items: { quantity: string; unitPrice: number }[
   return { subtotal, taxAmount, total, discountAmount: discount };
 }
 
-router.get("/next-number", isAuthenticated, async (req, res) => {
+router.get("/next-number", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const nextNumber = await storage.getNextEstimateNumber(user.organizationId);
@@ -75,7 +75,7 @@ router.get("/next-number", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/", isAuthenticated, async (req, res) => {
+router.get("/", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const { status, clientId } = req.query;
@@ -90,6 +90,10 @@ router.get("/", isAuthenticated, async (req, res) => {
       estimates = await storage.getEstimates(user.organizationId);
     }
     
+    if (user.role === 'client') {
+      estimates = estimates.filter((est: any) => est.clientId === user.id);
+    }
+    
     res.json(estimates);
   } catch (error) {
     console.error("Error fetching estimates:", error);
@@ -97,7 +101,7 @@ router.get("/", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/:id", isAuthenticated, async (req, res) => {
+router.get("/:id", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -107,6 +111,9 @@ router.get("/:id", isAuthenticated, async (req, res) => {
       return res.status(404).json({ error: "Estimate not found" });
     }
     if (estimate.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (user.role === 'client' && estimate.clientId !== user.id) {
       return res.status(403).json({ error: "Access denied" });
     }
     
@@ -119,7 +126,7 @@ router.get("/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/", isAuthenticated, async (req, res) => {
+router.post("/", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const { items: itemsData, ...estimateData } = req.body;
@@ -173,7 +180,7 @@ router.post("/", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/:id", isAuthenticated, async (req, res) => {
+router.patch("/:id", isAuthenticated, requirePermission('invoices', 'edit'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -228,7 +235,7 @@ router.patch("/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.patch("/:id/items", isAuthenticated, async (req, res) => {
+router.patch("/:id/items", isAuthenticated, requirePermission('invoices', 'edit'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -288,7 +295,7 @@ router.patch("/:id/items", isAuthenticated, async (req, res) => {
   }
 });
 
-router.delete("/:id", isAuthenticated, async (req, res) => {
+router.delete("/:id", isAuthenticated, requirePermission('invoices', 'delete'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -310,7 +317,7 @@ router.delete("/:id", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/accept", isAuthenticated, async (req, res) => {
+router.post("/:id/accept", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -342,7 +349,7 @@ router.post("/:id/accept", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/decline", isAuthenticated, async (req, res) => {
+router.post("/:id/decline", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -367,7 +374,7 @@ router.post("/:id/decline", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/convert-to-invoice", isAuthenticated, async (req, res) => {
+router.post("/:id/convert-to-invoice", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -507,7 +514,7 @@ router.post("/:id/convert-to-invoice", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/:id/linked-invoices", isAuthenticated, async (req, res) => {
+router.get("/:id/linked-invoices", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -535,7 +542,7 @@ router.get("/:id/linked-invoices", isAuthenticated, async (req, res) => {
   }
 });
 
-router.get("/:id/billing-summary", isAuthenticated, async (req, res) => {
+router.get("/:id/billing-summary", isAuthenticated, requirePermission('invoices', 'view'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -599,7 +606,7 @@ router.get("/:id/billing-summary", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/deposit", isAuthenticated, async (req, res) => {
+router.post("/:id/deposit", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const id = parseInt(req.params.id);
@@ -627,7 +634,7 @@ router.post("/:id/deposit", isAuthenticated, async (req, res) => {
   }
 });
 
-router.post("/:id/send", isAuthenticated, async (req, res) => {
+router.post("/:id/send", isAuthenticated, requirePermission('invoices', 'create'), async (req, res) => {
   try {
     const user = req.user as any;
     const estimateId = parseInt(req.params.id);

@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { GoogleMapsProvider } from "./contexts/GoogleMapsContext";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { usePermissions } from "@/hooks/usePermissions";
 import NotFound from "@/pages/not-found";
 
 // Import pages
@@ -45,12 +46,13 @@ import DispatchBoard from "@/pages/DispatchBoard";
 import ServiceReportView from "@/pages/ServiceReportView";
 import Reports from "@/pages/Reports";
 
-// Protected route wrapper that includes the AppLayout
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+type ResourceType = 'clients' | 'technicians' | 'projects' | 'maintenance' | 'repairs' | 'invoices' | 'inventory' | 'reports' | 'settings' | 'vehicles' | 'communications' | 'users' | 'organization';
+
+function ProtectedRoute({ component: Component, requiredPermission }: { component: React.ComponentType; requiredPermission?: ResourceType }) {
   const { isAuthenticated, isLoading } = useAuth();
+  const { canView } = usePermissions();
   const [, setLocation] = useLocation();
   
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -59,13 +61,16 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
     );
   }
   
-  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     setLocation('/login');
     return null;
   }
   
-  // Render the component wrapped in AppLayout
+  if (requiredPermission && !canView(requiredPermission)) {
+    setLocation('/');
+    return null;
+  }
+  
   return (
     <AppLayout>
       <Component />
@@ -84,43 +89,43 @@ function Router() {
       {/* Protected routes with AppLayout */}
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
-      <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetails} />} />
-      <Route path="/projects" component={() => <ProtectedRoute component={Projects} />} />
-      <Route path="/clients/add" component={() => <ProtectedRoute component={AddClient} />} />
-      <Route path="/clients/enhanced" component={() => <ProtectedRoute component={ClientsEnhanced} />} />
-      <Route path="/clients/:id/pool-wizard" component={() => <ProtectedRoute component={PoolWizardPage} />} />
-      <Route path="/clients/:id/edit" component={() => <ProtectedRoute component={ClientEdit} />} />
-      <Route path="/clients/:id/portal" component={() => <ProtectedRoute component={ClientPortal} />} />
-      <Route path="/clients/:id" component={() => <ProtectedRoute component={ClientDetails} />} />
-      <Route path="/clients" component={() => <ProtectedRoute component={Clients} />} />
-      <Route path="/dispatch" component={() => <ProtectedRoute component={DispatchBoard} />} />
-      <Route path="/maintenance/calendar" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} />} />
-      <Route path="/maintenance/list" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} />} />
-      <Route path="/maintenance/map" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="map" />} />} />
-      <Route path="/maintenance/routes" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="routes" />} />} />
-      <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} />} />
-      <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} />} />
-      <Route path="/work-orders/:id" component={() => <ProtectedRoute component={WorkOrderDetail} />} />
-      <Route path="/work-orders" component={() => <ProtectedRoute component={WorkOrders} />} />
-      <Route path="/work-order-requests" component={() => <ProtectedRoute component={WorkOrderRequests} />} />
-      <Route path="/maintenance-orders" component={() => <ProtectedRoute component={MaintenanceOrders} />} />
-      <Route path="/technicians" component={() => <ProtectedRoute component={Technicians} />} />
-      <Route path="/communications" component={() => <ProtectedRoute component={Communications} />} />
-      <Route path="/vendors/:id" component={() => <ProtectedRoute component={VendorDetail} />} />
-      <Route path="/invoices/new" component={() => <ProtectedRoute component={InvoiceForm} />} />
-      <Route path="/invoices/:id/edit" component={() => <ProtectedRoute component={InvoiceForm} />} />
-      <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} />} />
-      <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} />} />
-      <Route path="/estimates/new" component={() => <ProtectedRoute component={EstimateForm} />} />
-      <Route path="/estimates/:id/edit" component={() => <ProtectedRoute component={EstimateForm} />} />
-      <Route path="/estimates/:id" component={() => <ProtectedRoute component={EstimateDetail} />} />
-      <Route path="/estimates" component={() => <ProtectedRoute component={Estimates} />} />
-      <Route path="/business" component={() => <ProtectedRoute component={Business} />} />
-      <Route path="/inventory" component={() => <ProtectedRoute component={InventoryManagement} />} />
-      <Route path="/reports" component={() => <ProtectedRoute component={Reports} />} />
-      <Route path="/reports/:id" component={() => <ProtectedRoute component={ServiceReportView} />} />
-      <Route path="/admin" component={() => <ProtectedRoute component={Admin} />} />
-      <Route path="/settings" component={() => <ProtectedRoute component={Settings} />} />
+      <Route path="/projects/:id" component={() => <ProtectedRoute component={ProjectDetails} requiredPermission="projects" />} />
+      <Route path="/projects" component={() => <ProtectedRoute component={Projects} requiredPermission="projects" />} />
+      <Route path="/clients/add" component={() => <ProtectedRoute component={AddClient} requiredPermission="clients" />} />
+      <Route path="/clients/enhanced" component={() => <ProtectedRoute component={ClientsEnhanced} requiredPermission="clients" />} />
+      <Route path="/clients/:id/pool-wizard" component={() => <ProtectedRoute component={PoolWizardPage} requiredPermission="clients" />} />
+      <Route path="/clients/:id/edit" component={() => <ProtectedRoute component={ClientEdit} requiredPermission="clients" />} />
+      <Route path="/clients/:id/portal" component={() => <ProtectedRoute component={ClientPortal} requiredPermission="clients" />} />
+      <Route path="/clients/:id" component={() => <ProtectedRoute component={ClientDetails} requiredPermission="clients" />} />
+      <Route path="/clients" component={() => <ProtectedRoute component={Clients} requiredPermission="clients" />} />
+      <Route path="/dispatch" component={() => <ProtectedRoute component={DispatchBoard} requiredPermission="maintenance" />} />
+      <Route path="/maintenance/calendar" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} requiredPermission="maintenance" />} />
+      <Route path="/maintenance/list" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="calendar" />} requiredPermission="maintenance" />} />
+      <Route path="/maintenance/map" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="map" />} requiredPermission="maintenance" />} />
+      <Route path="/maintenance/routes" component={() => <ProtectedRoute component={() => <Maintenance defaultTab="routes" />} requiredPermission="maintenance" />} />
+      <Route path="/maintenance" component={() => <ProtectedRoute component={Maintenance} requiredPermission="maintenance" />} />
+      <Route path="/repairs" component={() => <ProtectedRoute component={Repairs} requiredPermission="repairs" />} />
+      <Route path="/work-orders/:id" component={() => <ProtectedRoute component={WorkOrderDetail} requiredPermission="maintenance" />} />
+      <Route path="/work-orders" component={() => <ProtectedRoute component={WorkOrders} requiredPermission="maintenance" />} />
+      <Route path="/work-order-requests" component={() => <ProtectedRoute component={WorkOrderRequests} requiredPermission="maintenance" />} />
+      <Route path="/maintenance-orders" component={() => <ProtectedRoute component={MaintenanceOrders} requiredPermission="maintenance" />} />
+      <Route path="/technicians" component={() => <ProtectedRoute component={Technicians} requiredPermission="technicians" />} />
+      <Route path="/communications" component={() => <ProtectedRoute component={Communications} requiredPermission="communications" />} />
+      <Route path="/vendors/:id" component={() => <ProtectedRoute component={VendorDetail} requiredPermission="inventory" />} />
+      <Route path="/invoices/new" component={() => <ProtectedRoute component={InvoiceForm} requiredPermission="invoices" />} />
+      <Route path="/invoices/:id/edit" component={() => <ProtectedRoute component={InvoiceForm} requiredPermission="invoices" />} />
+      <Route path="/invoices/:id" component={() => <ProtectedRoute component={InvoiceDetail} requiredPermission="invoices" />} />
+      <Route path="/invoices" component={() => <ProtectedRoute component={Invoices} requiredPermission="invoices" />} />
+      <Route path="/estimates/new" component={() => <ProtectedRoute component={EstimateForm} requiredPermission="invoices" />} />
+      <Route path="/estimates/:id/edit" component={() => <ProtectedRoute component={EstimateForm} requiredPermission="invoices" />} />
+      <Route path="/estimates/:id" component={() => <ProtectedRoute component={EstimateDetail} requiredPermission="invoices" />} />
+      <Route path="/estimates" component={() => <ProtectedRoute component={Estimates} requiredPermission="invoices" />} />
+      <Route path="/business" component={() => <ProtectedRoute component={Business} requiredPermission="settings" />} />
+      <Route path="/inventory" component={() => <ProtectedRoute component={InventoryManagement} requiredPermission="inventory" />} />
+      <Route path="/reports" component={() => <ProtectedRoute component={Reports} requiredPermission="reports" />} />
+      <Route path="/reports/:id" component={() => <ProtectedRoute component={ServiceReportView} requiredPermission="reports" />} />
+      <Route path="/admin" component={() => <ProtectedRoute component={Admin} requiredPermission="users" />} />
+      <Route path="/settings" component={() => <ProtectedRoute component={Settings} requiredPermission="settings" />} />
       
       {/* Fallback to 404 */}
       <Route component={NotFound} />

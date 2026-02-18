@@ -10,7 +10,7 @@
 
 import { Router, Request, Response } from 'express';
 import { IStorage } from '../storage';
-import { isAuthenticated, isAdmin } from '../auth';
+import { isAuthenticated, isAdmin, requirePermission } from '../auth';
 import { FleetmaticsService, getFleetmaticsService } from '../fleetmatics-service';
 import { InsertFleetmaticsConfig } from '../../shared/schema';
 
@@ -31,7 +31,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * GET /api/fleetmatics/config
    * (Protected admin route)
    */
-  router.get('/config', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.get('/config', isAuthenticated, isAdmin, requirePermission('vehicles', 'view'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user?.organizationId || 1;
       const config = await storage.getFleetmaticsConfigByOrganizationId(organizationId);
@@ -47,7 +47,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * POST /api/fleetmatics/config
    * (Protected admin route)
    */
-  router.post('/config', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/config', isAuthenticated, isAdmin, requirePermission('vehicles', 'edit'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user?.organizationId || 1;
       const { apiKey, apiSecret, baseUrl, accountId, syncFrequencyMinutes, isActive } = req.body;
@@ -82,7 +82,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * PATCH /api/fleetmatics/config/:id
    * (Protected admin route)
    */
-  router.patch('/config/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.patch('/config/:id', isAuthenticated, isAdmin, requirePermission('vehicles', 'edit'), async (req: Request, res: Response) => {
     try {
       const configId = parseInt(req.params.id);
       const updates = req.body;
@@ -108,7 +108,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * GET /api/fleetmatics/test-connection
    * (Protected admin route)
    */
-  router.get('/test-connection', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.get('/test-connection', isAuthenticated, isAdmin, requirePermission('vehicles', 'view'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user?.organizationId || 1;
       const service = await initFleetmaticsService(organizationId);
@@ -130,7 +130,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * GET /api/fleetmatics/vehicles
    * (Protected admin route)
    */
-  router.get('/vehicles', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.get('/vehicles', isAuthenticated, isAdmin, requirePermission('vehicles', 'view'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user?.organizationId || 1;
       const service = await initFleetmaticsService(organizationId);
@@ -148,7 +148,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * POST /api/fleetmatics/map-vehicle
    * (Protected admin route)
    */
-  router.post('/map-vehicle', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/map-vehicle', isAuthenticated, isAdmin, requirePermission('vehicles', 'edit'), async (req: Request, res: Response) => {
     try {
       const { technicianVehicleId, fleetmaticsVehicleId } = req.body;
       
@@ -175,7 +175,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * POST /api/fleetmatics/unmap-vehicle/:id
    * (Protected admin route)
    */
-  router.post('/unmap-vehicle/:id', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/unmap-vehicle/:id', isAuthenticated, isAdmin, requirePermission('vehicles', 'edit'), async (req: Request, res: Response) => {
     try {
       const technicianVehicleId = parseInt(req.params.id);
       
@@ -199,7 +199,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * GET /api/fleetmatics/locations
    * (Protected route)
    */
-  router.get('/locations', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/locations', isAuthenticated, requirePermission('vehicles', 'view'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user?.organizationId || 1;
       const service = await initFleetmaticsService(organizationId);
@@ -217,7 +217,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * GET /api/fleetmatics/history/:vehicleId
    * (Protected route)
    */
-  router.get('/history/:vehicleId', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/history/:vehicleId', isAuthenticated, requirePermission('vehicles', 'view'), async (req: Request, res: Response) => {
     try {
       const vehicleId = parseInt(req.params.vehicleId);
       const { startDate, endDate } = req.query;
@@ -246,7 +246,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * POST /api/fleetmatics/sync
    * (Protected admin route)
    */
-  router.post('/sync', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  router.post('/sync', isAuthenticated, isAdmin, requirePermission('vehicles', 'edit'), async (req: Request, res: Response) => {
     try {
       const organizationId = req.user?.organizationId || 1;
       const service = await initFleetmaticsService(organizationId);
@@ -279,7 +279,7 @@ export default function registerFleetmaticsRoutes(router: Router, storage: IStor
    * GET /api/fleetmatics/vehicles-in-area
    * (Protected route)
    */
-  router.get('/vehicles-in-area', isAuthenticated, async (req: Request, res: Response) => {
+  router.get('/vehicles-in-area', isAuthenticated, requirePermission('vehicles', 'view'), async (req: Request, res: Response) => {
     try {
       const { latitude, longitude, radius } = req.query;
       

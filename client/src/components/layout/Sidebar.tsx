@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "@/hooks/usePermissions";
 
 interface SidebarProps {
   user?: {
@@ -45,6 +46,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [location, setLocation] = useLocation();
   const { addTab, navigateToTab, getTabByPath } = useTabs();
   const { user, logout } = useAuth(); // Get user and logout function from auth context
+  const { canView } = usePermissions();
   
   // Use either the prop user (for backward compatibility) or the authenticated user
   const displayUser = propUser || (user ? {
@@ -313,6 +315,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           
           {/* Dispatch Board */}
+          {canView('maintenance') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/dispatch")}
             className={cn(
@@ -345,8 +348,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
 
           {/* Clients - matched to mobile navigation */}
+          {canView('clients') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/clients")}
             className={cn(
@@ -379,8 +384,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Projects/Build - matched to mobile navigation */}
+          {canView('projects') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/projects")}
             className={cn(
@@ -413,8 +420,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Maintenance Group */}
+          {canView('maintenance') && (
           <div>
             <div
               onClick={() => {
@@ -486,8 +495,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </div>
             )}
           </div>
+          )}
           
           {/* Repairs - matched to mobile navigation */}
+          {canView('repairs') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/repairs")}
             className={cn(
@@ -520,8 +531,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Scheduling Hub (Work Orders) */}
+          {canView('maintenance') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/work-orders")}
             className={cn(
@@ -554,8 +567,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
 
           {/* Communications */}
+          {canView('communications') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/communications")}
             className={cn(
@@ -588,8 +603,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Business */}
+          {canView('settings') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/business")}
             className={cn(
@@ -622,8 +639,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Reports */}
+          {canView('reports') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/reports")}
             className={cn(
@@ -656,8 +675,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Billing */}
+          {canView('invoices') && (
           <div>
             <div
               onClick={() => {
@@ -729,8 +750,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </div>
             )}
           </div>
+          )}
           
           {/* Inventory Management */}
+          {canView('inventory') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/inventory")}
             className={cn(
@@ -763,8 +786,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Barcode Scanner */}
+          {canView('inventory') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/inventory/barcode-demo")}
             className={cn(
@@ -797,8 +822,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Fleet Group */}
+          {canView('vehicles') && (
           <div>
             <div
               onClick={() => {
@@ -880,8 +907,10 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </div>
             )}
           </div>
+          )}
           
           {/* Settings - updated from More */}
+          {canView('settings') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/settings")}
             className={cn(
@@ -914,6 +943,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
               </span>
             )}
           </div>
+          )}
           
           {/* Admin Dashboard - only shown for admin users */}
           {isAdminUser && (
@@ -955,6 +985,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         {/* These additional links only show in expanded desktop mode */}
         {!isCollapsed && (
           <div className="px-4 mt-6 border-t pt-6">
+            {canView('technicians') && (
             <div
               onClick={(e) => handleSidebarNavigation(e, "/technicians")}
               className={cn(
@@ -975,6 +1006,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 Technicians
               </span>
             </div>
+            )}
             
             <a href="#help" className="flex items-center py-2 text-sm font-medium text-gray-700">
               <HelpCircle className="mr-3 h-5 w-5 text-gray-500" />
@@ -1008,6 +1040,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           <span className={cn("text-xs mt-0.5", isOnDashboard ? "text-primary font-medium" : "text-gray-500")}>Dashboard</span>
         </div>
         
+        {canView('clients') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/clients")}
           className="flex flex-col items-center px-3 py-1"
@@ -1017,7 +1050,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnClients ? "text-primary font-medium" : "text-gray-500")}>Clients</span>
         </div>
+        )}
         
+        {canView('projects') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/projects")}
           className="flex flex-col items-center px-3 py-1"
@@ -1027,7 +1062,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnProjects ? "text-primary font-medium" : "text-gray-500")}>Build</span>
         </div>
+        )}
         
+        {canView('maintenance') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/maintenance")}
           className="flex flex-col items-center px-3 py-1"
@@ -1037,7 +1074,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnMaintenance ? "text-primary font-medium" : "text-gray-500")}>Maintenance</span>
         </div>
+        )}
         
+        {canView('repairs') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/repairs")}
           className="flex flex-col items-center px-3 py-1"
@@ -1047,7 +1086,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnRepairs ? "text-primary font-medium" : "text-gray-500")}>Repair</span>
         </div>
+        )}
         
+        {canView('maintenance') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/work-orders")}
           className="flex flex-col items-center px-3 py-1"
@@ -1057,7 +1098,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnWorkOrders ? "text-primary font-medium" : "text-gray-500")}>Jobs</span>
         </div>
+        )}
         
+        {canView('communications') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/communications")}
           className="flex flex-col items-center px-3 py-1"
@@ -1067,7 +1110,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnCommunications ? "text-primary font-medium" : "text-gray-500")}>Comms</span>
         </div>
+        )}
         
+        {canView('technicians') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/technicians")}
           className="flex flex-col items-center px-3 py-1"
@@ -1077,7 +1122,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnTechnicians ? "text-primary font-medium" : "text-gray-500")}>Techs</span>
         </div>
+        )}
         
+        {canView('settings') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/business")}
           className="flex flex-col items-center px-3 py-1"
@@ -1087,7 +1134,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnBusiness ? "text-primary font-medium" : "text-gray-500")}>Business</span>
         </div>
+        )}
         
+        {canView('invoices') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/invoices")}
           className="flex flex-col items-center px-3 py-1"
@@ -1097,7 +1146,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnBilling ? "text-primary font-medium" : "text-gray-500")}>Billing</span>
         </div>
+        )}
         
+        {canView('inventory') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/inventory")}
           className="flex flex-col items-center px-3 py-1"
@@ -1107,7 +1158,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnInventory ? "text-primary font-medium" : "text-gray-500")}>Inventory</span>
         </div>
+        )}
         
+        {canView('inventory') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/inventory/barcode-demo")}
           className="flex flex-col items-center px-3 py-1"
@@ -1117,7 +1170,9 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnBarcodeDemo ? "text-primary font-medium" : "text-gray-500")}>Scanner</span>
         </div>
+        )}
         
+        {canView('settings') && (
         <div 
           onClick={(e) => handleSidebarNavigation(e, "/settings")}
           className="flex flex-col items-center px-3 py-1"
@@ -1127,6 +1182,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           <span className={cn("text-xs mt-0.5", isOnSettings ? "text-primary font-medium" : "text-gray-500")}>Settings</span>
         </div>
+        )}
 
         {/* Admin Dashboard - only shown for admin users in mobile navigation */}
         {isAdminUser && (
