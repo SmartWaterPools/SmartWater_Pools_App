@@ -1549,6 +1549,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Organization Permissions API
+  app.get('/api/organizations/:orgId/permissions', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as any;
+      const orgId = parseInt(req.params.orgId);
+      if (isNaN(orgId)) return res.status(400).json({ error: "Invalid organization ID" });
+      
+      const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+        currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+      
+      if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin && currentUser.organizationId !== orgId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const permissions = await storage.getOrganizationPermissions(orgId);
+      res.json(permissions);
+    } catch (error) {
+      console.error('Error fetching organization permissions:', error);
+      res.status(500).json({ error: 'Failed to fetch permissions' });
+    }
+  });
+
+  app.put('/api/organizations/:orgId/permissions', isAuthenticated, async (req, res) => {
+    try {
+      const currentUser = req.user as any;
+      const orgId = parseInt(req.params.orgId);
+      if (isNaN(orgId)) return res.status(400).json({ error: "Invalid organization ID" });
+      
+      const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(currentUser.role) && 
+        currentUser.email?.toLowerCase().endsWith('@smartwaterpools.com');
+      const isOrgAdmin = ['org_admin', 'admin'].includes(currentUser.role) && currentUser.organizationId === orgId;
+      
+      if (currentUser.role !== 'system_admin' && !isSmartWaterAdmin && !isOrgAdmin) {
+        return res.status(403).json({ error: "Only organization admins can modify permissions" });
+      }
+      
+      const { role, permissions } = req.body;
+      if (!role || !permissions || typeof permissions !== 'object') {
+        return res.status(400).json({ error: "Missing required fields: role, permissions" });
+      }
+      
+      const validRoles = ['system_admin', 'org_admin', 'admin', 'manager', 'office_staff', 'technician', 'client', 'vendor'];
+      if (!validRoles.includes(role)) {
+        return res.status(400).json({ error: "Invalid role" });
+      }
+      
+      const result = await storage.upsertOrganizationPermission(orgId, role, permissions, currentUser.id);
+      res.json(result);
+    } catch (error) {
+      console.error('Error saving organization permissions:', error);
+      res.status(500).json({ error: 'Failed to save permissions' });
+    }
+  });
+
   // Mount Organization Management routes
   const orgRouter = Router();
   registerUserOrgRoutes(orgRouter, storage, false);

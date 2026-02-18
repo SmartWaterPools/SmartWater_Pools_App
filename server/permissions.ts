@@ -33,7 +33,8 @@ export type UserRole =
   | 'office_staff'    // Can handle administrative tasks but not technical operations
   | 'technician'      // Can perform maintenance and repairs
   | 'client'          // Can view their own data and request services
-  | 'admin';          // Legacy role, treated same as org_admin
+  | 'admin'           // Legacy role, treated same as org_admin
+  | 'vendor';
 
 // Role permission mapping
 const permissionsByRole: Record<UserRole, Record<ResourceType, Record<ActionType, boolean>>> = {
@@ -154,6 +155,22 @@ const permissionsByRole: Record<UserRole, Record<ResourceType, Record<ActionType
     communications: { view: true, create: true, edit: false, delete: false },   // Can view and send communications
     users:          { view: false, create: false, edit: false, delete: false }, // No user management
     organization:   { view: false, create: false, edit: false, delete: false }, // No organization access
+  },
+
+  vendor: {
+    clients:        { view: false, create: false, edit: false, delete: false },
+    technicians:    { view: false, create: false, edit: false, delete: false },
+    projects:       { view: false, create: false, edit: false, delete: false },
+    maintenance:    { view: false, create: false, edit: false, delete: false },
+    repairs:        { view: false, create: false, edit: false, delete: false },
+    invoices:       { view: true, create: false, edit: false, delete: false },
+    inventory:      { view: false, create: false, edit: false, delete: false },
+    reports:        { view: false, create: false, edit: false, delete: false },
+    settings:       { view: false, create: false, edit: false, delete: false },
+    vehicles:       { view: false, create: false, edit: false, delete: false },
+    communications: { view: true, create: true, edit: false, delete: false },
+    users:          { view: false, create: false, edit: false, delete: false },
+    organization:   { view: false, create: false, edit: false, delete: false },
   },
 };
 

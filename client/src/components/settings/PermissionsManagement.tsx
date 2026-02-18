@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
@@ -28,8 +28,12 @@ import {
   Edit,
   RotateCcw,
   Save,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 type RoleKey = "system_admin" | "org_admin" | "manager" | "office_staff" | "technician" | "client" | "vendor";
 
@@ -305,9 +309,59 @@ function deepClone<T>(obj: T): T {
 
 export function PermissionsManagement() {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const orgId = user?.organizationId;
+
+  const { data: savedPermissions, isLoading: isLoadingPermissions } = useQuery({
+    queryKey: ['/api/organizations', orgId, 'permissions'],
+    queryFn: async () => {
+      if (!orgId) return [];
+      const response = await apiRequest('GET', `/api/organizations/${orgId}/permissions`);
+      return await response.json();
+    },
+    enabled: !!orgId,
+  });
+
   const [permissions, setPermissions] = useState<PermissionsState>(() => deepClone(DEFAULT_PERMISSIONS));
+  const [lastOrgId, setLastOrgId] = useState<number | null | undefined>(orgId);
   const [activeRole, setActiveRole] = useState<RoleKey>("system_admin");
   const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (orgId !== lastOrgId) {
+      setLastOrgId(orgId);
+      setPermissions(deepClone(DEFAULT_PERMISSIONS));
+      setHasChanges(false);
+    }
+  }, [orgId, lastOrgId]);
+
+  useEffect(() => {
+    if (savedPermissions && Array.isArray(savedPermissions) && savedPermissions.length > 0) {
+      const merged = deepClone(DEFAULT_PERMISSIONS);
+      for (const saved of savedPermissions) {
+        if (saved.role && saved.permissions && merged[saved.role as RoleKey]) {
+          merged[saved.role as RoleKey] = { ...merged[saved.role as RoleKey], ...saved.permissions };
+        }
+      }
+      setPermissions(merged);
+      setHasChanges(false);
+    }
+  }, [savedPermissions]);
+
+  const saveMutation = useMutation({
+    mutationFn: async ({ role, perms }: { role: string; perms: Record<string, boolean> }) => {
+      if (!orgId) throw new Error("No organization");
+      const response = await apiRequest('PUT', `/api/organizations/${orgId}/permissions`, {
+        role,
+        permissions: perms,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/organizations', orgId, 'permissions'] });
+    },
+  });
 
   const allFeatureKeys = useMemo(() => {
     return PERMISSION_CATEGORIES.flatMap(cat => cat.features.map(f => f.key));
@@ -343,18 +397,42 @@ export function PermissionsManagement() {
     });
   }, [toast]);
 
-  const handleSave = useCallback(() => {
-    setHasChanges(false);
-    toast({
-      title: "Permissions Saved",
-      description: "Role permissions have been saved successfully.",
-    });
-  }, [toast]);
+  const handleSave = useCallback(async () => {
+    if (!orgId) return;
+    try {
+      const savePromises = Object.entries(permissions).map(([role, perms]) =>
+        saveMutation.mutateAsync({ role, perms })
+      );
+      await Promise.all(savePromises);
+      setHasChanges(false);
+      toast({
+        title: "Permissions Saved",
+        description: "Role permissions have been saved to the database.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error Saving Permissions",
+        description: "Failed to save permissions. Please try again.",
+        variant: "destructive",
+      });
+    }
+  }, [orgId, permissions, saveMutation, toast]);
 
   const getCategoryEnabledCount = useCallback((role: RoleKey, category: PermissionCategory) => {
     const rolePerms = permissions[role];
     return category.features.filter(f => rolePerms[f.key]).length;
   }, [permissions]);
+
+  if (isLoadingPermissions) {
+    return (
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="ml-3 text-muted-foreground">Loading permissions...</span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
@@ -369,9 +447,13 @@ export function PermissionsManagement() {
               Configure what each role can access across the platform. Changes apply to all users with the selected role.
             </CardDescription>
           </div>
-          <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">
-            <Save className="mr-2 h-4 w-4" />
-            Save Changes
+          <Button onClick={handleSave} disabled={!hasChanges || saveMutation.isPending} className="w-full sm:w-auto">
+            {saveMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {saveMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
         </div>
       </CardHeader>

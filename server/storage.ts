@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates, type OrganizationPermission, type InsertOrganizationPermission, organizationPermissions } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql, gte } from "drizzle-orm";
 
@@ -27,6 +27,11 @@ export interface IStorage {
   getAllOrganizations(): Promise<Organization[]>;
   createOrganization(org: InsertOrganization): Promise<Organization>;
   updateOrganization(id: number, data: Partial<Organization>): Promise<Organization | undefined>;
+
+  // Organization Permission operations
+  getOrganizationPermissions(organizationId: number): Promise<OrganizationPermission[]>;
+  getOrganizationPermissionByRole(organizationId: number, role: string): Promise<OrganizationPermission | undefined>;
+  upsertOrganizationPermission(organizationId: number, role: string, permissions: Record<string, boolean>, updatedBy?: number): Promise<OrganizationPermission>;
   
   // Project operations
   getProject(id: number): Promise<Project | undefined>;
@@ -466,6 +471,36 @@ export class DatabaseStorage implements IStorage {
   async updateOrganization(id: number, data: Partial<Organization>): Promise<Organization | undefined> {
     const result = await db.update(organizations).set(data).where(eq(organizations.id, id)).returning();
     return result[0] || undefined;
+  }
+
+  // Organization Permission operations
+  async getOrganizationPermissions(organizationId: number): Promise<OrganizationPermission[]> {
+    return await db.select().from(organizationPermissions).where(eq(organizationPermissions.organizationId, organizationId));
+  }
+
+  async getOrganizationPermissionByRole(organizationId: number, role: string): Promise<OrganizationPermission | undefined> {
+    const [result] = await db.select().from(organizationPermissions)
+      .where(and(
+        eq(organizationPermissions.organizationId, organizationId),
+        eq(organizationPermissions.role, role)
+      ));
+    return result;
+  }
+
+  async upsertOrganizationPermission(organizationId: number, role: string, permissions: Record<string, boolean>, updatedBy?: number): Promise<OrganizationPermission> {
+    const existing = await this.getOrganizationPermissionByRole(organizationId, role);
+    if (existing) {
+      const [updated] = await db.update(organizationPermissions)
+        .set({ permissions, updatedAt: new Date(), updatedBy: updatedBy || null })
+        .where(eq(organizationPermissions.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(organizationPermissions)
+        .values({ organizationId, role, permissions, updatedBy: updatedBy || null })
+        .returning();
+      return created;
+    }
   }
 
   // Project operations

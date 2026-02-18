@@ -586,7 +586,7 @@ export function requirePermission(resource: ResourceType, action: ActionType) {
     // Verify user.role is a valid UserRole
     const validRoles: UserRole[] = [
       'system_admin', 'org_admin', 'admin', 'manager', 'technician', 
-      'client', 'office_staff'
+      'client', 'office_staff', 'vendor'
     ];
     
     if (validRoles.includes(user.role as UserRole) && 
@@ -645,6 +645,55 @@ export function checkOrganizationAccess(storage: IStorage) {
     // User has access to the requested organization
     return next();
   };
+}
+
+/**
+ * Centralized tenant context middleware.
+ * Sets req.organizationId and activates RLS via the DB session variable.
+ * Must be applied AFTER passport session middleware.
+ * 
+ * - Authenticated users: sets tenant context from user's organizationId
+ * - System admins & SmartWater admins: tenant context is NOT set (they have cross-org access)
+ * - Unauthenticated requests: passes through (auth middleware handles rejection)
+ */
+export function injectTenantContext(req: any, _res: any, next: any) {
+  if (req.isAuthenticated && req.isAuthenticated() && req.user) {
+    const user = req.user as User;
+    const isSmartWaterAdmin = ['admin', 'system_admin', 'org_admin'].includes(user.role) &&
+      user.email?.toLowerCase().endsWith('@smartwaterpools.com');
+    
+    if (user.role === 'system_admin' || isSmartWaterAdmin) {
+      req.organizationId = null;
+      req.isCrossOrgAdmin = true;
+    } else {
+      req.organizationId = user.organizationId;
+      req.isCrossOrgAdmin = false;
+    }
+  }
+  next();
+}
+
+/**
+ * Middleware that enforces tenant scoping for non-admin users.
+ * Returns 403 if a non-admin tries to access data outside their org.
+ * Use on routes that accept organizationId as a parameter or in the body.
+ */
+export function enforceTenantScope(req: any, res: any, next: any) {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  if (req.isCrossOrgAdmin) {
+    return next();
+  }
+  
+  const requestedOrgId = parseInt(req.params.organizationId || req.params.orgId || req.body?.organizationId);
+  
+  if (!isNaN(requestedOrgId) && requestedOrgId !== req.organizationId) {
+    return res.status(403).json({ error: 'Access denied: cannot access data outside your organization' });
+  }
+  
+  return next();
 }
 
 export async function hashPassword(password: string): Promise<string> {

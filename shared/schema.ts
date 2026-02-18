@@ -27,6 +27,15 @@ export const organizations = pgTable("organizations", {
   updatedAt: timestamp("updated_at").default(sql`now()`),
 });
 
+export const organizationPermissions = pgTable("organization_permissions", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  role: text("role").notNull(),
+  permissions: jsonb("permissions").notNull(),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+  updatedBy: integer("updated_by"),
+});
+
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
@@ -86,6 +95,7 @@ export const clients = pgTable("clients", {
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
+  organizationId: integer("organization_id"),
   name: text("name").notNull(),
   description: text("description"),
   startDate: date("start_date").notNull(),
@@ -108,6 +118,7 @@ export const repairs = pgTable("repairs", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull(),
   technicianId: integer("technician_id"),
+  organizationId: integer("organization_id"),
   issue: text("issue").notNull(),
   priority: text("priority").notNull().default("medium"),
   status: text("status").notNull().default("pending"),
@@ -361,6 +372,9 @@ export const insertBazzaMaintenanceAssignmentSchema = createInsertSchema(bazzaMa
   updatedAt: true,
 });
 
+export const insertOrganizationPermissionSchema = createInsertSchema(organizationPermissions).omit({ id: true, updatedAt: true });
+export type InsertOrganizationPermission = z.infer<typeof insertOrganizationPermissionSchema>;
+export type OrganizationPermission = typeof organizationPermissions.$inferSelect;
 export type InsertOrganization = z.infer<typeof insertOrganizationSchema>;
 export type Organization = typeof organizations.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

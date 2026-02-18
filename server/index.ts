@@ -7,7 +7,7 @@ import pgSession from "connect-pg-simple";
 import pg from "pg";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { configurePassport } from "./auth";
+import { configurePassport, injectTenantContext } from "./auth";
 import { storage } from "./storage";
 
 const app = express();
@@ -56,8 +56,11 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Configure Passport strategies
+// Configure Passport strategies (must be before tenant context)
 configurePassport(storage);
+
+// Inject tenant context (organizationId) for all authenticated requests
+app.use(injectTenantContext);
 
 app.use((req, res, next) => {
   const start = Date.now();

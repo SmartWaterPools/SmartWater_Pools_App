@@ -36,12 +36,15 @@ Preferred communication style: Simple, everyday language.
 - RLS policies on all tenant tables act as database-level defense-in-depth.
 - `system_admin` role bypasses all tenant restrictions for cross-org administration.
 - **SmartWater Admin bypass**: Users with admin-level roles (`admin`, `system_admin`, `org_admin`) AND `@smartwaterpools.com` email can manage all organizations and users cross-org. This is enforced in `server/routes/user-org-routes.ts` via `isSmartWaterAdmin` checks on all CRUD operations.
+- **Centralized tenant middleware**: `injectTenantContext` in `server/auth.ts` runs on every request, setting `req.organizationId` and `req.isCrossOrgAdmin`. Applied in `server/index.ts` after passport session.
+- **RLS enforcement**: `projects` and `repairs` tables now have `organization_id` columns (backfilled from client data) and `tenant_isolation_policy` RLS policies.
+- **Unscoped storage methods to audit**: `getRepairs()`, `getTechnicians()`, `getProjects()` still load all records then filter in-app. Routes already filter by org but should be refactored to use org-scoped DB queries for efficiency and safety. RLS policies serve as defense-in-depth.
 
 ## Admin Dashboard (Feb 2026)
 - **Access Control**: Admin dashboard at `/admin` restricted to users with admin roles AND `@smartwaterpools.com` email domain.
 - **Tabs**: Users, Organizations, Permissions.
 - **Roles**: `system_admin`, `org_admin`, `admin`, `manager`, `office_staff`, `technician`, `client`, `vendor`.
-- **Permissions Management**: Client-side permissions matrix at `client/src/components/settings/PermissionsManagement.tsx` showing feature access per role with toggle switches. Currently client-side only (no backend persistence yet).
+- **Permissions Management**: Database-backed permissions at `organization_permissions` table. Frontend at `client/src/components/settings/PermissionsManagement.tsx` loads/saves via `GET/PUT /api/organizations/:orgId/permissions`. Each org can customize role permissions; defaults defined in component. Backend permissions module at `server/permissions.ts` provides `hasPermission()`, `checkPermission()` middleware, and `requirePermission()` for route protection.
 
 ## Deployment
 - **Build Process**: Vite for frontend, esbuild for server.
