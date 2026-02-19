@@ -1,4 +1,9 @@
-import { Switch, Route, useLocation } from "wouter";
+import { Switch, Route, useLocation, useParams, Redirect } from "wouter";
+
+function PoolWizardRedirect() {
+  const { id } = useParams<{ id: string }>();
+  return <Redirect to={`/clients/${id}/pool-wizard`} />;
+}
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -94,6 +99,7 @@ function Router() {
       <Route path="/projects" component={() => <ProtectedRoute component={Projects} requiredPermission="projects" />} />
       <Route path="/clients/add" component={() => <ProtectedRoute component={AddClient} requiredPermission="clients" />} />
       <Route path="/clients/enhanced" component={() => <ProtectedRoute component={ClientsEnhanced} requiredPermission="clients" />} />
+      <Route path="/pool-wizard/:id" component={PoolWizardRedirect} />
       <Route path="/clients/:id/pool-wizard" component={() => <ProtectedRoute component={PoolWizardPage} requiredPermission="clients" />} />
       <Route path="/clients/:id/edit" component={() => <ProtectedRoute component={ClientEdit} requiredPermission="clients" />} />
       <Route path="/clients/:id/portal" component={() => <ProtectedRoute component={ClientPortal} requiredPermission="clients" />} />
