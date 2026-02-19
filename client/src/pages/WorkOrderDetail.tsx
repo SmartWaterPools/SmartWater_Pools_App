@@ -576,6 +576,7 @@ export default function WorkOrderDetail() {
   const { toast } = useToast();
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [showGuidedWorkflow, setShowGuidedWorkflow] = useState(false);
   const workOrderId = parseInt(id || "0");
 
   const { data: workOrder, isLoading, error } = useQuery<WorkOrderWithDetails>({
@@ -708,7 +709,6 @@ export default function WorkOrderDetail() {
 
   const checklistItems = parseChecklist(workOrder.checklist);
   const completedCount = checklistItems.filter(item => item.completed).length;
-  const [showGuidedWorkflow, setShowGuidedWorkflow] = useState(false);
   const hasChecklist = checklistItems.length > 0;
   const isActiveOrPending = ['pending', 'scheduled', 'in_progress'].includes(workOrder.status);
 
