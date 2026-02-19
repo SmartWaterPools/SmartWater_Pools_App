@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
 import { useLocation } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
@@ -28,7 +28,8 @@ import {
   Wifi, 
   WifiOff, 
   Clock,
-  Database
+  Database,
+  Trash2
 } from 'lucide-react';
 
 // Define the pool information schema with validation rules
@@ -52,6 +53,7 @@ const poolInfoSchema = z.object({
     installDate: z.string().optional(),
     status: z.string().default("operational"),
     notes: z.string().optional(),
+    imageUrl: z.string().optional(),
   })).optional().default([]),
   
   // Images
@@ -118,6 +120,17 @@ const EQUIPMENT_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+interface CustomQuestion {
+  id: number;
+  organizationId: number;
+  label: string;
+  fieldType: string;
+  options: string[] | null;
+  isRequired: boolean;
+  displayOrder: number;
+  isActive: boolean;
+}
+
 interface PoolInformationWizardProps {
   clientId: number;
   onComplete?: () => void;
@@ -135,7 +148,36 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
   const [offlineData, setOfflineData] = useState<PoolInfoFormValues | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [forceSaving, setForceSaving] = useState(false);
-  
+  const [customResponses, setCustomResponses] = useState<Record<number, string>>({});
+
+  const { data: customQuestions } = useQuery({
+    queryKey: ['/api/pool-wizard-questions'],
+    queryFn: async () => {
+      const res = await fetch('/api/pool-wizard-questions');
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
+  const { data: existingResponses } = useQuery({
+    queryKey: [`/api/clients/${clientId}/wizard-responses`],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${clientId}/wizard-responses`);
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
+  useEffect(() => {
+    if (existingResponses && existingResponses.length > 0) {
+      const responseMap: Record<number, string> = {};
+      existingResponses.forEach((r: any) => {
+        responseMap[r.questionId] = r.response || '';
+      });
+      setCustomResponses(responseMap);
+    }
+  }, [existingResponses]);
+
   // Check if there's saved form data in localStorage
   const getSavedFormData = (): PoolInfoFormValues | null => {
     const savedData = localStorage.getItem(`pool_wizard_${clientId}`);
@@ -167,6 +209,36 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       images: savedFormData?.images || existingData?.images || [],
     },
   });
+
+  useEffect(() => {
+    const loadExistingEquipment = async () => {
+      try {
+        const res = await fetch(`/api/clients/${clientId}/equipment`);
+        if (res.ok) {
+          const existing = await res.json();
+          if (Array.isArray(existing) && existing.length > 0 && (!form.getValues('equipment') || form.getValues('equipment').length === 0)) {
+            const mapped = existing.map((item: any) => ({
+              name: item.name || '',
+              type: item.type || '',
+              brand: item.brand || '',
+              model: item.model || '',
+              serialNumber: item.serialNumber || '',
+              installDate: item.installDate || '',
+              status: item.status || 'operational',
+              notes: item.notes || '',
+              imageUrl: item.imageUrl || '',
+            }));
+            form.setValue('equipment', mapped);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load existing equipment:', err);
+      }
+    };
+    if (clientId && !savedFormData?.equipment?.length) {
+      loadExistingEquipment();
+    }
+  }, [clientId]);
 
   // Define a type for client update data
   type ClientUpdateData = {
@@ -224,6 +296,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
         installDate: '',
         status: 'operational',
         notes: '',
+        imageUrl: '',
       }
     ]);
   };
@@ -231,6 +304,44 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
   const handleRemoveEquipment = (index: number) => {
     const equipment = form.getValues('equipment') || [];
     form.setValue('equipment', equipment.filter((_, i) => i !== index));
+  };
+
+  const handleEquipmentPhotoChange = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        form.setValue(`equipment.${index}.imageUrl`, compressedDataUrl);
+      };
+      img.src = dataUrl;
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -456,7 +567,23 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       await updateClientMutation.mutateAsync(clientUpdateData);
       console.log('Client update completed successfully');
       
-      // 2. Save each equipment item
+      // 2. Delete all existing equipment first, then re-create
+      try {
+        const existingEquipmentRes = await fetch(`/api/clients/${clientId}/equipment`);
+        if (existingEquipmentRes.ok) {
+          const existing = await existingEquipmentRes.json();
+          if (Array.isArray(existing) && existing.length > 0) {
+            console.log(`Deleting ${existing.length} existing equipment items...`);
+            for (const item of existing) {
+              await apiRequest('DELETE', `/api/clients/${clientId}/equipment/${item.id}`);
+            }
+            console.log('Existing equipment deleted');
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch/delete existing equipment:', err);
+      }
+
       if (data.equipment && data.equipment.length > 0) {
         console.log(`Saving ${data.equipment.length} equipment items...`);
         const equipmentPromises = data.equipment.map(equipment => 
@@ -481,6 +608,15 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
         await Promise.all(imagePromises);
         console.log('All images saved successfully');
       }
+
+      // 4. Save custom question responses
+      if (Object.keys(customResponses).length > 0) {
+        const responsesArray = Object.entries(customResponses).map(([questionId, response]) => ({
+          questionId: parseInt(questionId),
+          response: response
+        }));
+        await apiRequest('PUT', `/api/clients/${clientId}/wizard-responses`, responsesArray);
+      }
       
       toast({
         title: 'Pool information wizard completed',
@@ -491,6 +627,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/equipment`] });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/images`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/wizard-responses`] });
       
       // Redirect back to client details
       setLocation(`/clients/${clientId}`);
@@ -518,10 +655,11 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <Tabs value={`step-${step}`} onValueChange={(value) => setStep(parseInt(value.split('-')[1]))}>
-              <TabsList className="grid grid-cols-3 w-full">
+              <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="step-1">Pool Information</TabsTrigger>
                 <TabsTrigger value="step-2">Equipment</TabsTrigger>
                 <TabsTrigger value="step-3">Images</TabsTrigger>
+                <TabsTrigger value="step-4">Custom</TabsTrigger>
               </TabsList>
               
               {/* Step 1: Basic Pool Information */}
@@ -889,6 +1027,47 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                           </FormItem>
                         )}
                       />
+
+                      <div className="mt-4">
+                        <Label className="text-sm font-medium">Equipment Photo</Label>
+                        {form.watch(`equipment.${index}.imageUrl`) ? (
+                          <div className="mt-2 relative inline-block">
+                            <img
+                              src={form.watch(`equipment.${index}.imageUrl`)}
+                              alt={`Equipment ${index + 1}`}
+                              className="max-h-48 rounded-md border object-cover"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="absolute top-2 right-2"
+                              onClick={() => form.setValue(`equipment.${index}.imageUrl`, '')}
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Remove
+                            </Button>
+                          </div>
+                        ) : null}
+                        <div className="mt-2">
+                          <input
+                            type="file"
+                            id={`equipment-photo-${index}`}
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleEquipmentPhotoChange(index, e)}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => document.getElementById(`equipment-photo-${index}`)?.click()}
+                          >
+                            <Camera className="h-4 w-4 mr-2" />
+                            {form.watch(`equipment.${index}.imageUrl`) ? 'Change Photo' : 'Add Photo'}
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   
@@ -1025,6 +1204,82 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                   </div>
                 </div>
               </TabsContent>
+
+              {/* Step 4: Custom Questions */}
+              <TabsContent value="step-4">
+                <div className="space-y-6">
+                  <h3 className="text-lg font-medium">Custom Questions</h3>
+                  {customQuestions && customQuestions.filter((q: CustomQuestion) => q.isActive).length > 0 ? (
+                    <div className="space-y-4">
+                      {customQuestions
+                        .filter((q: CustomQuestion) => q.isActive)
+                        .sort((a: CustomQuestion, b: CustomQuestion) => a.displayOrder - b.displayOrder)
+                        .map((question: CustomQuestion) => (
+                          <div key={question.id} className="space-y-2">
+                            <Label>
+                              {question.label}
+                              {question.isRequired && <span className="text-red-500 ml-1">*</span>}
+                            </Label>
+                            {question.fieldType === 'text' && (
+                              <Input
+                                value={customResponses[question.id] || ''}
+                                onChange={(e) => setCustomResponses(prev => ({ ...prev, [question.id]: e.target.value }))}
+                                placeholder={`Enter ${question.label.toLowerCase()}`}
+                              />
+                            )}
+                            {question.fieldType === 'textarea' && (
+                              <Textarea
+                                value={customResponses[question.id] || ''}
+                                onChange={(e) => setCustomResponses(prev => ({ ...prev, [question.id]: e.target.value }))}
+                                placeholder={`Enter ${question.label.toLowerCase()}`}
+                              />
+                            )}
+                            {question.fieldType === 'number' && (
+                              <Input
+                                type="number"
+                                value={customResponses[question.id] || ''}
+                                onChange={(e) => setCustomResponses(prev => ({ ...prev, [question.id]: e.target.value }))}
+                                placeholder={`Enter ${question.label.toLowerCase()}`}
+                              />
+                            )}
+                            {question.fieldType === 'select' && question.options && (
+                              <Select
+                                value={customResponses[question.id] || ''}
+                                onValueChange={(value) => setCustomResponses(prev => ({ ...prev, [question.id]: value }))}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder={`Select ${question.label.toLowerCase()}`} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {question.options.map((option: string) => (
+                                    <SelectItem key={option} value={option}>
+                                      {option}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            )}
+                            {question.fieldType === 'boolean' && (
+                              <div className="flex items-center space-x-2">
+                                <Switch
+                                  checked={customResponses[question.id] === 'true'}
+                                  onCheckedChange={(checked) => setCustomResponses(prev => ({ ...prev, [question.id]: checked ? 'true' : 'false' }))}
+                                />
+                                <span className="text-sm text-muted-foreground">
+                                  {customResponses[question.id] === 'true' ? 'Yes' : 'No'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  ) : (
+                    <div className="text-center p-6 border border-dashed rounded-lg">
+                      <p className="text-gray-500">No custom questions configured for your organization.</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
             </Tabs>
             
             <Separator />
@@ -1079,7 +1334,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
               </div>
               
               <div>
-                {step < 3 ? (
+                {step < 4 ? (
                   <Button 
                     type="button" 
                     onClick={() => setStep(step + 1)}

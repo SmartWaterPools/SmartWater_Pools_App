@@ -315,18 +315,16 @@ export interface RepairWithDetails {
 export interface PoolEquipment {
   id: number;
   clientId: number;
-  equipmentType: string; // filter, pump, heater, etc.
-  brand: string;
-  model: string;
+  name: string;
+  type: string;
+  brand?: string;
+  model?: string;
   serialNumber?: string;
   installDate?: string;
-  warrantyExpiryDate?: string;
   lastServiceDate?: string;
-  nextServiceDate?: string;
   notes?: string;
-  status: 'operational' | 'needs_service' | 'needs_replacement';
-  createdAt?: string;
-  updatedAt?: string;
+  status: string;
+  imageUrl?: string;
 }
 
 // Pool image type definition

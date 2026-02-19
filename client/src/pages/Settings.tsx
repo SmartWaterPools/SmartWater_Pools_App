@@ -11,7 +11,8 @@ import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
 import { TaxTemplates } from "@/components/settings/TaxTemplates";
 import { TeamAccessSettings } from "@/components/settings/TeamAccessSettings";
-import { FileText, Users, Bell, LayoutGrid, Mail, Settings as SettingsIcon, Server, User, Receipt } from "lucide-react";
+import { FileText, Users, Bell, LayoutGrid, Mail, Settings as SettingsIcon, Server, User, Receipt, Droplets } from "lucide-react";
+import { PoolWizardEditor } from "@/components/settings/PoolWizardEditor";
 
 export default function Settings() {
   const [, params] = useLocation();
@@ -65,6 +66,10 @@ export default function Settings() {
               <Receipt className="h-4 w-4" />
               <span className="whitespace-nowrap">Tax Templates</span>
             </TabsTrigger>
+            <TabsTrigger value="pool-wizard" className="flex gap-2 items-center px-4 py-2">
+              <Droplets className="h-4 w-4" />
+              <span className="whitespace-nowrap">Pool Wizard</span>
+            </TabsTrigger>
             <TabsTrigger value="advanced" className="flex gap-2 items-center px-4 py-2">
               <SettingsIcon className="h-4 w-4" />
               <span className="whitespace-nowrap">Advanced</span>
@@ -100,6 +105,10 @@ export default function Settings() {
           <TaxTemplates />
         </TabsContent>
         
+        <TabsContent value="pool-wizard" className="space-y-4">
+          <PoolWizardEditor />
+        </TabsContent>
+
         <TabsContent value="advanced" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>

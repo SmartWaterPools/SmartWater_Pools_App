@@ -1872,3 +1872,78 @@ export const invitationTokensRelations = relations(invitationTokens, ({ one }) =
     references: [organizations.id],
   }),
 }));
+
+export const poolEquipment = pgTable("pool_equipment", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  name: text("name"),
+  type: text("type"),
+  brand: text("brand"),
+  model: text("model"),
+  serialNumber: text("serial_number"),
+  installDate: date("install_date"),
+  lastServiceDate: date("last_service_date"),
+  notes: text("notes"),
+  status: text("status"),
+  imageUrl: text("image_url"),
+});
+
+export const insertPoolEquipmentSchema = createInsertSchema(poolEquipment).omit({
+  id: true,
+});
+
+export type InsertPoolEquipment = z.infer<typeof insertPoolEquipmentSchema>;
+export type PoolEquipment = typeof poolEquipment.$inferSelect;
+
+export const poolImages = pgTable("pool_images", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  imageUrl: text("image_url"),
+  caption: text("caption"),
+  category: text("category"),
+  uploadDate: timestamp("upload_date"),
+  technicianId: integer("technician_id"),
+});
+
+export const insertPoolImageSchema = createInsertSchema(poolImages).omit({
+  id: true,
+});
+
+export type InsertPoolImage = z.infer<typeof insertPoolImageSchema>;
+export type PoolImage = typeof poolImages.$inferSelect;
+
+export const poolWizardCustomQuestions = pgTable("pool_wizard_custom_questions", {
+  id: serial("id").primaryKey(),
+  organizationId: integer("organization_id").notNull(),
+  label: text("label").notNull(),
+  fieldType: text("field_type").notNull().default("text"),
+  options: text("options").array(),
+  isRequired: boolean("is_required").default(false),
+  displayOrder: integer("display_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").default(sql`now()`),
+});
+
+export const insertPoolWizardCustomQuestionSchema = createInsertSchema(poolWizardCustomQuestions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPoolWizardCustomQuestion = z.infer<typeof insertPoolWizardCustomQuestionSchema>;
+export type PoolWizardCustomQuestion = typeof poolWizardCustomQuestions.$inferSelect;
+
+export const poolWizardCustomResponses = pgTable("pool_wizard_custom_responses", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull(),
+  questionId: integer("question_id").notNull(),
+  response: text("response"),
+  updatedAt: timestamp("updated_at").default(sql`now()`),
+});
+
+export const insertPoolWizardCustomResponseSchema = createInsertSchema(poolWizardCustomResponses).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertPoolWizardCustomResponse = z.infer<typeof insertPoolWizardCustomResponseSchema>;
+export type PoolWizardCustomResponse = typeof poolWizardCustomResponses.$inferSelect;

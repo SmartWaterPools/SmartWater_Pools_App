@@ -92,6 +92,15 @@ Preferred communication style: Simple, everyday language.
 - **Chemical Types**: liquid_chlorine, tablets, muriatic_acid, soda_ash, sodium_bicarbonate, calcium_chloride, stabilizer, algaecide, salt, phosphate_remover, other.
 - **Integration**: WorkOrderChemicals component auto-fills unit costs from pricing table when technicians record chemical usage.
 
+### Pool Information Wizard (Feb 2026)
+- **Purpose**: Multi-step wizard for collecting and managing detailed pool information per client.
+- **Schema**: `pool_equipment` table (clientId, name, type, brand, model, serialNumber, installDate, lastServiceDate, notes, status, imageUrl), `pool_images` table (clientId, imageUrl, caption, category, uploadDate, technicianId).
+- **Custom Questions**: `pool_wizard_custom_questions` table for org-level custom fields (label, fieldType, options, isRequired, displayOrder, isActive). `pool_wizard_custom_responses` table links client responses to custom questions.
+- **Frontend**: Pool wizard at `/clients/:id/pool-wizard` with 4 tabs: Pool Information, Equipment (with photo upload), Images, Custom Questions. Redirect route from legacy `/pool-wizard/:id` path.
+- **Settings**: "Pool Wizard" tab in Settings page (`PoolWizardEditor` component) for org admins to create/edit/delete custom question fields.
+- **API Routes**: `GET/POST/PATCH/DELETE /api/clients/:clientId/equipment`, `GET/POST/DELETE /api/clients/:clientId/images`, `GET/POST/PATCH/DELETE /api/pool-wizard-questions`, `GET/PUT /api/clients/:clientId/wizard-responses`. All routes enforce org-scoping via client ownership verification.
+- **Client Details Integration**: Pool tab shows pool specs, custom responses, equipment inventory (with photos), and image gallery.
+
 ### LSI Calculator (Feb 2026)
 - **Purpose**: Langelier Saturation Index calculator for assessing pool water balance.
 - **Component**: `client/src/components/pool/LSICalculator.tsx` - standalone calculator with compact/full modes.

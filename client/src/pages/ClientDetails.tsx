@@ -171,6 +171,29 @@ export default function ClientDetails() {
     enabled: !!id
   });
   
+  const { 
+    data: customResponsesData
+  } = useQuery({
+    queryKey: [`/api/clients/${id}/wizard-responses`],
+    queryFn: async () => {
+      const res = await fetch(`/api/clients/${id}/wizard-responses`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!id
+  });
+
+  const { 
+    data: customQuestionsData
+  } = useQuery({
+    queryKey: ['/api/pool-wizard-questions'],
+    queryFn: async () => {
+      const res = await fetch('/api/pool-wizard-questions');
+      if (!res.ok) return [];
+      return res.json();
+    }
+  });
+
   // Fetch upcoming maintenance services for this client
   const {
     data: upcomingServicesData,
@@ -1192,6 +1215,32 @@ export default function ClientDetails() {
                 )}
               </CardContent>
             </Card>
+
+            {customResponsesData && customResponsesData.length > 0 && customQuestionsData && (
+              <Card className="bg-white">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-primary" />
+                    Additional Pool Information
+                  </CardTitle>
+                  <CardDescription>Custom fields for this pool</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {customResponsesData.map((response: any) => {
+                      const question = customQuestionsData.find((q: any) => q.id === response.questionId);
+                      if (!question || !response.response) return null;
+                      return (
+                        <div key={response.id} className="flex justify-between">
+                          <span className="font-medium">{question.label}:</span>
+                          <span>{response.response === 'true' ? 'Yes' : response.response === 'false' ? 'No' : response.response}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             
             {/* Equipment Inventory Section */}
             <Card className="bg-white">
@@ -1223,11 +1272,22 @@ export default function ClientDetails() {
                     {equipmentData.map((item, index) => (
                       <div key={index} className="p-4 border rounded-lg">
                         <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-medium">{item.name}</h3>
-                            <Badge variant="outline" className="mt-1">
-                              {item.type}
-                            </Badge>
+                          <div className="flex gap-4">
+                            {item.imageUrl && (
+                              <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 border">
+                                <img
+                                  src={item.imageUrl}
+                                  alt={item.name || 'Equipment'}
+                                  className="object-cover w-full h-full"
+                                />
+                              </div>
+                            )}
+                            <div>
+                              <h3 className="font-medium">{item.name}</h3>
+                              <Badge variant="outline" className="mt-1">
+                                {item.type}
+                              </Badge>
+                            </div>
                           </div>
                           <Badge 
                             className={

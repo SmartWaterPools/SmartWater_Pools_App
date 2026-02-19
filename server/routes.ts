@@ -6,7 +6,7 @@ import path from "path";
 import fs from "fs";
 import { storage } from "./storage";
 import { db } from "./db";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, and, desc, inArray, sql } from "drizzle-orm";
 import authRoutes from "./routes/auth-routes";
 import registerUserOrgRoutes from "./routes/user-org-routes";
 import documentRoutes from "./routes/document-routes";
@@ -31,7 +31,7 @@ import estimateRoutes from "./routes/estimate-routes";
 import taxTemplateRoutes from "./routes/tax-template-routes";
 import invitationRoutes from "./routes/invitation-routes";
 import { isAuthenticated, requirePermission } from "./auth";
-import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users } from "@shared/schema";
+import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users, poolEquipment, poolImages, poolWizardCustomQuestions, poolWizardCustomResponses } from "@shared/schema";
 
 const workOrderPhotoStorage = multer.diskStorage({
   destination: function (req: any, file: any, cb: any) {
@@ -898,6 +898,226 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Update client error:', error);
       res.status(500).json({ error: 'Failed to update client' });
+    }
+  });
+
+  // Pool Equipment Routes
+  app.get('/api/clients/:clientId/equipment', isAuthenticated, requirePermission('clients', 'view'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      const equipment = await db.select().from(poolEquipment).where(eq(poolEquipment.clientId, clientId));
+      res.json(equipment);
+    } catch (error) {
+      console.error('Error fetching pool equipment:', error);
+      res.status(500).json({ error: 'Failed to fetch pool equipment' });
+    }
+  });
+
+  app.post('/api/clients/:clientId/equipment', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      const [equipment] = await db.insert(poolEquipment).values({ ...req.body, clientId }).returning();
+      res.status(201).json(equipment);
+    } catch (error) {
+      console.error('Error creating pool equipment:', error);
+      res.status(500).json({ error: 'Failed to create pool equipment' });
+    }
+  });
+
+  app.patch('/api/clients/:clientId/equipment/:equipmentId', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const equipmentId = parseInt(req.params.equipmentId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      const [updated] = await db.update(poolEquipment).set(req.body).where(and(eq(poolEquipment.id, equipmentId), eq(poolEquipment.clientId, clientId))).returning();
+      if (!updated) return res.status(404).json({ error: 'Equipment not found' });
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating pool equipment:', error);
+      res.status(500).json({ error: 'Failed to update pool equipment' });
+    }
+  });
+
+  app.delete('/api/clients/:clientId/equipment/:equipmentId', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const equipmentId = parseInt(req.params.equipmentId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      await db.delete(poolEquipment).where(and(eq(poolEquipment.id, equipmentId), eq(poolEquipment.clientId, clientId)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting pool equipment:', error);
+      res.status(500).json({ error: 'Failed to delete pool equipment' });
+    }
+  });
+
+  // Pool Images Routes
+  app.get('/api/clients/:clientId/images', isAuthenticated, requirePermission('clients', 'view'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      const images = await db.select().from(poolImages).where(eq(poolImages.clientId, clientId));
+      res.json(images);
+    } catch (error) {
+      console.error('Error fetching pool images:', error);
+      res.status(500).json({ error: 'Failed to fetch pool images' });
+    }
+  });
+
+  app.post('/api/clients/:clientId/images', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      const [image] = await db.insert(poolImages).values({ ...req.body, clientId }).returning();
+      res.status(201).json(image);
+    } catch (error) {
+      console.error('Error creating pool image:', error);
+      res.status(500).json({ error: 'Failed to create pool image' });
+    }
+  });
+
+  app.delete('/api/clients/:clientId/images/:imageId', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const imageId = parseInt(req.params.imageId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      await db.delete(poolImages).where(and(eq(poolImages.id, imageId), eq(poolImages.clientId, clientId)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting pool image:', error);
+      res.status(500).json({ error: 'Failed to delete pool image' });
+    }
+  });
+
+  // Pool Wizard Custom Questions Routes
+  app.get('/api/pool-wizard-questions', isAuthenticated, requirePermission('clients', 'view'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const questions = await db.select().from(poolWizardCustomQuestions).where(eq(poolWizardCustomQuestions.organizationId, user.organizationId));
+      res.json(questions);
+    } catch (error) {
+      console.error('Error fetching pool wizard questions:', error);
+      res.status(500).json({ error: 'Failed to fetch pool wizard questions' });
+    }
+  });
+
+  app.post('/api/pool-wizard-questions', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const [question] = await db.insert(poolWizardCustomQuestions).values({ ...req.body, organizationId: user.organizationId }).returning();
+      res.status(201).json(question);
+    } catch (error) {
+      console.error('Error creating pool wizard question:', error);
+      res.status(500).json({ error: 'Failed to create pool wizard question' });
+    }
+  });
+
+  app.patch('/api/pool-wizard-questions/:id', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const id = parseInt(req.params.id);
+      const [updated] = await db.update(poolWizardCustomQuestions).set(req.body).where(and(eq(poolWizardCustomQuestions.id, id), eq(poolWizardCustomQuestions.organizationId, user.organizationId))).returning();
+      if (!updated) return res.status(404).json({ error: 'Question not found' });
+      res.json(updated);
+    } catch (error) {
+      console.error('Error updating pool wizard question:', error);
+      res.status(500).json({ error: 'Failed to update pool wizard question' });
+    }
+  });
+
+  app.delete('/api/pool-wizard-questions/:id', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const id = parseInt(req.params.id);
+      await db.delete(poolWizardCustomQuestions).where(and(eq(poolWizardCustomQuestions.id, id), eq(poolWizardCustomQuestions.organizationId, user.organizationId)));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error deleting pool wizard question:', error);
+      res.status(500).json({ error: 'Failed to delete pool wizard question' });
+    }
+  });
+
+  // Pool Wizard Custom Responses Routes
+  app.get('/api/clients/:clientId/wizard-responses', isAuthenticated, requirePermission('clients', 'view'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      const responses = await db.select().from(poolWizardCustomResponses).where(eq(poolWizardCustomResponses.clientId, clientId));
+      res.json(responses);
+    } catch (error) {
+      console.error('Error fetching wizard responses:', error);
+      res.status(500).json({ error: 'Failed to fetch wizard responses' });
+    }
+  });
+
+  app.put('/api/clients/:clientId/wizard-responses', isAuthenticated, requirePermission('clients', 'edit'), async (req: Request, res: Response) => {
+    try {
+      const user = req.user as User;
+      const clientId = parseInt(req.params.clientId);
+      const clientUser = await storage.getUser(clientId);
+      if (!clientUser || clientUser.organizationId !== user.organizationId) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+      const responsesData: Array<{ questionId: number; response: string }> = req.body;
+
+      const results = await Promise.all(
+        responsesData.map(async ({ questionId, response }) => {
+          const existing = await db.select().from(poolWizardCustomResponses)
+            .where(and(eq(poolWizardCustomResponses.clientId, clientId), eq(poolWizardCustomResponses.questionId, questionId)));
+
+          if (existing.length > 0) {
+            const [updated] = await db.update(poolWizardCustomResponses)
+              .set({ response, updatedAt: new Date() })
+              .where(and(eq(poolWizardCustomResponses.clientId, clientId), eq(poolWizardCustomResponses.questionId, questionId)))
+              .returning();
+            return updated;
+          } else {
+            const [created] = await db.insert(poolWizardCustomResponses)
+              .values({ clientId, questionId, response })
+              .returning();
+            return created;
+          }
+        })
+      );
+
+      res.json(results);
+    } catch (error) {
+      console.error('Error upserting wizard responses:', error);
+      res.status(500).json({ error: 'Failed to upsert wizard responses' });
     }
   });
 
