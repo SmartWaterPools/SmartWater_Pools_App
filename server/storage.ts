@@ -453,10 +453,7 @@ export class DatabaseStorage implements IStorage {
         // 2. Handle Work Order Team Members
         await tx.delete(workOrderTeamMembers).where(eq(workOrderTeamMembers.userId, id));
         
-        // 3. Handle barcode scan history
-        await tx.delete(barcodeScanHistory).where(eq(barcodeScanHistory.userId, id));
-        
-        // 4. Handle time entries - set userId to null to preserve records
+        // 3. Handle time entries - set userId to null to preserve records
         await tx.update(timeEntries)
           .set({ userId: null as any })
           .where(eq(timeEntries.userId, id));
@@ -465,7 +462,7 @@ export class DatabaseStorage implements IStorage {
           .set({ approvedBy: null as any })
           .where(eq(timeEntries.approvedBy, id));
 
-        // 5. Handle pool reports - set to null to preserve history
+        // 4. Handle pool reports - set to null to preserve history
         await tx.update(poolReports)
           .set({ clientId: null as any })
           .where(eq(poolReports.clientId, id));
@@ -474,7 +471,7 @@ export class DatabaseStorage implements IStorage {
           .set({ technicianId: null as any })
           .where(eq(poolReports.technicianId, id));
 
-        // 6. Handle inventory transfers
+        // 5. Handle inventory transfers
         await tx.update(inventoryTransfers)
           .set({ requestedByUserId: null as any })
           .where(eq(inventoryTransfers.requestedByUserId, id));
@@ -487,8 +484,24 @@ export class DatabaseStorage implements IStorage {
           .set({ completedByUserId: null as any })
           .where(eq(inventoryTransfers.completedByUserId, id));
 
+        // 6. Handle other references found in SQL
+        await tx.update(projectDocuments)
+          .set({ uploadedBy: null as any })
+          .where(eq(projectDocuments.uploadedBy, id));
+
+        await tx.update(inventoryAdjustments)
+          .set({ performedByUserId: null as any })
+          .where(eq(inventoryAdjustments.performedByUserId, id));
+
+        await tx.update(purchaseOrders)
+          .set({ createdBy: null as any })
+          .where(eq(purchaseOrders.createdBy, id));
+
         // 7. Finally delete the user
-        await tx.delete(users).where(eq(users.id, id));
+        const result = await tx.delete(users).where(eq(users.id, id)).returning();
+        if (result.length === 0) {
+            throw new Error("User not found during transaction");
+        }
       });
       return true;
     } catch (error) {
