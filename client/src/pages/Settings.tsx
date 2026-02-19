@@ -5,15 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ServiceTemplates } from "@/components/settings/ServiceTemplates";
-import { UserManagement } from "@/components/settings/UserManagement";
-import { InvitationManagement } from "@/components/settings/InvitationManagement";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
-import { PermissionsManagement } from "@/components/settings/PermissionsManagement";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
 import { TaxTemplates } from "@/components/settings/TaxTemplates";
-import { FileText, Users, Shield, Bell, LayoutGrid, MessageSquare, Phone, Mail, Settings as SettingsIcon, Server, User, UserPlus, Receipt } from "lucide-react";
+import { TeamAccessSettings } from "@/components/settings/TeamAccessSettings";
+import { FileText, Users, Bell, LayoutGrid, Mail, Settings as SettingsIcon, Server, User, Receipt } from "lucide-react";
 
 export default function Settings() {
   const [, params] = useLocation();
@@ -51,21 +49,13 @@ export default function Settings() {
               <Mail className="h-4 w-4" />
               <span className="whitespace-nowrap">Communication</span>
             </TabsTrigger>
-            <TabsTrigger value="user-management" className="flex gap-2 items-center px-4 py-2">
+            <TabsTrigger value="team-access" className="flex gap-2 items-center px-4 py-2">
               <Users className="h-4 w-4" />
-              <span className="whitespace-nowrap">User Management</span>
-            </TabsTrigger>
-            <TabsTrigger value="invitations" className="flex gap-2 items-center px-4 py-2">
-              <UserPlus className="h-4 w-4" />
-              <span className="whitespace-nowrap">Invitations</span>
+              <span className="whitespace-nowrap">Team & Access</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex gap-2 items-center px-4 py-2">
               <Bell className="h-4 w-4" />
               <span className="whitespace-nowrap">Notifications</span>
-            </TabsTrigger>
-            <TabsTrigger value="permissions" className="flex gap-2 items-center px-4 py-2">
-              <Shield className="h-4 w-4" />
-              <span className="whitespace-nowrap">Permissions</span>
             </TabsTrigger>
             <TabsTrigger value="appearance" className="flex gap-2 items-center px-4 py-2">
               <LayoutGrid className="h-4 w-4" />
@@ -94,20 +84,12 @@ export default function Settings() {
           <CommunicationProviders />
         </TabsContent>
         
-        <TabsContent value="user-management" className="space-y-4">
-          <UserManagement />
-        </TabsContent>
-        
-        <TabsContent value="invitations" className="space-y-4">
-          <InvitationManagement />
+        <TabsContent value="team-access" className="space-y-4">
+          <TeamAccessSettings />
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4">
           <NotificationSettings />
-        </TabsContent>
-
-        <TabsContent value="permissions" className="space-y-4">
-          <PermissionsManagement />
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-4">
