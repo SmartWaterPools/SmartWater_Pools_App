@@ -100,7 +100,7 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
     const dayMaintenances = await db
       .select()
       .from(workOrders)
-      .where(and(eq(workOrders.scheduledDate, dateStr), eq(workOrders.category, 'maintenance')));
+      .where(and(eq(workOrders.scheduledDate, dateStr), eq(workOrders.category, 'maintenance'), eq(workOrders.organizationId, organizationId)));
 
     const assignedMaintenanceIds = new Set(assignments.map(a => a.maintenanceId));
     const rawUnassigned = dayMaintenances.filter(m => !assignedMaintenanceIds.has(m.id));
