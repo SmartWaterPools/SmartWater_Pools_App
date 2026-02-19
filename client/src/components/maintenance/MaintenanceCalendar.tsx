@@ -27,8 +27,6 @@ import {
   XCircle,
   Loader2,
   FileText,
-  ClipboardList,
-  BarChart2,
   ExternalLink
 } from "lucide-react";
 import { MaintenanceWithDetails } from "../../lib/types";
@@ -247,7 +245,7 @@ export function MaintenanceCalendar({
                       <CardDescription>
                         {hasServiceReport ? 
                           "Maintenance report submitted" : 
-                          (maintenance.notes || "No details available")
+                          ((maintenance as any).workOrderTitle || maintenance.client?.user?.name || maintenance.notes || "No details available")
                         }
                       </CardDescription>
                       {hasServiceReport && (
@@ -325,24 +323,6 @@ export function MaintenanceCalendar({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem 
-                              className="cursor-pointer"
-                              onClick={() => navigate(`/work-orders/${maintenance.id}`)}
-                            >
-                              <ClipboardList className="h-4 w-4 mr-2" />
-                              {hasServiceReport ? "View/Edit Maintenance Report" : "Submit Maintenance Report"}
-                            </DropdownMenuItem>
-
-                            <DropdownMenuItem 
-                              className="cursor-pointer"
-                              onClick={() => navigate(`/work-orders/${maintenance.id}`)}
-                            >
-                              <BarChart2 className="h-4 w-4 mr-2" />
-                              Maintenance Report
-                            </DropdownMenuItem>
-                            
-                            <DropdownMenuSeparator />
-                            
                             <DropdownMenuItem 
                               className="cursor-pointer"
                               onClick={() => navigate(`/work-orders/${maintenance.id}`)}

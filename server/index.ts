@@ -9,6 +9,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { configurePassport, injectTenantContext } from "./auth";
 import { storage } from "./storage";
+import { Scheduler } from "./scheduler";
 
 const app = express();
 
@@ -124,5 +125,8 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+
+    const scheduler = new Scheduler(storage);
+    scheduler.initialize();
   });
 })();

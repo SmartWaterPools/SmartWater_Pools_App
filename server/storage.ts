@@ -1,6 +1,6 @@
 import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, type ChemicalPrice, type InsertChemicalPrice, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates, type OrganizationPermission, type InsertOrganizationPermission, organizationPermissions, chemicalPrices } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, inArray, desc, lte, sql, gte } from "drizzle-orm";
+import { eq, and, inArray, desc, lte, sql, gte, lt } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -384,6 +384,8 @@ export interface IStorage {
   createChemicalPrice(price: InsertChemicalPrice): Promise<ChemicalPrice>;
   updateChemicalPrice(id: number, data: Partial<InsertChemicalPrice>): Promise<ChemicalPrice>;
   deleteChemicalPrice(id: number): Promise<void>;
+
+  rescheduleIncompleteMaintenances(): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2286,6 +2288,41 @@ export class DatabaseStorage implements IStorage {
 
   async deleteChemicalPrice(id: number): Promise<void> {
     await db.delete(chemicalPrices).where(eq(chemicalPrices.id, id));
+  }
+
+  async rescheduleIncompleteMaintenances(): Promise<any[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = today.toISOString().split('T')[0];
+
+    const overdueWorkOrders = await db
+      .select()
+      .from(workOrders)
+      .where(
+        and(
+          eq(workOrders.category, 'maintenance'),
+          inArray(workOrders.status, ['pending', 'scheduled']),
+          lt(workOrders.scheduledDate, todayStr)
+        )
+      );
+
+    const rescheduled = [];
+    for (const wo of overdueWorkOrders) {
+      const [updated] = await db
+        .update(workOrders)
+        .set({
+          scheduledDate: todayStr,
+          updatedAt: new Date()
+        })
+        .where(eq(workOrders.id, wo.id))
+        .returning();
+
+      if (updated) {
+        rescheduled.push(updated);
+      }
+    }
+
+    return rescheduled;
   }
 
 }
