@@ -444,17 +444,50 @@ export class DatabaseStorage implements IStorage {
   async deleteUser(id: number): Promise<boolean> {
     try {
       await db.transaction(async (tx) => {
-        // Handle dependencies
+        // Handle dependencies by setting foreign keys to null or deleting where appropriate
+        
+        // 1. Delete associated technician/client profiles
         await tx.delete(technicians).where(eq(technicians.userId, id));
         await tx.delete(clients).where(eq(clients.userId, id));
         
-        // Remove from work order team members
-        // First we need to find the table name for work order team members in schema
-        // It's likely workOrderTeamMembers based on the imports
+        // 2. Handle Work Order Team Members
+        await tx.delete(workOrderTeamMembers).where(eq(workOrderTeamMembers.userId, id));
         
-        // For other tables, we might want to set to null instead of deleting
-        // but for now let's focus on the most common ones that prevent deletion
+        // 3. Handle barcode scan history
+        await tx.delete(barcodeScanHistory).where(eq(barcodeScanHistory.userId, id));
         
+        // 4. Handle time entries - set userId to null to preserve records
+        await tx.update(timeEntries)
+          .set({ userId: null as any })
+          .where(eq(timeEntries.userId, id));
+        
+        await tx.update(timeEntries)
+          .set({ approvedBy: null as any })
+          .where(eq(timeEntries.approvedBy, id));
+
+        // 5. Handle pool reports - set to null to preserve history
+        await tx.update(poolReports)
+          .set({ clientId: null as any })
+          .where(eq(poolReports.clientId, id));
+        
+        await tx.update(poolReports)
+          .set({ technicianId: null as any })
+          .where(eq(poolReports.technicianId, id));
+
+        // 6. Handle inventory transfers
+        await tx.update(inventoryTransfers)
+          .set({ requestedByUserId: null as any })
+          .where(eq(inventoryTransfers.requestedByUserId, id));
+        
+        await tx.update(inventoryTransfers)
+          .set({ approvedByUserId: null as any })
+          .where(eq(inventoryTransfers.approvedByUserId, id));
+        
+        await tx.update(inventoryTransfers)
+          .set({ completedByUserId: null as any })
+          .where(eq(inventoryTransfers.completedByUserId, id));
+
+        // 7. Finally delete the user
         await tx.delete(users).where(eq(users.id, id));
       });
       return true;
