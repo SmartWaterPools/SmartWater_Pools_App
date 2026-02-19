@@ -148,25 +148,20 @@ export function UserManagement() {
     },
   });
   
-  // Mutation for deleting or deactivating user
   const deleteMutation = useMutation({
     mutationFn: async ({ userId, permanent }: { userId: number, permanent: boolean }) => {
-      console.log(`Calling DELETE API for user ID: ${userId}, permanent: ${permanent}`);
-      return await apiRequest("DELETE", `/api/users/${userId}${permanent ? '?permanent=true' : ''}`);
+      const response = await apiRequest("DELETE", `/api/users/${userId}${permanent ? '?permanent=true' : ''}`);
+      return { permanent, ...(await response.json().catch(() => ({}))) };
     },
     onSuccess: (data) => {
-      console.log('Delete user response:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-      
       const actionType = data.permanent ? "deleted" : "deactivated";
-      
       toast({
         title: `User ${actionType}`,
         description: data.message || `User has been ${actionType} successfully`,
       });
     },
     onError: (error: any) => {
-      console.error('Error modifying user:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to modify user",

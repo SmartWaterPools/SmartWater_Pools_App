@@ -9,7 +9,7 @@ import { UserManagement } from "@/components/settings/UserManagement";
 import { InvitationManagement } from "@/components/settings/InvitationManagement";
 import { ProfileSettings } from "@/components/settings/ProfileSettings";
 import { NotificationSettings } from "@/components/settings/NotificationSettings";
-import { PermissionSettings } from "@/components/settings/PermissionSettings";
+import { PermissionsManagement } from "@/components/settings/PermissionsManagement";
 import { AppearanceSettings } from "@/components/settings/AppearanceSettings";
 import { CommunicationProviders } from "@/components/settings/CommunicationProviders";
 import { TaxTemplates } from "@/components/settings/TaxTemplates";
@@ -107,7 +107,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="permissions" className="space-y-4">
-          <PermissionSettings />
+          <PermissionsManagement />
         </TabsContent>
 
         <TabsContent value="appearance" className="space-y-4">

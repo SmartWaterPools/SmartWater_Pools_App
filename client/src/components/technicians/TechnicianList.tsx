@@ -74,7 +74,7 @@ export function TechnicianList({ technicians, isLoading, onTechnicianSelect }: T
             </div>
             <div className="ml-4 min-w-0 flex-1">
               <h3 className="text-lg font-semibold truncate">{technician.user.name}</h3>
-              <p className="text-sm text-gray-500 truncate">{technician.specialization}</p>
+              <p className="text-sm text-gray-500 truncate">{technician.specialization || 'General'}</p>
               <div className="flex items-center mt-1">
                 <div className="flex flex-shrink-0">
                   {[1, 2, 3, 4, 5].map((rating) => (
@@ -110,11 +110,19 @@ export function TechnicianList({ technicians, isLoading, onTechnicianSelect }: T
             </div>
             
             <div className="flex flex-wrap gap-1 mb-4">
-              {technician.certifications && technician.certifications.split(',').map((cert, index) => (
-                <Badge key={index} variant="secondary" className="bg-blue-100 text-primary hover:bg-blue-200">
-                  {cert.trim()}
-                </Badge>
-              ))}
+              {technician.certifications && (
+                Array.isArray(technician.certifications) 
+                  ? technician.certifications.map((cert, index) => (
+                      <Badge key={index} variant="secondary" className="bg-blue-100 text-primary hover:bg-blue-200">
+                        {String(cert).trim()}
+                      </Badge>
+                    ))
+                  : String(technician.certifications).split(',').map((cert, index) => (
+                      <Badge key={index} variant="secondary" className="bg-blue-100 text-primary hover:bg-blue-200">
+                        {cert.trim()}
+                      </Badge>
+                    ))
+              )}
             </div>
             
             <Button

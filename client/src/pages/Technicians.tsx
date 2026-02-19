@@ -102,7 +102,7 @@ export default function Technicians() {
     if (
       searchTerm &&
       !technician.user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !technician.specialization.toLowerCase().includes(searchTerm.toLowerCase()) &&
+      !(technician.specialization || '').toLowerCase().includes(searchTerm.toLowerCase()) &&
       !technician.user.email.toLowerCase().includes(searchTerm.toLowerCase())
     ) {
       return false;
@@ -341,9 +341,12 @@ export default function Technicians() {
                     </div>
                     <div className="flex flex-wrap gap-1">
                       {selectedTechnician.certifications ? (
-                        selectedTechnician.certifications.split(',').map((cert, index) => (
+                        (Array.isArray(selectedTechnician.certifications) 
+                          ? selectedTechnician.certifications 
+                          : String(selectedTechnician.certifications).split(',')
+                        ).map((cert, index) => (
                           <div key={index} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-primary mb-2">
-                            {cert.trim()}
+                            {String(cert).trim()}
                           </div>
                         ))
                       ) : (

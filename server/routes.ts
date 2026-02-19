@@ -116,40 +116,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount work order routes
   app.use('/api/work-orders', workOrderRoutes);
 
-  // GET all technicians with user info
-  app.get('/api/technicians-with-users', isAuthenticated, async (req, res) => {
-    try {
-      const user = req.user as User;
-      const technicians = await storage.getTechnicians();
-      
-      const techniciansWithUsers = await Promise.all(
-        technicians.map(async (tech) => {
-          const techUser = await storage.getUser(tech.userId);
-          if (!techUser || techUser.organizationId !== user.organizationId) return null;
-          
-          return {
-            ...tech,
-            user: {
-              id: techUser.id,
-              name: techUser.name,
-              email: techUser.email,
-              role: techUser.role,
-              organizationId: techUser.organizationId,
-              phone: techUser.phone,
-              address: techUser.address,
-              photoUrl: techUser.photoUrl
-            }
-          };
-        })
-      );
-
-      res.json(techniciansWithUsers.filter(t => t !== null));
-    } catch (error) {
-      console.error('Error fetching technicians with users:', error);
-      res.status(500).json({ error: 'Failed to fetch technicians' });
-    }
-  });
-
   // Work Order Photo Upload
   app.post('/api/work-orders/:id/photos', isAuthenticated, workOrderPhotoUpload.array('photos', 10), async (req: Request, res: Response) => {
     try {
