@@ -78,7 +78,7 @@ export function CustomInstructions({ clientId, initialData }: CustomInstructions
   // Mutation for updating client service instructions
   const mutation = useMutation({
     mutationFn: async (values: CustomInstructionsFormValues) => {
-      return await apiRequest(`/api/clients/${clientId}`, "PATCH", values);
+      return await apiRequest("PATCH", `/api/clients/${clientId}`, values);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/clients", String(clientId)] });
