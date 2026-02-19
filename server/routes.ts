@@ -30,7 +30,7 @@ import serviceReportRoutes from "./routes/service-report-routes";
 import estimateRoutes from "./routes/estimate-routes";
 import taxTemplateRoutes from "./routes/tax-template-routes";
 import invitationRoutes from "./routes/invitation-routes";
-import { isAuthenticated, requirePermission } from "./auth";
+import { isAuthenticated, requirePermission, hashPassword } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users, technicians, poolEquipment, poolImages, poolWizardCustomQuestions, poolWizardCustomResponses } from "@shared/schema";
 
 const workOrderPhotoStorage = multer.diskStorage({
@@ -926,7 +926,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      const equipment = await db.select().from(poolEquipment).where(eq(poolEquipment.clientId, clientId));
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      const equipment = await db.select().from(poolEquipment).where(eq(poolEquipment.clientId, clientRecord.id));
       res.json(equipment);
     } catch (error) {
       console.error('Error fetching pool equipment:', error);
@@ -942,7 +944,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      const [equipment] = await db.insert(poolEquipment).values({ ...req.body, clientId }).returning();
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      const [equipment] = await db.insert(poolEquipment).values({ ...req.body, clientId: clientRecord.id }).returning();
       res.status(201).json(equipment);
     } catch (error) {
       console.error('Error creating pool equipment:', error);
@@ -959,7 +963,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      const [updated] = await db.update(poolEquipment).set(req.body).where(and(eq(poolEquipment.id, equipmentId), eq(poolEquipment.clientId, clientId))).returning();
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      const [updated] = await db.update(poolEquipment).set(req.body).where(and(eq(poolEquipment.id, equipmentId), eq(poolEquipment.clientId, clientRecord.id))).returning();
       if (!updated) return res.status(404).json({ error: 'Equipment not found' });
       res.json(updated);
     } catch (error) {
@@ -977,7 +983,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      await db.delete(poolEquipment).where(and(eq(poolEquipment.id, equipmentId), eq(poolEquipment.clientId, clientId)));
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      await db.delete(poolEquipment).where(and(eq(poolEquipment.id, equipmentId), eq(poolEquipment.clientId, clientRecord.id)));
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting pool equipment:', error);
@@ -994,7 +1002,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      const images = await db.select().from(poolImages).where(eq(poolImages.clientId, clientId));
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      const images = await db.select().from(poolImages).where(eq(poolImages.clientId, clientRecord.id));
       res.json(images);
     } catch (error) {
       console.error('Error fetching pool images:', error);
@@ -1010,7 +1020,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      const [image] = await db.insert(poolImages).values({ ...req.body, clientId }).returning();
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      const [image] = await db.insert(poolImages).values({ ...req.body, clientId: clientRecord.id }).returning();
       res.status(201).json(image);
     } catch (error) {
       console.error('Error creating pool image:', error);
@@ -1027,7 +1039,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      await db.delete(poolImages).where(and(eq(poolImages.id, imageId), eq(poolImages.clientId, clientId)));
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      await db.delete(poolImages).where(and(eq(poolImages.id, imageId), eq(poolImages.clientId, clientRecord.id)));
       res.json({ success: true });
     } catch (error) {
       console.error('Error deleting pool image:', error);
@@ -1092,7 +1106,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
-      const responses = await db.select().from(poolWizardCustomResponses).where(eq(poolWizardCustomResponses.clientId, clientId));
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      const responses = await db.select().from(poolWizardCustomResponses).where(eq(poolWizardCustomResponses.clientId, clientRecord.id));
       res.json(responses);
     } catch (error) {
       console.error('Error fetching wizard responses:', error);
@@ -1108,22 +1124,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!clientUser || clientUser.organizationId !== user.organizationId) {
         return res.status(403).json({ error: 'Access denied' });
       }
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client record not found' });
+      const actualClientId = clientRecord.id;
       const responsesData: Array<{ questionId: number; response: string }> = req.body;
 
       const results = await Promise.all(
         responsesData.map(async ({ questionId, response }) => {
           const existing = await db.select().from(poolWizardCustomResponses)
-            .where(and(eq(poolWizardCustomResponses.clientId, clientId), eq(poolWizardCustomResponses.questionId, questionId)));
+            .where(and(eq(poolWizardCustomResponses.clientId, actualClientId), eq(poolWizardCustomResponses.questionId, questionId)));
 
           if (existing.length > 0) {
             const [updated] = await db.update(poolWizardCustomResponses)
               .set({ response, updatedAt: new Date() })
-              .where(and(eq(poolWizardCustomResponses.clientId, clientId), eq(poolWizardCustomResponses.questionId, questionId)))
+              .where(and(eq(poolWizardCustomResponses.clientId, actualClientId), eq(poolWizardCustomResponses.questionId, questionId)))
               .returning();
             return updated;
           } else {
             const [created] = await db.insert(poolWizardCustomResponses)
-              .values({ clientId, questionId, response })
+              .values({ clientId: actualClientId, questionId, response })
               .returning();
             return created;
           }
@@ -1788,8 +1807,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Missing required fields: clientId and issue' });
       }
       
+      const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, repairData.clientId)).limit(1);
+      if (!clientRecord) return res.status(404).json({ error: 'Client not found' });
+      
       const newRepair = await storage.createRepair({
-        clientId: repairData.clientId,
+        clientId: clientRecord.id,
         technicianId: repairData.technicianId || null,
         organizationId: currentUser.organizationId,
         issue: repairData.issue,
@@ -1897,20 +1919,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         t => t.user && t.user.organizationId === user?.organizationId
       );
       
-      // Return technician records with user data
       const sanitizedTechnicians = filteredTechnicians.map(tech => ({
-        id: tech.id, // This is the technician table ID
-        username: tech.user?.username,
-        name: tech.user?.name,
-        email: tech.user?.email,
-        role: tech.user?.role,
-        phone: tech.user?.phone,
-        address: tech.user?.address,
-        addressLat: tech.user?.addressLat,
-        addressLng: tech.user?.addressLng,
-        active: tech.user?.active,
-        organizationId: tech.user?.organizationId,
-        authProvider: tech.user?.authProvider
+        id: tech.id,
+        userId: tech.userId,
+        organizationId: tech.user?.organizationId || 0,
+        specialization: tech.specialization || '',
+        certifications: tech.certifications ? [tech.certifications] : [],
+        status: tech.user?.active ? 'active' : 'inactive',
+        notes: null,
+        user: {
+          id: tech.user?.id,
+          name: tech.user?.name,
+          email: tech.user?.email,
+          role: tech.user?.role,
+          organizationId: tech.user?.organizationId,
+          phone: tech.user?.phone || undefined,
+          address: tech.user?.address || undefined,
+          photoUrl: tech.user?.photoUrl || undefined,
+        }
       }));
       
       res.json(sanitizedTechnicians);
@@ -1934,6 +1960,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'A user with this email already exists' });
       }
       
+      const tempPassword = 'temp_' + Math.random().toString(36).slice(2);
+      const hashedPassword = await hashPassword(tempPassword);
       const newUser = await storage.createUser({
         name: userData.name,
         email: userData.email,
@@ -1942,7 +1970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: 'technician',
         organizationId: currentUser.organizationId,
         username: userData.email,
-        password: 'temp_' + Math.random().toString(36).slice(2),
+        password: hashedPassword,
       });
       
       const [newTechnician] = await db.insert(technicians).values({

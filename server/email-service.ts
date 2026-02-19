@@ -214,13 +214,11 @@ export class EmailService {
       if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
-        // Fallback to console log
         console.log(`----------------------------------------`);
         console.log(`[EMAIL] Password reset email would be sent to ${user.email}`);
         console.log(`Reset link: ${resetLink}`);
         console.log(`----------------------------------------`);
         
-        // In development, we always want to simulate successful sending
         return isDevelopment ? true : false;
       }
     } catch (error) {
@@ -281,7 +279,6 @@ export class EmailService {
           }
         }
       } else {
-        // Fallback to console log
         console.log(`----------------------------------------`);
         console.log(`[EMAIL] 2FA verification code would be sent to ${user.email}`);
         console.log(`Verification code: ${code}`);
@@ -342,14 +339,12 @@ export class EmailService {
       if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
-        // Fallback to console log
         console.log(`----------------------------------------`);
         console.log(`[EMAIL] New user account email would be sent to ${user.email}`);
         console.log(`Username: ${user.username}`);
         console.log(`Temporary password: ${temporaryPassword}`);
         console.log(`----------------------------------------`);
         
-        // In development, always simulate success
         return isDevelopment ? true : false;
       }
     } catch (error) {
@@ -414,13 +409,11 @@ export class EmailService {
       if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
-        // Fallback to console log
         console.log(`----------------------------------------`);
         console.log(`[EMAIL] Service reminder would be sent to ${user.email}`);
         console.log(`Service: ${serviceType} on ${formattedDate}`);
         console.log(`----------------------------------------`);
         
-        // In development, always simulate success
         return isDevelopment ? true : false;
       }
     } catch (error) {
@@ -495,7 +488,6 @@ export class EmailService {
       if (this.credentials?.provider === 'gmail' && this.gmailService) {
         return await this.gmailService.sendEmail(emailOptions);
       } else {
-        // Fallback to console log
         console.log(`----------------------------------------`);
         console.log(`[EMAIL] Invitation email would be sent to ${recipientEmail}`);
         console.log(`Company: ${companyName}`);
@@ -503,7 +495,6 @@ export class EmailService {
         console.log(`Invitation link: ${inviteLink}`);
         console.log(`----------------------------------------`);
         
-        // In development, always simulate success
         return isDevelopment ? true : false;
       }
     } catch (error) {

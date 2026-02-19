@@ -11,7 +11,9 @@ import { db } from '../db.js';
 import { invitationTokens, insertInvitationTokenSchema, INVITATION_TOKEN_STATUS } from '@shared/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { isAuthenticated, isAdmin, hashPassword } from '../auth.js';
-import { emailService } from '../email-service.js';
+import { sendGmailMessage, UserTokens } from '../services/gmail-client.js';
+import { storage } from '../storage.js';
+import { emailTemplates } from '../email-config.js';
 import crypto from 'crypto';
 
 // Create the router
@@ -48,8 +50,15 @@ router.post('/', isAuthenticated, isAdmin, async (req: Request, res: Response) =
     }
     
     const { name, email, role, organizationId } = validationResult.data;
+    const currentUser = req.user as any;
     
-    // Verify organization exists
+    if (currentUser.role !== 'system_admin' && organizationId !== currentUser.organizationId) {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only invite users to your own organization'
+      });
+    }
+    
     const organization = await db.query.organizations.findFirst({
       where: (orgs, { eq }) => eq(orgs.id, organizationId)
     });
@@ -123,55 +132,54 @@ router.post('/', isAuthenticated, isAdmin, async (req: Request, res: Response) =
     console.log('- Token:', token.substring(0, 8) + '...');
     
     try {
-      // Send the invitation email
-      const emailSent = await emailService.sendUserInvitation(
-        name,
-        email,
-        organization.name,
-        role,
-        token
-      );
+      const currentUser = await storage.getUser((req.user as any).id);
       
-      console.log('Email sending result:', emailSent ? 'Success' : 'Failed');
+      let baseUrl = process.env.APP_URL || 'https://smartwaterpools.replit.app';
+      if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+      const inviteLink = `${baseUrl}/invite?token=${token}`;
+      
+      const subject = emailTemplates.userInvitation.subject;
+      const htmlBody = emailTemplates.userInvitation.html(name, organization.name, inviteLink, role);
+      
+      let emailSent = false;
+      let emailWarning = '';
+      
+      if (currentUser?.gmailAccessToken) {
+        const userTokens: UserTokens = {
+          userId: currentUser.id,
+          gmailAccessToken: currentUser.gmailAccessToken,
+          gmailRefreshToken: currentUser.gmailRefreshToken,
+          gmailTokenExpiresAt: currentUser.gmailTokenExpiresAt,
+          gmailConnectedEmail: currentUser.gmailConnectedEmail,
+        };
+        
+        const result = await sendGmailMessage(email, subject, htmlBody, true, userTokens);
+        emailSent = result !== null;
+      }
       
       if (!emailSent) {
-        // If email sending fails, still return success but with a warning
-        console.log('WARNING: Email could not be sent, but invitation was created');
-        return res.json({
-          success: true,
-          warning: 'Invitation created but email could not be sent. Email service may not be properly configured.',
-          invitation: {
-            id: insertResult[0].id,
-            email: insertResult[0].email,
-            token: insertResult[0].token, // Include token for testing
-            expiresAt: insertResult[0].expiresAt
-          }
-        });
+        emailWarning = 'Invitation created but email could not be sent. Please connect your Gmail account in Settings to enable email sending, or share the invitation link manually.';
+        console.log(`[Invitation] Email not sent - user Gmail not connected. Invitation link: ${inviteLink}`);
       }
+      
+      return res.json({
+        success: true,
+        message: emailSent ? 'Invitation sent successfully' : 'Invitation created',
+        invitation: insertResult[0],
+        inviteLink,
+        emailSent,
+        emailWarning: emailWarning || undefined,
+      });
     } catch (emailError) {
       console.error('Error sending invitation email:', emailError);
       return res.json({
         success: true,
-        warning: 'Invitation created but encountered an error sending email: ' + (emailError.message || 'Unknown error'),
-        invitation: {
-          id: insertResult[0].id,
-          email: insertResult[0].email,
-          token: insertResult[0].token, // Include token for testing in dev
-          expiresAt: insertResult[0].expiresAt
-        }
+        message: 'Invitation created but email sending failed',
+        invitation: insertResult[0],
+        emailSent: false,
+        emailWarning: 'Failed to send invitation email. You can share the invitation link manually.',
       });
     }
-    
-    // Return success
-    return res.json({
-      success: true,
-      message: 'Invitation created and email sent successfully',
-      invitation: {
-        id: insertResult[0].id,
-        email: insertResult[0].email,
-        expiresAt: insertResult[0].expiresAt
-      }
-    });
     
   } catch (error) {
     console.error('Error creating invitation:', error);
