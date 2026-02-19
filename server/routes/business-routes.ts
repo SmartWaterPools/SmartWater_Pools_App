@@ -14,6 +14,7 @@ import {
   clients,
   repairs,
   projectPhases,
+  workOrders,
 } from "@shared/schema";
 
 const router = Router();
@@ -443,6 +444,20 @@ router.get("/pool-reports", isAuthenticated, requirePermission('settings', 'view
   }
 });
 
+router.get("/pool-reports/by-work-order/:workOrderId", isAuthenticated, async (req, res) => {
+  try {
+    const workOrderId = parseInt(req.params.workOrderId);
+    const organizationId = (req.user as any).organizationId;
+    const result = await db.select().from(poolReports).where(
+      and(eq(poolReports.workOrderId, workOrderId), eq(poolReports.organizationId, organizationId))
+    ).orderBy(desc(poolReports.createdAt));
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching pool reports by work order:", error);
+    res.status(500).json({ error: "Failed to fetch pool reports" });
+  }
+});
+
 router.get("/pool-reports/:id", isAuthenticated, requirePermission('settings', 'view'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -460,21 +475,40 @@ router.get("/pool-reports/:id", isAuthenticated, requirePermission('settings', '
   }
 });
 
-router.post("/pool-reports", isAuthenticated, requirePermission('settings', 'create'), async (req, res) => {
+router.post("/pool-reports", isAuthenticated, requirePermission('work_orders', 'create'), async (req, res) => {
   try {
     const organizationId = (req.user as any).organizationId;
     const result = await db.insert(poolReports).values({
       ...req.body,
       organizationId,
     }).returning();
-    res.status(201).json(result[0]);
+    
+    const report = result[0];
+    
+    if (report.workOrderId) {
+      const updateData: Record<string, any> = {};
+      if (report.notes) {
+        updateData.notes = report.notes;
+      }
+      if (report.poolCondition) {
+        updateData.description = report.poolCondition;
+      }
+      if (Object.keys(updateData).length > 0) {
+        updateData.updatedAt = new Date();
+        await db.update(workOrders)
+          .set(updateData)
+          .where(and(eq(workOrders.id, report.workOrderId), eq(workOrders.organizationId, organizationId)));
+      }
+    }
+    
+    res.status(201).json(report);
   } catch (error) {
     console.error("Error creating pool report:", error);
     res.status(500).json({ error: "Failed to create pool report" });
   }
 });
 
-router.patch("/pool-reports/:id", isAuthenticated, requirePermission('settings', 'edit'), async (req, res) => {
+router.patch("/pool-reports/:id", isAuthenticated, requirePermission('work_orders', 'edit'), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
     const organizationId = (req.user as any).organizationId;
@@ -486,14 +520,32 @@ router.patch("/pool-reports/:id", isAuthenticated, requirePermission('settings',
       return res.status(404).json({ error: "Pool report not found" });
     }
     
-    // Strip organizationId from body to prevent cross-tenant reassignment
     const { organizationId: _, ...updateData } = req.body;
     
     const result = await db.update(poolReports)
       .set(updateData)
       .where(and(eq(poolReports.id, id), eq(poolReports.organizationId, organizationId)))
       .returning();
-    res.json(result[0]);
+    
+    const report = result[0];
+    
+    if (report.workOrderId) {
+      const woUpdate: Record<string, any> = {};
+      if (report.notes) {
+        woUpdate.notes = report.notes;
+      }
+      if (report.poolCondition) {
+        woUpdate.description = report.poolCondition;
+      }
+      if (Object.keys(woUpdate).length > 0) {
+        woUpdate.updatedAt = new Date();
+        await db.update(workOrders)
+          .set(woUpdate)
+          .where(and(eq(workOrders.id, report.workOrderId), eq(workOrders.organizationId, organizationId)));
+      }
+    }
+    
+    res.json(report);
   } catch (error) {
     console.error("Error updating pool report:", error);
     res.status(500).json({ error: "Failed to update pool report" });

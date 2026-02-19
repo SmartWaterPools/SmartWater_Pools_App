@@ -77,6 +77,9 @@ import { WorkOrderTimeTracking } from "@/components/WorkOrderTimeTracking";
 import { WorkOrderTeamMembers } from "@/components/WorkOrderTeamMembers";
 import { FieldServiceReportForm } from "@/components/reports/FieldServiceReportForm";
 import { QuickContactActions } from "@/components/communications/QuickContactActions";
+import { WorkOrderPoolReportForm } from "@/components/pool/WorkOrderPoolReportForm";
+import type { PoolReport } from "@shared/schema";
+import { Droplets } from "lucide-react";
 
 interface ClientInfo {
   id: number;
@@ -577,6 +580,8 @@ export default function WorkOrderDetail() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [showGuidedWorkflow, setShowGuidedWorkflow] = useState(false);
+  const [poolReportDialogOpen, setPoolReportDialogOpen] = useState(false);
+  const [editingPoolReport, setEditingPoolReport] = useState<PoolReport | null>(null);
   const workOrderId = parseInt(id || "0");
 
   const { data: workOrder, isLoading, error } = useQuery<WorkOrderWithDetails>({
@@ -609,6 +614,16 @@ export default function WorkOrderDetail() {
       if (!response.ok) throw new Error('Failed to fetch client');
       return response.json();
     },
+  });
+
+  const { data: poolReports = [] } = useQuery<PoolReport[]>({
+    queryKey: ['/api/business/pool-reports/by-work-order', workOrderId],
+    queryFn: async () => {
+      const res = await fetch(`/api/business/pool-reports/by-work-order/${workOrderId}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!workOrderId,
   });
 
   const deleteMutation = useMutation({
@@ -897,6 +912,113 @@ export default function WorkOrderDetail() {
 
           <WorkOrderChemicals workOrderId={workOrderId} workOrder={workOrder} />
 
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Droplets className="h-5 w-5 text-blue-500" />
+                Pool Reports
+              </CardTitle>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setEditingPoolReport(null);
+                  setPoolReportDialogOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Pool Report
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {poolReports.length > 0 ? (
+                <div className="space-y-4">
+                  {poolReports.map((report: PoolReport) => {
+                    const conditionColors: Record<string, string> = {
+                      excellent: "bg-green-100 text-green-800",
+                      good: "bg-blue-100 text-blue-800",
+                      fair: "bg-yellow-100 text-yellow-800",
+                      poor: "bg-orange-100 text-orange-800",
+                      needs_attention: "bg-red-100 text-red-800",
+                    };
+                    const readings = report.chemicalReadings as Record<string, number> | null;
+                    const services = report.servicesPerformed as string[] | null;
+                    return (
+                      <div key={report.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              {new Date(report.reportDate).toLocaleDateString()}
+                            </span>
+                            {report.poolCondition && (
+                              <Badge className={conditionColors[report.poolCondition] || "bg-gray-100 text-gray-800"}>
+                                {report.poolCondition.replace('_', ' ')}
+                              </Badge>
+                            )}
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setEditingPoolReport(report);
+                              setPoolReportDialogOpen(true);
+                            }}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
+                        {readings && Object.keys(readings).length > 0 && (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {Object.entries(readings).map(([key, val]) => (
+                              <div key={key} className="bg-muted/50 rounded p-2 text-center">
+                                <span className="text-xs text-muted-foreground block">{key.replace(/_/g, ' ')}</span>
+                                <span className="text-sm font-medium">{val}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {services && services.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {services.map((s: string) => (
+                              <Badge key={s} variant="outline" className="text-xs">
+                                {s.replace(/_/g, ' ')}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {report.notes && (
+                          <p className="text-sm text-muted-foreground">{report.notes}</p>
+                        )}
+                        {report.recommendations && (
+                          <div className="text-sm">
+                            <span className="font-medium">Recommendations: </span>
+                            {report.recommendations}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Droplets className="h-10 w-10 mx-auto text-gray-200 mb-2" />
+                  <p className="text-sm text-muted-foreground">No pool reports yet</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-3"
+                    onClick={() => {
+                      setEditingPoolReport(null);
+                      setPoolReportDialogOpen(true);
+                    }}
+                  >
+                    Add First Pool Report
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <WorkOrderItemsSection workOrderId={workOrderId} />
 
           <WorkOrderTimeTracking workOrderId={workOrderId} />
@@ -1098,18 +1220,36 @@ export default function WorkOrderDetail() {
       )}
 
       {workOrder && (
-        <FieldServiceReportForm
-          open={reportDialogOpen}
-          onOpenChange={setReportDialogOpen}
-          workOrderId={workOrderId}
-          clientId={workOrder.clientId || 0}
-          technicianId={workOrder.technician?.id}
-          serviceTemplateId={workOrder.serviceTemplateId || undefined}
-          checklistItems={workOrder.checklist || undefined}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/service-reports/by-work-order', workOrderId] });
-          }}
-        />
+        <>
+          <FieldServiceReportForm
+            open={reportDialogOpen}
+            onOpenChange={setReportDialogOpen}
+            workOrderId={workOrderId}
+            clientId={workOrder.clientId || 0}
+            technicianId={workOrder.technician?.id}
+            serviceTemplateId={workOrder.serviceTemplateId || undefined}
+            checklistItems={workOrder.checklist || undefined}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['/api/service-reports/by-work-order', workOrderId] });
+            }}
+          />
+          <WorkOrderPoolReportForm
+            open={poolReportDialogOpen}
+            onOpenChange={(open) => {
+              setPoolReportDialogOpen(open);
+              if (!open) setEditingPoolReport(null);
+            }}
+            workOrderId={workOrderId}
+            clientId={workOrder.clientId || 0}
+            technicianId={workOrder.technician?.id}
+            maintenanceOrderId={workOrder.maintenanceOrderId || undefined}
+            editReport={editingPoolReport}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ['/api/business/pool-reports/by-work-order', workOrderId] });
+              queryClient.invalidateQueries({ queryKey: [`/api/work-orders/${workOrderId}`] });
+            }}
+          />
+        </>
       )}
     </div>
   );

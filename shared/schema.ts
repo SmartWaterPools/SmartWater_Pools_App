@@ -927,6 +927,8 @@ export const poolReports = pgTable("pool_reports", {
   organizationId: integer("organization_id"),
   clientId: integer("client_id").notNull(),
   technicianId: integer("technician_id"),
+  workOrderId: integer("work_order_id"),
+  maintenanceOrderId: integer("maintenance_order_id"),
   reportDate: date("report_date").notNull(),
   poolCondition: text("pool_condition"),
   chemicalReadings: jsonb("chemical_readings"),

@@ -183,8 +183,8 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
     mutationFn: async (data: ClientUpdateData) => {
       console.log('Updating client with data:', data);
       return await apiRequest(
-        `/api/clients/${clientId}`,
         'PATCH',
+        `/api/clients/${clientId}`,
         data
       );
     },
@@ -300,7 +300,6 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
     mutationFn: async (equipment: any) => {
       console.log('Adding equipment:', equipment);
       
-      // Process date fields - if they're empty strings, convert to null
       const processedEquipment = {
         ...equipment,
         installDate: equipment.installDate && equipment.installDate.trim() !== '' 
@@ -314,8 +313,8 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       console.log('Processed equipment for saving:', processedEquipment);
       
       return await apiRequest(
-        `/api/clients/${clientId}/equipment`,
         'POST',
+        `/api/clients/${clientId}/equipment`,
         processedEquipment
       );
     },
@@ -337,8 +336,8 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
     mutationFn: async (image: any) => {
       console.log('Adding image:', image);
       return await apiRequest(
-        `/api/clients/${clientId}/images`,
         'POST',
+        `/api/clients/${clientId}/images`,
         image
       );
     },
