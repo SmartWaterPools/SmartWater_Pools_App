@@ -60,6 +60,9 @@ Preferred communication style: Simple, everyday language.
 - **Purpose**: Track pool service parts, chemicals, equipment, and supplies with real-time stock levels.
 - **Features**: CRUD operations, search/filter, inline stock adjustment, integration with work orders for automatic deduction, integration with vendor invoices for stock updates.
 - **Standalone Page**: Full-featured `/inventory` hub with tabs for Items, Warehouses, Vehicles, Transfers, and Reports. Includes comprehensive CRUD for all related entities.
+- **Item Photos**: Inventory items support photo uploads (`imageUrl` column). The `InventoryItemForm` has "Take Photo" (camera capture) and "Choose File" buttons. Photos uploaded via `POST /api/inventory/upload-photo` (multer, stored in `/uploads/inventory-photos/`). Thumbnails displayed in ItemsTab (both desktop table and mobile card views).
+- **Mobile Navigation**: Inventory link is present in the mobile sidebar navigation.
+- **Barcode Scanner Fallback**: The `BarcodeScanner` component includes a "Take Photo of Item" button as a fallback when barcode scanning doesn't work. The photo is uploaded and optionally passed via `onPhotoCapture` callback.
 
 ### Billing Platform (Invoices & Estimates)
 - **Purpose**: Client invoicing and estimates with online payment processing.
