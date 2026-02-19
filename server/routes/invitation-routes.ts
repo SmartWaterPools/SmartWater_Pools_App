@@ -8,7 +8,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db.js';
-import { invitationTokens, insertInvitationTokenSchema, INVITATION_TOKEN_STATUS } from '../../shared/schema.js';
+import { invitationTokens, insertInvitationTokenSchema, INVITATION_TOKEN_STATUS } from '@shared/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { isAuthenticated, isAdmin, hashPassword } from '../auth.js';
 import { emailService } from '../email-service.js';
@@ -105,7 +105,6 @@ router.post('/', isAuthenticated, isAdmin, async (req: Request, res: Response) =
       status: 'pending',
       expiresAt,
       createdAt: new Date(),
-      updatedAt: new Date(),
       createdBy: req.user?.id
     }).returning();
     
@@ -229,7 +228,7 @@ router.get('/verify', async (req: Request, res: Response) => {
       if (invitation.status !== 'expired') {
         console.log('[Invitation] Updating status to expired');
         await db.update(invitationTokens)
-          .set({ status: 'expired', updatedAt: new Date() })
+          .set({ status: 'expired' })
           .where(eq(invitationTokens.id, invitation.id));
       }
       
@@ -358,7 +357,7 @@ router.delete('/:id', isAuthenticated, isAdmin, async (req: Request, res: Respon
     
     // Mark as expired instead of deleting
     await db.update(invitationTokens)
-      .set({ status: 'expired', updatedAt: new Date() })
+      .set({ status: 'expired' })
       .where(eq(invitationTokens.id, invitationId));
     
     return res.json({

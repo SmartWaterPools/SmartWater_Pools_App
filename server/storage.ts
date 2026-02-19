@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, type ChemicalPrice, type InsertChemicalPrice, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates, type OrganizationPermission, type InsertOrganizationPermission, organizationPermissions, chemicalPrices } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, type ChemicalPrice, type InsertChemicalPrice, type Barcode, type BarcodeScanHistory, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates, type OrganizationPermission, type InsertOrganizationPermission, organizationPermissions, chemicalPrices, barcodes, barcodeScanHistory } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql, gte, lt } from "drizzle-orm";
 
@@ -450,10 +450,14 @@ export class DatabaseStorage implements IStorage {
         await tx.delete(technicians).where(eq(technicians.userId, id));
         await tx.delete(clients).where(eq(clients.userId, id));
         
-        // 2. Handle Work Order Team Members
+        // 2. Delete barcode-related audit records
+        await tx.delete(barcodeScanHistory).where(eq(barcodeScanHistory.userId, id));
+        await tx.delete(barcodes).where(eq(barcodes.createdBy, id));
+        
+        // 3. Handle Work Order Team Members
         await tx.delete(workOrderTeamMembers).where(eq(workOrderTeamMembers.userId, id));
         
-        // 3. Handle time entries - set userId to null to preserve records
+        // 4. Handle time entries - set userId to null to preserve records
         await tx.update(timeEntries)
           .set({ userId: null as any })
           .where(eq(timeEntries.userId, id));
@@ -462,20 +466,13 @@ export class DatabaseStorage implements IStorage {
           .set({ approvedBy: null as any })
           .where(eq(timeEntries.approvedBy, id));
 
-        // 4. Handle pool reports - set to null to preserve history
-        await tx.update(poolReports)
-          .set({ clientId: null as any })
-          .where(eq(poolReports.clientId, id));
-        
+        // 5. Handle pool reports - set technicianId to null (clientId is NOT NULL so cannot be set to null)
         await tx.update(poolReports)
           .set({ technicianId: null as any })
           .where(eq(poolReports.technicianId, id));
 
-        // 5. Handle inventory transfers
-        await tx.update(inventoryTransfers)
-          .set({ requestedByUserId: null as any })
-          .where(eq(inventoryTransfers.requestedByUserId, id));
-        
+        // 6. Handle inventory transfers - set approvedByUserId and completedByUserId to null
+        // Note: requestedByUserId is NOT NULL so it cannot be set to null
         await tx.update(inventoryTransfers)
           .set({ approvedByUserId: null as any })
           .where(eq(inventoryTransfers.approvedByUserId, id));
@@ -484,7 +481,7 @@ export class DatabaseStorage implements IStorage {
           .set({ completedByUserId: null as any })
           .where(eq(inventoryTransfers.completedByUserId, id));
 
-        // 6. Handle other references found in SQL
+        // 7. Handle other references found in SQL
         await tx.update(projectDocuments)
           .set({ uploadedBy: null as any })
           .where(eq(projectDocuments.uploadedBy, id));
@@ -497,7 +494,7 @@ export class DatabaseStorage implements IStorage {
           .set({ createdBy: null as any })
           .where(eq(purchaseOrders.createdBy, id));
 
-        // 7. Finally delete the user
+        // 8. Finally delete the user
         const result = await tx.delete(users).where(eq(users.id, id)).returning();
         if (result.length === 0) {
             throw new Error("User not found during transaction");

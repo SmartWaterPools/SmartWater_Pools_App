@@ -39,7 +39,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Edit, Plus, User, Search, Building, AlertTriangle, Archive, UserX } from "lucide-react";
+import { Trash, Edit, Plus, User, Search, Building, AlertTriangle, Archive, UserX, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { User as BaseUserType, Organization } from "@shared/schema";
@@ -578,7 +578,7 @@ export function UserManagement() {
 
       {/* Confirm Delete/Archive Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-red-100">
@@ -591,13 +591,40 @@ export function UserManagement() {
           </DialogHeader>
           
           {confirmDialog.user && (
-            <div className="space-y-4">
-              <DialogDescription className="space-y-2">
-                <p>Choose an action for:</p>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="font-semibold text-gray-900">{confirmDialog.user.name}</p>
-                  <p className="text-sm text-gray-600">{confirmDialog.user.email}</p>
+            <div className="space-y-6">
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-3">User Details</p>
+                <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-primary/10">{confirmDialog.user.name?.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-semibold text-gray-900">{confirmDialog.user.name}</p>
+                      <p className="text-sm text-gray-600">{confirmDialog.user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-2 border-t">
+                    <Badge className={getRoleBadgeColor(confirmDialog.user.role)}>
+                      {confirmDialog.user.role.replace(/_/g, ' ').charAt(0).toUpperCase() + confirmDialog.user.role.slice(1)}
+                    </Badge>
+                    <Badge variant="outline">
+                      {organizations.find(org => org.id === confirmDialog.user.organizationId)?.name || 'No Organization'}
+                    </Badge>
+                    <Badge variant={confirmDialog.user.active ? "outline" : "secondary"}>
+                      {confirmDialog.user.active ? "Active" : "Inactive"}
+                    </Badge>
+                    {confirmDialog.user.createdAt && (
+                      <Badge variant="outline" className="text-xs">
+                        Created {new Date(confirmDialog.user.createdAt).toLocaleDateString()}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
+              </div>
+              
+              <DialogDescription className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">Choose an action:</p>
               </DialogDescription>
 
               <div className="space-y-3 border-t pt-4">
@@ -624,30 +651,50 @@ export function UserManagement() {
             </div>
           )}
 
-          <DialogFooter className="flex gap-2">
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
               onClick={() => setConfirmDialog({ open: false, user: null })}
               disabled={deleteMutation.isPending}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               variant="outline"
-              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 w-full sm:w-auto"
               onClick={() => deleteMutation.mutate({ userId: confirmDialog.user!.id, permanent: false })}
               disabled={deleteMutation.isPending}
             >
-              <Archive className="h-4 w-4 mr-2" />
-              Archive User
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Archiving...
+                </>
+              ) : (
+                <>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive User
+                </>
+              )}
             </Button>
             <Button
               variant="destructive"
               onClick={() => deleteMutation.mutate({ userId: confirmDialog.user!.id, permanent: true })}
               disabled={deleteMutation.isPending}
+              className="w-full sm:w-auto"
             >
-              <UserX className="h-4 w-4 mr-2" />
-              Permanently Delete
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                <>
+                  <UserX className="h-4 w-4 mr-2" />
+                  Permanently Delete
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

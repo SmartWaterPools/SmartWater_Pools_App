@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { sql, relations } from "drizzle-orm";
 import { pgTable, text, varchar, integer, date, boolean, timestamp, time, serial, numeric, jsonb, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -1806,3 +1806,67 @@ export const insertChemicalPriceSchema = createInsertSchema(chemicalPrices).omit
 
 export type InsertChemicalPrice = z.infer<typeof insertChemicalPriceSchema>;
 export type ChemicalPrice = typeof chemicalPrices.$inferSelect;
+
+// Barcodes table - track barcodes for inventory items
+export const barcodes = pgTable("barcodes", {
+  id: serial("id").primaryKey(),
+  barcode: text("barcode").notNull(),
+  inventoryItemId: integer("inventory_item_id"),
+  createdBy: integer("created_by").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertBarcodeSchema = createInsertSchema(barcodes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertBarcode = z.infer<typeof insertBarcodeSchema>;
+export type Barcode = typeof barcodes.$inferSelect;
+
+// Barcode Scan History table - audit trail of barcode scans
+export const barcodeScanHistory = pgTable("barcode_scan_history", {
+  id: serial("id").primaryKey(),
+  barcodeId: integer("barcode_id"),
+  barcode: text("barcode").notNull(),
+  userId: integer("user_id").notNull(),
+  scannedAt: timestamp("scanned_at").notNull().default(sql`now()`),
+  location: text("location"),
+  notes: text("notes"),
+});
+
+export const insertBarcodeScanHistorySchema = createInsertSchema(barcodeScanHistory).omit({
+  id: true,
+  scannedAt: true,
+});
+
+export type InsertBarcodeScanHistory = z.infer<typeof insertBarcodeScanHistorySchema>;
+export type BarcodeScanHistory = typeof barcodeScanHistory.$inferSelect;
+
+export const invitationTokens = pgTable("invitation_tokens", {
+  id: serial("id").primaryKey(),
+  email: text("email").notNull(),
+  name: text("name").notNull().default(''),
+  token: text("token").notNull(),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id),
+  role: text("role").notNull(),
+  status: text("status").notNull().default('pending'),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdBy: integer("created_by").references(() => users.id),
+});
+
+export const INVITATION_TOKEN_STATUS = {
+  PENDING: 'pending',
+  ACCEPTED: 'accepted',
+  EXPIRED: 'expired',
+} as const;
+
+export const insertInvitationTokenSchema = createInsertSchema(invitationTokens).omit({ id: true, createdAt: true });
+
+export const invitationTokensRelations = relations(invitationTokens, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [invitationTokens.organizationId],
+    references: [organizations.id],
+  }),
+}));

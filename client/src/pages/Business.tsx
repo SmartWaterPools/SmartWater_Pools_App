@@ -17,10 +17,8 @@ interface BusinessData {
   reports: any[];
   vendors: any[];
   purchaseOrders: any[];
-  inventory: any[];
   licenses: any[];
   insurance: any[];
-  poolReports: any[];
 }
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -30,14 +28,12 @@ import {
   ClipboardList,
   Clock,
   Plus,
-  Package,
   ShoppingCart,
   Users,
   FileText,
   BarChart4,
   FileCheck,
   Shield,
-  Droplet,
   Map,
   Truck,
   Settings as SettingsIcon,
@@ -50,10 +46,10 @@ import ExpensesTable from "@/components/business/ExpensesTable";
 // Payroll table component removed
 import TimeEntryTable from "@/components/business/TimeEntryTable";
 import FinancialReportsTable from "@/components/business/FinancialReportsTable";
-import PoolReportsTable from "@/components/business/PoolReportsTable";
+
 import VendorsTable from "@/components/business/VendorsTable";
 import PurchaseOrdersTable from "@/components/business/PurchaseOrdersTable";
-import InventoryTable from "@/components/business/InventoryTable";
+
 import LicensesTable from "@/components/business/LicensesTable";
 import InsuranceTable from "@/components/business/InsuranceTable";
 import { ExpenseForm } from "@/components/business/ExpenseForm";
@@ -61,10 +57,10 @@ import { ExpenseForm } from "@/components/business/ExpenseForm";
 import { TimeEntryForm } from "@/components/business/TimeEntryForm";
 import { BarcodeScanner } from "@/components/inventory/BarcodeScanner";
 import { FinancialReportForm } from "@/components/business/FinancialReportForm";
-import { PoolReportForm } from "@/components/business/PoolReportForm";
+
 import { VendorForm } from "@/components/business/VendorForm";
 import { PurchaseOrderForm } from "@/components/business/PurchaseOrderForm";
-import { InventoryItemForm } from "@/components/business/InventoryItemForm";
+
 import { LicenseForm } from "@/components/business/LicenseForm";
 import { InsuranceForm } from "@/components/business/InsuranceForm";
 import { EXPENSE_CATEGORIES } from "@shared/schema";
@@ -80,12 +76,11 @@ export default function Business() {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showTimeEntryForm, setShowTimeEntryForm] = useState(false);
   const [showReportForm, setShowReportForm] = useState(false);
-  const [showPoolReportForm, setShowPoolReportForm] = useState(false);
+
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [vendorToEdit, setVendorToEdit] = useState<any>(null);
   const [showPurchaseOrderForm, setShowPurchaseOrderForm] = useState(false);
-  const [showInventoryForm, setShowInventoryForm] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+
   const [showLicenseForm, setShowLicenseForm] = useState(false);
   const [showInsuranceForm, setShowInsuranceForm] = useState(false);
 
@@ -180,11 +175,6 @@ export default function Business() {
     enabled: activeTab === "purchase-orders"
   });
 
-  // Query for inventory items data
-  const { data: inventory, isLoading: inventoryLoading } = useQuery<any[]>({
-    queryKey: ['/api/business/inventory'],
-    enabled: activeTab === "inventory"
-  });
   
   // Query for licenses data
   const { data: licenses, isLoading: licensesLoading } = useQuery<any[]>({
@@ -198,11 +188,6 @@ export default function Business() {
     enabled: activeTab === "insurance"
   });
   
-  // Query for pool reports data
-  const { data: poolReports, isLoading: poolReportsLoading } = useQuery<any[]>({
-    queryKey: ['/api/business/pool-reports'],
-    enabled: activeTab === "pool-reports"
-  });
 
   // Dashboard metrics from API or defaults
   const metrics = dashboardData?.metrics || {
@@ -257,10 +242,7 @@ export default function Business() {
               <FileText className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Financial</span>
             </TabsTrigger>
-            <TabsTrigger value="pool-reports" className="flex items-center gap-1">
-              <Droplet className="h-4 w-4" />
-              <span className="text-xs sm:text-sm">Pool Reports</span>
-            </TabsTrigger>
+
             <TabsTrigger value="vendors" className="flex items-center gap-1">
               <ShoppingCart className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Vendors</span>
@@ -269,10 +251,7 @@ export default function Business() {
               <ClipboardList className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Orders</span>
             </TabsTrigger>
-            <TabsTrigger value="inventory" className="flex items-center gap-1">
-              <Package className="h-4 w-4" />
-              <span className="text-xs sm:text-sm">Inventory</span>
-            </TabsTrigger>
+
             <TabsTrigger value="licenses" className="flex items-center gap-1">
               <FileCheck className="h-4 w-4" />
               <span className="text-xs sm:text-sm">Licenses</span>
@@ -321,7 +300,7 @@ export default function Business() {
             {dashboardLoading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
           </div>
           
-          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
                 <CardTitle className="text-xs sm:text-sm font-medium">
@@ -361,20 +340,6 @@ export default function Business() {
                 <div className="text-base sm:text-2xl font-bold">{formatCurrency(metrics.profit)}</div>
                 <p className="text-[10px] sm:text-xs text-muted-foreground">
                   Margin: {metrics.profitMargin}%
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
-                <CardTitle className="text-xs sm:text-sm font-medium">
-                  Inventory Value
-                </CardTitle>
-                <Package className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="p-3 pt-1 sm:p-6 sm:pt-2">
-                <div className="text-base sm:text-2xl font-bold">{formatCurrency(metrics.inventoryValue)}</div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground">
-                  {metrics.lowStockItems} items low in stock
                 </p>
               </CardContent>
             </Card>
@@ -439,7 +404,7 @@ export default function Business() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-4">
             <Card className="col-span-1">
               <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
                 <CardTitle className="text-base sm:text-lg">Vendor Orders</CardTitle>
@@ -465,34 +430,6 @@ export default function Business() {
                   </div>
                 ) : (
                   <p className="text-xs sm:text-sm text-muted-foreground">No recent purchase orders to display.</p>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="col-span-1">
-              <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
-                <CardTitle className="text-base sm:text-lg">Low Stock</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Items below minimum stock level</CardDescription>
-              </CardHeader>
-              <CardContent className="p-4 pt-2 sm:p-6 sm:pt-4">
-                {dashboardLoading ? (
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="text-sm">Loading inventory data...</span>
-                  </div>
-                ) : dashboardData?.lowStockItems && dashboardData.lowStockItems.length > 0 ? (
-                  <div className="space-y-2">
-                    {dashboardData.lowStockItems.slice(0, 5).map((item: any) => (
-                      <div key={item.id} className="flex justify-between items-center border-b pb-2 last:border-0">
-                        <div>
-                          <p className="text-sm font-medium">{item.name || 'Item'}</p>
-                          <p className="text-xs text-muted-foreground">Min: {item.minimumStock || 0}</p>
-                        </div>
-                        <span className="text-sm font-semibold text-orange-500">Low</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs sm:text-sm text-muted-foreground">No low stock items to display.</p>
                 )}
               </CardContent>
             </Card>
@@ -624,88 +561,6 @@ export default function Business() {
           />
         </TabsContent>
 
-        {/* Inventory Tab */}
-        <TabsContent value="inventory" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl sm:text-2xl font-bold">Inventory</h2>
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2"
-                onClick={() => {
-                  const event = new CustomEvent('addTab', {
-                    detail: {
-                      path: '/inventory/transfers',
-                      title: 'Inventory Transfers',
-                      icon: 'transfer'
-                    }
-                  });
-                  window.dispatchEvent(event);
-                }}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 sm:h-4 sm:w-4">
-                  <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
-                </svg>
-                <span className="hidden xs:inline">Inventory</span> Transfers
-              </Button>
-              <Button onClick={() => { setEditingItem(null); setShowInventoryForm(true); }} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
-                <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="hidden xs:inline">Add</span> Item
-              </Button>
-            </div>
-          </div>
-
-          {!inventoryLoading && inventory && (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Total Items</div>
-                  <div className="text-2xl font-bold">{inventory.length}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Total Value</div>
-                  <div className="text-2xl font-bold">
-                    ${(inventory.reduce((sum: number, item: any) => sum + (Number(item.unitCost || 0) * Number(item.quantity || 0)), 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Low Stock</div>
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                    {inventory.filter((item: any) => {
-                      const qty = Number(item.quantity || 0);
-                      const threshold = Math.max(item.minimumStock || 0, item.reorderPoint || 0);
-                      return threshold > 0 && qty <= threshold;
-                    }).length}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-sm text-muted-foreground">Categories</div>
-                  <div className="text-2xl font-bold">
-                    {new Set(inventory.map((item: any) => item.category).filter(Boolean)).size}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {(showInventoryForm || editingItem) && (
-            <InventoryItemForm
-              itemToEdit={editingItem}
-              onClose={() => { setShowInventoryForm(false); setEditingItem(null); }}
-            />
-          )}
-          <InventoryTable
-            data={inventory || []}
-            isLoading={inventoryLoading}
-            onEdit={(item: any) => { setEditingItem(item); setShowInventoryForm(true); }}
-          />
-        </TabsContent>
         
         {/* Licenses Tab */}
         <TabsContent value="licenses" className="space-y-4">
@@ -747,27 +602,6 @@ export default function Business() {
           />
         </TabsContent>
         
-        {/* Pool Reports Tab */}
-        <TabsContent value="pool-reports" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl sm:text-2xl font-bold">Pool Reports</h2>
-            <Button onClick={() => setShowPoolReportForm(true)} className="flex items-center gap-1 text-xs sm:text-sm px-2 sm:px-4 py-1 sm:py-2">
-              <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden xs:inline">Create</span> Report
-            </Button>
-          </div>
-          {showPoolReportForm && (
-            <PoolReportForm
-              open={showPoolReportForm}
-              onOpenChange={setShowPoolReportForm}
-            />
-          )}
-          <PoolReportsTable
-            reports={poolReports || []}
-            isLoading={poolReportsLoading}
-            onCreateReport={() => setShowPoolReportForm(true)}
-          />
-        </TabsContent>
 
         {/* Vehicle Tracking Tab */}
         <TabsContent value="vehicle-tracking" className="space-y-4">

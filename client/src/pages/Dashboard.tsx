@@ -12,12 +12,21 @@ import {
   Eye, 
   Edit, 
   MoreHorizontal,
-  ServerOff
+  ServerOff,
+  ClipboardList,
+  FileText,
+  Receipt
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { MetricCard } from "@/components/dashboard/MetricCard";
 import { ProjectCard } from "@/components/dashboard/ProjectCard";
 import { MaintenanceItem } from "@/components/dashboard/MaintenanceItem";
@@ -116,10 +125,58 @@ export default function Dashboard() {
             />
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
           </div>
-          <Button className="bg-primary hover:bg-primary/90 text-white font-medium">
-            <PlusCircle className="h-4 w-4 mr-1" />
-            New Task
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90 text-white font-medium">
+                <PlusCircle className="h-4 w-4 mr-1" />
+                New
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href="/projects">
+                  <Building className="h-4 w-4 mr-2" />
+                  New Project
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/clients">
+                  <Users className="h-4 w-4 mr-2" />
+                  New Client
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/scheduling">
+                  <ClipboardList className="h-4 w-4 mr-2" />
+                  New Work Order
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/repairs">
+                  <Wrench className="h-4 w-4 mr-2" />
+                  New Repair
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/maintenance">
+                  <CalendarCheck className="h-4 w-4 mr-2" />
+                  New Maintenance
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/estimates">
+                  <FileText className="h-4 w-4 mr-2" />
+                  New Estimate
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/invoices">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  New Invoice
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       

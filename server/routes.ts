@@ -29,6 +29,7 @@ import dispatchRoutes from "./routes/dispatch-routes";
 import serviceReportRoutes from "./routes/service-report-routes";
 import estimateRoutes from "./routes/estimate-routes";
 import taxTemplateRoutes from "./routes/tax-template-routes";
+import invitationRoutes from "./routes/invitation-routes";
 import { isAuthenticated, requirePermission } from "./auth";
 import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users } from "@shared/schema";
 
@@ -204,6 +205,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount tax template routes
   app.use('/api/tax-templates', taxTemplateRoutes);
 
+  // Mount invitation routes
+  app.use('/api/invitations', invitationRoutes);
+
   // Dashboard routes - essential for main app functionality
   const dashboardRouter = Router();
   
@@ -214,10 +218,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const organizationId = user?.organizationId || 0;
       
       let clientIds: number[];
+      let organizationClients = await storage.getUsersByRoleAndOrganization('client', organizationId);
+      
       if (user.role === 'client') {
         clientIds = [user.id];
       } else {
-        const organizationClients = await storage.getUsersByRoleAndOrganization('client', organizationId);
         clientIds = organizationClients.map(c => c.id);
       }
       
