@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, type ChemicalPrice, type InsertChemicalPrice, type Barcode, type BarcodeScanHistory, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates, type OrganizationPermission, type InsertOrganizationPermission, organizationPermissions, chemicalPrices, barcodes, barcodeScanHistory } from "@shared/schema";
+import { type User, type InsertUser, type Organization, type InsertOrganization, type Project, type InsertProject, type Repair, type InsertRepair, type ProjectPhase, type InsertProjectPhase, type ProjectDocument, type InsertProjectDocument, type Technician, type CommunicationProvider, type InsertCommunicationProvider, type Email, type InsertEmail, type EmailLink, type InsertEmailLink, type EmailTemplate, type InsertEmailTemplate, type ScheduledEmail, type InsertScheduledEmail, type Vendor, type InsertVendor, type CommunicationLink, type InsertCommunicationLink, type WorkOrder, type InsertWorkOrder, type WorkOrderNote, type InsertWorkOrderNote, type ServiceTemplate, type InsertServiceTemplate, type WorkOrderAuditLog, type InsertWorkOrderAuditLog, type Invoice, type InsertInvoice, type InvoiceItem, type InsertInvoiceItem, type InvoicePayment, type InsertInvoicePayment, type WorkOrderRequest, type InsertWorkOrderRequest, type WorkOrderItem, type InsertWorkOrderItem, type WorkOrderTimeEntry, type InsertWorkOrderTimeEntry, type WorkOrderTeamMember, type InsertWorkOrderTeamMember, type BazzaMaintenanceAssignment, type BazzaRoute, type InsertBazzaRoute, type BazzaRouteStop, type InsertBazzaRouteStop, type InsertBazzaMaintenanceAssignment, type Maintenance, type InsertMaintenance, type EmailAttachment, type InsertEmailAttachment, type VendorInvoice, type InsertVendorInvoice, type VendorInvoiceItem, type InsertVendorInvoiceItem, type Expense, type InsertExpense, type InventoryItem, type InsertInventoryItem, type VendorParsingTemplate, type InsertVendorParsingTemplate, type MaintenanceOrder, type InsertMaintenanceOrder, type ChemicalPrice, type InsertChemicalPrice, type Barcode, type BarcodeScanHistory, users, organizations, projects, repairs, projectPhases, projectDocuments, technicians, communicationProviders, emails, emailLinks, emailTemplatesTable, scheduledEmails, vendors, communicationLinks, workOrders, workOrderNotes, serviceTemplates, workOrderAuditLogs, smsMessages, invoices, invoiceItems, invoicePayments, workOrderRequests, workOrderItems, workOrderTimeEntries, workOrderTeamMembers, bazzaMaintenanceAssignments, bazzaRoutes, bazzaRouteStops, maintenances, emailAttachments, vendorInvoices, vendorInvoiceItems, expenses, inventoryItems, vendorParsingTemplates, maintenanceOrders, warehouses, technicianVehicles, inventoryTransfers, inventoryTransferItems, warehouseInventory, vehicleInventory, inventoryAdjustments, type Estimate, type InsertEstimate, type EstimateItem, type InsertEstimateItem, type TaxTemplate, type InsertTaxTemplate, estimates, estimateItems, taxTemplates, type OrganizationPermission, type InsertOrganizationPermission, organizationPermissions, chemicalPrices, barcodes, barcodeScanHistory, timeEntries, poolReports, purchaseOrders, callLogs, smsTemplates, invitationTokens, serviceReports } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, inArray, desc, lte, sql, gte, lt } from "drizzle-orm";
 
@@ -444,60 +444,126 @@ export class DatabaseStorage implements IStorage {
   async deleteUser(id: number): Promise<boolean> {
     try {
       await db.transaction(async (tx) => {
-        // Handle dependencies by setting foreign keys to null or deleting where appropriate
-        
-        // 1. Delete associated technician/client profiles
-        await tx.delete(technicians).where(eq(technicians.userId, id));
-        await tx.delete(clients).where(eq(clients.userId, id));
-        
-        // 2. Delete barcode-related audit records
+        const techRecords = await tx.select({ id: technicians.id })
+          .from(technicians)
+          .where(eq(technicians.userId, id));
+        const techIds = techRecords.map(t => t.id);
+
+        if (techIds.length > 0) {
+          await tx.delete(technicianVehicles).where(inArray(technicianVehicles.technicianId, techIds));
+          await tx.update(bazzaRoutes)
+            .set({ technicianId: null as any })
+            .where(inArray(bazzaRoutes.technicianId, techIds));
+        }
+
         await tx.delete(barcodeScanHistory).where(eq(barcodeScanHistory.userId, id));
         await tx.delete(barcodes).where(eq(barcodes.createdBy, id));
-        
-        // 3. Handle Work Order Team Members
+        await tx.delete(inventoryAdjustments).where(eq(inventoryAdjustments.performedByUserId, id));
+        await tx.delete(inventoryTransfers).where(eq(inventoryTransfers.requestedByUserId, id));
+        await tx.delete(projectDocuments).where(eq(projectDocuments.uploadedBy, id));
         await tx.delete(workOrderTeamMembers).where(eq(workOrderTeamMembers.userId, id));
-        
-        // 4. Handle time entries - set userId to null to preserve records
+
         await tx.update(timeEntries)
           .set({ userId: null as any })
           .where(eq(timeEntries.userId, id));
-        
         await tx.update(timeEntries)
           .set({ approvedBy: null as any })
           .where(eq(timeEntries.approvedBy, id));
 
-        // 5. Handle pool reports - set technicianId to null (clientId is NOT NULL so cannot be set to null)
         await tx.update(poolReports)
           .set({ technicianId: null as any })
           .where(eq(poolReports.technicianId, id));
+        await tx.update(poolReports)
+          .set({ clientId: null as any })
+          .where(eq(poolReports.clientId, id));
 
-        // 6. Handle inventory transfers - set approvedByUserId and completedByUserId to null
-        // Note: requestedByUserId is NOT NULL so it cannot be set to null
         await tx.update(inventoryTransfers)
           .set({ approvedByUserId: null as any })
           .where(eq(inventoryTransfers.approvedByUserId, id));
-        
         await tx.update(inventoryTransfers)
           .set({ completedByUserId: null as any })
           .where(eq(inventoryTransfers.completedByUserId, id));
-
-        // 7. Handle other references found in SQL
-        await tx.update(projectDocuments)
-          .set({ uploadedBy: null as any })
-          .where(eq(projectDocuments.uploadedBy, id));
-
-        await tx.update(inventoryAdjustments)
-          .set({ performedByUserId: null as any })
-          .where(eq(inventoryAdjustments.performedByUserId, id));
 
         await tx.update(purchaseOrders)
           .set({ createdBy: null as any })
           .where(eq(purchaseOrders.createdBy, id));
 
-        // 8. Finally delete the user
+        await tx.update(callLogs)
+          .set({ callerUserId: null as any })
+          .where(eq(callLogs.callerUserId, id));
+
+        await tx.update(emailTemplatesTable)
+          .set({ createdBy: null as any })
+          .where(eq(emailTemplatesTable.createdBy, id));
+
+        await tx.update(estimates)
+          .set({ createdBy: null as any })
+          .where(eq(estimates.createdBy, id));
+
+        await tx.update(invitationTokens)
+          .set({ createdBy: null as any })
+          .where(eq(invitationTokens.createdBy, id));
+
+        await tx.update(invoices)
+          .set({ createdBy: null as any })
+          .where(eq(invoices.createdBy, id));
+
+        await tx.update(maintenanceOrders)
+          .set({ technicianId: null as any })
+          .where(eq(maintenanceOrders.technicianId, id));
+        await tx.update(maintenanceOrders)
+          .set({ createdBy: null as any })
+          .where(eq(maintenanceOrders.createdBy, id));
+
+        await tx.update(maintenances)
+          .set({ technicianId: null as any })
+          .where(eq(maintenances.technicianId, id));
+
+        await tx.update(repairs)
+          .set({ technicianId: null as any })
+          .where(eq(repairs.technicianId, id));
+
+        await tx.update(scheduledEmails)
+          .set({ createdBy: null as any })
+          .where(eq(scheduledEmails.createdBy, id));
+
+        await tx.update(serviceReports)
+          .set({ technicianId: null as any })
+          .where(eq(serviceReports.technicianId, id));
+
+        await tx.update(smsTemplates)
+          .set({ createdBy: null as any })
+          .where(eq(smsTemplates.createdBy, id));
+
+        await tx.update(workOrderAuditLogs)
+          .set({ userId: null as any })
+          .where(eq(workOrderAuditLogs.userId, id));
+
+        await tx.update(workOrderNotes)
+          .set({ userId: null as any })
+          .where(eq(workOrderNotes.userId, id));
+
+        await tx.update(workOrderTimeEntries)
+          .set({ userId: null as any })
+          .where(eq(workOrderTimeEntries.userId, id));
+
+        await tx.update(workOrders)
+          .set({ createdBy: null as any })
+          .where(eq(workOrders.createdBy, id));
+        await tx.update(workOrders)
+          .set({ technicianId: null as any })
+          .where(eq(workOrders.technicianId, id));
+
+        await tx.execute(sql`DELETE FROM project_assignments WHERE technician_id = ${id}`);
+        await tx.execute(sql`UPDATE pool_images SET technician_id = NULL WHERE technician_id = ${id}`);
+        await tx.execute(sql`UPDATE routes SET technician_id = NULL WHERE technician_id = ${id}`);
+
+        await tx.delete(technicians).where(eq(technicians.userId, id));
+        await tx.delete(clients).where(eq(clients.userId, id));
+
         const result = await tx.delete(users).where(eq(users.id, id)).returning();
         if (result.length === 0) {
-            throw new Error("User not found during transaction");
+          throw new Error("User not found during transaction");
         }
       });
       return true;
