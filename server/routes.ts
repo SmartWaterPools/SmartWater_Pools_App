@@ -827,11 +827,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Updating client', clientId, 'with data:', updateData);
       
-      // Update the user
-      const updatedClient = await storage.updateUser(clientId, updateData);
-      
-      if (!updatedClient) {
-        return res.status(500).json({ error: 'Failed to update client' });
+      // Update the user only if there are user-level fields to update
+      let updatedClient = client;
+      if (Object.keys(updateData).length > 0) {
+        const result = await storage.updateUser(clientId, updateData);
+        if (!result) {
+          return res.status(500).json({ error: 'Failed to update client' });
+        }
+        updatedClient = result;
       }
       
       // Update billing and pool fields in the clients table
