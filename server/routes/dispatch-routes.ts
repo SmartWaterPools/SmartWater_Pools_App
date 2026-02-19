@@ -103,7 +103,37 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
       .where(and(eq(workOrders.scheduledDate, dateStr), eq(workOrders.category, 'maintenance')));
 
     const assignedMaintenanceIds = new Set(assignments.map(a => a.maintenanceId));
-    const unassignedJobs = dayMaintenances.filter(m => !assignedMaintenanceIds.has(m.id));
+    const rawUnassigned = dayMaintenances.filter(m => !assignedMaintenanceIds.has(m.id));
+
+    const unassignedClientIds = [...new Set(rawUnassigned.map(j => j.clientId).filter(Boolean))];
+    let unassignedClientMap: Record<number, { name: string; address: string }> = {};
+    if (unassignedClientIds.length > 0) {
+      const uclientRows = await db
+        .select({ id: clients.id, userId: clients.userId })
+        .from(clients)
+        .where(inArray(clients.id, unassignedClientIds));
+      const uuserIds = uclientRows.map(c => c.userId);
+      if (uuserIds.length > 0) {
+        const uuserRows = await db
+          .select({ id: users.id, name: users.name, address: users.address })
+          .from(users)
+          .where(inArray(users.id, uuserIds));
+        const uuserMap: Record<number, any> = {};
+        for (const u of uuserRows) uuserMap[u.id] = u;
+        for (const c of uclientRows) {
+          unassignedClientMap[c.id] = {
+            name: uuserMap[c.userId]?.name || "Unknown",
+            address: uuserMap[c.userId]?.address || "",
+          };
+        }
+      }
+    }
+
+    const unassignedJobs = rawUnassigned.map(job => ({
+      ...job,
+      clientName: job.clientId ? unassignedClientMap[job.clientId]?.name || "Unknown" : "Unknown",
+      clientAddress: job.clientId ? unassignedClientMap[job.clientId]?.address || "" : "",
+    }));
 
     const techData = allTechnicians.map(tech => {
       const techRoutes = dayRoutes.filter(r => r.technicianId === tech.id);

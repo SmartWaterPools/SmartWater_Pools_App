@@ -8,6 +8,7 @@ import {
   CardFooter 
 } from "../ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
@@ -619,6 +620,9 @@ export default function TechnicianRoutesView({
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [bulkAssignClientId, setBulkAssignClientId] = useState<string>("");
   const [bulkAssignRouteId, setBulkAssignRouteId] = useState<string>("");
+  const [maintenanceTypeFilter, setMaintenanceTypeFilter] = useState<string>("all");
+  const [maintenanceDateFilter, setMaintenanceDateFilter] = useState<string>("all");
+  const [maintenanceSearchFilter, setMaintenanceSearchFilter] = useState<string>("");
 
   const { data: clientsList } = useQuery<{ id: number; name: string; companyName?: string }[]>({
     queryKey: ["/api/clients"],
@@ -703,6 +707,44 @@ export default function TechnicianRoutesView({
       return true;
     });
   }, [maintenances, maintenanceAssignments, lastAssignedMaintenanceId]);
+
+  const filteredUnassignedMaintenances = useMemo(() => {
+    return unassignedMaintenances.filter(m => {
+      if (maintenanceTypeFilter !== "all" && m.type !== maintenanceTypeFilter) return false;
+      if (maintenanceDateFilter !== "all") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const mDate = new Date(m.scheduleDate);
+        mDate.setHours(0, 0, 0, 0);
+        if (maintenanceDateFilter === "today" && mDate.getTime() !== today.getTime()) return false;
+        if (maintenanceDateFilter === "this_week") {
+          const weekEnd = new Date(today);
+          weekEnd.setDate(weekEnd.getDate() + 7);
+          if (mDate < today || mDate > weekEnd) return false;
+        }
+        if (maintenanceDateFilter === "this_month") {
+          const monthEnd = new Date(today);
+          monthEnd.setDate(monthEnd.getDate() + 30);
+          if (mDate < today || mDate > monthEnd) return false;
+        }
+        if (maintenanceDateFilter === "overdue") {
+          if (mDate >= today) return false;
+        }
+      }
+      if (maintenanceSearchFilter) {
+        const search = maintenanceSearchFilter.toLowerCase();
+        const clientName = (m.client as any)?.user?.name || (m.client as any)?.name || "";
+        const clientAddress = (m.client as any)?.user?.address || (m.client as any)?.address || "";
+        if (!clientName.toLowerCase().includes(search) && !clientAddress.toLowerCase().includes(search) && !(m.notes || "").toLowerCase().includes(search)) return false;
+      }
+      return true;
+    });
+  }, [unassignedMaintenances, maintenanceTypeFilter, maintenanceDateFilter, maintenanceSearchFilter]);
+
+  const uniqueMaintenanceTypes = useMemo(() => {
+    const types = new Set(unassignedMaintenances.map(m => m.type).filter(Boolean));
+    return Array.from(types);
+  }, [unassignedMaintenances]);
   
   // Handle day change
   const handleDayChange = (value: string) => {
@@ -975,17 +1017,54 @@ export default function TechnicianRoutesView({
         </div>
         
         <div className="lg:col-span-4">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold">Unassigned Maintenances</h3>
-            <p className="text-sm text-muted-foreground">
-              Drag maintenance tasks onto routes to assign them
-            </p>
+          <div className="mb-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Unassigned Maintenances</h3>
+                <p className="text-sm text-muted-foreground">
+                  {filteredUnassignedMaintenances.length} of {unassignedMaintenances.length} tasks
+                </p>
+              </div>
+            </div>
+            <Input
+              placeholder="Search by client name..."
+              value={maintenanceSearchFilter}
+              onChange={(e) => setMaintenanceSearchFilter(e.target.value)}
+              className="h-8 text-sm"
+            />
+            <div className="flex gap-2">
+              <Select value={maintenanceTypeFilter} onValueChange={setMaintenanceTypeFilter}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {uniqueMaintenanceTypes.map(t => (
+                    <SelectItem key={t} value={t}>
+                      {t.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={maintenanceDateFilter} onValueChange={setMaintenanceDateFilter}>
+                <SelectTrigger className="h-8 text-xs flex-1">
+                  <SelectValue placeholder="Date" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Dates</SelectItem>
+                  <SelectItem value="overdue">Overdue</SelectItem>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="this_week">This Week</SelectItem>
+                  <SelectItem value="this_month">This Month</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           
-          {unassignedMaintenances.length > 0 ? (
+          {filteredUnassignedMaintenances.length > 0 ? (
             <ScrollArea className="h-[600px] rounded-md border">
               <div className="p-4 grid grid-cols-1 gap-4">
-                {unassignedMaintenances.map(maintenance => (
+                {filteredUnassignedMaintenances.map(maintenance => (
                   <MaintenanceCard
                     key={maintenance.id}
                     maintenance={maintenance}

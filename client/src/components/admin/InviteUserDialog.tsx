@@ -178,6 +178,8 @@ export function InviteUserDialog({ onSuccess }: InviteUserDialogProps) {
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="admin">Administrator</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="office_staff">Office Staff</SelectItem>
                       <SelectItem value="technician">Technician</SelectItem>
                       <SelectItem value="client">Client</SelectItem>
                       {user?.role === 'system_admin' && (

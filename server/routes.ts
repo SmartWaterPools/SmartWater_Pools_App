@@ -31,7 +31,7 @@ import estimateRoutes from "./routes/estimate-routes";
 import taxTemplateRoutes from "./routes/tax-template-routes";
 import invitationRoutes from "./routes/invitation-routes";
 import { isAuthenticated, requirePermission } from "./auth";
-import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users, poolEquipment, poolImages, poolWizardCustomQuestions, poolWizardCustomResponses } from "@shared/schema";
+import { type User, insertProjectPhaseSchema, bazzaMaintenanceAssignments, bazzaRoutes as bazzaRoutesTable, bazzaRouteStops, clients, users, technicians, poolEquipment, poolImages, poolWizardCustomQuestions, poolWizardCustomResponses } from "@shared/schema";
 
 const workOrderPhotoStorage = multer.diskStorage({
   destination: function (req: any, file: any, cb: any) {
@@ -1779,6 +1779,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/repairs', isAuthenticated, requirePermission('repairs', 'edit'), async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const repairData = req.body;
+      
+      if (!repairData.clientId || !repairData.issue) {
+        return res.status(400).json({ error: 'Missing required fields: clientId and issue' });
+      }
+      
+      const newRepair = await storage.createRepair({
+        clientId: repairData.clientId,
+        technicianId: repairData.technicianId || null,
+        organizationId: currentUser.organizationId,
+        issue: repairData.issue,
+        priority: repairData.priority || 'medium',
+        status: repairData.status || 'pending',
+        description: repairData.description || null,
+        notes: repairData.notes || null,
+        scheduledDate: repairData.scheduledDate || null,
+        scheduledTime: repairData.scheduledTime || null,
+      });
+      
+      res.status(201).json(newRepair);
+    } catch (error) {
+      console.error('Error creating repair:', error);
+      res.status(500).json({ error: 'Failed to create repair' });
+    }
+  });
+
   // Organization Permissions API
   app.get('/api/organizations/:orgId/permissions', isAuthenticated, async (req, res) => {
     try {
@@ -1888,6 +1917,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Technicians error:', error);
       res.status(500).json({ error: 'Failed to load technicians' });
+    }
+  });
+
+  app.post('/api/technicians/create', isAuthenticated, requirePermission('technicians', 'edit'), async (req, res) => {
+    try {
+      const currentUser = req.user as User;
+      const { user: userData, specialization, certifications, rate, notes } = req.body;
+      
+      if (!userData || !userData.name || !userData.email) {
+        return res.status(400).json({ error: 'Missing required user data (name and email)' });
+      }
+      
+      const existingUser = await storage.getUserByEmail(userData.email);
+      if (existingUser) {
+        return res.status(400).json({ error: 'A user with this email already exists' });
+      }
+      
+      const newUser = await storage.createUser({
+        name: userData.name,
+        email: userData.email,
+        phone: userData.phone || null,
+        address: userData.address || null,
+        role: 'technician',
+        organizationId: currentUser.organizationId,
+        username: userData.email,
+        password: 'temp_' + Math.random().toString(36).slice(2),
+      });
+      
+      const [newTechnician] = await db.insert(technicians).values({
+        userId: newUser.id,
+        specialization: specialization || null,
+        certifications: certifications || null,
+      }).returning();
+      
+      res.status(201).json({
+        ...newTechnician,
+        user: {
+          id: newUser.id,
+          name: newUser.name,
+          email: newUser.email,
+          phone: newUser.phone,
+          address: newUser.address,
+        }
+      });
+    } catch (error) {
+      console.error('Error creating technician:', error);
+      res.status(500).json({ error: 'Failed to create technician' });
     }
   });
 

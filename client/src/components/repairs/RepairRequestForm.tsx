@@ -85,11 +85,7 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
         completionDate: null,
       };
       
-      return apiRequest({
-        url: "/api/repairs",
-        method: "POST",
-        data: dataToSubmit,
-      });
+      return apiRequest("POST", "/api/repairs", dataToSubmit);
     },
     onSuccess: () => {
       toast({
