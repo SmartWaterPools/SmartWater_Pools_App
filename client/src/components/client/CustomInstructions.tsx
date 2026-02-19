@@ -81,6 +81,7 @@ export function CustomInstructions({ clientId, initialData }: CustomInstructions
       return await apiRequest(`/api/clients/${clientId}`, "PATCH", values);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/clients", String(clientId)] });
       queryClient.invalidateQueries({ queryKey: ["/api/clients", clientId] });
       setIsEditing(false);
       toast({

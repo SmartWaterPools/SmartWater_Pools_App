@@ -261,7 +261,8 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       );
     },
     onSuccess: () => {
-      // Invalidate the client data query to refetch
+      // Invalidate the client data query to refetch (both string and number keys for compatibility)
+      queryClient.invalidateQueries({ queryKey: ['/api/clients', String(clientId)] });
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
       
       toast({
@@ -624,6 +625,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       });
       
       // Update client data in the cache
+      queryClient.invalidateQueries({ queryKey: ['/api/clients', String(clientId)] });
       queryClient.invalidateQueries({ queryKey: ['/api/clients', clientId] });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/equipment`] });
       queryClient.invalidateQueries({ queryKey: [`/api/clients/${clientId}/images`] });
@@ -639,7 +641,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       console.error('Error saving pool information:', error);
       toast({
         title: 'Save failed',
-        description: 'There was a problem saving the pool information.',
+        description: error instanceof Error ? error.message : 'There was a problem saving the pool information.',
         variant: 'destructive',
       });
     }
@@ -653,7 +655,15 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+            console.error('Form validation errors:', errors);
+            const errorFields = Object.keys(errors).join(', ');
+            toast({
+              title: 'Validation Error',
+              description: `Please fill in the required fields: ${errorFields}`,
+              variant: 'destructive',
+            });
+          })} className="space-y-6">
             <Tabs value={`step-${step}`} onValueChange={(value) => setStep(parseInt(value.split('-')[1]))}>
               <TabsList className="grid grid-cols-4 w-full">
                 <TabsTrigger value="step-1">Pool Information</TabsTrigger>
@@ -1345,7 +1355,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                 ) : (
                   <Button 
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       setForceSaving(true);
                       try {
                         // Save to localStorage first (always works even offline)
@@ -1353,8 +1363,16 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                         saveToLocalStorage(formData);
                         
                         if (isOnline) {
-                          // If online, submit to server
-                          form.handleSubmit(handleSubmit)();
+                          // If online, submit to server with validation error handling
+                          await form.handleSubmit(handleSubmit, (errors) => {
+                            console.error('Form validation errors:', errors);
+                            const errorFields = Object.keys(errors).join(', ');
+                            toast({
+                              title: 'Validation Error',
+                              description: `Please fill in the required fields: ${errorFields}`,
+                              variant: 'destructive',
+                            });
+                          })();
                         } else {
                           // If offline, store for later and notify user
                           setOfflineData(formData);
@@ -1367,7 +1385,7 @@ export function PoolInformationWizard({ clientId, onComplete, existingData }: Po
                         console.error('Error in Save All Information:', error);
                         toast({
                           title: "Error saving information",
-                          description: "There was a problem saving your changes.",
+                          description: error instanceof Error ? error.message : "There was a problem saving your changes.",
                           variant: "destructive"
                         });
                       } finally {
