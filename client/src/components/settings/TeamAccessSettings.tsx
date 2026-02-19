@@ -34,7 +34,7 @@ export function TeamAccessSettings() {
         </TabsList>
 
         <TabsContent value="users">
-          <UserManagement />
+          <UserManagement orgScoped />
         </TabsContent>
 
         <TabsContent value="invitations">

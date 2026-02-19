@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Card,
   CardContent,
@@ -73,13 +74,14 @@ const userFormSchema = z.object({
 
 type UserFormValues = z.infer<typeof userFormSchema>;
 
-export function UserManagement() {
+export function UserManagement({ orgScoped = false }: { orgScoped?: boolean }) {
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; user: UserType | null }>({ open: false, user: null });
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user: currentUser } = useAuth();
 
   // Fetch users
   const {
@@ -116,6 +118,16 @@ export function UserManagement() {
     retry: 1,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
+
+  const filteredOrganizations = useMemo(() => {
+    if (!orgScoped || !currentUser) return organizations;
+    return organizations.filter(org => org.id === currentUser.organizationId);
+  }, [organizations, orgScoped, currentUser]);
+
+  const filteredUsersList = useMemo(() => {
+    if (!orgScoped || !currentUser) return users;
+    return users.filter(user => user.organizationId === currentUser.organizationId);
+  }, [users, orgScoped, currentUser]);
 
   // Mutation for creating/updating user
   const mutation = useMutation({
@@ -186,7 +198,7 @@ export function UserManagement() {
       email: "",
       role: "technician",
       active: true,
-      organizationId: organizations.length > 0 ? organizations[0].id : 1, // Default to first available organization
+      organizationId: filteredOrganizations.length > 0 ? filteredOrganizations[0].id : 1,
       password: "",
       confirmPassword: "",
     },
@@ -210,7 +222,7 @@ export function UserManagement() {
       email: user.email || "",
       role: user.role as "system_admin" | "org_admin" | "manager" | "office_staff" | "technician" | "client" | "vendor",
       active: user.active,
-      organizationId: user.organizationId || (organizations.length > 0 ? organizations[0].id : 1), // Use first available org or default
+      organizationId: user.organizationId || (filteredOrganizations.length > 0 ? filteredOrganizations[0].id : 1),
     });
     setOpen(true);
   };
@@ -226,21 +238,21 @@ export function UserManagement() {
     }
   };
 
-  // Filter users based on search term
-  const filteredUsers = users.filter(user => {
-    const searchVal = searchTerm.toLowerCase();
-    
-    // Get organization name for the user
-    const orgName = organizations.find(org => org.id === user.organizationId)?.name || "";
-    
-    return (
-      user.name?.toLowerCase().includes(searchVal) ||
-      user.username?.toLowerCase().includes(searchVal) ||
-      user.email?.toLowerCase().includes(searchVal) ||
-      user.role?.toLowerCase().includes(searchVal) ||
-      orgName.toLowerCase().includes(searchVal)
-    );
-  });
+  const filteredUsers = useMemo(() => {
+    return filteredUsersList.filter(user => {
+      const searchVal = searchTerm.toLowerCase();
+      
+      const orgName = organizations.find(org => org.id === user.organizationId)?.name || "";
+      
+      return (
+        user.name?.toLowerCase().includes(searchVal) ||
+        user.username?.toLowerCase().includes(searchVal) ||
+        user.email?.toLowerCase().includes(searchVal) ||
+        user.role?.toLowerCase().includes(searchVal) ||
+        orgName.toLowerCase().includes(searchVal)
+      );
+    });
+  }, [filteredUsersList, searchTerm, organizations]);
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
@@ -384,10 +396,10 @@ export function UserManagement() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {organizations.length === 0 ? (
+                            {filteredOrganizations.length === 0 ? (
                               <SelectItem value="1">Loading organizations...</SelectItem>
                             ) : (
-                              organizations.map((org) => (
+                              filteredOrganizations.map((org) => (
                                 <SelectItem key={org.id} value={org.id.toString()}>
                                   {org.name}
                                 </SelectItem>

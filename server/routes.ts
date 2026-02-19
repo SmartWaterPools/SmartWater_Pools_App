@@ -814,7 +814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      const { name, email, phone, address, addressLat, addressLng, companyName, contractType, billingAddress, billingCity, billingState, billingZip } = req.body;
+      const { name, email, phone, address, addressLat, addressLng, companyName, contractType, billingAddress, billingCity, billingState, billingZip, poolType, poolSize, filterType, heaterType, chemicalSystem, specialNotes, serviceDay } = req.body;
       
       // Build update object with only provided fields
       const updateData: Partial<User> = {};
@@ -834,7 +834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ error: 'Failed to update client' });
       }
       
-      // Update billing fields in the clients table
+      // Update billing and pool fields in the clients table
       const clientRecords = await db.select().from(clients).where(eq(clients.userId, clientId));
       let clientRecord = clientRecords[0] || null;
       
@@ -845,6 +845,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (billingCity !== undefined) clientUpdateData.billingCity = billingCity;
       if (billingState !== undefined) clientUpdateData.billingState = billingState;
       if (billingZip !== undefined) clientUpdateData.billingZip = billingZip;
+      if (poolType !== undefined) clientUpdateData.poolType = poolType;
+      if (poolSize !== undefined) clientUpdateData.poolSize = poolSize;
+      if (filterType !== undefined) clientUpdateData.filterType = filterType;
+      if (heaterType !== undefined) clientUpdateData.heaterType = heaterType;
+      if (chemicalSystem !== undefined) clientUpdateData.chemicalSystem = chemicalSystem;
+      if (specialNotes !== undefined) clientUpdateData.specialNotes = specialNotes;
+      if (serviceDay !== undefined) clientUpdateData.serviceDay = serviceDay;
       
       if (clientRecord && Object.keys(clientUpdateData).length > 0) {
         await db.update(clients).set(clientUpdateData).where(eq(clients.id, clientRecord.id));

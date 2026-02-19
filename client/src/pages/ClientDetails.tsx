@@ -353,7 +353,7 @@ export default function ClientDetails() {
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => setLocation(`/pool-wizard/${id}`)}
+            onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
             className="flex items-center"
           >
             <DropletIcon className="h-4 w-4 mr-2" />
@@ -500,7 +500,7 @@ export default function ClientDetails() {
                         variant="outline" 
                         size="sm"
                         className="w-full"
-                        onClick={() => setLocation(`/pool-wizard/${id}`)}
+                        onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
                       >
                         Edit Pool Information
                       </Button>
@@ -1132,7 +1132,7 @@ export default function ClientDetails() {
                   localStorage.setItem(`pool_wizard_${id}`, JSON.stringify(poolData));
                   
                   // Navigate to the pool wizard
-                  setLocation(`/pool-wizard/${id}`);
+                  setLocation(`/clients/${id}/pool-wizard`);
                 }}
                 className="flex items-center"
               >
@@ -1204,7 +1204,7 @@ export default function ClientDetails() {
                   <CardDescription>Pool equipment and components</CardDescription>
                 </div>
                 <Button
-                  onClick={() => setLocation(`/pool-wizard/${id}`)}
+                  onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
                   size="sm"
                   className="ml-auto"
                 >
@@ -1282,7 +1282,7 @@ export default function ClientDetails() {
                     <Button 
                       variant="outline" 
                       className="mt-4"
-                      onClick={() => setLocation(`/pool-wizard/${id}`)}
+                      onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
                     >
                       Add Equipment
                     </Button>
@@ -1302,7 +1302,7 @@ export default function ClientDetails() {
                   <CardDescription>Photos of the pool and equipment</CardDescription>
                 </div>
                 <Button
-                  onClick={() => setLocation(`/pool-wizard/${id}`)}
+                  onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
                   size="sm"
                   className="ml-auto"
                 >
@@ -1349,7 +1349,7 @@ export default function ClientDetails() {
                     <Button 
                       variant="outline" 
                       className="mt-4"
-                      onClick={() => setLocation(`/pool-wizard/${id}`)}
+                      onClick={() => setLocation(`/clients/${id}/pool-wizard`)}
                     >
                       <ImagePlus className="h-4 w-4 mr-1" />
                       Add Images
