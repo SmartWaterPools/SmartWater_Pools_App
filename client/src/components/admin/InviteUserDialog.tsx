@@ -88,10 +88,18 @@ export function InviteUserDialog({ onSuccess }: InviteUserDialogProps) {
       const response = await res.json();
 
       if (response.success) {
-        toast({
-          title: 'Invitation sent!',
-          description: `An invitation email has been sent to ${data.email}`,
-        });
+        if (response.emailSent === false) {
+          toast({
+            title: 'Invitation created',
+            description: response.emailWarning || `Invitation was created but the email could not be sent. Please connect your Gmail in Settings to enable email sending.`,
+            variant: 'destructive',
+          });
+        } else {
+          toast({
+            title: 'Invitation sent!',
+            description: `An invitation email has been sent to ${data.email}`,
+          });
+        }
         form.reset();
         setOpen(false);
         if (onSuccess) onSuccess();
