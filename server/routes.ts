@@ -787,9 +787,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           billingZip: clientRecord?.billingZip || null,
         },
         user: sanitizedClient,
-        // Add convenience fields
         address: client.address,
-        phone: client.phone
+        phone: client.phone,
+        poolType: clientRecord?.poolType || null,
+        poolSize: clientRecord?.poolSize || null,
+        filterType: clientRecord?.filterType || null,
+        heaterType: clientRecord?.heaterType || null,
+        chemicalSystem: clientRecord?.chemicalSystem || null,
+        specialNotes: clientRecord?.specialNotes || null,
+        serviceDay: clientRecord?.serviceDay || null,
       });
     } catch (error) {
       console.error('Get client error:', error);
@@ -896,7 +902,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           authProvider: updatedClient.authProvider
         },
         address: updatedClient.address,
-        phone: updatedClient.phone
+        phone: updatedClient.phone,
+        poolType: updatedClientRecord?.poolType || null,
+        poolSize: updatedClientRecord?.poolSize || null,
+        filterType: updatedClientRecord?.filterType || null,
+        heaterType: updatedClientRecord?.heaterType || null,
+        chemicalSystem: updatedClientRecord?.chemicalSystem || null,
+        specialNotes: updatedClientRecord?.specialNotes || null,
+        serviceDay: updatedClientRecord?.serviceDay || null,
       });
     } catch (error) {
       console.error('Update client error:', error);
