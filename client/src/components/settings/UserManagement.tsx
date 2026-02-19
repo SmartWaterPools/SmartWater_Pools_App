@@ -39,7 +39,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Edit, Plus, User, Search, Building } from "lucide-react";
+import { Trash, Edit, Plus, User, Search, Building, AlertTriangle, Archive, UserX } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { User as BaseUserType, Organization } from "@shared/schema";
@@ -77,6 +77,7 @@ export function UserManagement() {
   const [open, setOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; user: UserType | null }>({ open: false, user: null });
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -154,6 +155,7 @@ export function UserManagement() {
       return { permanent, ...(await response.json().catch(() => ({}))) };
     },
     onSuccess: (data) => {
+      setConfirmDialog({ open: false, user: null });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       const actionType = data.permanent ? "deleted" : "deactivated";
       toast({
@@ -172,17 +174,7 @@ export function UserManagement() {
   
   // Handle deactivate or delete user
   const handleDelete = (user: UserType) => {
-    // Create a confirmation dialog with both options
-    if (confirm(`What would you like to do with ${user.name}?\n\n- Click OK to permanently DELETE this user\n- Click Cancel to just DEACTIVATE (user will be set to inactive status)`)) {
-      // User clicked OK - permanently delete
-      console.log(`Permanently deleting user with ID: ${user.id}`);
-      deleteMutation.mutate({ userId: user.id, permanent: true });
-    } else if (confirm(`Are you sure you want to deactivate ${user.name}? (They can be reactivated later)`)) {
-      // User clicked OK to deactivate
-      console.log(`Deactivating user with ID: ${user.id}`);
-      deleteMutation.mutate({ userId: user.id, permanent: false });
-    }
-    // If they cancel both dialogs, do nothing
+    setConfirmDialog({ open: true, user });
   };
 
   // Form setup
@@ -583,6 +575,83 @@ export function UserManagement() {
           </div>
         )}
       </CardContent>
+
+      {/* Confirm Delete/Archive Dialog */}
+      <Dialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex-shrink-0 flex items-center justify-center h-10 w-10 rounded-full bg-red-100">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <div>
+                <DialogTitle>Manage User</DialogTitle>
+              </div>
+            </div>
+          </DialogHeader>
+          
+          {confirmDialog.user && (
+            <div className="space-y-4">
+              <DialogDescription className="space-y-2">
+                <p>Choose an action for:</p>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="font-semibold text-gray-900">{confirmDialog.user.name}</p>
+                  <p className="text-sm text-gray-600">{confirmDialog.user.email}</p>
+                </div>
+              </DialogDescription>
+
+              <div className="space-y-3 border-t pt-4">
+                <div className="space-y-1">
+                  <h4 className="flex items-center gap-2 font-medium text-sm">
+                    <Archive className="h-4 w-4 text-blue-600" />
+                    Archive User
+                  </h4>
+                  <p className="text-sm text-gray-600 ml-6">
+                    Sets the user to inactive status. They can be reactivated later.
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="flex items-center gap-2 font-medium text-sm">
+                    <UserX className="h-4 w-4 text-red-600" />
+                    Permanently Delete
+                  </h4>
+                  <p className="text-sm text-gray-600 ml-6">
+                    Removes the user completely. This action cannot be undone.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmDialog({ open: false, user: null })}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+              onClick={() => deleteMutation.mutate({ userId: confirmDialog.user!.id, permanent: false })}
+              disabled={deleteMutation.isPending}
+            >
+              <Archive className="h-4 w-4 mr-2" />
+              Archive User
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMutation.mutate({ userId: confirmDialog.user!.id, permanent: true })}
+              disabled={deleteMutation.isPending}
+            >
+              <UserX className="h-4 w-4 mr-2" />
+              Permanently Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
