@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { Button } from "@/components/ui/button";
-import { Camera, X, RotateCw, Smartphone, Barcode } from "lucide-react";
+import { Camera, X, RotateCw, Smartphone, Barcode, ImagePlus, Loader2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -9,6 +9,7 @@ interface BarcodeScannerProps {
   onScan: (result: string) => void;
   onError?: (error: string) => void;
   onClose?: () => void;
+  onPhotoCapture?: (imageUrl: string) => void;
   title?: string;
   description?: string;
   cameraId?: string;
@@ -20,6 +21,7 @@ export function BarcodeScanner({
   onScan,
   onError,
   onClose,
+  onPhotoCapture,
   title = "Scan Inventory Barcode",
   description = "Position the barcode within the scanning area",
   cameraId,
@@ -31,8 +33,38 @@ export function BarcodeScanner({
   const [selectedCamera, setSelectedCamera] = useState<string | undefined>(cameraId);
   const [error, setError] = useState<string | null>(null);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [capturedPhotoUrl, setCapturedPhotoUrl] = useState<string | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const scannerDivId = "barcode-scanner";
+
+  const handleTakePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const response = await fetch('/api/inventory/upload-photo', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Upload failed');
+      const data = await response.json();
+      setCapturedPhotoUrl(data.imageUrl);
+      if (onPhotoCapture) {
+        onPhotoCapture(data.imageUrl);
+      }
+    } catch (err: any) {
+      setError('Failed to upload photo: ' + (err.message || 'Unknown error'));
+      if (onError) onError(err.message);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   // Supported barcode formats - focusing on common inventory barcodes
   // html5-qrcode supports all these formats internally but doesn't expose them as constants
@@ -231,6 +263,15 @@ export function BarcodeScanner({
               </AlertDescription>
             </Alert>
           )}
+
+          {capturedPhotoUrl && (
+            <Alert>
+              <AlertDescription className="flex flex-col gap-2">
+                <span className="font-medium">Photo captured:</span>
+                <img src={capturedPhotoUrl} alt="Captured item" className="w-full h-32 object-cover rounded-md" />
+              </AlertDescription>
+            </Alert>
+          )}
           
           {cameras.length > 0 && (
             <div className="text-sm text-muted-foreground flex items-center gap-2">
@@ -240,37 +281,61 @@ export function BarcodeScanner({
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex gap-2 pt-0">
-        {!isScanning ? (
-          <Button 
-            onClick={() => startScanning()} 
-            className="flex-1 gap-1"
-            disabled={!selectedCamera}
-          >
-            <Camera className="h-4 w-4" />
-            Start Scanning
-          </Button>
-        ) : (
-          <Button 
-            onClick={() => stopScanning()} 
-            variant="outline" 
-            className="flex-1 gap-1"
-          >
-            <X className="h-4 w-4" />
-            Stop Scanning
-          </Button>
-        )}
+      <CardFooter className="flex flex-col gap-2 pt-0">
+        <div className="flex gap-2 w-full">
+          {!isScanning ? (
+            <Button 
+              onClick={() => startScanning()} 
+              className="flex-1 gap-1"
+              disabled={!selectedCamera}
+            >
+              <Camera className="h-4 w-4" />
+              Start Scanning
+            </Button>
+          ) : (
+            <Button 
+              onClick={() => stopScanning()} 
+              variant="outline" 
+              className="flex-1 gap-1"
+            >
+              <X className="h-4 w-4" />
+              Stop Scanning
+            </Button>
+          )}
+          
+          {cameras.length > 1 && (
+            <Button 
+              onClick={() => switchCamera()}
+              variant="outline"
+              className="gap-1"
+              title="Switch camera"
+            >
+              <RotateCw className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
         
-        {cameras.length > 1 && (
-          <Button 
-            onClick={() => switchCamera()}
-            variant="outline"
-            className="gap-1"
-            title="Switch camera"
+        <div className="w-full border-t pt-2 mt-1">
+          <p className="text-xs text-muted-foreground mb-2 text-center">Can't scan? Take a photo of the item instead</p>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handleTakePhoto}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full gap-1"
+            onClick={() => photoInputRef.current?.click()}
+            disabled={isUploadingPhoto}
           >
-            <RotateCw className="h-4 w-4" />
+            {isUploadingPhoto ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+            Take Photo of Item
           </Button>
-        )}
+        </div>
       </CardFooter>
     </Card>
   );

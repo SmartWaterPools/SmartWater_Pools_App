@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2, X } from "lucide-react";
+import { CalendarIcon, Loader2, X, Camera, ImagePlus, Trash2 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 
@@ -71,6 +71,7 @@ const inventoryItemFormSchema = z.object({
   location: z.string().optional(),
   lastRestockDate: z.date().optional(),
   notes: z.string().optional(),
+  imageUrl: z.string().optional(),
 });
 
 type InventoryItemFormValues = z.infer<typeof inventoryItemFormSchema>;
@@ -86,6 +87,10 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose, apiBase
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(true);
+  const [imagePreview, setImagePreview] = useState<string | null>(itemToEdit?.imageUrl || null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const categories = itemCategories || [
     "chemicals",
@@ -112,6 +117,41 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose, apiBase
       ? new Date(itemToEdit.lastRestockDate)
       : undefined,
     notes: itemToEdit?.notes || "",
+    imageUrl: itemToEdit?.imageUrl || "",
+  };
+
+  const handleImageUpload = async (file: File) => {
+    setIsUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const response = await fetch('/api/inventory/upload-photo', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Upload failed');
+      const data = await response.json();
+      setImagePreview(data.imageUrl);
+      form.setValue('imageUrl', data.imageUrl);
+      toast({ title: "Photo uploaded", description: "Item photo has been uploaded successfully." });
+    } catch (error) {
+      toast({ title: "Upload failed", description: "Could not upload the photo. Please try again.", variant: "destructive" });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) handleImageUpload(file);
+  };
+
+  const removeImage = () => {
+    setImagePreview(null);
+    form.setValue('imageUrl', '');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const form = useForm<InventoryItemFormValues>({
@@ -134,6 +174,7 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose, apiBase
         location: values.location || null,
         lastRestockDate: values.lastRestockDate ? format(values.lastRestockDate, "yyyy-MM-dd") : null,
         notes: values.notes || null,
+        imageUrl: values.imageUrl || null,
       };
 
       if (itemToEdit?.id) {
@@ -269,6 +310,73 @@ export function InventoryItemForm({ itemCategories, itemToEdit, onClose, apiBase
                 </FormItem>
               )}
             />
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Item Photo</label>
+              <div className="flex flex-col gap-2">
+                {imagePreview ? (
+                  <div className="relative w-full">
+                    <img
+                      src={imagePreview}
+                      alt="Item photo"
+                      className="w-full h-40 object-cover rounded-md border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-7 w-7"
+                      onClick={removeImage}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="w-full h-32 border-2 border-dashed rounded-md flex items-center justify-center bg-muted/30">
+                    <p className="text-sm text-muted-foreground">No photo added</p>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1 text-xs"
+                    onClick={() => cameraInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                  >
+                    {isUploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                    Take Photo
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1 text-xs"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingImage}
+                  >
+                    {isUploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                    Choose File
+                  </Button>
+                </div>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <FormField

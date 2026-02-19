@@ -74,6 +74,7 @@ interface InventoryItem {
   vendorId: number | null;
   lastRestockDate: string | null;
   notes: string | null;
+  imageUrl: string | null;
   createdAt: string;
   updatedAt: string | null;
 }
@@ -279,12 +280,23 @@ export default function ItemsTab({ onAddItem, onEditItem }: ItemsTabProps) {
                       return (
                         <TableRow key={item.id}>
                           <TableCell>
-                            <div className="font-medium">{item.name}</div>
-                            {item.description && (
-                              <div className="text-xs text-muted-foreground line-clamp-1">
-                                {item.description}
+                            <div className="flex items-center gap-2">
+                              {item.imageUrl ? (
+                                <img src={item.imageUrl} alt={item.name} className="w-8 h-8 rounded object-cover shrink-0" />
+                              ) : (
+                                <div className="w-8 h-8 rounded bg-muted flex items-center justify-center shrink-0">
+                                  <Package className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div>
+                                <div className="font-medium">{item.name}</div>
+                                {item.description && (
+                                  <div className="text-xs text-muted-foreground line-clamp-1">
+                                    {item.description}
+                                  </div>
+                                )}
                               </div>
-                            )}
+                            </div>
                           </TableCell>
                           <TableCell className="text-sm">{item.sku || "-"}</TableCell>
                           <TableCell>
@@ -368,11 +380,20 @@ export default function ItemsTab({ onAddItem, onEditItem }: ItemsTabProps) {
                     <Card key={item.id}>
                       <CardContent className="p-4">
                         <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium truncate">{item.name}</h4>
-                            {item.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-1">{item.description}</p>
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt={item.name} className="w-10 h-10 rounded object-cover shrink-0" />
+                            ) : (
+                              <div className="w-10 h-10 rounded bg-muted flex items-center justify-center shrink-0">
+                                <Package className="h-5 w-5 text-muted-foreground" />
+                              </div>
                             )}
+                            <div className="min-w-0">
+                              <h4 className="font-medium truncate">{item.name}</h4>
+                              {item.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-1">{item.description}</p>
+                              )}
+                            </div>
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>

@@ -5,9 +5,39 @@
  * technician vehicles, and inventory transfers.
  */
 import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { isAuthenticated, isAdmin, checkOrganizationAccess, requirePermission } from '../auth';
 import { IStorage } from '../storage';
 import * as z from 'zod';
+
+const inventoryPhotoStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(process.cwd(), "uploads", "inventory-photos");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const inventoryPhotoUpload = multer({
+  storage: inventoryPhotoStorage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files (JPEG, PNG, WebP, HEIC) are allowed'));
+    }
+  },
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
 
 export default function registerInventoryRoutes(router: Router, storage: IStorage) {
   /**
@@ -157,6 +187,53 @@ export default function registerInventoryRoutes(router: Router, storage: IStorag
     } catch (error: any) {
       console.error('Error deleting inventory item:', error);
       res.status(500).json({ error: 'Failed to delete inventory item' });
+    }
+  });
+
+  /**
+   * Upload photo for an inventory item
+   * POST /api/inventory/items/:id/photo
+   */
+  router.post('/items/:id/photo', isAuthenticated, requirePermission('inventory', 'edit'), inventoryPhotoUpload.single('photo'), async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ error: 'Invalid ID format' });
+      }
+
+      const item = await storage.getInventoryItem(id);
+      if (!item) {
+        return res.status(404).json({ error: 'Inventory item not found' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ error: 'No photo uploaded' });
+      }
+
+      const imageUrl = `/uploads/inventory-photos/${req.file.filename}`;
+      const updatedItem = await storage.updateInventoryItem(id, { imageUrl });
+      res.json(updatedItem);
+    } catch (error: any) {
+      console.error('Error uploading inventory photo:', error);
+      res.status(500).json({ error: 'Failed to upload photo' });
+    }
+  });
+
+  /**
+   * Upload photo for a new inventory item (before item is created)
+   * POST /api/inventory/upload-photo
+   */
+  router.post('/upload-photo', isAuthenticated, requirePermission('inventory', 'create'), inventoryPhotoUpload.single('photo'), async (req: Request, res: Response) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No photo uploaded' });
+      }
+
+      const imageUrl = `/uploads/inventory-photos/${req.file.filename}`;
+      res.json({ imageUrl });
+    } catch (error: any) {
+      console.error('Error uploading inventory photo:', error);
+      res.status(500).json({ error: 'Failed to upload photo' });
     }
   });
 

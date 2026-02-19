@@ -1042,6 +1042,7 @@ export const inventoryItems = pgTable("inventory_items", {
   vendorId: integer("vendor_id"),
   lastRestockDate: date("last_restock_date"),
   notes: text("notes"),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").default(sql`now()`),
 });

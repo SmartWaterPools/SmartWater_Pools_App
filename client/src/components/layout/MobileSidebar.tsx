@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Droplet, Home, Activity, Briefcase, UserCircle, Users, Settings, LogOut, Wrench, Phone, MessageSquare, Barcode, CalendarCheck, CalendarRange, ChevronDown, Truck, MapPin, Cog, DollarSign, FileText, Calculator } from "lucide-react";
+import { X, Droplet, Home, Activity, Briefcase, UserCircle, Users, Settings, LogOut, Wrench, Phone, MessageSquare, Barcode, CalendarCheck, CalendarRange, ChevronDown, Truck, MapPin, Cog, DollarSign, FileText, Calculator, Package } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Link, useLocation } from "wouter";
@@ -295,6 +295,18 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                 </div>
               )}
             </div>
+            )}
+            
+            {/* Inventory */}
+            {canView('inventory') && (
+            <Link href="/inventory" onClick={onClose}>
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
+                isActive('/inventory') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
+              }`}>
+                <Package className="mr-3 h-5 w-5" />
+                Inventory
+              </div>
+            </Link>
             )}
             
             {/* Barcode Scanner Demo */}
