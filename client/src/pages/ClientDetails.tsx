@@ -576,6 +576,40 @@ export default function ClientDetails() {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="bg-white">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg">Account Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Role</span>
+                    <Badge variant="outline">{client.user.role?.charAt(0).toUpperCase() + client.user.role?.slice(1)}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Status</span>
+                    <Badge className={client.user.active !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                      {client.user.active !== false ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Login Method</span>
+                    <span className="text-sm">{client.user.authProvider === 'google' ? 'Google' : 'Email/Password'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">Username</span>
+                    <span className="text-sm font-mono">{client.user.username || client.user.email}</span>
+                  </div>
+                  {client.user.createdAt && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-500">Account Created</span>
+                      <span className="text-sm">{new Date(client.user.createdAt).toLocaleDateString()}</span>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">

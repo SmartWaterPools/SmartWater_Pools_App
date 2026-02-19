@@ -35,6 +35,7 @@ import Business from "@/pages/Business";
 import InventoryManagement from "@/pages/InventoryManagement";
 import Admin from "@/pages/Admin";
 import LoginErrorTest from "@/pages/LoginErrorTest";
+import AcceptInvite from "@/pages/AcceptInvite";
 import ProjectDetails from "@/pages/ProjectDetails";
 import VendorDetail from "@/pages/VendorDetail";
 import WorkOrders from "@/pages/WorkOrders";
@@ -91,6 +92,7 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
       <Route path="/login-error-test" component={LoginErrorTest} />
+      <Route path="/invite" component={AcceptInvite} />
       
       {/* Protected routes with AppLayout */}
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />

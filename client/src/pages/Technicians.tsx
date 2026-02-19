@@ -412,6 +412,40 @@ export default function Technicians() {
                     )}
                   </CardContent>
                 </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center mb-4">
+                      <BadgeCheck className="h-5 w-5 text-purple-500 mr-2 flex-shrink-0" />
+                      <h3 className="text-lg font-semibold truncate">Account Information</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">Role</span>
+                        <Badge variant="outline">{selectedTechnician.user.role?.charAt(0).toUpperCase() + selectedTechnician.user.role?.slice(1)}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">Status</span>
+                        <Badge className={selectedTechnician.user.active !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                          {selectedTechnician.user.active !== false ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">Login Method</span>
+                        <span className="text-sm">{selectedTechnician.user.authProvider === 'google' ? 'Google' : 'Email/Password'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-500">Username</span>
+                        <span className="text-sm font-mono">{selectedTechnician.user.username || selectedTechnician.user.email}</span>
+                      </div>
+                      {selectedTechnician.user.createdAt && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-500">Account Created</span>
+                          <span className="text-sm">{new Date(selectedTechnician.user.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           </DialogContent>

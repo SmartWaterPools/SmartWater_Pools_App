@@ -25,7 +25,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import { GoogleAddressAutocomplete } from "@/components/maps/GoogleAddressAutocomplete";
 
 // Form schema for client creation
@@ -45,6 +47,8 @@ type ClientFormValues = z.infer<typeof clientFormSchema>;
 export function ClientForm() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const [sendInvite, setSendInvite] = useState(false);
+  const { user } = useAuth();
 
   const form = useForm<ClientFormValues>({
     resolver: zodResolver(clientFormSchema),
@@ -65,11 +69,27 @@ export function ClientForm() {
       const response = await apiRequest("POST", "/api/clients", values);
       return response.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Success",
-        description: "Client created successfully",
-      });
+    onSuccess: async (data: any) => {
+      if (sendInvite) {
+        try {
+          const inviteRes = await apiRequest('POST', '/api/invitations', {
+            name: form.getValues('name'),
+            email: form.getValues('email'),
+            role: 'client',
+            organizationId: user?.organizationId,
+          });
+          const inviteData = await inviteRes.json();
+          if (inviteData.success && inviteData.emailSent !== false) {
+            toast({ title: "Success", description: "Client created and invitation email sent" });
+          } else {
+            toast({ title: "Client created", description: `Client added but invitation email could not be sent. ${inviteData.emailWarning || ''}`, variant: "destructive" });
+          }
+        } catch (e) {
+          toast({ title: "Client created", description: "Client added but failed to send invitation.", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Success", description: "Client created successfully" });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/clients"] });
       setLocation("/clients");
     },
@@ -238,6 +258,17 @@ export function ClientForm() {
                     </FormItem>
                   )}
                 />
+              </div>
+
+              <div className="flex items-center space-x-2 py-2">
+                <Switch
+                  id="send-invite-client"
+                  checked={sendInvite}
+                  onCheckedChange={setSendInvite}
+                />
+                <Label htmlFor="send-invite-client" className="text-sm cursor-pointer">
+                  Send invitation email to set up their account
+                </Label>
               </div>
 
               <div className="flex justify-end gap-4">

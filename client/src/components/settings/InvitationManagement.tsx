@@ -19,7 +19,8 @@ import {
   Mail, 
   XCircle,
   CheckCircle, 
-  Calendar 
+  Calendar,
+  Send
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
@@ -72,6 +73,36 @@ export function InvitationManagement() {
       toast({
         title: "Error",
         description: error.message || "Failed to cancel invitation",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Mutation for resending an invitation
+  const resendMutation = useMutation({
+    mutationFn: async (invitationId: number) => {
+      const res = await apiRequest('POST', `/api/invitations/${invitationId}/resend`);
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invitations"] });
+      if (data.emailSent === false) {
+        toast({
+          title: "Invitation resent",
+          description: data.emailWarning || "Invitation was renewed but email could not be sent. Connect Gmail in Settings.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Invitation resent",
+          description: "A new invitation email has been sent",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend invitation",
         variant: "destructive",
       });
     }
@@ -250,16 +281,28 @@ export function InvitationManagement() {
                       <td className="p-4 align-middle text-right">
                         <div className="flex justify-end space-x-1">
                           {invitation.status === 'pending' && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleCancel(invitation)}
-                              disabled={cancelMutation.isPending}
-                            >
-                              <XCircle className="h-4 w-4" />
-                              <span className="sr-only">Cancel</span>
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                                onClick={() => resendMutation.mutate(invitation.id)}
+                                disabled={resendMutation.isPending}
+                              >
+                                <Send className="h-4 w-4" />
+                                <span className="sr-only">Resend</span>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                                onClick={() => handleCancel(invitation)}
+                                disabled={cancelMutation.isPending}
+                              >
+                                <XCircle className="h-4 w-4" />
+                                <span className="sr-only">Cancel</span>
+                              </Button>
+                            </>
                           )}
                         </div>
                       </td>

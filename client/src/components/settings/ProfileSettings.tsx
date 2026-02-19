@@ -149,6 +149,33 @@ export function ProfileSettings() {
 
   return (
     <div className="space-y-6">
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Account Details</CardTitle>
+          <CardDescription>Your account information</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Role</p>
+              <p className="font-medium">{user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1).replace(/_/g, ' ') : 'N/A'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Status</p>
+              <p className="font-medium">{user?.active !== false ? 'Active' : 'Inactive'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Login Method</p>
+              <p className="font-medium">{user?.authProvider === 'google' ? 'Google Account' : 'Email & Password'}</p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Username</p>
+              <p className="font-medium font-mono text-sm">{user?.username || user?.email || 'N/A'}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-xl flex items-center">

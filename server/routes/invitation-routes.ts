@@ -8,7 +8,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { db } from '../db.js';
-import { invitationTokens, insertInvitationTokenSchema, INVITATION_TOKEN_STATUS } from '@shared/schema';
+import { invitationTokens, insertInvitationTokenSchema, INVITATION_TOKEN_STATUS, users, technicians, clients } from '@shared/schema';
 import { eq, and, ne } from 'drizzle-orm';
 import { isAuthenticated, isAdmin, hashPassword } from '../auth.js';
 import { sendGmailMessage, UserTokens } from '../services/gmail-client.js';
@@ -274,6 +274,212 @@ router.get('/verify', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'An error occurred while verifying the invitation'
+    });
+  }
+});
+
+/**
+ * Accept an invitation and create a new user account
+ * POST /api/invitations/accept
+ * (Public route - no auth required)
+ */
+router.post('/accept', async (req: Request, res: Response) => {
+  try {
+    const { token, password, username } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token and password are required'
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters'
+      });
+    }
+
+    const invitation = await db.query.invitationTokens.findFirst({
+      where: (invite, { eq }) => eq(invite.token, token),
+      with: { organization: true }
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invitation not found'
+      });
+    }
+
+    if (invitation.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation has already been used or is no longer valid'
+      });
+    }
+
+    if (invitation.expiresAt < new Date()) {
+      await db.update(invitationTokens)
+        .set({ status: 'expired' })
+        .where(eq(invitationTokens.id, invitation.id));
+      return res.status(400).json({
+        success: false,
+        message: 'Invitation has expired'
+      });
+    }
+
+    const existingUser = await db.query.users.findFirst({
+      where: (u, { eq }) => eq(u.email, invitation.email)
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        success: false,
+        message: 'A user with this email already exists'
+      });
+    }
+
+    const hashedPassword = await hashPassword(password);
+    const userUsername = username || invitation.email;
+
+    const [newUser] = await db.insert(users).values({
+      username: userUsername,
+      password: hashedPassword,
+      name: invitation.name,
+      email: invitation.email,
+      role: invitation.role,
+      organizationId: invitation.organizationId,
+      active: true,
+      authProvider: 'local',
+    }).returning();
+
+    if (invitation.role === 'technician') {
+      await db.insert(technicians).values({
+        userId: newUser.id,
+      });
+    }
+
+    if (invitation.role === 'client') {
+      await db.insert(clients).values({
+        userId: newUser.id,
+        organizationId: invitation.organizationId,
+      });
+    }
+
+    await db.update(invitationTokens)
+      .set({ status: 'accepted' })
+      .where(eq(invitationTokens.id, invitation.id));
+
+    console.log(`[Invitation] User account created for ${invitation.email} with role ${invitation.role}`);
+
+    return res.json({
+      success: true,
+      message: 'Account created successfully'
+    });
+  } catch (error) {
+    console.error('Error accepting invitation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while accepting the invitation'
+    });
+  }
+});
+
+/**
+ * Resend an invitation email
+ * POST /api/invitations/:id/resend
+ * (Protected admin route)
+ */
+router.post('/:id/resend', isAuthenticated, isAdmin, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const invitationId = parseInt(id);
+
+    if (isNaN(invitationId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid invitation ID'
+      });
+    }
+
+    const organizationId = req.user?.organizationId;
+
+    if (!organizationId) {
+      return res.status(400).json({
+        success: false,
+        message: 'User has no associated organization'
+      });
+    }
+
+    const invitation = await db.query.invitationTokens.findFirst({
+      where: (invite, { eq, and }) => and(
+        eq(invite.id, invitationId),
+        eq(invite.organizationId, organizationId)
+      ),
+      with: { organization: true }
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invitation not found or not accessible'
+      });
+    }
+
+    const newToken = crypto.randomBytes(32).toString('hex');
+    const newExpiresAt = new Date();
+    newExpiresAt.setDate(newExpiresAt.getDate() + 7);
+
+    await db.update(invitationTokens)
+      .set({ token: newToken, expiresAt: newExpiresAt, status: 'pending' })
+      .where(eq(invitationTokens.id, invitationId));
+
+    let emailSent = false;
+    let emailWarning = '';
+
+    try {
+      const currentUser = await storage.getUser((req.user as any).id);
+
+      let baseUrl = process.env.APP_URL || 'https://smartwaterpools.replit.app';
+      if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1);
+      const inviteLink = `${baseUrl}/invite?token=${newToken}`;
+
+      const subject = emailTemplates.userInvitation.subject;
+      const htmlBody = emailTemplates.userInvitation.html(invitation.name, invitation.organization.name, inviteLink, invitation.role);
+
+      if (currentUser?.gmailAccessToken) {
+        const userTokens: UserTokens = {
+          userId: currentUser.id,
+          gmailAccessToken: currentUser.gmailAccessToken,
+          gmailRefreshToken: currentUser.gmailRefreshToken,
+          gmailTokenExpiresAt: currentUser.gmailTokenExpiresAt,
+          gmailConnectedEmail: currentUser.gmailConnectedEmail,
+        };
+
+        const result = await sendGmailMessage(invitation.email, subject, htmlBody, true, userTokens);
+        emailSent = result !== null;
+      }
+
+      if (!emailSent) {
+        emailWarning = 'Invitation updated but email could not be sent. Please connect your Gmail account in Settings or share the invitation link manually.';
+      }
+    } catch (emailError) {
+      console.error('Error sending resend invitation email:', emailError);
+      emailWarning = 'Invitation updated but email sending failed.';
+    }
+
+    return res.json({
+      success: true,
+      emailSent,
+      emailWarning: emailWarning || undefined,
+    });
+  } catch (error) {
+    console.error('Error resending invitation:', error);
+    res.status(500).json({
+      success: false,
+      message: 'An error occurred while resending the invitation'
     });
   }
 });

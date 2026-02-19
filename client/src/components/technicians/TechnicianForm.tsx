@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 // Define validation schema for technician form
 const technicianFormSchema = z.object({
@@ -57,6 +59,7 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sendInvite, setSendInvite] = useState(false);
   const { isAuthenticated, user, checkSession } = useAuth();
 
   // Initialize form with default values
@@ -104,21 +107,33 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
         throw error;
       }
     },
-    onSuccess: () => {
-      // Invalidate related queries to refresh data
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/technicians-with-users"] });
-      toast({
-        title: "Technician created",
-        description: "The technician has been successfully added",
-      });
       
-      // Reset form
-      form.reset();
-      
-      // Call onSuccess callback if provided
-      if (onSuccess) {
-        onSuccess();
+      if (sendInvite && data?.user?.email) {
+        try {
+          const inviteRes = await apiRequest('POST', '/api/invitations', {
+            name: data.user.name || form.getValues('user.name'),
+            email: data.user.email || form.getValues('user.email'),
+            role: 'technician',
+            organizationId: user?.organizationId,
+          });
+          const inviteData = await inviteRes.json();
+          if (inviteData.success && inviteData.emailSent !== false) {
+            toast({ title: "Technician created & invitation sent", description: `${form.getValues('user.name')} has been added and an invitation email was sent.` });
+          } else {
+            toast({ title: "Technician created", description: `Technician added but invitation email could not be sent. ${inviteData.emailWarning || 'Connect Gmail in Settings.'}`, variant: "destructive" });
+          }
+        } catch (e) {
+          toast({ title: "Technician created", description: "Technician added but failed to send invitation email.", variant: "destructive" });
+        }
+      } else {
+        toast({ title: "Technician created", description: "The technician has been successfully added" });
       }
+      
+      form.reset();
+      setSendInvite(false);
+      if (onSuccess) onSuccess();
     },
     onError: (error: any) => {
       console.error("Error creating technician:", error);
@@ -361,6 +376,17 @@ export function TechnicianForm({ onSuccess }: TechnicianFormProps) {
           />
         </div>
         
+        <div className="flex items-center space-x-2 py-2">
+          <Switch
+            id="send-invite"
+            checked={sendInvite}
+            onCheckedChange={setSendInvite}
+          />
+          <Label htmlFor="send-invite" className="text-sm cursor-pointer">
+            Send invitation email to set up their account
+          </Label>
+        </div>
+
         <Button 
           type="submit" 
           className="w-full" 
