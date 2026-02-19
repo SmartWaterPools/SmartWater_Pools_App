@@ -40,7 +40,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash, Edit, Plus, User, Search, Building, AlertTriangle, Archive, UserX, Loader2 } from "lucide-react";
+import { Trash, Edit, Plus, User, Search, Building, AlertTriangle, Archive, UserX, Loader2, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { User as BaseUserType, Organization } from "@shared/schema";
@@ -161,6 +161,27 @@ export function UserManagement({ orgScoped = false }: { orgScoped?: boolean }) {
     },
   });
   
+  const resendInviteMutation = useMutation({
+    mutationFn: async (data: { name: string; email: string; role: string; organizationId: number }) => {
+      const response = await apiRequest('POST', '/api/invitations', data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.emailSent) {
+        toast({ title: 'Invitation sent', description: 'Invitation email has been sent successfully.' });
+      } else {
+        toast({ 
+          title: 'Invitation created', 
+          description: data.emailWarning || 'Invitation created but email could not be sent.',
+          variant: 'destructive'
+        });
+      }
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to send invitation', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: async ({ userId, permanent }: { userId: number, permanent: boolean }) => {
       const response = await apiRequest("DELETE", `/api/users/${userId}${permanent ? '?permanent=true' : ''}`);
@@ -466,6 +487,40 @@ export function UserManagement({ orgScoped = false }: { orgScoped?: boolean }) {
                       </FormItem>
                     )}
                   />
+
+                  {editingUser && (
+                    <div className="border-t pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        disabled={resendInviteMutation.isPending}
+                        onClick={() => {
+                          resendInviteMutation.mutate({
+                            name: editingUser.name || form.getValues('name'),
+                            email: editingUser.email || form.getValues('email'),
+                            role: editingUser.role || form.getValues('role'),
+                            organizationId: editingUser.organizationId || form.getValues('organizationId'),
+                          });
+                        }}
+                      >
+                        {resendInviteMutation.isPending ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="mr-2 h-4 w-4" />
+                            Send Invitation Email
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Send an invitation email so this user can set up their login
+                      </p>
+                    </div>
+                  )}
 
                   <DialogFooter>
                     <Button type="submit" disabled={mutation.isPending}>

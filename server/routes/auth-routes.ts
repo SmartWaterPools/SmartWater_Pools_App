@@ -250,9 +250,17 @@ router.get('/google', oauthTimeoutMiddleware, (req: Request, res: Response, next
     req.session.redirectTo = req.query.redirectTo as string;
   }
   
+  // Store invitation token if present (for invite acceptance via Google)
+  if (req.query.inviteToken) {
+    (req.session as any).inviteToken = req.query.inviteToken as string;
+  }
+  
   // Track OAuth initiation time for timeout tracking
   req.session.oauthInitiatedAt = new Date().toISOString();
   console.log("Starting Google OAuth authentication flow");
+  if ((req.session as any).inviteToken) {
+    console.log("Invitation token detected - will process invitation on callback");
+  }
   
   passport.authenticate('google', { 
     scope: [

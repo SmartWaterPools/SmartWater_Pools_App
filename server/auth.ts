@@ -3,7 +3,9 @@ import { Strategy as LocalStrategy } from 'passport-local';
 import { Strategy as GoogleStrategy, VerifyCallback } from 'passport-google-oauth20';
 import { Request } from 'express';
 import bcrypt from 'bcrypt';
-import { User } from '@shared/schema';
+import { User, invitationTokens, technicians, clients } from '@shared/schema';
+import { eq } from 'drizzle-orm';
+import { db } from './db.js';
 import { IStorage } from './storage';
 import { UserRole, ResourceType, ActionType, hasPermission, checkPermission } from './permissions';
 
@@ -411,6 +413,91 @@ export function configurePassport(storage: IStorage) {
               console.log('  -> Will proceed to create new user');
             }
             
+            // 6.5. Check for invitation token in session
+            const inviteToken = req?.session ? (req.session as any).inviteToken : null;
+            if (inviteToken) {
+              console.log('\n6.5. INVITATION TOKEN DETECTED:');
+              console.log('- Processing invitation acceptance via Google OAuth');
+              
+              // Clear the token from session
+              delete (req.session as any).inviteToken;
+              
+              try {
+                // Look up the invitation
+                const invitation = await db.query.invitationTokens.findFirst({
+                  where: (invite, { eq }) => eq(invite.token, inviteToken),
+                  with: { organization: true }
+                });
+                
+                if (invitation && invitation.status === 'pending' && invitation.expiresAt >= new Date()) {
+                  console.log('- Valid invitation found for:', invitation.email);
+                  console.log('- Invitation org:', invitation.organization?.name);
+                  console.log('- Invitation role:', invitation.role);
+                  
+                  if (invitation.email.toLowerCase() !== email.toLowerCase()) {
+                    console.log('- REJECTED: Google email does not match invitation email');
+                    console.log('  -> Google email:', email);
+                    console.log('  -> Invitation email:', invitation.email);
+                    console.log('- Invitation requires matching email for security. Proceeding with normal flow.');
+                    console.log('========== GOOGLE STRATEGY CALLBACK END (EMAIL MISMATCH) ==========\n');
+                    return done(new Error('The Google account email does not match the invitation email. Please sign in with the email address the invitation was sent to.'), false);
+                  }
+                  
+                  const username = email.split('@')[0];
+                  const displayName = profile.displayName || 
+                    (profile.name ? `${profile.name.givenName} ${profile.name.familyName}` : 
+                      invitation.name || email.split('@')[0]);
+                  
+                  const newUserData: any = {
+                    username,
+                    email,
+                    name: invitation.name || displayName,
+                    role: invitation.role,
+                    organizationId: invitation.organizationId,
+                    googleId: profile.id,
+                    photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
+                    authProvider: 'google',
+                    active: true,
+                    password: ''
+                  };
+                  
+                  if (accessToken) {
+                    newUserData.gmailAccessToken = accessToken;
+                    newUserData.gmailConnectedEmail = email;
+                    newUserData.gmailTokenExpiresAt = new Date(Date.now() + 3600 * 1000);
+                  }
+                  if (refreshToken) {
+                    newUserData.gmailRefreshToken = refreshToken;
+                  }
+                  
+                  const newUser = await storage.createUser(newUserData);
+                  console.log('- Created user from invitation with ID:', newUser.id);
+                  
+                  if (invitation.role === 'technician') {
+                    await db.insert(technicians).values({ userId: newUser.id });
+                    console.log('- Created technician record');
+                  }
+                  if (invitation.role === 'client') {
+                    await db.insert(clients).values({ userId: newUser.id, organizationId: invitation.organizationId });
+                    console.log('- Created client record');
+                  }
+                  
+                  await db.update(invitationTokens)
+                    .set({ status: 'accepted' })
+                    .where(eq(invitationTokens.id, invitation.id));
+                  
+                  console.log('- Invitation marked as accepted');
+                  console.log('========== GOOGLE STRATEGY CALLBACK END (INVITATION ACCEPTED) ==========\n');
+                  return done(null, newUser);
+                } else {
+                  console.log('- Invitation invalid, expired, or already used. Proceeding with normal flow.');
+                }
+              } catch (inviteError) {
+                console.error('- Error processing invitation:', inviteError);
+                console.log('- Proceeding with normal user creation');
+              }
+            }
+
             // 7. New User Creation - Handle new user from OAuth
             console.log('\n7. NEW USER CREATION:');
             console.log('- No existing user found, creating new OAuth user');
