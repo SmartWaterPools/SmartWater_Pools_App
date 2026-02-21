@@ -19,6 +19,8 @@ import { BazzaRoute, MaintenanceWithDetails } from "../../lib/types";
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { 
   AlertCircle, 
+  ArrowDown,
+  ArrowUp,
   Calendar, 
   ChevronDown,
   ChevronRight,
@@ -337,10 +339,51 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
     },
   });
   
+  const reorderStopMutation = useMutation({
+    mutationFn: async ({ stopId, newIndex }: { stopId: number; newIndex: number }) => {
+      return await apiRequest("POST", `/api/dispatch/reorder-stop`, {
+        routeId: route.id,
+        stopId,
+        newIndex
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', route.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times", route.id] });
+    },
+    onError: () => {
+      toast({
+        title: "Reorder Failed",
+        description: "Could not move the stop. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const { data: clientsList } = useQuery<{ id: number; userId: number; name: string; companyName?: string; address?: string }[]>({
     queryKey: ["/api/clients/client-records"],
   });
   
+  // Get route stops to display stop count
+  const { stops = [], isStopsLoading } = useRouteStops(route.id);
+
+  const missingClientIds = useMemo(() => {
+    if (!clientsList) return [];
+    const knownIds = new Set(clientsList.map(c => c.id));
+    return [...new Set(stops.map(s => s.clientId).filter(id => !knownIds.has(id)))];
+  }, [clientsList, stops]);
+
+  const { data: missingClients } = useQuery<{ id: number; name: string }[]>({
+    queryKey: ["/api/clients/names-by-ids", missingClientIds],
+    queryFn: async () => {
+      if (missingClientIds.length === 0) return [];
+      const res = await fetch(`/api/clients/names-by-ids?ids=${missingClientIds.join(",")}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: missingClientIds.length > 0,
+  });
+
   const clientMap = useMemo(() => {
     const map: Record<number, string> = {};
     if (clientsList) {
@@ -348,8 +391,15 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
         map[c.id] = c.name || c.companyName || `Client #${c.id}`;
       }
     }
+    if (missingClients) {
+      for (const c of missingClients) {
+        if (!map[c.id]) {
+          map[c.id] = c.name || `Client #${c.id}`;
+        }
+      }
+    }
     return map;
-  }, [clientsList]);
+  }, [clientsList, missingClients]);
   
   const clientAddressMap = useMemo(() => {
     const map: Record<number, string> = {};
@@ -362,9 +412,6 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
     }
     return map;
   }, [clientsList]);
-  
-  // Get route stops to display stop count
-  const { stops = [], isStopsLoading } = useRouteStops(route.id);
   
   // Get the setMaintenanceAssignments function from context
   const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
@@ -645,7 +692,7 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
                     className="flex items-start gap-2 p-2 bg-background rounded-md border border-border/50 text-xs"
                   >
                     <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
-                      {(stop.orderIndex ?? stop.position ?? index + 1)}
+                      {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium truncate">
@@ -668,6 +715,30 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
                           {stop.estimatedDuration} min
                         </div>
                       )}
+                    </div>
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <button
+                        type="button"
+                        disabled={index === 0 || reorderStopMutation.isPending}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reorderStopMutation.mutate({ stopId: stop.id, newIndex: index - 1 });
+                        }}
+                        className="p-0.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={index === sortedStops.length - 1 || reorderStopMutation.isPending}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          reorderStopMutation.mutate({ stopId: stop.id, newIndex: index + 1 });
+                        }}
+                        className="p-0.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
                     </div>
                   </div>
                   {index < sortedStops.length - 1 && (

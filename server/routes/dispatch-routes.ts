@@ -512,10 +512,9 @@ router.post("/reorder-stop", isAuthenticated, requirePermission('maintenance', '
       return res.status(403).json({ error: "No organization context" });
     }
 
-    const { routeId, stopId, direction } = req.body;
-
-    if (!routeId || !stopId || !direction) {
-      return res.status(400).json({ error: "Missing required fields: routeId, stopId, direction" });
+    const { routeId, stopId, newIndex } = req.body;
+    if (!routeId || !stopId || newIndex === undefined || newIndex === null) {
+      return res.status(400).json({ error: "Missing required fields: routeId, stopId, newIndex" });
     }
 
     const route = await storage.getBazzaRoute(routeId);
@@ -528,19 +527,24 @@ router.post("/reorder-stop", isAuthenticated, requirePermission('maintenance', '
 
     const currentIndex = stops.findIndex(s => s.id === stopId);
     if (currentIndex === -1) {
-      return res.status(404).json({ error: "Stop not found in route" });
+      return res.status(404).json({ error: "Stop not found in this route" });
     }
 
-    const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (swapIndex < 0 || swapIndex >= stops.length) {
-      return res.json({ success: true, message: "Already at boundary" });
+    const clampedNew = Math.max(0, Math.min(newIndex, stops.length - 1));
+
+    // Remove from current position and insert at new position
+    const [movedStop] = stops.splice(currentIndex, 1);
+    stops.splice(clampedNew, 0, movedStop);
+
+    // Update all orderIndex values
+    for (let i = 0; i < stops.length; i++) {
+      await storage.updateBazzaRouteStop(stops[i].id, { orderIndex: i });
     }
 
-    await storage.updateBazzaRouteStop(stops[currentIndex].id, { orderIndex: stops[swapIndex].orderIndex });
-    await storage.updateBazzaRouteStop(stops[swapIndex].id, { orderIndex: stops[currentIndex].orderIndex });
+    const updatedStops = await storage.getBazzaRouteStopsByRouteId(routeId);
+    updatedStops.sort((a, b) => a.orderIndex - b.orderIndex);
 
-    const updated = await storage.getBazzaRouteStopsByRouteId(routeId);
-    res.json({ success: true, stops: updated.sort((a, b) => a.orderIndex - b.orderIndex) });
+    res.json({ success: true, stops: updatedStops });
   } catch (error) {
     console.error("[DISPATCH] Error reordering stop:", error);
     res.status(500).json({ error: "Failed to reorder stop" });

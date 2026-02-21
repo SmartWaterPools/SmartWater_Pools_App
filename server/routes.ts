@@ -560,6 +560,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/clients/names-by-ids', isAuthenticated, async (req, res) => {
+    try {
+      const idsParam = req.query.ids as string;
+      if (!idsParam) return res.json([]);
+      const ids = idsParam.split(',').map(Number).filter(n => !isNaN(n));
+      if (ids.length === 0) return res.json([]);
+      const records = await db.select({
+        id: clients.id,
+        name: users.name,
+      }).from(clients)
+        .innerJoin(users, eq(clients.userId, users.id))
+        .where(inArray(clients.id, ids));
+      res.json(records);
+    } catch (error) {
+      console.error('Client names-by-ids error:', error);
+      res.status(500).json({ error: 'Failed to fetch client names' });
+    }
+  });
+
   app.get('/api/clients/client-records', isAuthenticated, requirePermission('clients', 'view'), async (req, res) => {
     try {
       const user = req.user as User;
