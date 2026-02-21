@@ -269,6 +269,7 @@ router.post("/routes", isAuthenticated, async (req: Request, res: Response) => {
         startTime: req.body.startTime || null,
         endTime: req.body.endTime || null,
         isActive: req.body.isActive !== undefined ? req.body.isActive : true,
+        organizationId: organizationId,
       };
       
       console.log("[BAZZA ROUTES API] Prepared route data:", JSON.stringify(routeData));
