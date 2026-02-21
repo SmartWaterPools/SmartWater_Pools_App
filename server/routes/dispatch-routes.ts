@@ -381,7 +381,7 @@ router.post("/optimize-route/:routeId", isAuthenticated, requirePermission('main
 
     const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
     if (stops.length < 2) {
-      return res.json({ success: true, message: "Route has fewer than 2 stops, no optimization needed", stops });
+      return res.json({ success: true, message: "Route has fewer than 2 stops, no optimization needed", stops, drivingTimes: [] });
     }
 
     const clientIds = stops.map(s => s.clientId);
@@ -401,40 +401,103 @@ router.post("/optimize-route/:routeId", isAuthenticated, requirePermission('main
     const stopsWithoutGeo = stops.filter(s => !clientGeoMap[s.clientId]);
 
     if (stopsWithGeo.length < 2) {
-      return res.json({ success: true, message: "Not enough stops with geo data to optimize", stops });
+      return res.json({ success: true, message: "Not enough stops with geo data to optimize", stops, drivingTimes: [] });
     }
 
-    const ordered: typeof stopsWithGeo = [];
-    const remaining = [...stopsWithGeo];
+    let optimizedStops: typeof stopsWithGeo = [];
+    let drivingTimes: Array<{ fromStopIndex: number; toStopIndex: number; durationSeconds: number; durationText: string; distanceText: string }> = [];
+    let usedGoogleApi = false;
 
-    ordered.push(remaining.shift()!);
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
 
-    while (remaining.length > 0) {
-      const last = ordered[ordered.length - 1];
-      const lastGeo = clientGeoMap[last.clientId];
-      let nearestIdx = 0;
-      let nearestDist = Infinity;
+    if (apiKey && stopsWithGeo.length <= 27) {
+      try {
+        const origin = clientGeoMap[stopsWithGeo[0].clientId];
+        const destination = clientGeoMap[stopsWithGeo[stopsWithGeo.length - 1].clientId];
+        const middleStops = stopsWithGeo.slice(1, -1);
 
-      for (let i = 0; i < remaining.length; i++) {
-        const geo = clientGeoMap[remaining[i].clientId];
-        const dist = haversineDistance(lastGeo.lat, lastGeo.lng, geo.lat, geo.lng);
-        if (dist < nearestDist) {
-          nearestDist = dist;
-          nearestIdx = i;
+        let waypointsParam = '';
+        if (middleStops.length > 0) {
+          const waypointCoords = middleStops.map(s => {
+            const geo = clientGeoMap[s.clientId];
+            return `${geo.lat},${geo.lng}`;
+          }).join('|');
+          waypointsParam = `&waypoints=optimize:true|${waypointCoords}`;
         }
+
+        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsParam}&key=${apiKey}`;
+        const apiResponse = await fetch(url);
+        const data = await apiResponse.json() as any;
+
+        if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+          const routeData = data.routes[0];
+          usedGoogleApi = true;
+
+          if (middleStops.length > 0 && routeData.waypoint_order) {
+            const waypointOrder: number[] = routeData.waypoint_order;
+            const reorderedMiddle = waypointOrder.map((idx: number) => middleStops[idx]);
+            optimizedStops = [stopsWithGeo[0], ...reorderedMiddle, stopsWithGeo[stopsWithGeo.length - 1]];
+          } else {
+            optimizedStops = [...stopsWithGeo];
+          }
+
+          if (routeData.legs && routeData.legs.length > 0) {
+            for (let i = 0; i < routeData.legs.length; i++) {
+              const leg = routeData.legs[i];
+              drivingTimes.push({
+                fromStopIndex: i,
+                toStopIndex: i + 1,
+                durationSeconds: leg.duration?.value || 0,
+                durationText: leg.duration?.text || 'N/A',
+                distanceText: leg.distance?.text || 'N/A',
+              });
+            }
+          }
+        }
+      } catch (apiError) {
+        console.error("[DISPATCH] Google Maps API error, falling back to nearest-neighbor:", apiError);
+      }
+    }
+
+    if (!usedGoogleApi) {
+      const ordered: typeof stopsWithGeo = [];
+      const remaining = [...stopsWithGeo];
+
+      ordered.push(remaining.shift()!);
+
+      while (remaining.length > 0) {
+        const last = ordered[ordered.length - 1];
+        const lastGeo = clientGeoMap[last.clientId];
+        let nearestIdx = 0;
+        let nearestDist = Infinity;
+
+        for (let i = 0; i < remaining.length; i++) {
+          const geo = clientGeoMap[remaining[i].clientId];
+          const dist = haversineDistance(lastGeo.lat, lastGeo.lng, geo.lat, geo.lng);
+          if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIdx = i;
+          }
+        }
+
+        ordered.push(remaining.splice(nearestIdx, 1)[0]);
       }
 
-      ordered.push(remaining.splice(nearestIdx, 1)[0]);
+      optimizedStops = ordered;
     }
 
-    const finalOrder = [...ordered, ...stopsWithoutGeo];
+    const finalOrder = [...optimizedStops, ...stopsWithoutGeo];
 
     for (let i = 0; i < finalOrder.length; i++) {
       await storage.updateBazzaRouteStop(finalOrder[i].id, { orderIndex: i });
     }
 
     const updatedStops = await storage.getBazzaRouteStopsByRouteId(routeId);
-    res.json({ success: true, stops: updatedStops.sort((a, b) => a.orderIndex - b.orderIndex) });
+    res.json({
+      success: true,
+      stops: updatedStops.sort((a, b) => a.orderIndex - b.orderIndex),
+      drivingTimes,
+    });
   } catch (error) {
     console.error("[DISPATCH] Error optimizing route:", error);
     res.status(500).json({ error: "Failed to optimize route" });
@@ -653,6 +716,108 @@ router.post("/bulk-assign-client-stops", isAuthenticated, requirePermission('mai
   } catch (error) {
     console.error("[DISPATCH] Error bulk assigning client stops:", error);
     res.status(500).json({ error: "Failed to bulk assign client stops" });
+  }
+});
+
+router.get("/driving-times/:routeId", isAuthenticated, requirePermission('maintenance', 'view'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
+    const routeId = parseInt(req.params.routeId);
+    if (isNaN(routeId)) {
+      return res.status(400).json({ error: "Invalid route ID" });
+    }
+
+    const route = await storage.getBazzaRoute(routeId);
+    if (!route || (route as any).organizationId !== organizationId) {
+      return res.status(404).json({ error: "Route not found" });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+      return res.status(503).json({ error: "Google Maps API key is not configured" });
+    }
+
+    const stops = await storage.getBazzaRouteStopsByRouteId(routeId);
+    stops.sort((a, b) => a.orderIndex - b.orderIndex);
+
+    if (stops.length < 2) {
+      return res.json([]);
+    }
+
+    const clientIds = stops.map(s => s.clientId);
+    const clientRows = await db
+      .select()
+      .from(clients)
+      .where(inArray(clients.id, clientIds));
+
+    const clientGeoMap: Record<number, { lat: number; lng: number }> = {};
+    for (const c of clientRows) {
+      if (c.latitude != null && c.longitude != null) {
+        clientGeoMap[c.id] = { lat: c.latitude, lng: c.longitude };
+      }
+    }
+
+    const stopsWithGeo = stops.filter(s => clientGeoMap[s.clientId]);
+
+    if (stopsWithGeo.length < 2) {
+      return res.json([]);
+    }
+
+    const drivingTimes: Array<{ fromStopId: number; toStopId: number; durationSeconds: number; durationText: string; distanceText: string }> = [];
+
+    const batchSize = 27;
+    for (let batchStart = 0; batchStart < stopsWithGeo.length - 1; batchStart += batchSize - 1) {
+      const batchEnd = Math.min(batchStart + batchSize, stopsWithGeo.length);
+      const batchStops = stopsWithGeo.slice(batchStart, batchEnd);
+
+      if (batchStops.length < 2) break;
+
+      const originGeo = clientGeoMap[batchStops[0].clientId];
+      const destGeo = clientGeoMap[batchStops[batchStops.length - 1].clientId];
+
+      let waypointsParam = '';
+      if (batchStops.length > 2) {
+        const middleStops = batchStops.slice(1, -1);
+        const waypointCoords = middleStops.map(s => {
+          const geo = clientGeoMap[s.clientId];
+          return `${geo.lat},${geo.lng}`;
+        }).join('|');
+        waypointsParam = `&waypoints=${waypointCoords}`;
+      }
+
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originGeo.lat},${originGeo.lng}&destination=${destGeo.lat},${destGeo.lng}${waypointsParam}&key=${apiKey}`;
+
+      try {
+        const apiResponse = await fetch(url);
+        const data = await apiResponse.json() as any;
+
+        if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+          const legs = data.routes[0].legs;
+          for (let i = 0; i < legs.length; i++) {
+            const leg = legs[i];
+            drivingTimes.push({
+              fromStopId: batchStops[i].id,
+              toStopId: batchStops[i + 1].id,
+              durationSeconds: leg.duration?.value || 0,
+              durationText: leg.duration?.text || 'N/A',
+              distanceText: leg.distance?.text || 'N/A',
+            });
+          }
+        }
+      } catch (apiError) {
+        console.error("[DISPATCH] Google Maps API error for driving times batch:", apiError);
+      }
+    }
+
+    res.json(drivingTimes);
+  } catch (error) {
+    console.error("[DISPATCH] Error fetching driving times:", error);
+    res.status(500).json({ error: "Failed to fetch driving times" });
   }
 });
 

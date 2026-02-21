@@ -600,10 +600,6 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
                 <Zap className="h-3 w-3 mr-1" />
                 {optimizeRouteMutation.isPending ? "Optimizing..." : "Optimize Route"}
               </Button>
-              <Badge variant="outline" className="text-xs">
-                <Route className="h-3 w-3 mr-1" />
-                View Details
-              </Badge>
             </div>
           </div>
         </CardFooter>

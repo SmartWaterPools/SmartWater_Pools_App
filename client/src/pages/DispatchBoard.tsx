@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format, addDays, subDays } from "date-fns";
@@ -6,6 +6,7 @@ import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import { TouchBackend } from "react-dnd-touch-backend";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,6 +57,7 @@ import {
   UserPlus,
   Phone,
   BarChart3,
+  Car,
 } from "lucide-react";
 
 interface DispatchStop {
@@ -219,6 +221,52 @@ function DraggableStop({
   );
 }
 
+function RouteStopsWithDrivingTimes({ route, reorderMutation }: { route: DispatchRoute; reorderMutation: any }) {
+  const sortedStops = [...route.stops].sort((a, b) => a.orderIndex - b.orderIndex);
+
+  const { data: drivingTimes } = useQuery<Array<{ fromStopId: number; toStopId: number; durationSeconds: number; durationText: string; distanceText: string }>>({
+    queryKey: ["/api/dispatch/driving-times", route.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/dispatch/driving-times/${route.id}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: sortedStops.length >= 2,
+  });
+
+  const timeMap = new Map<number, { durationText: string; distanceText: string }>();
+  if (drivingTimes) {
+    for (const dt of drivingTimes) {
+      timeMap.set(dt.fromStopId, { durationText: dt.durationText, distanceText: dt.distanceText });
+    }
+  }
+
+  return (
+    <>
+      {sortedStops.map((stop, idx) => (
+        <Fragment key={stop.id}>
+          <DraggableStop
+            stop={stop}
+            route={route}
+            idx={idx}
+            totalStops={sortedStops.length}
+            reorderMutation={reorderMutation}
+          />
+          {idx < sortedStops.length - 1 && timeMap.has(stop.id) && (
+            <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-muted-foreground">
+              <Car className="h-3 w-3 text-blue-500" />
+              <span>{timeMap.get(stop.id)!.durationText}</span>
+              <span className="text-muted-foreground/60">·</span>
+              <span className="text-muted-foreground/60">{timeMap.get(stop.id)!.distanceText}</span>
+            </div>
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
 function DroppableRouteArea({
   route,
   children,
@@ -267,6 +315,8 @@ export default function DispatchBoard() {
   const [reassignTechName, setReassignTechName] = useState("");
   const [workloadOpen, setWorkloadOpen] = useState(false);
 
+  const isTouchDevice = useMemo(() => typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0), []);
+
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const weekStartStr = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
@@ -304,6 +354,7 @@ export default function DispatchBoard() {
       apiRequest("POST", `/api/dispatch/optimize-route/${routeId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
       toast({ title: "Route Optimized", description: "Route has been optimized for efficiency." });
     },
     onError: () => {
@@ -331,6 +382,7 @@ export default function DispatchBoard() {
       apiRequest("POST", `/api/dispatch/reorder-stop`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
     },
   });
 
@@ -351,6 +403,7 @@ export default function DispatchBoard() {
       apiRequest("POST", "/api/dispatch/move-stop", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/dispatch/daily-board?date=${dateStr}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
       toast({ title: "Stop Moved", description: "Stop has been moved to the new route." });
     },
     onError: () => {
@@ -535,7 +588,7 @@ export default function DispatchBoard() {
         </Card>
       </div>
 
-      <DndProvider backend={HTML5Backend}>
+      <DndProvider backend={isTouchDevice ? TouchBackend : HTML5Backend} options={isTouchDevice ? { enableMouseEvents: true, delayTouchStart: 200 } : undefined}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
@@ -666,19 +719,8 @@ export default function DispatchBoard() {
                       </div>
 
                       <ScrollArea className={route.stops.length > 5 ? "h-[280px]" : ""}>
-                        <div className="space-y-2">
-                          {route.stops
-                            .sort((a, b) => a.orderIndex - b.orderIndex)
-                            .map((stop, idx) => (
-                              <DraggableStop
-                                key={stop.id}
-                                stop={stop}
-                                route={route}
-                                idx={idx}
-                                totalStops={route.stops.length}
-                                reorderMutation={reorderMutation}
-                              />
-                            ))}
+                        <div className="space-y-0">
+                          <RouteStopsWithDrivingTimes route={route} reorderMutation={reorderMutation} />
                         </div>
                       </ScrollArea>
                       {tech.routes.length > 1 && <Separator className="mt-4" />}
