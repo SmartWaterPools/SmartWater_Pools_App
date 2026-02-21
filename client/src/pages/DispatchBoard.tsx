@@ -29,7 +29,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
@@ -52,7 +51,6 @@ import {
   ArrowUp,
   ArrowDown,
   Navigation,
-  Zap,
   UserPlus,
   Phone,
   BarChart3,
@@ -130,13 +128,9 @@ export default function DispatchBoard() {
   const [, navigate] = useLocation();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [emergencyDialogOpen, setEmergencyDialogOpen] = useState(false);
   const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
   const [reassignRouteId, setReassignRouteId] = useState<number | null>(null);
   const [reassignTechName, setReassignTechName] = useState("");
-  const [emergencyClientId, setEmergencyClientId] = useState("");
-  const [emergencyNotes, setEmergencyNotes] = useState("");
-  const [emergencyRouteId, setEmergencyRouteId] = useState("");
   const [workloadOpen, setWorkloadOpen] = useState(false);
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
@@ -195,22 +189,6 @@ export default function DispatchBoard() {
     },
     onError: () => {
       toast({ title: "Reassignment Failed", description: "Could not reassign route.", variant: "destructive" });
-    },
-  });
-
-  const addEmergencyMutation = useMutation({
-    mutationFn: (data: { clientId: number; notes: string; routeId: number | null; date: string }) =>
-      apiRequest("POST", "/api/dispatch/add-emergency-stop", data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
-      toast({ title: "Emergency Job Added", description: "Emergency stop has been added." });
-      setEmergencyDialogOpen(false);
-      setEmergencyClientId("");
-      setEmergencyNotes("");
-      setEmergencyRouteId("");
-    },
-    onError: () => {
-      toast({ title: "Failed to Add", description: "Could not add emergency job.", variant: "destructive" });
     },
   });
 
@@ -335,13 +313,6 @@ export default function DispatchBoard() {
             </TooltipTrigger>
             <TooltipContent>Refresh board</TooltipContent>
           </Tooltip>
-          <Button
-            className="bg-red-600 hover:bg-red-700 text-white h-9 gap-2"
-            onClick={() => setEmergencyDialogOpen(true)}
-          >
-            <Zap className="h-4 w-4" />
-            Add Emergency Job
-          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -679,15 +650,6 @@ export default function DispatchBoard() {
               </div>
             </ScrollArea>
           )}
-
-          <Button
-            variant="outline"
-            className="w-full border-dashed border-red-300 text-red-600 hover:bg-red-50 gap-2"
-            onClick={() => setEmergencyDialogOpen(true)}
-          >
-            <Zap className="h-4 w-4" />
-            Create Emergency Route
-          </Button>
         </div>
       </div>
 
@@ -852,85 +814,6 @@ export default function DispatchBoard() {
         </Card>
       </Collapsible>
 
-      <Dialog open={emergencyDialogOpen} onOpenChange={setEmergencyDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-red-500" />
-              Add Emergency Job
-            </DialogTitle>
-            <DialogDescription>
-              Create an emergency service stop for {format(selectedDate, "MMMM dd, yyyy")}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Client</label>
-              <Select value={emergencyClientId} onValueChange={setEmergencyClientId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a client..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {(clients || []).map((c: any) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      {c.name || c.companyName || `Client #${c.id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Notes</label>
-              <Textarea
-                placeholder="Describe the emergency..."
-                value={emergencyNotes}
-                onChange={(e) => setEmergencyNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Assign to Route</label>
-              <Select value={emergencyRouteId} onValueChange={setEmergencyRouteId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select route or create new..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">Create New Emergency Route</SelectItem>
-                  {allRoutes.map((r) => (
-                    <SelectItem key={r.id} value={String(r.id)}>
-                      {r.techName} — {r.name} ({r.stops.length} stops)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEmergencyDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-red-600 hover:bg-red-700 text-white gap-2"
-              onClick={() => {
-                if (!emergencyClientId) {
-                  toast({ title: "Select a Client", description: "Please select a client.", variant: "destructive" });
-                  return;
-                }
-                addEmergencyMutation.mutate({
-                  clientId: Number(emergencyClientId),
-                  notes: emergencyNotes,
-                  routeId: emergencyRouteId === "new" ? null : Number(emergencyRouteId) || null,
-                  date: dateStr,
-                });
-              }}
-              disabled={addEmergencyMutation.isPending}
-            >
-              <Zap className="h-4 w-4" />
-              {addEmergencyMutation.isPending ? "Adding..." : "Add Emergency Job"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
