@@ -1946,7 +1946,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/technicians/create', isAuthenticated, requirePermission('technicians', 'edit'), async (req, res) => {
+  app.post('/api/technicians/create', isAuthenticated, requirePermission('technicians', 'create'), async (req, res) => {
     try {
       const currentUser = req.user as User;
       const { user: userData, specialization, certifications, rate, notes } = req.body;

@@ -141,10 +141,16 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
         const stops = allStops
           .filter(s => s.routeId === route.id)
           .sort((a, b) => a.orderIndex - b.orderIndex)
-          .map(s => ({
-            ...s,
-            client: clientMap[s.clientId] || null,
-          }));
+          .map(s => {
+            const client = clientMap[s.clientId] || null;
+            return {
+              ...s,
+              clientName: client?.name || "Unknown",
+              clientAddress: client?.address || "",
+              addressLat: client?.latitude || null,
+              addressLng: client?.longitude || null,
+            };
+          });
         return { ...route, stops };
       });
 
