@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   PlusCircle,
   Search,
@@ -20,6 +20,8 @@ import {
   Filter,
   ToggleLeft,
   ToggleRight,
+  History,
+  CalendarDays,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
@@ -585,12 +599,47 @@ function GenerateVisitsDialog({
 }
 
 function VisitsPanel({ orderId }: { orderId: number }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [rescheduleVisitId, setRescheduleVisitId] = useState<number | null>(null);
+  const [newDate, setNewDate] = useState("");
+
   const { data: visits, isLoading } = useQuery<any[]>({
     queryKey: ["/api/maintenance-orders", orderId, "work-orders"],
     queryFn: async () => {
       const res = await fetch(`/api/maintenance-orders/${orderId}/work-orders`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch visits");
       return res.json();
+    },
+  });
+
+  const deleteVisitMutation = useMutation({
+    mutationFn: async (workOrderId: number) => {
+      await apiRequest("DELETE", `/api/maintenance-orders/${orderId}/work-orders/${workOrderId}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/maintenance-orders", orderId, "work-orders"] });
+      qc.invalidateQueries({ queryKey: ["/api/maintenance-orders", orderId, "audit-logs"] });
+      toast({ title: "Visit deleted" });
+    },
+    onError: () => {
+      toast({ title: "Failed to delete visit", variant: "destructive" });
+    },
+  });
+
+  const rescheduleVisitMutation = useMutation({
+    mutationFn: async ({ workOrderId, newDate }: { workOrderId: number; newDate: string }) => {
+      await apiRequest("PATCH", `/api/maintenance-orders/${orderId}/work-orders/${workOrderId}/reschedule`, { newDate });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/maintenance-orders", orderId, "work-orders"] });
+      qc.invalidateQueries({ queryKey: ["/api/maintenance-orders", orderId, "audit-logs"] });
+      setRescheduleVisitId(null);
+      setNewDate("");
+      toast({ title: "Visit rescheduled" });
+    },
+    onError: () => {
+      toast({ title: "Failed to reschedule visit", variant: "destructive" });
     },
   });
 
@@ -628,6 +677,177 @@ function VisitsPanel({ orderId }: { orderId: number }) {
             <Badge className={statusColors[visit.status] ?? "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200"}>
               {formatLabel(visit.status)}
             </Badge>
+
+            <Popover open={rescheduleVisitId === visit.id} onOpenChange={(open) => {
+              if (open) {
+                setRescheduleVisitId(visit.id);
+                setNewDate(visit.scheduledDate || "");
+              } else {
+                setRescheduleVisitId(null);
+                setNewDate("");
+              }
+            }}>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Reschedule">
+                  <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-3" align="end">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Reschedule Visit</p>
+                  <Input
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                    className="w-auto"
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="outline" size="sm" onClick={() => setRescheduleVisitId(null)}>
+                      Cancel
+                    </Button>
+                    <Button size="sm" disabled={!newDate || rescheduleVisitMutation.isPending} onClick={() => {
+                      rescheduleVisitMutation.mutate({ workOrderId: visit.id, newDate });
+                    }}>
+                      {rescheduleVisitMutation.isPending ? "Saving..." : "Save"}
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950" title="Delete visit">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Visit</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this visit scheduled for {visit.scheduledDate || "unscheduled"}? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => deleteVisitMutation.mutate(visit.id)} className="bg-red-600 hover:bg-red-700">
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AuditLogPanel({ orderId }: { orderId: number }) {
+  const { data: logs, isLoading } = useQuery<any[]>({
+    queryKey: ["/api/maintenance-orders", orderId, "audit-logs"],
+    queryFn: async () => {
+      const res = await fetch(`/api/maintenance-orders/${orderId}/audit-logs`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch audit logs");
+      return res.json();
+    },
+  });
+
+  const getActionIcon = (action: string) => {
+    switch (action) {
+      case 'created':
+        return <PlusCircle className="h-4 w-4 text-green-500" />;
+      case 'updated':
+        return <Edit className="h-4 w-4 text-blue-500" />;
+      case 'status_changed':
+        return <Repeat className="h-4 w-4 text-yellow-500" />;
+      case 'visits_generated':
+        return <Calendar className="h-4 w-4 text-purple-500" />;
+      case 'deleted':
+      case 'visit_deleted':
+        return <Trash2 className="h-4 w-4 text-red-500" />;
+      case 'visit_rescheduled':
+        return <Calendar className="h-4 w-4 text-orange-500" />;
+      default:
+        return <ClipboardList className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getActionColor = (action: string) => {
+    switch (action) {
+      case 'created': return 'border-green-300 dark:border-green-700';
+      case 'updated': return 'border-blue-300 dark:border-blue-700';
+      case 'status_changed': return 'border-yellow-300 dark:border-yellow-700';
+      case 'visits_generated': return 'border-purple-300 dark:border-purple-700';
+      case 'deleted':
+      case 'visit_deleted': return 'border-red-300 dark:border-red-700';
+      case 'visit_rescheduled': return 'border-orange-300 dark:border-orange-700';
+      default: return 'border-gray-300 dark:border-gray-600';
+    }
+  };
+
+  const formatRelativeTime = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffSecs = Math.floor(diffMs / 1000);
+      const diffMins = Math.floor(diffSecs / 60);
+      const diffHours = Math.floor(diffMins / 60);
+      const diffDays = Math.floor(diffHours / 24);
+
+      if (diffSecs < 60) return 'just now';
+      if (diffMins < 60) return `${diffMins} minute${diffMins !== 1 ? 's' : ''} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+      if (diffDays < 30) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+      return date.toLocaleDateString();
+    } catch {
+      return '';
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-4 space-y-2">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-8 w-full" />
+      </div>
+    );
+  }
+
+  if (!logs || logs.length === 0) {
+    return (
+      <div className="p-4 text-sm text-muted-foreground dark:text-gray-400">
+        No activity recorded yet.
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-4 space-y-0">
+      {logs.map((log: any, index: number) => (
+        <div key={log.id} className="flex gap-3 relative">
+          <div className="flex flex-col items-center">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 bg-white dark:bg-gray-900 ${getActionColor(log.action)} z-10`}>
+              {getActionIcon(log.action)}
+            </div>
+            {index < logs.length - 1 && (
+              <div className="w-0.5 flex-1 bg-gray-200 dark:bg-gray-700 min-h-[16px]" />
+            )}
+          </div>
+          <div className="flex-1 pb-4">
+            <p className="text-sm text-gray-900 dark:text-gray-100">{log.description}</p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {log.userName && (
+                <span className="text-xs text-muted-foreground dark:text-gray-400">{log.userName}</span>
+              )}
+              {log.userName && log.createdAt && (
+                <span className="text-xs text-muted-foreground dark:text-gray-500">·</span>
+              )}
+              {log.createdAt && (
+                <span className="text-xs text-muted-foreground dark:text-gray-400">{formatRelativeTime(log.createdAt)}</span>
+              )}
+            </div>
           </div>
         </div>
       ))}
@@ -734,6 +954,15 @@ function MaintenanceOrderCard({
         <CollapsibleContent>
           <div className="border-t border-gray-200 dark:border-gray-700">
             <VisitsPanel orderId={order.id} />
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700">
+            <div className="px-4 pt-4 pb-1">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                <History className="h-4 w-4" />
+                Activity Log
+              </h4>
+            </div>
+            <AuditLogPanel orderId={order.id} />
           </div>
         </CollapsibleContent>
       </Card>

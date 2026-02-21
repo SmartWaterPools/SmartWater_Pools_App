@@ -537,6 +537,55 @@ router.post("/assign-job", isAuthenticated, requirePermission('maintenance', 'ed
   }
 });
 
+router.post("/move-stop", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
+    const { stopId, fromRouteId, toRouteId } = req.body;
+
+    if (!stopId || !fromRouteId || !toRouteId) {
+      return res.status(400).json({ error: "Missing required fields: stopId, fromRouteId, toRouteId" });
+    }
+
+    if (fromRouteId === toRouteId) {
+      return res.status(400).json({ error: "Cannot move stop to the same route" });
+    }
+
+    const fromRoute = await storage.getBazzaRoute(fromRouteId);
+    if (!fromRoute || (!req.isCrossOrgAdmin && (fromRoute as any).organizationId !== organizationId)) {
+      return res.status(404).json({ error: "Source route not found" });
+    }
+
+    const toRoute = await storage.getBazzaRoute(toRouteId);
+    if (!toRoute || (!req.isCrossOrgAdmin && (toRoute as any).organizationId !== organizationId)) {
+      return res.status(404).json({ error: "Target route not found" });
+    }
+
+    const fromStops = await storage.getBazzaRouteStopsByRouteId(fromRouteId);
+    const stop = fromStops.find(s => s.id === stopId);
+    if (!stop) {
+      return res.status(404).json({ error: "Stop not found in source route" });
+    }
+
+    const toStops = await storage.getBazzaRouteStopsByRouteId(toRouteId);
+    const newOrderIndex = toStops.length > 0 ? Math.max(...toStops.map(s => s.orderIndex)) + 1 : 0;
+
+    await db
+      .update(bazzaRouteStops)
+      .set({ routeId: toRouteId, orderIndex: newOrderIndex })
+      .where(eq(bazzaRouteStops.id, stopId));
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[DISPATCH] Error moving stop:", error);
+    res.status(500).json({ error: "Failed to move stop" });
+  }
+});
+
 router.post("/bulk-assign-client-stops", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;

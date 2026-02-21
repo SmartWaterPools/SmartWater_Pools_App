@@ -4,6 +4,8 @@ import { useLocation } from "wouter";
 import { format, addDays, subDays } from "date-fns";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
+import { DndProvider, useDrag, useDrop } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,6 +124,138 @@ function getStatusBadge(status: DispatchTechnician["status"]) {
   }
 }
 
+const DISPATCH_STOP_TYPE = "DISPATCH_STOP";
+
+interface DragItem {
+  stopId: number;
+  routeId: number;
+  clientName: string;
+}
+
+function DraggableStop({
+  stop,
+  route,
+  idx,
+  totalStops,
+  reorderMutation,
+}: {
+  stop: DispatchStop;
+  route: DispatchRoute;
+  idx: number;
+  totalStops: number;
+  reorderMutation: any;
+}) {
+  const [{ isDragging }, dragRef] = useDrag({
+    type: DISPATCH_STOP_TYPE,
+    item: { stopId: stop.id, routeId: route.id, clientName: stop.clientName } as DragItem,
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  return (
+    <div
+      ref={dragRef}
+      className={`flex items-start gap-3 p-2.5 rounded-md bg-muted/50 hover:bg-muted transition-colors group cursor-grab active:cursor-grabbing ${
+        isDragging ? "opacity-40" : ""
+      }`}
+    >
+      <div className="flex flex-col items-center gap-0.5 pt-0.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+          disabled={idx === 0}
+          onClick={() =>
+            reorderMutation.mutate({
+              routeId: route.id,
+              stopId: stop.id,
+              direction: "up",
+            })
+          }
+        >
+          <ArrowUp className="h-3 w-3" />
+        </Button>
+        <span className="text-xs font-bold text-blue-600 w-5 text-center">
+          {idx + 1}
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+          disabled={idx === totalStops - 1}
+          onClick={() =>
+            reorderMutation.mutate({
+              routeId: route.id,
+              stopId: stop.id,
+              direction: "down",
+            })
+          }
+        >
+          <ArrowDown className="h-3 w-3" />
+        </Button>
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium">{stop.clientName}</p>
+        <p className="text-xs text-muted-foreground flex items-start gap-1">
+          <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
+          <span className="break-words">{stop.clientAddress}</span>
+        </p>
+        {stop.customInstructions && (
+          <p className="text-xs text-amber-600 mt-1 truncate">
+            ⚠ {stop.customInstructions}
+          </p>
+        )}
+      </div>
+      <div className="text-right flex-shrink-0">
+        {stop.estimatedDuration && (
+          <Badge variant="outline" className="text-xs">
+            <Clock className="h-3 w-3 mr-1" />
+            {stop.estimatedDuration}m
+          </Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DroppableRouteArea({
+  route,
+  children,
+  onDrop,
+}: {
+  route: DispatchRoute;
+  children: React.ReactNode;
+  onDrop: (item: DragItem) => void;
+}) {
+  const [{ isOver, canDrop }, dropRef] = useDrop({
+    accept: DISPATCH_STOP_TYPE,
+    canDrop: (item: DragItem) => item.routeId !== route.id,
+    drop: (item: DragItem) => {
+      onDrop(item);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  return (
+    <div
+      ref={dropRef}
+      className={`transition-all rounded-md ${
+        isOver && canDrop
+          ? "ring-2 ring-blue-500 bg-blue-50/30"
+          : isOver && !canDrop
+          ? ""
+          : ""
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function DispatchBoard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -209,6 +343,18 @@ export default function DispatchBoard() {
     },
     onError: () => {
       toast({ title: "Assignment Failed", description: "Could not assign job to route.", variant: "destructive" });
+    },
+  });
+
+  const moveStopMutation = useMutation({
+    mutationFn: (data: { stopId: number; fromRouteId: number; toRouteId: number }) =>
+      apiRequest("POST", "/api/dispatch/move-stop", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/dispatch/daily-board?date=${dateStr}`] });
+      toast({ title: "Stop Moved", description: "Stop has been moved to the new route." });
+    },
+    onError: () => {
+      toast({ title: "Move Failed", description: "Could not move stop to the new route.", variant: "destructive" });
     },
   });
 
@@ -389,6 +535,7 @@ export default function DispatchBoard() {
         </Card>
       </div>
 
+      <DndProvider backend={HTML5Backend}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">
@@ -469,7 +616,18 @@ export default function DispatchBoard() {
                   <p className="text-sm text-muted-foreground py-2">No routes assigned</p>
                 ) : (
                   tech.routes.map((route) => (
-                    <div key={route.id} className="mb-4 last:mb-0">
+                    <DroppableRouteArea
+                      key={route.id}
+                      route={route}
+                      onDrop={(item) => {
+                        moveStopMutation.mutate({
+                          stopId: item.stopId,
+                          fromRouteId: item.routeId,
+                          toRouteId: route.id,
+                        });
+                      }}
+                    >
+                    <div className="mb-4 last:mb-0">
                       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
                         <div className="flex items-center gap-2">
                           <Truck className="h-4 w-4 text-blue-600" />
@@ -512,71 +670,20 @@ export default function DispatchBoard() {
                           {route.stops
                             .sort((a, b) => a.orderIndex - b.orderIndex)
                             .map((stop, idx) => (
-                              <div
+                              <DraggableStop
                                 key={stop.id}
-                                className="flex items-start gap-3 p-2.5 rounded-md bg-muted/50 hover:bg-muted transition-colors group"
-                              >
-                                <div className="flex flex-col items-center gap-0.5 pt-0.5">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    disabled={idx === 0}
-                                    onClick={() =>
-                                      reorderMutation.mutate({
-                                        routeId: route.id,
-                                        stopId: stop.id,
-                                        direction: "up",
-                                      })
-                                    }
-                                  >
-                                    <ArrowUp className="h-3 w-3" />
-                                  </Button>
-                                  <span className="text-xs font-bold text-blue-600 w-5 text-center">
-                                    {idx + 1}
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    disabled={idx === route.stops.length - 1}
-                                    onClick={() =>
-                                      reorderMutation.mutate({
-                                        routeId: route.id,
-                                        stopId: stop.id,
-                                        direction: "down",
-                                      })
-                                    }
-                                  >
-                                    <ArrowDown className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium truncate">{stop.clientName}</p>
-                                  <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                                    <MapPin className="h-3 w-3 flex-shrink-0" />
-                                    {stop.clientAddress}
-                                  </p>
-                                  {stop.customInstructions && (
-                                    <p className="text-xs text-amber-600 mt-1 truncate">
-                                      ⚠ {stop.customInstructions}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="text-right flex-shrink-0">
-                                  {stop.estimatedDuration && (
-                                    <Badge variant="outline" className="text-xs">
-                                      <Clock className="h-3 w-3 mr-1" />
-                                      {stop.estimatedDuration}m
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
+                                stop={stop}
+                                route={route}
+                                idx={idx}
+                                totalStops={route.stops.length}
+                                reorderMutation={reorderMutation}
+                              />
                             ))}
                         </div>
                       </ScrollArea>
                       {tech.routes.length > 1 && <Separator className="mt-4" />}
                     </div>
+                    </DroppableRouteArea>
                   ))
                 )}
               </CardContent>
@@ -652,6 +759,7 @@ export default function DispatchBoard() {
           )}
         </div>
       </div>
+      </DndProvider>
 
       <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
         <DialogContent className="sm:max-w-md">

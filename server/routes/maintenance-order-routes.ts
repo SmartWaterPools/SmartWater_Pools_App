@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { storage } from "../storage";
+import { db } from "../db";
 import { isAuthenticated, requirePermission } from "../auth";
-import { type User, insertMaintenanceOrderSchema } from "@shared/schema";
+import { type User, insertMaintenanceOrderSchema, maintenanceOrderAuditLogs, users, workOrders } from "@shared/schema";
+import { eq, desc, and } from "drizzle-orm";
 import { z } from "zod";
 
 const updateMaintenanceOrderSchema = z.object({
@@ -66,6 +68,44 @@ router.get('/:id', isAuthenticated, requirePermission('maintenance', 'view'), as
   }
 });
 
+router.get('/:id/audit-logs', isAuthenticated, requirePermission('maintenance', 'view'), async (req, res) => {
+  try {
+    const user = req.user as User;
+    const id = parseInt(req.params.id);
+    
+    const order = await storage.getMaintenanceOrder(id);
+    if (!order) {
+      return res.status(404).json({ error: 'Maintenance order not found' });
+    }
+    
+    if (!req.isCrossOrgAdmin && order.organizationId && order.organizationId !== user.organizationId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const logs = await db.select({
+      id: maintenanceOrderAuditLogs.id,
+      maintenanceOrderId: maintenanceOrderAuditLogs.maintenanceOrderId,
+      userId: maintenanceOrderAuditLogs.userId,
+      action: maintenanceOrderAuditLogs.action,
+      fieldName: maintenanceOrderAuditLogs.fieldName,
+      oldValue: maintenanceOrderAuditLogs.oldValue,
+      newValue: maintenanceOrderAuditLogs.newValue,
+      description: maintenanceOrderAuditLogs.description,
+      createdAt: maintenanceOrderAuditLogs.createdAt,
+      userName: users.name,
+    })
+      .from(maintenanceOrderAuditLogs)
+      .leftJoin(users, eq(maintenanceOrderAuditLogs.userId, users.id))
+      .where(eq(maintenanceOrderAuditLogs.maintenanceOrderId, id))
+      .orderBy(desc(maintenanceOrderAuditLogs.createdAt));
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+});
+
 router.post('/', isAuthenticated, requirePermission('maintenance', 'create'), async (req, res) => {
   try {
     const user = req.user as User;
@@ -76,6 +116,18 @@ router.post('/', isAuthenticated, requirePermission('maintenance', 'create'), as
     });
 
     const order = await storage.createMaintenanceOrder(data);
+
+    try {
+      await db.insert(maintenanceOrderAuditLogs).values({
+        maintenanceOrderId: order.id,
+        userId: user.id,
+        action: 'created',
+        description: 'Maintenance order created',
+      });
+    } catch (logErr) {
+      console.error('Failed to create audit log:', logErr);
+    }
+
     res.status(201).json(order);
   } catch (error: any) {
     console.error('Error creating maintenance order:', error);
@@ -99,6 +151,42 @@ router.patch('/:id', isAuthenticated, requirePermission('maintenance', 'edit'), 
     }
     const validatedData = updateMaintenanceOrderSchema.parse(req.body);
     const updatedOrder = await storage.updateMaintenanceOrder(id, validatedData);
+
+    try {
+      if (validatedData.status && validatedData.status !== order.status) {
+        await db.insert(maintenanceOrderAuditLogs).values({
+          maintenanceOrderId: id,
+          userId: user.id,
+          action: 'status_changed',
+          fieldName: 'status',
+          oldValue: order.status,
+          newValue: validatedData.status,
+          description: `Status changed from ${order.status} to ${validatedData.status}`,
+        });
+      }
+
+      const fieldsToTrack = ['title', 'description', 'frequency', 'dayOfWeek', 'clientId', 'technicianId', 'pricePerVisit', 'estimatedDuration', 'address', 'startDate', 'endDate'] as const;
+      for (const field of fieldsToTrack) {
+        if (field in validatedData && field !== 'status') {
+          const oldVal = String(order[field] ?? '');
+          const newVal = String((validatedData as any)[field] ?? '');
+          if (oldVal !== newVal) {
+            await db.insert(maintenanceOrderAuditLogs).values({
+              maintenanceOrderId: id,
+              userId: user.id,
+              action: 'updated',
+              fieldName: field,
+              oldValue: oldVal || null,
+              newValue: newVal || null,
+              description: `Updated ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`,
+            });
+          }
+        }
+      }
+    } catch (logErr) {
+      console.error('Failed to create audit log:', logErr);
+    }
+
     res.json(updatedOrder);
   } catch (error: any) {
     console.error('Error updating maintenance order:', error);
@@ -120,6 +208,18 @@ router.delete('/:id', isAuthenticated, requirePermission('maintenance', 'delete'
     if (order.organizationId && order.organizationId !== user.organizationId) {
       return res.status(403).json({ error: 'Access denied' });
     }
+
+    try {
+      await db.insert(maintenanceOrderAuditLogs).values({
+        maintenanceOrderId: id,
+        userId: user.id,
+        action: 'deleted',
+        description: `Maintenance order "${order.title}" deleted`,
+      });
+    } catch (logErr) {
+      console.error('Failed to create audit log:', logErr);
+    }
+
     const deleted = await storage.deleteMaintenanceOrder(id);
     if (!deleted) {
       return res.status(404).json({ error: 'Maintenance order not found' });
@@ -201,11 +301,102 @@ router.post('/:id/generate-visits', isAuthenticated, requirePermission('maintena
       }
     }
 
+    try {
+      await db.insert(maintenanceOrderAuditLogs).values({
+        maintenanceOrderId: id,
+        userId: user.id,
+        action: 'visits_generated',
+        description: `Generated ${newVisits.length} visit(s)`,
+      });
+    } catch (logErr) {
+      console.error('Failed to create audit log:', logErr);
+    }
+
     res.status(201).json({ generated: newVisits.length, visits: newVisits });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('Error generating visits:', errorMessage, error);
     res.status(500).json({ error: 'Failed to generate visits', details: errorMessage });
+  }
+});
+
+router.delete('/:orderId/work-orders/:workOrderId', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
+  try {
+    const user = req.user as User;
+    const orderId = parseInt(req.params.orderId);
+    const workOrderId = parseInt(req.params.workOrderId);
+    
+    const workOrder = await db.select().from(workOrders).where(and(eq(workOrders.id, workOrderId), eq(workOrders.maintenanceOrderId, orderId))).limit(1);
+    if (!workOrder.length) {
+      return res.status(404).json({ error: 'Visit not found' });
+    }
+    
+    if (!req.isCrossOrgAdmin && workOrder[0].organizationId && workOrder[0].organizationId !== user.organizationId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    await db.delete(workOrders).where(eq(workOrders.id, workOrderId));
+    
+    try {
+      await db.insert(maintenanceOrderAuditLogs).values({
+        maintenanceOrderId: orderId,
+        userId: user.id,
+        action: 'visit_deleted',
+        description: `Deleted visit scheduled for ${workOrder[0].scheduledDate || 'unscheduled'}`,
+      });
+    } catch (logErr) {
+      console.error('Failed to create audit log:', logErr);
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting visit:', error);
+    res.status(500).json({ error: 'Failed to delete visit' });
+  }
+});
+
+router.patch('/:orderId/work-orders/:workOrderId/reschedule', isAuthenticated, requirePermission('maintenance', 'edit'), async (req, res) => {
+  try {
+    const user = req.user as User;
+    const orderId = parseInt(req.params.orderId);
+    const workOrderId = parseInt(req.params.workOrderId);
+    const { newDate } = req.body;
+    
+    if (!newDate) {
+      return res.status(400).json({ error: 'New date is required' });
+    }
+    
+    const workOrder = await db.select().from(workOrders).where(and(eq(workOrders.id, workOrderId), eq(workOrders.maintenanceOrderId, orderId))).limit(1);
+    if (!workOrder.length) {
+      return res.status(404).json({ error: 'Visit not found' });
+    }
+    
+    if (!req.isCrossOrgAdmin && workOrder[0].organizationId && workOrder[0].organizationId !== user.organizationId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    const oldDate = workOrder[0].scheduledDate || 'unscheduled';
+    
+    await db.update(workOrders).set({ scheduledDate: newDate }).where(eq(workOrders.id, workOrderId));
+    
+    try {
+      await db.insert(maintenanceOrderAuditLogs).values({
+        maintenanceOrderId: orderId,
+        userId: user.id,
+        action: 'visit_rescheduled',
+        fieldName: 'scheduledDate',
+        oldValue: oldDate,
+        newValue: newDate,
+        description: `Rescheduled visit from ${oldDate} to ${newDate}`,
+      });
+    } catch (logErr) {
+      console.error('Failed to create audit log:', logErr);
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error rescheduling visit:', error);
+    res.status(500).json({ error: 'Failed to reschedule visit' });
   }
 });
 

@@ -871,6 +871,26 @@ export const insertWorkOrderAuditLogSchema = createInsertSchema(workOrderAuditLo
 export type InsertWorkOrderAuditLog = z.infer<typeof insertWorkOrderAuditLogSchema>;
 export type WorkOrderAuditLog = typeof workOrderAuditLogs.$inferSelect;
 
+export const maintenanceOrderAuditLogs = pgTable("maintenance_order_audit_logs", {
+  id: serial("id").primaryKey(),
+  maintenanceOrderId: integer("maintenance_order_id").notNull(),
+  userId: integer("user_id"),
+  action: text("action").notNull(),
+  fieldName: text("field_name"),
+  oldValue: text("old_value"),
+  newValue: text("new_value"),
+  description: text("description").notNull(),
+  createdAt: timestamp("created_at").notNull().default(sql`now()`),
+});
+
+export const insertMaintenanceOrderAuditLogSchema = createInsertSchema(maintenanceOrderAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMaintenanceOrderAuditLog = z.infer<typeof insertMaintenanceOrderAuditLogSchema>;
+export type MaintenanceOrderAuditLog = typeof maintenanceOrderAuditLogs.$inferSelect;
+
 // Expenses table - track business expenses
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),

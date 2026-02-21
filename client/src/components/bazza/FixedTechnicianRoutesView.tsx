@@ -633,9 +633,9 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
                       {clientMap[stop.clientId] || `Client #${stop.clientId}`}
                     </div>
                     {clientAddressMap[stop.clientId] && (
-                      <div className="text-muted-foreground truncate mt-0.5 flex items-center gap-0.5">
-                        <MapPin className="h-3 w-3 flex-shrink-0" />
-                        {clientAddressMap[stop.clientId]}
+                      <div className="text-muted-foreground mt-0.5 flex items-start gap-0.5">
+                        <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                        <span className="break-words">{clientAddressMap[stop.clientId]}</span>
                       </div>
                     )}
                     {(stop.customInstructions || stop.notes) && (

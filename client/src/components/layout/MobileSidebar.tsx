@@ -136,17 +136,21 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                       Maint. Orders
                     </div>
                   </Link>
-                  <Link href="/dispatch" onClick={onClose}>
-                    <div className={`flex items-center px-3 py-1.5 text-sm rounded-md cursor-pointer ${
-                      isActive('/dispatch') ? 'text-primary font-medium' : 'text-gray-600 hover:bg-blue-50'
-                    }`}>
-                      <Navigation className="mr-2 h-4 w-4" />
-                      Dispatch Board
-                    </div>
-                  </Link>
                 </div>
               )}
             </div>
+            )}
+            
+            {/* Dispatch Board */}
+            {canView('maintenance') && (
+            <Link href="/dispatch" onClick={onClose}>
+              <div className={`flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer ${
+                isActive('/dispatch') ? 'bg-primary text-white' : 'text-gray-700 hover:bg-blue-50'
+              }`}>
+                <Navigation className="mr-3 h-5 w-5" />
+                Dispatch Board
+              </div>
+            </Link>
             )}
             
             {/* Repairs */}
