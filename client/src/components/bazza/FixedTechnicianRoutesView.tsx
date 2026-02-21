@@ -303,14 +303,15 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
 interface RouteCardProps {
   route: BazzaRoute;
   onRouteClick: (route: BazzaRoute) => void;
+  technicians: { id: number; name: string; userId?: number; active?: boolean }[];
 }
 
-function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
+function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
   
-  const { data: clientsList } = useQuery<{ id: number; userId: number; name: string; companyName?: string }[]>({
+  const { data: clientsList } = useQuery<{ id: number; userId: number; name: string; companyName?: string; address?: string }[]>({
     queryKey: ["/api/clients/client-records"],
   });
   
@@ -319,6 +320,18 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
     if (clientsList) {
       for (const c of clientsList) {
         map[c.id] = c.name || c.companyName || `Client #${c.id}`;
+      }
+    }
+    return map;
+  }, [clientsList]);
+  
+  const clientAddressMap = useMemo(() => {
+    const map: Record<number, string> = {};
+    if (clientsList) {
+      for (const c of clientsList) {
+        if (c.address) {
+          map[c.id] = c.address;
+        }
       }
     }
     return map;
@@ -503,6 +516,10 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
                 <CardDescription className="text-xs mt-1">
                   {formatDayOfWeek(route.dayOfWeek)}
                 </CardDescription>
+                <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
+                  <UserCheck className="h-3 w-3" />
+                  <span>{route.technicianId ? (technicians.find(t => t.id === route.technicianId)?.name || 'Unknown') : 'Unassigned'}</span>
+                </div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1">
@@ -578,6 +595,12 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
                     <div className="font-medium truncate">
                       {clientMap[stop.clientId] || `Client #${stop.clientId}`}
                     </div>
+                    {clientAddressMap[stop.clientId] && (
+                      <div className="text-muted-foreground truncate mt-0.5 flex items-center gap-0.5">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        {clientAddressMap[stop.clientId]}
+                      </div>
+                    )}
                     {(stop.customInstructions || stop.notes) && (
                       <div className="text-muted-foreground truncate mt-0.5">
                         {stop.customInstructions || stop.notes}
@@ -995,7 +1018,8 @@ export default function TechnicianRoutesView({
                   <DroppableRouteCard 
                     key={route.id} 
                     route={route} 
-                    onRouteClick={handleRouteClick} 
+                    onRouteClick={handleRouteClick}
+                    technicians={technicians}
                   />
                 ))}
               </div>

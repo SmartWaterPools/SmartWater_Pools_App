@@ -1,16 +1,33 @@
 import express, { Router, Request, Response } from "express";
 import { storage } from "../storage";
+import { db } from "../db";
 import { isAuthenticated, isAdmin } from "../auth";
 import { createInsertSchema } from "drizzle-zod";
+import { eq } from "drizzle-orm";
 import { 
   bazzaRoutes, 
   bazzaRouteStops, 
   bazzaMaintenanceAssignments,
+  clients,
   InsertBazzaRoute,
   InsertBazzaRouteStop,
   InsertBazzaMaintenanceAssignment
 } from "@shared/schema";
 import { z } from "zod";
+
+async function resolveClientId(clientId: number): Promise<number> {
+  const directMatch = await db.select({ id: clients.id }).from(clients).where(eq(clients.id, clientId));
+  if (directMatch.length > 0) {
+    return clientId;
+  }
+  const byUserId = await db.select({ id: clients.id }).from(clients).where(eq(clients.userId, clientId));
+  if (byUserId.length > 0) {
+    console.log(`[BAZZA ROUTES API] Resolved clientId: user ID ${clientId} -> clients table ID ${byUserId[0].id}`);
+    return byUserId[0].id;
+  }
+  console.warn(`[BAZZA ROUTES API] Could not resolve clientId ${clientId} in clients table`);
+  return clientId;
+}
 
 const router = Router();
 
@@ -408,6 +425,10 @@ router.post("/stops", isAuthenticated, async (req: Request, res: Response) => {
     }
 
     console.log("[BAZZA ROUTES API] Processing request to create new bazza route stop, body:", JSON.stringify(req.body));
+    
+    if (req.body.clientId) {
+      req.body.clientId = await resolveClientId(req.body.clientId);
+    }
     
     const validationResult = insertBazzaRouteStopSchema.safeParse(req.body);
     if (!validationResult.success) {
