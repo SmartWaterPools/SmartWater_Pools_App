@@ -123,12 +123,15 @@ export function RouteFormDialog({
         });
       } else {
         // If we don't have technician ID from the response, invalidate based on the form data
-        const techId = parseInt(form.getValues().technicianId);
-        if (techId) {
-          console.log(`Invalidating technician routes for form value ID: ${techId}`);
-          queryClient.invalidateQueries({ 
-            queryKey: ['/api/bazza/routes/technician', techId] 
-          });
+        const techIdStr = form.getValues().technicianId;
+        if (techIdStr) {
+          const techId = parseInt(techIdStr);
+          if (techId) {
+            console.log(`Invalidating technician routes for form value ID: ${techId}`);
+            queryClient.invalidateQueries({ 
+              queryKey: ['/api/bazza/routes/technician', techId] 
+            });
+          }
         }
       }
       
@@ -167,8 +170,9 @@ export function RouteFormDialog({
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
       
       // Also invalidate technician-specific routes
+      const techIdStr = form.getValues().technicianId;
       const techId = route?.technicianId || (updatedRoute?.technicianId || 
-                     (form.getValues().technicianId ? parseInt(form.getValues().technicianId) : null));
+                     (techIdStr ? parseInt(techIdStr) : null));
                      
       if (techId) {
         console.log(`Invalidating technician routes for ID: ${techId}`);

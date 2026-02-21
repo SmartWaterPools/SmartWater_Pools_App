@@ -425,22 +425,22 @@ export default function Technicians() {
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">Status</span>
-                        <Badge className={selectedTechnician.user.active !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
-                          {selectedTechnician.user.active !== false ? 'Active' : 'Inactive'}
+                        <Badge className={(selectedTechnician.user as any).active !== false ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}>
+                          {(selectedTechnician.user as any).active !== false ? 'Active' : 'Inactive'}
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">Login Method</span>
-                        <span className="text-sm">{selectedTechnician.user.authProvider === 'google' ? 'Google' : 'Email/Password'}</span>
+                        <span className="text-sm">{(selectedTechnician.user as any).authProvider === 'google' ? 'Google' : 'Email/Password'}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-500">Username</span>
-                        <span className="text-sm font-mono">{selectedTechnician.user.username || selectedTechnician.user.email}</span>
+                        <span className="text-sm font-mono">{(selectedTechnician.user as any).username || selectedTechnician.user.email}</span>
                       </div>
-                      {selectedTechnician.user.createdAt && (
+                      {(selectedTechnician.user as any).createdAt && (
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-gray-500">Account Created</span>
-                          <span className="text-sm">{new Date(selectedTechnician.user.createdAt).toLocaleDateString()}</span>
+                          <span className="text-sm">{new Date((selectedTechnician.user as any).createdAt).toLocaleDateString()}</span>
                         </div>
                       )}
                     </div>

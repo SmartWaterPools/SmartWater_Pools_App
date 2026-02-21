@@ -275,7 +275,7 @@ export const fetchBazzaRoutesByDay = async (dayOfWeek: string): Promise<BazzaRou
 export const createBazzaRoute = async (routeData: any): Promise<BazzaRoute> => {
   try {
     // Validate required fields on client-side before sending to server
-    const requiredFields = ['name', 'technicianId', 'dayOfWeek'];
+    const requiredFields = ['name', 'dayOfWeek'];
     const missingFields = requiredFields.filter(field => !routeData[field]);
     
     if (missingFields.length > 0) {
@@ -283,16 +283,18 @@ export const createBazzaRoute = async (routeData: any): Promise<BazzaRoute> => {
       throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
     }
     
-    // Convert technicianId to a number and validate
-    let technicianId: number;
-    try {
-      technicianId = Number(routeData.technicianId);
-      if (isNaN(technicianId) || technicianId <= 0) {
-        throw new Error(`Invalid technician ID: ${routeData.technicianId}`);
+    // Convert technicianId to a number or null for unassigned routes
+    let technicianId: number | null = null;
+    if (routeData.technicianId && routeData.technicianId !== "" && routeData.technicianId !== "0") {
+      try {
+        technicianId = Number(routeData.technicianId);
+        if (isNaN(technicianId) || technicianId <= 0) {
+          technicianId = null;
+        }
+      } catch (e) {
+        console.error(`Error parsing technicianId`, e);
+        technicianId = null;
       }
-    } catch (e) {
-      console.error(`Error parsing technicianId`, e);
-      throw new Error(`Invalid technician ID. Please select a valid technician.`);
     }
     
     // Sanitize the data for the server - exactly match what the schema expects

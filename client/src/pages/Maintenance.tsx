@@ -170,30 +170,20 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
     workOrderTitle: wo.title,
     client: wo.client ? {
       id: wo.client.id || wo.clientId || 0,
-      clientRecordId: wo.client.clientRecordId || null,
       name: wo.client.user?.name || wo.client.companyName || wo.title || 'Maintenance Work Order',
+      email: wo.client.user?.email || '',
       address: wo.client.user?.address || wo.location || '',
+      phone: wo.client.user?.phone || undefined,
       latitude: wo.client.latitude || null,
-      longitude: wo.client.longitude || null,
-      user: {
-        id: wo.client.user?.id || wo.client.id || wo.clientId || 0,
-        name: wo.client.user?.name || wo.client.companyName || wo.title || 'Maintenance Work Order',
-        email: wo.client.user?.email || '',
-        address: wo.client.user?.address || wo.location || ''
-      }
+      longitude: wo.client.longitude || null
     } : {
       id: wo.clientId || 0,
-      clientRecordId: null,
       name: wo.title || 'Maintenance Work Order',
+      email: '',
       address: wo.location || '',
+      phone: undefined,
       latitude: null,
-      longitude: null,
-      user: {
-        id: wo.clientId || 0,
-        name: wo.title || 'Maintenance Work Order',
-        email: '',
-        address: wo.location || ''
-      }
+      longitude: null
     }
   } as MaintenanceWithDetails & { workOrderId?: number; workOrderTitle?: string }));
 
@@ -205,7 +195,7 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
     }
     
     // Apply search filter to client name (with null guards for work orders)
-    const clientName = maintenance.client?.user?.name || maintenance.notes || '';
+    const clientName = (maintenance.client as any)?.user?.name || (maintenance.client as any)?.name || maintenance.notes || '';
     if (searchTerm && !clientName.toLowerCase().includes(searchTerm.toLowerCase())) {
       return false;
     }
@@ -342,8 +332,8 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
                             title: (m as any).workOrderTitle || (m as any).title || 'Maintenance',
                             description: m.notes || '',
                             scheduledDate: m.scheduleDate,
-                            location: m.client?.user?.address || '',
-                            clientName: m.client?.user?.name || 'N/A'
+                            location: (m.client as any)?.user?.address || (m.client as any)?.address || '',
+                            clientName: (m.client as any)?.user?.name || (m.client as any)?.name || 'N/A'
                           });
                           successCount++;
                         } catch {

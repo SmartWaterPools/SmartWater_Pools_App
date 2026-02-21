@@ -121,7 +121,7 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       console.log(`Adding maintenance ${maintenance.id} to route ${routeId}`);
       console.log(`Maintenance client:`, maintenance.client);
       
-      const clientId = (maintenance.client as any)?.clientRecordId || maintenance.client?.client?.id || (maintenance.client as any)?.id;
+      const clientId = (maintenance.client as any)?.clientRecordId || (maintenance.client as any)?.client?.id || (maintenance.client as any)?.id;
       if (!maintenance.client || !clientId) {
         console.error("Maintenance is missing client information");
         toast({
@@ -163,7 +163,8 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
         queryClient.setQueryData(['maintenanceAssignments'], updatedAssignments);
         
         // Also try to force a refresh of the maintenance data
-        const updatedMaintenances = await apiRequest('/api/maintenances');
+        const updatedMaintenancesRes = await apiRequest('GET', '/api/maintenances');
+        const updatedMaintenances = await updatedMaintenancesRes.json();
         queryClient.setQueryData(['/api/maintenances'], updatedMaintenances);
       } catch (refreshError) {
         console.error("Error updating assignment cache:", refreshError);
@@ -230,10 +231,10 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
       <CardHeader className="pb-2 bg-amber-50">
         <div className="flex justify-between items-start">
           <div>
-            <CardTitle className="text-base">{maintenance.client?.user?.name}</CardTitle>
+            <CardTitle className="text-base">{(maintenance.client as any)?.user?.name || (maintenance.client as any)?.name}</CardTitle>
             <CardDescription className="text-xs flex items-center mt-1">
               <MapPin className="h-3 w-3 mr-1" />
-              {maintenance.client?.user?.address || maintenance.client?.client?.address || 'No address'}
+              {(maintenance.client as any)?.user?.address || (maintenance.client as any)?.client?.address || (maintenance.client as any)?.address || 'No address'}
             </CardDescription>
           </div>
           <div>
@@ -360,7 +361,7 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
     try {
       console.log(`Dropping maintenance ${maintenanceId} onto route ${route.id}`);
       
-      const clientId = (maintenance.client as any)?.clientRecordId || maintenance.client?.client?.id || (maintenance.client as any)?.id;
+      const clientId = (maintenance.client as any)?.clientRecordId || (maintenance.client as any)?.client?.id || (maintenance.client as any)?.id;
       if (!maintenance.client || !clientId) {
         console.error("Maintenance is missing client information");
         toast({
@@ -409,7 +410,8 @@ function DroppableRouteCard({ route, onRouteClick }: RouteCardProps) {
         queryClient.setQueryData(['maintenanceAssignments'], updatedAssignments);
         
         // Also try to force a refresh of the maintenance data
-        const updatedMaintenances = await apiRequest('/api/maintenances');
+        const updatedMaintenancesRes = await apiRequest('GET', '/api/maintenances');
+        const updatedMaintenances = await updatedMaintenancesRes.json();
         queryClient.setQueryData(['/api/maintenances'], updatedMaintenances);
       } catch (refreshError) {
         console.error("Error updating assignment cache:", refreshError);

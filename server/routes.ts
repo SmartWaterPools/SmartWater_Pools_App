@@ -2003,6 +2003,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get all technicians from the technicians table
       const allTechnicians = await storage.getTechnicians();
       
+      // Also find users with role='technician' who don't have a technician record yet
+      const allUsers = await db.select().from(users).where(eq(users.role, 'technician'));
+      const existingUserIds = new Set(allTechnicians.map(t => t.userId));
+      const missingTechUsers = allUsers.filter(u => !existingUserIds.has(u.id) && u.organizationId === user?.organizationId);
+      
+      // Auto-create technician records for users with technician role who are missing them
+      for (const missingUser of missingTechUsers) {
+        try {
+          const [newTech] = await db.insert(technicians).values({ userId: missingUser.id }).returning();
+          allTechnicians.push(newTech);
+        } catch (e) {
+          console.error(`Failed to auto-create technician record for user ${missingUser.id}:`, e);
+        }
+      }
+      
       // Get user details for each technician and filter by organization
       const techniciansWithUsers = await Promise.all(
         allTechnicians.map(async (tech) => {
