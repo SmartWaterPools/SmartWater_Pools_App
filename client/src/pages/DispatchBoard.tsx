@@ -228,8 +228,12 @@ function RouteStopsWithDrivingTimes({ route, reorderMutation }: { route: Dispatc
     queryKey: ["/api/dispatch/driving-times", route.id],
     queryFn: async () => {
       const res = await fetch(`/api/dispatch/driving-times/${route.id}`, { credentials: "include" });
-      if (!res.ok) return [];
-      return res.json();
+      if (!res.ok) {
+        console.error(`[DrivingTimes] Failed to fetch for route ${route.id}: ${res.status}`);
+        return [];
+      }
+      const data = await res.json();
+      return data;
     },
     staleTime: 5 * 60 * 1000,
     enabled: sortedStops.length >= 2,
@@ -253,13 +257,20 @@ function RouteStopsWithDrivingTimes({ route, reorderMutation }: { route: Dispatc
             totalStops={sortedStops.length}
             reorderMutation={reorderMutation}
           />
-          {idx < sortedStops.length - 1 && timeMap.has(stop.id) && (
-            <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-muted-foreground">
-              <Car className="h-3 w-3 text-blue-500" />
-              <span>{timeMap.get(stop.id)!.durationText}</span>
-              <span className="text-muted-foreground/60">·</span>
-              <span className="text-muted-foreground/60">{timeMap.get(stop.id)!.distanceText}</span>
-            </div>
+          {idx < sortedStops.length - 1 && (
+            timeMap.has(stop.id) ? (
+              <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-muted-foreground">
+                <Car className="h-3 w-3 text-blue-500" />
+                <span>{timeMap.get(stop.id)!.durationText}</span>
+                <span className="text-muted-foreground/60">·</span>
+                <span className="text-muted-foreground/60">{timeMap.get(stop.id)!.distanceText}</span>
+              </div>
+            ) : drivingTimes === undefined ? (
+              <div className="flex items-center justify-center gap-1.5 py-0.5 text-xs text-muted-foreground/40">
+                <Car className="h-3 w-3" />
+                <span>...</span>
+              </div>
+            ) : null
           )}
         </Fragment>
       ))}
@@ -291,15 +302,19 @@ function DroppableRouteArea({
   return (
     <div
       ref={dropRef}
-      className={`transition-all rounded-md ${
+      className={`transition-all rounded-lg p-1 ${
         isOver && canDrop
-          ? "ring-2 ring-blue-500 bg-blue-50/30"
-          : isOver && !canDrop
-          ? ""
+          ? "ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-950/30"
           : ""
       }`}
     >
       {children}
+      {isOver && canDrop && (
+        <div className="mt-2 p-3 border-2 border-dashed border-blue-400 rounded-lg bg-blue-50/50 dark:bg-blue-950/20 flex items-center justify-center gap-2">
+          <MapPin className="h-4 w-4 text-blue-500" />
+          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Drop stop here</span>
+        </div>
+      )}
     </div>
   );
 }

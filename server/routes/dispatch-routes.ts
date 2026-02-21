@@ -798,6 +798,7 @@ router.get("/driving-times/:routeId", isAuthenticated, requirePermission('mainte
 
         if (data.status === 'OK' && data.routes && data.routes.length > 0) {
           const legs = data.routes[0].legs;
+          console.log(`[DISPATCH] Driving times: Got ${legs.length} legs for ${batchStops.length} stops`);
           for (let i = 0; i < legs.length; i++) {
             const leg = legs[i];
             drivingTimes.push({
@@ -808,12 +809,15 @@ router.get("/driving-times/:routeId", isAuthenticated, requirePermission('mainte
               distanceText: leg.distance?.text || 'N/A',
             });
           }
+        } else {
+          console.error(`[DISPATCH] Google Maps Directions API returned status: ${data.status}`, data.error_message || '');
         }
       } catch (apiError) {
         console.error("[DISPATCH] Google Maps API error for driving times batch:", apiError);
       }
     }
 
+    console.log(`[DISPATCH] Returning ${drivingTimes.length} driving times for route ${routeId}`);
     res.json(drivingTimes);
   } catch (error) {
     console.error("[DISPATCH] Error fetching driving times:", error);

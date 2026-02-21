@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, createContext } from 'react';
+import React, { Fragment, useMemo, useState, useEffect, createContext } from 'react';
 import { useLocation } from 'wouter';
 import { 
   Card, 
@@ -29,6 +29,7 @@ import {
   PlusCircle, 
   Route, 
   UserCheck,
+  Car,
   CheckCircle,
   Zap 
 } from "lucide-react";
@@ -321,6 +322,7 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', route.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
       toast({
         title: "Route Optimized",
         description: `The stops in "${route.name}" have been reordered for optimal distance.`,
@@ -508,6 +510,27 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
   const sortedStops = useMemo(() => {
     return [...stops].sort((a, b) => (a.orderIndex ?? a.position ?? 0) - (b.orderIndex ?? b.position ?? 0));
   }, [stops]);
+
+  const { data: drivingTimes } = useQuery<Array<{ fromStopId: number; toStopId: number; durationSeconds: number; durationText: string; distanceText: string }>>({
+    queryKey: ["/api/dispatch/driving-times", route.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/dispatch/driving-times/${route.id}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: sortedStops.length >= 2,
+  });
+
+  const drivingTimeMap = useMemo(() => {
+    const map = new Map<number, { durationText: string; distanceText: string }>();
+    if (drivingTimes) {
+      for (const dt of drivingTimes) {
+        map.set(dt.fromStopId, { durationText: dt.durationText, distanceText: dt.distanceText });
+      }
+    }
+    return map;
+  }, [drivingTimes]);
   
   return (
     <div ref={drop} className={`rounded-lg border transition-colors ${
@@ -615,38 +638,54 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
               <Spinner size="sm" />
             </div>
           ) : sortedStops.length > 0 ? (
-            <div className="space-y-1.5">
+            <div className="space-y-0">
               {sortedStops.map((stop, index) => (
-                <div 
-                  key={stop.id} 
-                  className="flex items-start gap-2 p-2 bg-background rounded-md border border-border/50 text-xs"
-                >
-                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
-                    {(stop.orderIndex ?? stop.position ?? index + 1)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {clientMap[stop.clientId] || `Client #${stop.clientId}`}
+                <Fragment key={stop.id}>
+                  <div 
+                    className="flex items-start gap-2 p-2 bg-background rounded-md border border-border/50 text-xs"
+                  >
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                      {(stop.orderIndex ?? stop.position ?? index + 1)}
                     </div>
-                    {clientAddressMap[stop.clientId] && (
-                      <div className="text-muted-foreground mt-0.5 flex items-start gap-0.5">
-                        <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                        <span className="break-words">{clientAddressMap[stop.clientId]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium truncate">
+                        {clientMap[stop.clientId] || `Client #${stop.clientId}`}
                       </div>
-                    )}
-                    {(stop.customInstructions || stop.notes) && (
-                      <div className="text-muted-foreground truncate mt-0.5">
-                        {stop.customInstructions || stop.notes}
-                      </div>
-                    )}
-                    {stop.estimatedDuration && (
-                      <div className="text-muted-foreground mt-0.5">
-                        <Clock className="h-3 w-3 inline mr-0.5" />
-                        {stop.estimatedDuration} min
-                      </div>
-                    )}
+                      {clientAddressMap[stop.clientId] && (
+                        <div className="text-muted-foreground mt-0.5 flex items-start gap-0.5">
+                          <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                          <span className="break-words">{clientAddressMap[stop.clientId]}</span>
+                        </div>
+                      )}
+                      {(stop.customInstructions || stop.notes) && (
+                        <div className="text-muted-foreground truncate mt-0.5">
+                          {stop.customInstructions || stop.notes}
+                        </div>
+                      )}
+                      {stop.estimatedDuration && (
+                        <div className="text-muted-foreground mt-0.5">
+                          <Clock className="h-3 w-3 inline mr-0.5" />
+                          {stop.estimatedDuration} min
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                  {index < sortedStops.length - 1 && (
+                    drivingTimeMap.has(stop.id) ? (
+                      <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-muted-foreground">
+                        <Car className="h-3 w-3 text-blue-500" />
+                        <span>{drivingTimeMap.get(stop.id)!.durationText}</span>
+                        <span className="text-muted-foreground/60">·</span>
+                        <span className="text-muted-foreground/60">{drivingTimeMap.get(stop.id)!.distanceText}</span>
+                      </div>
+                    ) : drivingTimes === undefined ? (
+                      <div className="flex items-center justify-center gap-1.5 py-0.5 text-xs text-muted-foreground/40">
+                        <Car className="h-3 w-3" />
+                        <span>...</span>
+                      </div>
+                    ) : null
+                  )}
+                </Fragment>
               ))}
             </div>
           ) : (
