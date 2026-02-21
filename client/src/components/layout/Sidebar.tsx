@@ -27,7 +27,8 @@ import {
   CalendarRange,
   DollarSign,
   Calculator,
-  ChevronDown
+  ChevronDown,
+  Navigation
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTabs } from "./EnhancedTabManager";
@@ -108,6 +109,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnChemicalPricing] = useRoute("/chemical-pricing");
   const [isOnInventory] = useRoute("/inventory");
   const [isOnBarcodeDemo] = useRoute("/inventory/barcode-demo");
+  const [isOnMaintenanceOrders] = useRoute("/maintenance-orders");
   const [isOnWorkOrders] = useRoute("/work-orders");
   const [isOnSettings] = useRoute("/settings");
   const [isOnAdmin] = useRoute("/admin");
@@ -1101,6 +1103,30 @@ export function Sidebar({ user: propUser }: SidebarProps) {
             <CalendarCheck className="h-5 w-5" />
           </div>
           <span className={cn("text-xs mt-0.5", isOnMaintenance ? "text-primary font-medium" : "text-gray-500")}>Maintenance</span>
+        </div>
+        )}
+        
+        {canView('maintenance') && (
+        <div 
+          onClick={(e) => handleSidebarNavigation(e, "/maintenance-orders")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnMaintenanceOrders ? "text-primary" : "text-gray-500")}>
+            <CalendarRange className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnMaintenanceOrders ? "text-primary font-medium" : "text-gray-500")}>Orders</span>
+        </div>
+        )}
+        
+        {canView('maintenance') && (
+        <div 
+          onClick={(e) => handleSidebarNavigation(e, "/dispatch")}
+          className="flex flex-col items-center px-3 py-1"
+        >
+          <div className={cn("p-1 rounded-md", isOnDispatch ? "text-primary" : "text-gray-500")}>
+            <Navigation className="h-5 w-5" />
+          </div>
+          <span className={cn("text-xs mt-0.5", isOnDispatch ? "text-primary font-medium" : "text-gray-500")}>Dispatch</span>
         </div>
         )}
         

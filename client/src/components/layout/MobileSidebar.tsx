@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Droplet, Home, Activity, Briefcase, UserCircle, Users, Settings, LogOut, Wrench, Phone, MessageSquare, Barcode, CalendarCheck, CalendarRange, ChevronDown, Truck, MapPin, Cog, DollarSign, FileText, Calculator, Package } from "lucide-react";
+import { X, Droplet, Home, Activity, Briefcase, UserCircle, Users, Settings, LogOut, Wrench, Phone, MessageSquare, Barcode, CalendarCheck, CalendarRange, ChevronDown, Truck, MapPin, Cog, DollarSign, FileText, Calculator, Package, Navigation } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePermissions } from "@/hooks/usePermissions";
 import { Link, useLocation } from "wouter";
@@ -134,6 +134,14 @@ export function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                     }`}>
                       <CalendarRange className="mr-2 h-4 w-4" />
                       Maint. Orders
+                    </div>
+                  </Link>
+                  <Link href="/dispatch" onClick={onClose}>
+                    <div className={`flex items-center px-3 py-1.5 text-sm rounded-md cursor-pointer ${
+                      isActive('/dispatch') ? 'text-primary font-medium' : 'text-gray-600 hover:bg-blue-50'
+                    }`}>
+                      <Navigation className="mr-2 h-4 w-4" />
+                      Dispatch Board
                     </div>
                   </Link>
                 </div>
