@@ -562,16 +562,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/clients/names-by-ids', isAuthenticated, async (req, res) => {
     try {
+      const user = req.user as User;
       const idsParam = req.query.ids as string;
       if (!idsParam) return res.json([]);
       const ids = idsParam.split(',').map(Number).filter(n => !isNaN(n));
       if (ids.length === 0) return res.json([]);
+      const orgRoutes = await db.select({ id: bazzaRoutesTable.id })
+        .from(bazzaRoutesTable)
+        .where(eq(bazzaRoutesTable.organizationId, user.organizationId));
+      const orgRouteIds = orgRoutes.map(r => r.id);
+      if (orgRouteIds.length === 0) return res.json([]);
+      const allowedStops = await db.select({ clientId: bazzaRouteStops.clientId })
+        .from(bazzaRouteStops)
+        .where(inArray(bazzaRouteStops.routeId, orgRouteIds));
+      const allowedClientIds = new Set(allowedStops.map(s => s.clientId));
+      const filteredIds = ids.filter(id => allowedClientIds.has(id));
+      if (filteredIds.length === 0) return res.json([]);
       const records = await db.select({
         id: clients.id,
         name: users.name,
       }).from(clients)
         .innerJoin(users, eq(clients.userId, users.id))
-        .where(inArray(clients.id, ids));
+        .where(inArray(clients.id, filteredIds));
       res.json(records);
     } catch (error) {
       console.error('Client names-by-ids error:', error);

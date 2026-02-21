@@ -416,25 +416,51 @@ router.post("/optimize-route/:routeId", isAuthenticated, requirePermission('main
         const destination = clientGeoMap[stopsWithGeo[stopsWithGeo.length - 1].clientId];
         const middleStops = stopsWithGeo.slice(1, -1);
 
-        let waypointsParam = '';
+        const requestBody: any = {
+          origin: {
+            location: {
+              latLng: { latitude: origin.lat, longitude: origin.lng }
+            }
+          },
+          destination: {
+            location: {
+              latLng: { latitude: destination.lat, longitude: destination.lng }
+            }
+          },
+          travelMode: "DRIVE",
+          routingPreference: "TRAFFIC_UNAWARE",
+          units: "IMPERIAL"
+        };
+
         if (middleStops.length > 0) {
-          const waypointCoords = middleStops.map(s => {
+          requestBody.intermediates = middleStops.map(s => {
             const geo = clientGeoMap[s.clientId];
-            return `${geo.lat},${geo.lng}`;
-          }).join('|');
-          waypointsParam = `&waypoints=optimize:true|${waypointCoords}`;
+            return {
+              location: {
+                latLng: { latitude: geo.lat, longitude: geo.lng }
+              }
+            };
+          });
+          requestBody.optimizeWaypointOrder = true;
         }
 
-        const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.lat},${origin.lng}&destination=${destination.lat},${destination.lng}${waypointsParam}&key=${apiKey}`;
-        const apiResponse = await fetch(url);
+        const apiResponse = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "routes.optimizedIntermediateWaypointIndex,routes.legs.duration,routes.legs.distanceMeters"
+          },
+          body: JSON.stringify(requestBody)
+        });
         const data = await apiResponse.json() as any;
 
-        if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+        if (data.routes && data.routes.length > 0) {
           const routeData = data.routes[0];
           usedGoogleApi = true;
 
-          if (middleStops.length > 0 && routeData.waypoint_order) {
-            const waypointOrder: number[] = routeData.waypoint_order;
+          if (middleStops.length > 0 && routeData.optimizedIntermediateWaypointIndex) {
+            const waypointOrder: number[] = routeData.optimizedIntermediateWaypointIndex;
             const reorderedMiddle = waypointOrder.map((idx: number) => middleStops[idx]);
             optimizedStops = [stopsWithGeo[0], ...reorderedMiddle, stopsWithGeo[stopsWithGeo.length - 1]];
           } else {
@@ -444,18 +470,31 @@ router.post("/optimize-route/:routeId", isAuthenticated, requirePermission('main
           if (routeData.legs && routeData.legs.length > 0) {
             for (let i = 0; i < routeData.legs.length; i++) {
               const leg = routeData.legs[i];
+              const durationSeconds = leg.duration ? parseInt(leg.duration.replace('s', '')) : 0;
+              const distanceMeters = leg.distanceMeters || 0;
+              const distanceMiles = (distanceMeters / 1609.344).toFixed(1);
+
+              let durationText = 'N/A';
+              if (durationSeconds > 0) {
+                const hours = Math.floor(durationSeconds / 3600);
+                const mins = Math.floor((durationSeconds % 3600) / 60);
+                durationText = hours > 0 ? `${hours} hr ${mins} min` : `${mins} min`;
+              }
+
               drivingTimes.push({
                 fromStopIndex: i,
                 toStopIndex: i + 1,
-                durationSeconds: leg.duration?.value || 0,
-                durationText: leg.duration?.text || 'N/A',
-                distanceText: leg.distance?.text || 'N/A',
+                durationSeconds,
+                durationText,
+                distanceText: `${distanceMiles} mi`,
               });
             }
           }
+        } else {
+          console.error("[DISPATCH] Google Routes API optimization error:", data.error?.message || JSON.stringify(data));
         }
       } catch (apiError) {
-        console.error("[DISPATCH] Google Maps API error, falling back to nearest-neighbor:", apiError);
+        console.error("[DISPATCH] Google Routes API error, falling back to nearest-neighbor:", apiError);
       }
     }
 
@@ -774,9 +813,9 @@ router.get("/driving-times/:routeId", isAuthenticated, requirePermission('mainte
 
     const drivingTimes: Array<{ fromStopId: number; toStopId: number; durationSeconds: number; durationText: string; distanceText: string }> = [];
 
-    const batchSize = 27;
-    for (let batchStart = 0; batchStart < stopsWithGeo.length - 1; batchStart += batchSize - 1) {
-      const batchEnd = Math.min(batchStart + batchSize, stopsWithGeo.length);
+    const batchSize = 25;
+    for (let batchStart = 0; batchStart < stopsWithGeo.length - 1; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize + 1, stopsWithGeo.length);
       const batchStops = stopsWithGeo.slice(batchStart, batchEnd);
 
       if (batchStops.length < 2) break;
@@ -784,40 +823,76 @@ router.get("/driving-times/:routeId", isAuthenticated, requirePermission('mainte
       const originGeo = clientGeoMap[batchStops[0].clientId];
       const destGeo = clientGeoMap[batchStops[batchStops.length - 1].clientId];
 
-      let waypointsParam = '';
-      if (batchStops.length > 2) {
-        const middleStops = batchStops.slice(1, -1);
-        const waypointCoords = middleStops.map(s => {
-          const geo = clientGeoMap[s.clientId];
-          return `${geo.lat},${geo.lng}`;
-        }).join('|');
-        waypointsParam = `&waypoints=${waypointCoords}`;
+      const intermediates = batchStops.slice(1, -1).map(s => {
+        const geo = clientGeoMap[s.clientId];
+        return {
+          location: {
+            latLng: { latitude: geo.lat, longitude: geo.lng }
+          }
+        };
+      });
+
+      const requestBody: any = {
+        origin: {
+          location: {
+            latLng: { latitude: originGeo.lat, longitude: originGeo.lng }
+          }
+        },
+        destination: {
+          location: {
+            latLng: { latitude: destGeo.lat, longitude: destGeo.lng }
+          }
+        },
+        travelMode: "DRIVE",
+        routingPreference: "TRAFFIC_UNAWARE",
+        units: "IMPERIAL"
+      };
+
+      if (intermediates.length > 0) {
+        requestBody.intermediates = intermediates;
       }
 
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${originGeo.lat},${originGeo.lng}&destination=${destGeo.lat},${destGeo.lng}${waypointsParam}&key=${apiKey}`;
-
       try {
-        const apiResponse = await fetch(url);
+        const apiResponse = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": "routes.legs.duration,routes.legs.distanceMeters"
+          },
+          body: JSON.stringify(requestBody)
+        });
         const data = await apiResponse.json() as any;
 
-        if (data.status === 'OK' && data.routes && data.routes.length > 0) {
+        if (data.routes && data.routes.length > 0 && data.routes[0].legs) {
           const legs = data.routes[0].legs;
           console.log(`[DISPATCH] Driving times: Got ${legs.length} legs for ${batchStops.length} stops`);
           for (let i = 0; i < legs.length; i++) {
             const leg = legs[i];
+            const durationSeconds = leg.duration ? parseInt(leg.duration.replace('s', '')) : 0;
+            const distanceMeters = leg.distanceMeters || 0;
+            const distanceMiles = (distanceMeters / 1609.344).toFixed(1);
+
+            let durationText = 'N/A';
+            if (durationSeconds > 0) {
+              const hours = Math.floor(durationSeconds / 3600);
+              const mins = Math.floor((durationSeconds % 3600) / 60);
+              durationText = hours > 0 ? `${hours} hr ${mins} min` : `${mins} min`;
+            }
+
             drivingTimes.push({
               fromStopId: batchStops[i].id,
               toStopId: batchStops[i + 1].id,
-              durationSeconds: leg.duration?.value || 0,
-              durationText: leg.duration?.text || 'N/A',
-              distanceText: leg.distance?.text || 'N/A',
+              durationSeconds,
+              durationText,
+              distanceText: `${distanceMiles} mi`,
             });
           }
         } else {
-          console.error(`[DISPATCH] Google Maps Directions API returned status: ${data.status}`, data.error_message || '');
+          console.error(`[DISPATCH] Google Routes API error:`, data.error?.message || JSON.stringify(data));
         }
       } catch (apiError) {
-        console.error("[DISPATCH] Google Maps API error for driving times batch:", apiError);
+        console.error("[DISPATCH] Google Routes API error for driving times batch:", apiError);
       }
     }
 
