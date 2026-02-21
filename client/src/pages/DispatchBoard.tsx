@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { format, addDays, subDays } from "date-fns";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
@@ -42,6 +43,7 @@ import {
   MapPin,
   Clock,
   Truck,
+  Route,
   AlertTriangle,
   RefreshCw,
   ChevronLeft,
@@ -125,6 +127,7 @@ function getStatusBadge(status: DispatchTechnician["status"]) {
 export default function DispatchBoard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [emergencyDialogOpen, setEmergencyDialogOpen] = useState(false);
@@ -338,6 +341,15 @@ export default function DispatchBoard() {
           >
             <Zap className="h-4 w-4" />
             Add Emergency Job
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => navigate('/maintenance/routes')}
+          >
+            <Route className="h-4 w-4" />
+            Manage Routes
           </Button>
         </div>
       </div>

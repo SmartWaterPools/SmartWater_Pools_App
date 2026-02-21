@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect, createContext } from 'react';
+import { useLocation } from 'wouter';
 import { 
   Card, 
   CardContent, 
@@ -28,7 +29,8 @@ import {
   PlusCircle, 
   Route, 
   UserCheck,
-  CheckCircle 
+  CheckCircle,
+  Zap 
 } from "lucide-react";
 import { ScrollArea } from "../ui/scroll-area";
 import { createAssignment } from "../../services/bazzaService";
@@ -76,6 +78,7 @@ interface MaintenanceCardProps {
 function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: MaintenanceCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const [isAddingToRoute, setIsAddingToRoute] = useState(false);
   const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
   
@@ -290,7 +293,7 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
           </DropdownMenuContent>
         </DropdownMenu>
         
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" onClick={() => navigate(`/work-orders/${maintenance.id}`)}>
           <FileText className="h-4 w-4 mr-1" />
           Details
         </Button>
@@ -310,6 +313,27 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isExpanded, setIsExpanded] = useState(true);
+  
+  const optimizeRouteMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", `/api/dispatch/optimize-route/${route.id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', route.id] });
+      toast({
+        title: "Route Optimized",
+        description: `The stops in "${route.name}" have been reordered for optimal distance.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Optimization Failed",
+        description: "Failed to optimize the route. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
   
   const { data: clientsList } = useQuery<{ id: number; userId: number; name: string; companyName?: string; address?: string }[]>({
     queryKey: ["/api/clients/client-records"],
@@ -562,7 +586,20 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
             <div className="text-xs text-muted-foreground">
               {route.description || 'No description available'}
             </div>
-            <div className="mt-2 flex justify-end">
+            <div className="mt-2 flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-xs px-2"
+                disabled={stops.length < 2 || optimizeRouteMutation.isPending}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  optimizeRouteMutation.mutate();
+                }}
+              >
+                <Zap className="h-3 w-3 mr-1" />
+                {optimizeRouteMutation.isPending ? "Optimizing..." : "Optimize Route"}
+              </Button>
               <Badge variant="outline" className="text-xs">
                 <Route className="h-3 w-3 mr-1" />
                 View Details
@@ -641,7 +678,6 @@ export default function TechnicianRoutesView({
   const queryClient = useQueryClient();
   const [maintenanceAssignments, setMaintenanceAssignments] = useState<Record<number, boolean>>({});
   const [lastAssignedMaintenanceId, setLastAssignedMaintenanceId] = useState<number | null>(null);
-  const [isAddingGlobal, setIsAddingGlobal] = useState(false);
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [bulkAssignClientId, setBulkAssignClientId] = useState<string>("");
   const [bulkAssignRouteId, setBulkAssignRouteId] = useState<string>("");
@@ -794,73 +830,6 @@ export default function TechnicianRoutesView({
     }
   };
   
-  // Handle "Add All" button click
-  const handleAddAll = async () => {
-    if (unassignedMaintenances.length === 0 || filteredRoutes.length === 0) return;
-    
-    setIsAddingGlobal(true);
-    
-    try {
-      // For each unassigned maintenance, add to the first filtered route
-      for (const maintenance of unassignedMaintenances) {
-        const route = filteredRoutes[0];
-        const date = new Date(maintenance.scheduleDate);
-        
-        const clientId = (maintenance.client as any)?.client?.id || (maintenance.client as any)?.id;
-        if (!maintenance.client || !clientId) {
-          console.error(`Maintenance ${maintenance.id} is missing client information, skipping`);
-          continue;
-        }
-        
-        try {
-          await createAssignment({
-            routeId: route.id,
-            maintenanceId: maintenance.id,
-            date: date.toISOString().split('T')[0],
-            status: "scheduled",
-            notes: null,
-            maintenance
-          });
-          
-          // Mark as assigned in our local state
-          setMaintenanceAssignments(prev => ({
-            ...prev,
-            [maintenance.id]: true
-          }));
-          
-          // Set as the last assigned maintenance
-          setLastAssignedMaintenanceId(maintenance.id);
-          (window as any).lastAssignedMaintenanceId = maintenance.id;
-        } catch (error) {
-          console.error(`Error adding maintenance ${maintenance.id} to route ${route.id}:`, error);
-        }
-      }
-      
-      // Invalidate queries to refresh the UI
-      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/maintenances'] });
-      
-      if (selectedTechnicianId) {
-        queryClient.invalidateQueries({ 
-          queryKey: [`/api/bazza/routes/technician/${selectedTechnicianId}`] 
-        });
-      }
-      
-      toast({
-        title: "Bulk Assignment Complete",
-        description: `Added ${unassignedMaintenances.length} maintenance tasks to the route.`
-      });
-    } catch (error) {
-      console.error("Error in bulk assignment:", error);
-      toast({
-        title: "Error",
-        description: "There was an error adding all maintenances to the route. Some may have been added successfully.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsAddingGlobal(false);
-    }
-  };
   
   return (
     <DndProvider backend={HTML5Backend}>
@@ -969,26 +938,6 @@ export default function TechnicianRoutesView({
               {selectedDay !== 'all' && ` (${selectedDay.charAt(0).toUpperCase() + selectedDay.slice(1)})`}
             </h3>
             
-            {filteredRoutes.length > 0 && unassignedMaintenances.length > 0 && (
-              <Button 
-                onClick={handleAddAll} 
-                variant="outline" 
-                size="sm"
-                disabled={isAddingGlobal}
-              >
-                {isAddingGlobal ? (
-                  <>
-                    <Spinner size="sm" className="mr-2" />
-                    Adding...
-                  </>
-                ) : (
-                  <>
-                    <PlusCircle className="h-4 w-4 mr-2" />
-                    Add All to First Route
-                  </>
-                )}
-              </Button>
-            )}
             <Button 
               onClick={() => setBulkAssignOpen(true)} 
               variant="outline" 

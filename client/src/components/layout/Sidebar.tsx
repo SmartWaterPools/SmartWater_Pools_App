@@ -64,7 +64,6 @@ export function Sidebar({ user: propUser }: SidebarProps) {
   const [isOnDispatch] = useRoute("/dispatch");
   const [isOnProjects] = useRoute("/projects");
   const [isOnMaintenance] = useRoute("/maintenance");
-  const [isOnMaintenanceOrders] = useRoute("/maintenance-orders");
   const [isOnRepairs] = useRoute("/repairs");
   const [isOnClients] = useRoute("/clients");
   const [isOnTechnicians] = useRoute("/technicians");
@@ -84,7 +83,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
     }
   }, [location]);
 
-  const isOnMaintenanceGroup = isOnMaintenance || isOnMaintenanceOrders || location.startsWith('/maintenance');
+  const isOnMaintenanceGroup = isOnMaintenance || location.startsWith('/maintenance');
   const [isMaintenanceExpanded, setIsMaintenanceExpanded] = useState(() => {
     return location.startsWith('/maintenance');
   });
@@ -142,9 +141,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
       case '/repairs':
         return 'Repair';
       case '/work-orders':
-        return 'Scheduling';
-      case '/maintenance-orders':
-        return 'Maintenance Orders';
+        return 'Work Orders';
       case '/clients':
         return 'Clients';
       case '/technicians':
@@ -487,16 +484,6 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                   <CalendarCheck className="h-4 w-4 mr-2" />
                   <span className="text-sm">Maintenance</span>
                 </div>
-                <div
-                  onClick={(e) => handleSidebarNavigation(e, "/maintenance-orders")}
-                  className={cn(
-                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
-                    isOnMaintenanceOrders ? "text-primary font-medium" : "text-gray-600"
-                  )}
-                >
-                  <CalendarRange className="h-4 w-4 mr-2" />
-                  <span className="text-sm">Maint. Orders</span>
-                </div>
               </div>
             )}
           </div>
@@ -538,7 +525,7 @@ export function Sidebar({ user: propUser }: SidebarProps) {
           </div>
           )}
           
-          {/* Scheduling Hub (Work Orders) */}
+          {/* Work Orders */}
           {canView('maintenance') && (
           <div
             onClick={(e) => handleSidebarNavigation(e, "/work-orders")}
@@ -561,14 +548,14 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 "text-sm font-medium",
                 isOnWorkOrders ? "text-primary" : "text-gray-700"
               )}>
-                Scheduling
+                Work Orders
               </span>
             ) : (
               <span className={cn(
                 "text-xs mt-0.5",
                 isOnWorkOrders ? "text-primary font-medium" : "text-gray-500"
               )}>
-                Scheduling
+                Work Orders
               </span>
             )}
           </div>

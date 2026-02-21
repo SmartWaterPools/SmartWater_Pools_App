@@ -19,7 +19,8 @@ import {
   FileBarChart2,
   Map,
   ListFilter,
-  RefreshCw
+  RefreshCw,
+  Truck
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -466,6 +467,18 @@ export default function Maintenance({ defaultTab = 'calendar' }: MaintenanceProp
         <TabsContent value="routes">
           <Card>
             <CardContent className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Technician Routes</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => navigate('/dispatch')}
+                >
+                  <Truck className="h-4 w-4" />
+                  View Dispatch Board
+                </Button>
+              </div>
               <TechnicianRoutesView 
                 technicians={transformedTechnicians}
                 maintenances={filteredMaintenances || []}

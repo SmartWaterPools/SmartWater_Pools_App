@@ -77,7 +77,7 @@ Preferred communication style: Simple, everyday language.
 - **Purpose**: Comprehensive order management for one-time jobs (Work Orders) and recurring schedules (Maintenance Orders).
 - **Features**: Work order requests, parts & labor tracking (with inventory integration), time tracking, team assignment, service templates, recurrence scheduling, route planning.
 - **Integration**: Maintenance orders generate work orders, repair jobs and projects link to work orders, inventory deductions from global and vehicle stock.
-- **Frontend Pages**: Scheduling Hub (List/Calendar/Board/Routes views), Maintenance Orders dashboard, interactive Maintenance Map with multiple filter views, Projects, Repairs, Technicians, and Routes Tab for drag-and-drop route management.
+- **Frontend Pages**: Maintenance hub (Calendar/Map/Routes views), Dispatch Board (daily technician route operations), Work Orders page, interactive Maintenance Map with multiple filter views, Projects, Repairs, Technicians, and Routes Tab for drag-and-drop route management. Maintenance Routes and Dispatch Board share the same underlying data (bazzaRoutes/bazzaRouteStops) with cross-navigation links. Route optimization available via "Optimize Route" button (nearest-neighbor algorithm using haversine distance).
 - **Technician Guided Workflow** (Feb 2026): Step-by-step maintenance checklist wizard (`TechnicianWorkflow` component) activated from WorkOrderDetail. Features include:
   - Progress tracking with completion percentage and step dots navigation
   - Per-step notes persistence
