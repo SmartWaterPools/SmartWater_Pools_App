@@ -45,7 +45,26 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
       .from(bazzaRoutes)
       .where(and(eq(bazzaRoutes.dayOfWeek, dayOfWeek), eq(bazzaRoutes.organizationId, organizationId)));
 
-    const routeIds = dayRoutes.map(r => r.id);
+    const dayRouteIds = dayRoutes.map(r => r.id);
+
+    const dateAssignments = await db
+      .select()
+      .from(bazzaMaintenanceAssignments)
+      .where(eq(bazzaMaintenanceAssignments.date, dateStr));
+
+    const assignedRouteIds = [...new Set(dateAssignments.map(a => a.routeId))];
+    const extraRouteIds = assignedRouteIds.filter(rid => !dayRouteIds.includes(rid));
+
+    let extraRoutes: any[] = [];
+    if (extraRouteIds.length > 0) {
+      extraRoutes = await db
+        .select()
+        .from(bazzaRoutes)
+        .where(inArray(bazzaRoutes.id, extraRouteIds));
+    }
+
+    const allRoutes = [...dayRoutes, ...extraRoutes];
+    const routeIds = allRoutes.map(r => r.id);
 
     let allStops: any[] = [];
     if (routeIds.length > 0) {
@@ -92,10 +111,7 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
       }
     }
 
-    const assignments = await db
-      .select()
-      .from(bazzaMaintenanceAssignments)
-      .where(eq(bazzaMaintenanceAssignments.date, dateStr));
+    const assignments = dateAssignments;
 
     const dayMaintenances = await db
       .select()
@@ -138,14 +154,14 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
       }
     }
 
-    const unassignedJobs = rawUnassigned.map(job => ({
+    const unassignedJobs: any[] = rawUnassigned.map(job => ({
       ...job,
       clientName: job.clientId ? unassignedClientMap[job.clientId]?.name || "Unknown" : "Unknown",
       clientAddress: job.clientId ? unassignedClientMap[job.clientId]?.address || "" : "",
     }));
 
     const techData = allTechnicians.map(tech => {
-      const techRoutes = dayRoutes.filter(r => r.technicianId === tech.id);
+      const techRoutes = allRoutes.filter(r => r.technicianId === tech.id);
       const routesWithStops = techRoutes.map(route => {
         const stops = allStops
           .filter(s => s.routeId === route.id)
@@ -195,6 +211,57 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
         status,
       };
     });
+
+    const visibleWorkOrderIds = new Set<number>();
+    for (const tech of techData) {
+      for (const route of tech.routes) {
+        for (const stop of route.stops) {
+          const stopAssignment = assignments.find(a => a.routeStopId === stop.id);
+          if (stopAssignment) {
+            visibleWorkOrderIds.add(stopAssignment.maintenanceId);
+          }
+        }
+      }
+    }
+    for (const job of unassignedJobs) {
+      visibleWorkOrderIds.add(job.id);
+    }
+
+    const orphanedWorkOrders = dayMaintenances.filter(wo => !visibleWorkOrderIds.has(wo.id));
+    if (orphanedWorkOrders.length > 0) {
+      const orphanClientIds = [...new Set(orphanedWorkOrders.map(j => j.clientId).filter(Boolean))];
+      let orphanClientMap: Record<number, { name: string; address: string }> = {};
+      if (orphanClientIds.length > 0) {
+        const userRows = await db
+          .select({ id: users.id, name: users.name, address: users.address })
+          .from(users)
+          .where(inArray(users.id, orphanClientIds));
+        for (const u of userRows) {
+          orphanClientMap[u.id] = { name: u.name || "Unknown", address: u.address || "" };
+        }
+        const clientRows = await db
+          .select({ id: clients.id, userId: clients.userId })
+          .from(clients)
+          .where(inArray(clients.id, orphanClientIds));
+        for (const c of clientRows) {
+          if (!orphanClientMap[c.id]) {
+            const cUserRows = await db
+              .select({ id: users.id, name: users.name, address: users.address })
+              .from(users)
+              .where(eq(users.id, c.userId));
+            if (cUserRows.length > 0) {
+              orphanClientMap[c.id] = { name: cUserRows[0].name || "Unknown", address: cUserRows[0].address || "" };
+            }
+          }
+        }
+      }
+      const orphanJobs = orphanedWorkOrders.map(job => ({
+        ...job,
+        clientName: job.clientId ? (orphanClientMap[job.clientId]?.name || unassignedClientMap[job.clientId]?.name || "Unknown") : "Unknown",
+        clientAddress: job.clientId ? (orphanClientMap[job.clientId]?.address || unassignedClientMap[job.clientId]?.address || "") : "",
+      }));
+      unassignedJobs.push(...orphanJobs);
+    }
 
     res.json({
       date: dateStr,
