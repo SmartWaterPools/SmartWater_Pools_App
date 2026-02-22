@@ -5,8 +5,8 @@ import { format, addDays, subDays } from "date-fns";
 import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
-import { TouchBackend } from "react-dnd-touch-backend";
+import { MultiBackend } from "react-dnd-multi-backend";
+import { HTML5toTouch } from "rdndmb-html5-to-touch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -330,7 +330,6 @@ export default function DispatchBoard() {
   const [reassignTechName, setReassignTechName] = useState("");
   const [workloadOpen, setWorkloadOpen] = useState(false);
 
-  const isTouchDevice = useMemo(() => typeof window !== "undefined" && ("ontouchstart" in window || navigator.maxTouchPoints > 0), []);
 
   const dateStr = format(selectedDate, "yyyy-MM-dd");
   const weekStartStr = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
@@ -603,7 +602,7 @@ export default function DispatchBoard() {
         </Card>
       </div>
 
-      <DndProvider backend={isTouchDevice ? TouchBackend : HTML5Backend} options={isTouchDevice ? { enableMouseEvents: true, delayTouchStart: 200 } : undefined}>
+      <DndProvider backend={MultiBackend} options={HTML5toTouch}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between">

@@ -49,7 +49,8 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { useDrag, useDrop, DndProvider } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import { MultiBackend } from 'react-dnd-multi-backend';
+import { HTML5toTouch } from 'rdndmb-html5-to-touch';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
 
 // Create context for maintenance assignments
@@ -57,7 +58,8 @@ export const MaintenanceAssignmentsContext = createContext<React.Dispatch<React.
 
 // Define drag and drop item types
 const ItemTypes = {
-  MAINTENANCE: 'maintenance'
+  MAINTENANCE: 'maintenance',
+  ROUTE_STOP: 'route_stop'
 };
 
 type TechnicianRoutesViewProps = {
@@ -305,7 +307,117 @@ function MaintenanceCard({ maintenance, onAddToRoute, availableRoutes }: Mainten
   );
 }
 
-// Droppable route card component
+function DraggableStopRow({ 
+  stop, 
+  index, 
+  totalStops,
+  routeId,
+  clientName, 
+  clientAddress, 
+  reorderStopMutation,
+  drivingTimeMap,
+  drivingTimes
+}: { 
+  stop: any;
+  index: number;
+  totalStops: number;
+  routeId: number;
+  clientName: string;
+  clientAddress?: string;
+  reorderStopMutation: any;
+  drivingTimeMap: Map<number, { durationText: string; distanceText: string }>;
+  drivingTimes: any;
+}) {
+  const [{ isDragging }, drag] = useDrag(() => ({
+    type: ItemTypes.ROUTE_STOP,
+    item: { 
+      type: ItemTypes.ROUTE_STOP,
+      stopId: stop.id, 
+      fromRouteId: routeId,
+      clientName 
+    },
+    collect: (monitor) => ({
+      isDragging: !!monitor.isDragging(),
+    }),
+  }), [stop.id, routeId, clientName]);
+
+  return (
+    <Fragment>
+      <div 
+        ref={drag}
+        className={`flex items-start gap-2 p-2 bg-background rounded-md border border-border/50 text-xs cursor-grab active:cursor-grabbing touch-none ${
+          isDragging ? 'opacity-40 border-dashed border-primary' : ''
+        }`}
+      >
+        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+          {index + 1}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-medium truncate">
+            {clientName}
+          </div>
+          {clientAddress && (
+            <div className="text-muted-foreground mt-0.5 flex items-start gap-0.5">
+              <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
+              <span className="break-words">{clientAddress}</span>
+            </div>
+          )}
+          {(stop.customInstructions || stop.notes) && (
+            <div className="text-muted-foreground truncate mt-0.5">
+              {stop.customInstructions || stop.notes}
+            </div>
+          )}
+          {stop.estimatedDuration && (
+            <div className="text-muted-foreground mt-0.5">
+              <Clock className="h-3 w-3 inline mr-0.5" />
+              {stop.estimatedDuration} min
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col gap-0.5 flex-shrink-0">
+          <button
+            type="button"
+            disabled={index === 0 || reorderStopMutation.isPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              reorderStopMutation.mutate({ stopId: stop.id, newIndex: index - 1 });
+            }}
+            className="p-0.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+          <button
+            type="button"
+            disabled={index === totalStops - 1 || reorderStopMutation.isPending}
+            onClick={(e) => {
+              e.stopPropagation();
+              reorderStopMutation.mutate({ stopId: stop.id, newIndex: index + 1 });
+            }}
+            className="p-0.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        </div>
+      </div>
+      {index < totalStops - 1 && (
+        drivingTimeMap.has(stop.id) ? (
+          <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-muted-foreground">
+            <Car className="h-3 w-3 text-blue-500" />
+            <span>{drivingTimeMap.get(stop.id)!.durationText}</span>
+            <span className="text-muted-foreground/60">·</span>
+            <span className="text-muted-foreground/60">{drivingTimeMap.get(stop.id)!.distanceText}</span>
+          </div>
+        ) : drivingTimes === undefined ? (
+          <div className="flex items-center justify-center gap-1.5 py-0.5 text-xs text-muted-foreground/40">
+            <Car className="h-3 w-3" />
+            <span>...</span>
+          </div>
+        ) : null
+      )}
+    </Fragment>
+  );
+}
+
 interface RouteCardProps {
   route: BazzaRoute;
   onRouteClick: (route: BazzaRoute) => void;
@@ -354,6 +466,33 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
     onError: () => {
       toast({
         title: "Reorder Failed",
+        description: "Could not move the stop. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const moveStopMutation = useMutation({
+    mutationFn: async ({ stopId, fromRouteId, toRouteId }: { stopId: number; fromRouteId: number; toRouteId: number }) => {
+      return await apiRequest("POST", `/api/dispatch/move-stop`, { stopId, fromRouteId, toRouteId });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', route.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', variables.fromRouteId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times", route.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times", variables.fromRouteId] });
+      if (route.technicianId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/technician/${route.technicianId}`] });
+      }
+      toast({
+        title: "Stop Moved",
+        description: `Stop moved to "${route.name}" successfully.`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Move Failed",
         description: "Could not move the stop. Please try again.",
         variant: "destructive",
       });
@@ -417,30 +556,42 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
   const setMaintenanceAssignments = React.useContext(MaintenanceAssignmentsContext);
   
   // Configure drop target
-  const [{ isOver }, drop] = useDrop(() => ({
-    accept: ItemTypes.MAINTENANCE,
-    drop: (item: { maintenanceId: number, maintenance: MaintenanceWithDetails, type: string }) => {
-      console.log("Drop received item:", item);
-      if (item.maintenanceId && item.maintenance) {
-        handleMaintenanceDrop(item.maintenanceId, item.maintenance);
-      } else {
-        console.error("Invalid drop item received:", item);
-        toast({
-          title: "Error",
-          description: "Could not process the dragged item. Please try again.",
-          variant: "destructive"
-        });
+  const [{ isOver, canDrop }, drop] = useDrop(() => ({
+    accept: [ItemTypes.MAINTENANCE, ItemTypes.ROUTE_STOP],
+    drop: (item: any) => {
+      if (item.type === ItemTypes.MAINTENANCE) {
+        if (item.maintenanceId && item.maintenance) {
+          handleMaintenanceDrop(item.maintenanceId, item.maintenance);
+        } else {
+          toast({
+            title: "Error",
+            description: "Could not process the dragged item. Please try again.",
+            variant: "destructive"
+          });
+        }
+        return { routeId: route.id };
+      } else if (item.type === ItemTypes.ROUTE_STOP) {
+        if (item.fromRouteId !== route.id) {
+          moveStopMutation.mutate({
+            stopId: item.stopId,
+            fromRouteId: item.fromRouteId,
+            toRouteId: route.id,
+          });
+        }
+        return { routeId: route.id };
       }
-      return { routeId: route.id };
     },
     collect: (monitor) => ({
       isOver: !!monitor.isOver(),
+      canDrop: !!monitor.canDrop(),
     }),
-    canDrop: (item) => {
-      console.log("Checking if item can be dropped:", item);
+    canDrop: (item: any) => {
+      if (item.type === ItemTypes.ROUTE_STOP) {
+        return item.fromRouteId !== route.id;
+      }
       return true;
     }
-  }));
+  }), [route.id, moveStopMutation]);
   
   // Handle maintenance drop
   const handleMaintenanceDrop = async (maintenanceId: number, maintenance: MaintenanceWithDetails) => {
@@ -581,7 +732,7 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
   
   return (
     <div ref={drop} className={`rounded-lg border transition-colors ${
-      isOver ? 'border-primary border-2 bg-primary/5' : 'border-border'
+      isOver && canDrop ? 'border-primary border-2 bg-primary/5 shadow-lg' : canDrop ? 'border-primary/30 border-dashed' : 'border-border'
     }`}>
       <Card 
         key={route.id} 
@@ -687,76 +838,18 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
           ) : sortedStops.length > 0 ? (
             <div className="space-y-0">
               {sortedStops.map((stop, index) => (
-                <Fragment key={stop.id}>
-                  <div 
-                    className="flex items-start gap-2 p-2 bg-background rounded-md border border-border/50 text-xs"
-                  >
-                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
-                      {index + 1}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">
-                        {clientMap[stop.clientId] || `Client #${stop.clientId}`}
-                      </div>
-                      {clientAddressMap[stop.clientId] && (
-                        <div className="text-muted-foreground mt-0.5 flex items-start gap-0.5">
-                          <MapPin className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                          <span className="break-words">{clientAddressMap[stop.clientId]}</span>
-                        </div>
-                      )}
-                      {(stop.customInstructions || stop.notes) && (
-                        <div className="text-muted-foreground truncate mt-0.5">
-                          {stop.customInstructions || stop.notes}
-                        </div>
-                      )}
-                      {stop.estimatedDuration && (
-                        <div className="text-muted-foreground mt-0.5">
-                          <Clock className="h-3 w-3 inline mr-0.5" />
-                          {stop.estimatedDuration} min
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex flex-col gap-0.5 flex-shrink-0">
-                      <button
-                        type="button"
-                        disabled={index === 0 || reorderStopMutation.isPending}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          reorderStopMutation.mutate({ stopId: stop.id, newIndex: index - 1 });
-                        }}
-                        className="p-0.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={index === sortedStops.length - 1 || reorderStopMutation.isPending}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          reorderStopMutation.mutate({ stopId: stop.id, newIndex: index + 1 });
-                        }}
-                        className="p-0.5 rounded hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed"
-                      >
-                        <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" />
-                      </button>
-                    </div>
-                  </div>
-                  {index < sortedStops.length - 1 && (
-                    drivingTimeMap.has(stop.id) ? (
-                      <div className="flex items-center justify-center gap-1.5 py-1 text-xs text-muted-foreground">
-                        <Car className="h-3 w-3 text-blue-500" />
-                        <span>{drivingTimeMap.get(stop.id)!.durationText}</span>
-                        <span className="text-muted-foreground/60">·</span>
-                        <span className="text-muted-foreground/60">{drivingTimeMap.get(stop.id)!.distanceText}</span>
-                      </div>
-                    ) : drivingTimes === undefined ? (
-                      <div className="flex items-center justify-center gap-1.5 py-0.5 text-xs text-muted-foreground/40">
-                        <Car className="h-3 w-3" />
-                        <span>...</span>
-                      </div>
-                    ) : null
-                  )}
-                </Fragment>
+                <DraggableStopRow
+                  key={stop.id}
+                  stop={stop}
+                  index={index}
+                  totalStops={sortedStops.length}
+                  routeId={route.id}
+                  clientName={clientMap[stop.clientId] || `Client #${stop.clientId}`}
+                  clientAddress={clientAddressMap[stop.clientId]}
+                  reorderStopMutation={reorderStopMutation}
+                  drivingTimeMap={drivingTimeMap}
+                  drivingTimes={drivingTimes}
+                />
               ))}
             </div>
           ) : (
@@ -938,7 +1031,7 @@ export default function TechnicianRoutesView({
   
   
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndProvider backend={MultiBackend} options={HTML5toTouch}>
       <MaintenanceAssignmentsContext.Provider value={setMaintenanceAssignments}>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-3">
