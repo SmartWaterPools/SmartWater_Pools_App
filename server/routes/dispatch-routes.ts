@@ -128,32 +128,20 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
     const unassignedClientIds = [...new Set(rawUnassigned.map(j => j.clientId).filter(Boolean))];
     let unassignedClientMap: Record<number, { name: string; address: string }> = {};
     if (unassignedClientIds.length > 0) {
-      const userRows = await db
-        .select({ id: users.id, name: users.name, address: users.address })
-        .from(users)
-        .where(inArray(users.id, unassignedClientIds));
-      for (const u of userRows) {
-        unassignedClientMap[u.id] = {
-          name: u.name || "Unknown",
-          address: u.address || "",
-        };
-      }
       const clientRows = await db
         .select({ id: clients.id, userId: clients.userId })
         .from(clients)
         .where(inArray(clients.id, unassignedClientIds));
       for (const c of clientRows) {
-        if (!unassignedClientMap[c.id]) {
-          const clientUserRows = await db
-            .select({ id: users.id, name: users.name, address: users.address })
-            .from(users)
-            .where(eq(users.id, c.userId));
-          if (clientUserRows.length > 0) {
-            unassignedClientMap[c.id] = {
-              name: clientUserRows[0].name || "Unknown",
-              address: clientUserRows[0].address || "",
-            };
-          }
+        const clientUserRows = await db
+          .select({ id: users.id, name: users.name, address: users.address })
+          .from(users)
+          .where(eq(users.id, c.userId));
+        if (clientUserRows.length > 0) {
+          unassignedClientMap[c.id] = {
+            name: clientUserRows[0].name || "Unknown",
+            address: clientUserRows[0].address || "",
+          };
         }
       }
     }
@@ -236,26 +224,17 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
       const orphanClientIds = [...new Set(orphanedWorkOrders.map(j => j.clientId).filter(Boolean))];
       let orphanClientMap: Record<number, { name: string; address: string }> = {};
       if (orphanClientIds.length > 0) {
-        const userRows = await db
-          .select({ id: users.id, name: users.name, address: users.address })
-          .from(users)
-          .where(inArray(users.id, orphanClientIds));
-        for (const u of userRows) {
-          orphanClientMap[u.id] = { name: u.name || "Unknown", address: u.address || "" };
-        }
         const clientRows = await db
           .select({ id: clients.id, userId: clients.userId })
           .from(clients)
           .where(inArray(clients.id, orphanClientIds));
         for (const c of clientRows) {
-          if (!orphanClientMap[c.id]) {
-            const cUserRows = await db
-              .select({ id: users.id, name: users.name, address: users.address })
-              .from(users)
-              .where(eq(users.id, c.userId));
-            if (cUserRows.length > 0) {
-              orphanClientMap[c.id] = { name: cUserRows[0].name || "Unknown", address: cUserRows[0].address || "" };
-            }
+          const cUserRows = await db
+            .select({ id: users.id, name: users.name, address: users.address })
+            .from(users)
+            .where(eq(users.id, c.userId));
+          if (cUserRows.length > 0) {
+            orphanClientMap[c.id] = { name: cUserRows[0].name || "Unknown", address: cUserRows[0].address || "" };
           }
         }
       }
