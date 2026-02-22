@@ -271,8 +271,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get all repairs and count by status
       const allRepairs = await storage.getRepairs();
-      // Filter repairs by clients in the organization
-      const orgRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+      // Filter repairs by clients in the organization using client table IDs
+      const allClientRecords = await db.select().from(clients);
+      const orgClientRecords = allClientRecords.filter(c => 
+        c.organizationId === organizationId || clientIds.includes(c.userId)
+      );
+      const clientTableIds = orgClientRecords.map(c => c.id);
+      const orgRepairs = allRepairs.filter(r => clientTableIds.includes(r.clientId));
       
       // Calculate pending repairs
       const pendingRepairs = orgRepairs.filter(r => 
@@ -292,7 +297,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch client and technician details for repairs
       const recentRepairs = await Promise.all(
         recentRepairsRaw.map(async (repair) => {
-          const clientUser = repair.clientId ? await storage.getUser(repair.clientId) : null;
+          const [repairClientRecord] = await db.select().from(clients).where(eq(clients.id, repair.clientId)).limit(1);
+          const clientUser = repairClientRecord ? await storage.getUser(repairClientRecord.userId) : null;
           const technicianUser = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
           
           return {
@@ -1774,18 +1780,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       let organizationRepairs;
       if (user.role === 'client') {
+        const [clientRecord] = await db.select().from(clients).where(eq(clients.userId, user.id)).limit(1);
         const allRepairs = await storage.getRepairs();
-        organizationRepairs = allRepairs.filter(r => r.clientId === user.id);
+        organizationRepairs = clientRecord ? allRepairs.filter(r => r.clientId === clientRecord.id) : [];
       } else {
-        const organizationClients = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
-        const clientIds = organizationClients.map(c => c.id);
+        const orgUsers = await storage.getUsersByRoleAndOrganization('client', user.organizationId);
+        const orgUserIds = orgUsers.map(u => u.id);
+        const allClientRecords = await db.select().from(clients);
+        const orgClientRecords = allClientRecords.filter(c => 
+          c.organizationId === user.organizationId || orgUserIds.includes(c.userId)
+        );
+        const clientTableIds = orgClientRecords.map(c => c.id);
         const allRepairs = await storage.getRepairs();
-        organizationRepairs = allRepairs.filter(r => clientIds.includes(r.clientId));
+        organizationRepairs = allRepairs.filter(r => clientTableIds.includes(r.clientId));
       }
       
       // Format repairs with proper client and technician details matching ClientWithUser structure
       const formattedRepairs = await Promise.all(organizationRepairs.map(async (repair) => {
-        const clientUser = await storage.getUser(repair.clientId);
+        const [clientRecord] = await db.select().from(clients).where(eq(clients.id, repair.clientId)).limit(1);
+        const clientUser = clientRecord ? await storage.getUser(clientRecord.userId) : null;
         const technicianUser = repair.technicianId ? await storage.getUser(repair.technicianId) : null;
         
         return {

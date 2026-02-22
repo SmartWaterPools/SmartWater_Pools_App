@@ -3,7 +3,7 @@ import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertRepairSchema } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,6 +88,7 @@ export function RepairRequestForm({ onClose }: RepairRequestFormProps) {
       return apiRequest("POST", "/api/repairs", dataToSubmit);
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/repairs"] });
       toast({
         title: "Success",
         description: "Repair request submitted successfully",
