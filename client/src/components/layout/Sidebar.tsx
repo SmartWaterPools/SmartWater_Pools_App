@@ -140,6 +140,8 @@ export function Sidebar({ user: propUser }: SidebarProps) {
         return 'Build';
       case '/maintenance':
         return 'Maintenance';
+      case '/maintenance-orders':
+        return 'Maint. Orders';
       case '/repairs':
         return 'Repair';
       case '/work-orders':
@@ -485,6 +487,16 @@ export function Sidebar({ user: propUser }: SidebarProps) {
                 >
                   <CalendarCheck className="h-4 w-4 mr-2" />
                   <span className="text-sm">Maintenance</span>
+                </div>
+                <div
+                  onClick={(e) => handleSidebarNavigation(e, "/maintenance-orders")}
+                  className={cn(
+                    "flex items-center py-1.5 px-3 rounded-md cursor-pointer hover:bg-gray-50",
+                    isOnMaintenanceOrders ? "text-primary font-medium" : "text-gray-600"
+                  )}
+                >
+                  <CalendarRange className="h-4 w-4 mr-2" />
+                  <span className="text-sm">Maint. Orders</span>
                 </div>
               </div>
             )}

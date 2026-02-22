@@ -100,7 +100,7 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
     const dayMaintenances = await db
       .select()
       .from(workOrders)
-      .where(and(eq(workOrders.scheduledDate, dateStr), eq(workOrders.category, 'maintenance'), eq(workOrders.organizationId, organizationId)));
+      .where(and(eq(workOrders.scheduledDate, dateStr), eq(workOrders.organizationId, organizationId)));
 
     const assignedMaintenanceIds = new Set(assignments.map(a => a.maintenanceId));
     const rawUnassigned = dayMaintenances.filter(m => !assignedMaintenanceIds.has(m.id));
@@ -117,6 +117,24 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
           name: u.name || "Unknown",
           address: u.address || "",
         };
+      }
+      const clientRows = await db
+        .select({ id: clients.id, userId: clients.userId })
+        .from(clients)
+        .where(inArray(clients.id, unassignedClientIds));
+      for (const c of clientRows) {
+        if (!unassignedClientMap[c.id]) {
+          const clientUserRows = await db
+            .select({ id: users.id, name: users.name, address: users.address })
+            .from(users)
+            .where(eq(users.id, c.userId));
+          if (clientUserRows.length > 0) {
+            unassignedClientMap[c.id] = {
+              name: clientUserRows[0].name || "Unknown",
+              address: clientUserRows[0].address || "",
+            };
+          }
+        }
       }
     }
 

@@ -97,9 +97,13 @@ interface UnassignedJob {
   clientId: number;
   technicianId: number;
   scheduleDate: string;
+  scheduledDate: string;
   type: string;
+  category: string;
+  title: string;
   status: string;
   notes: string | null;
+  description: string | null;
   clientName: string;
   clientAddress: string;
 }
@@ -868,7 +872,7 @@ export default function DispatchBoard() {
                   <DraggableUnassignedJob key={job.id} job={job}>
                     <Card className="border-amber-200 bg-amber-50/30">
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex items-start justify-between gap-2 mb-1">
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate">{job.clientName}</p>
                             <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
@@ -876,12 +880,20 @@ export default function DispatchBoard() {
                               {job.clientAddress}
                             </p>
                           </div>
-                          <Badge variant="outline" className="text-xs flex-shrink-0 capitalize">
-                            {job.type}
+                          <Badge variant="outline" className={`text-xs flex-shrink-0 capitalize ${
+                            job.category === 'maintenance' ? 'border-blue-300 text-blue-700' :
+                            job.category === 'repair' ? 'border-orange-300 text-orange-700' :
+                            job.category === 'construction' ? 'border-green-300 text-green-700' :
+                            ''
+                          }`}>
+                            {job.category || job.type}
                           </Badge>
                         </div>
-                        {job.notes && (
-                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{job.notes}</p>
+                        {job.title && (
+                          <p className="text-xs font-medium text-gray-600 mb-1 truncate">{job.title}</p>
+                        )}
+                        {(job.notes || job.description) && (
+                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{job.description || job.notes}</p>
                         )}
                         <Select
                           onValueChange={(techId) => {
