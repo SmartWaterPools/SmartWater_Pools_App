@@ -108,24 +108,15 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
     const unassignedClientIds = [...new Set(rawUnassigned.map(j => j.clientId).filter(Boolean))];
     let unassignedClientMap: Record<number, { name: string; address: string }> = {};
     if (unassignedClientIds.length > 0) {
-      const uclientRows = await db
-        .select({ id: clients.id, userId: clients.userId })
-        .from(clients)
-        .where(inArray(clients.id, unassignedClientIds));
-      const uuserIds = uclientRows.map(c => c.userId);
-      if (uuserIds.length > 0) {
-        const uuserRows = await db
-          .select({ id: users.id, name: users.name, address: users.address })
-          .from(users)
-          .where(inArray(users.id, uuserIds));
-        const uuserMap: Record<number, any> = {};
-        for (const u of uuserRows) uuserMap[u.id] = u;
-        for (const c of uclientRows) {
-          unassignedClientMap[c.id] = {
-            name: uuserMap[c.userId]?.name || "Unknown",
-            address: uuserMap[c.userId]?.address || "",
-          };
-        }
+      const userRows = await db
+        .select({ id: users.id, name: users.name, address: users.address })
+        .from(users)
+        .where(inArray(users.id, unassignedClientIds));
+      for (const u of userRows) {
+        unassignedClientMap[u.id] = {
+          name: u.name || "Unknown",
+          address: u.address || "",
+        };
       }
     }
 
@@ -609,9 +600,19 @@ router.post("/assign-job", isAuthenticated, requirePermission('maintenance', 'ed
       return res.status(404).json({ error: "Route not found" });
     }
 
-    const maintenance = await storage.getMaintenance(maintenanceId);
-    if (!maintenance) {
-      return res.status(404).json({ error: "Maintenance job not found" });
+    const workOrderRows = await db.select().from(workOrders).where(eq(workOrders.id, maintenanceId));
+    const workOrder = workOrderRows[0];
+    if (!workOrder) {
+      return res.status(404).json({ error: "Work order not found" });
+    }
+
+    let stopClientId: number | null = null;
+    if (workOrder.clientId) {
+      const clientRows = await db.select().from(clients).where(eq(clients.userId, workOrder.clientId));
+      stopClientId = clientRows[0]?.id || null;
+    }
+    if (!stopClientId) {
+      return res.status(400).json({ error: "Could not find client record for this work order" });
     }
 
     const existingStops = await storage.getBazzaRouteStopsByRouteId(routeId);
@@ -619,19 +620,20 @@ router.post("/assign-job", isAuthenticated, requirePermission('maintenance', 'ed
 
     const newStop = await storage.createBazzaRouteStop({
       routeId,
-      clientId: maintenance.clientId,
+      clientId: stopClientId,
       orderIndex: maxOrder,
       estimatedDuration: 30,
-      customInstructions: maintenance.notes || null,
+      customInstructions: workOrder.description || null,
       addressLat: null,
       addressLng: null,
     });
 
+    const assignmentDate = workOrder.scheduledDate || new Date().toISOString().split("T")[0];
     const assignment = await storage.createBazzaMaintenanceAssignment({
       routeId,
       routeStopId: newStop.id,
       maintenanceId,
-      date: maintenance.scheduleDate,
+      date: assignmentDate,
       status: "scheduled",
       notes: null,
     });
@@ -640,6 +642,103 @@ router.post("/assign-job", isAuthenticated, requirePermission('maintenance', 'ed
   } catch (error) {
     console.error("[DISPATCH] Error assigning job:", error);
     res.status(500).json({ error: "Failed to assign job to route" });
+  }
+});
+
+router.post("/assign-job-to-tech", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
+    const { maintenanceId, technicianId, date } = req.body;
+
+    if (!maintenanceId || !technicianId || !date) {
+      return res.status(400).json({ error: "Missing required fields: maintenanceId, technicianId, date" });
+    }
+
+    const workOrderRows = await db.select().from(workOrders).where(eq(workOrders.id, maintenanceId));
+    const workOrder = workOrderRows[0];
+    if (!workOrder) {
+      return res.status(404).json({ error: "Work order not found" });
+    }
+
+    let stopClientId: number | null = null;
+    if (workOrder.clientId) {
+      const clientRows = await db.select().from(clients).where(eq(clients.userId, workOrder.clientId));
+      stopClientId = clientRows[0]?.id || null;
+    }
+    if (!stopClientId) {
+      return res.status(400).json({ error: "Could not find client record for this work order" });
+    }
+
+    const requestedDate = new Date(date);
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const dayOfWeek = days[requestedDate.getUTCDay()];
+
+    const existingRoutes = await db
+      .select()
+      .from(bazzaRoutes)
+      .where(and(
+        eq(bazzaRoutes.technicianId, technicianId),
+        eq(bazzaRoutes.dayOfWeek, dayOfWeek),
+        eq(bazzaRoutes.organizationId, organizationId)
+      ));
+
+    let route = existingRoutes[0];
+    if (!route) {
+      const techRows = await db
+        .select({ name: users.name })
+        .from(technicians)
+        .innerJoin(users, eq(technicians.userId, users.id))
+        .where(eq(technicians.id, technicianId));
+      const techName = techRows[0]?.name || "Technician";
+
+      route = await storage.createBazzaRoute({
+        name: `${techName} - ${dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1)}`,
+        description: `Auto-created route for ${date}`,
+        type: "maintenance",
+        technicianId,
+        dayOfWeek,
+        organizationId,
+        isRecurring: false,
+        frequency: "weekly",
+        color: null,
+        startTime: null,
+        endTime: null,
+        isActive: true,
+        weekNumber: null,
+      });
+    }
+
+    const existingStops = await storage.getBazzaRouteStopsByRouteId(route.id);
+    const maxOrder = existingStops.length > 0 ? Math.max(...existingStops.map(s => s.orderIndex)) + 1 : 0;
+
+    const newStop = await storage.createBazzaRouteStop({
+      routeId: route.id,
+      clientId: stopClientId,
+      orderIndex: maxOrder,
+      estimatedDuration: 30,
+      customInstructions: workOrder.description || null,
+      addressLat: null,
+      addressLng: null,
+    });
+
+    const assignment = await storage.createBazzaMaintenanceAssignment({
+      routeId: route.id,
+      routeStopId: newStop.id,
+      maintenanceId,
+      date,
+      status: "scheduled",
+      notes: null,
+    });
+
+    res.json({ success: true, route, stop: newStop, assignment });
+  } catch (error) {
+    console.error("[DISPATCH] Error assigning job to technician:", error);
+    res.status(500).json({ error: "Failed to assign job to technician" });
   }
 });
 

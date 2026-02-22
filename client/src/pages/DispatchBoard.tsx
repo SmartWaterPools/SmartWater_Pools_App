@@ -127,6 +127,12 @@ function getStatusBadge(status: DispatchTechnician["status"]) {
 }
 
 const DISPATCH_STOP_TYPE = "DISPATCH_STOP";
+const UNASSIGNED_JOB_TYPE = "UNASSIGNED_JOB";
+
+interface UnassignedJobDragItem {
+  jobId: number;
+  clientName: string;
+}
 
 interface DragItem {
   stopId: number;
@@ -319,6 +325,68 @@ function DroppableRouteArea({
   );
 }
 
+function DraggableUnassignedJob({
+  job,
+  children,
+}: {
+  job: UnassignedJob;
+  children: React.ReactNode;
+}) {
+  const [{ isDragging }, dragRef] = useDrag({
+    type: UNASSIGNED_JOB_TYPE,
+    item: { jobId: job.id, clientName: job.clientName } as UnassignedJobDragItem,
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  return (
+    <div ref={dragRef} className={`cursor-grab active:cursor-grabbing ${isDragging ? "opacity-40" : ""}`}>
+      {children}
+    </div>
+  );
+}
+
+function DroppableTechnicianCard({
+  techId,
+  onDrop,
+  children,
+}: {
+  techId: number;
+  onDrop: (item: UnassignedJobDragItem) => void;
+  children: React.ReactNode;
+}) {
+  const [{ isOver, canDrop }, dropRef] = useDrop({
+    accept: UNASSIGNED_JOB_TYPE,
+    drop: (item: UnassignedJobDragItem) => {
+      onDrop(item);
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  return (
+    <div
+      ref={dropRef}
+      className={`transition-all rounded-lg ${
+        isOver && canDrop
+          ? "ring-2 ring-green-500 bg-green-50 dark:bg-green-950/30"
+          : ""
+      }`}
+    >
+      {children}
+      {isOver && canDrop && (
+        <div className="mx-4 mb-4 p-3 border-2 border-dashed border-green-400 rounded-lg bg-green-50/50 dark:bg-green-950/20 flex items-center justify-center gap-2">
+          <UserPlus className="h-4 w-4 text-green-500" />
+          <span className="text-sm font-medium text-green-600 dark:text-green-400">Assign job to this technician</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DispatchBoard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -422,6 +490,18 @@ export default function DispatchBoard() {
     },
     onError: () => {
       toast({ title: "Move Failed", description: "Could not move stop to the new route.", variant: "destructive" });
+    },
+  });
+
+  const assignToTechMutation = useMutation({
+    mutationFn: (data: { maintenanceId: number; technicianId: number; date: string }) =>
+      apiRequest("POST", "/api/dispatch/assign-job-to-tech", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/dispatch/daily-board?date=${dateStr}`] });
+      toast({ title: "Job Assigned", description: "Job has been assigned to the technician." });
+    },
+    onError: () => {
+      toast({ title: "Assignment Failed", description: "Could not assign job to technician.", variant: "destructive" });
     },
   });
 
@@ -623,8 +703,18 @@ export default function DispatchBoard() {
           )}
 
           {technicians.map((tech) => (
-            <Card
+            <DroppableTechnicianCard
               key={tech.id}
+              techId={tech.id}
+              onDrop={(item) => {
+                assignToTechMutation.mutate({
+                  maintenanceId: item.jobId,
+                  technicianId: tech.id,
+                  date: dateStr,
+                });
+              }}
+            >
+            <Card
               className={`overflow-hidden ${
                 tech.status === "off"
                   ? "opacity-60 border-gray-200"
@@ -744,6 +834,7 @@ export default function DispatchBoard() {
                 )}
               </CardContent>
             </Card>
+            </DroppableTechnicianCard>
           ))}
         </div>
 
@@ -774,41 +865,47 @@ export default function DispatchBoard() {
             <ScrollArea className={unassignedJobs.length > 4 ? "h-[600px]" : ""}>
               <div className="space-y-3">
                 {unassignedJobs.map((job) => (
-                  <Card key={job.id} className="border-amber-200 bg-amber-50/30">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{job.clientName}</p>
-                          <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                            <MapPin className="h-3 w-3 flex-shrink-0" />
-                            {job.clientAddress}
-                          </p>
+                  <DraggableUnassignedJob key={job.id} job={job}>
+                    <Card className="border-amber-200 bg-amber-50/30">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate">{job.clientName}</p>
+                            <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                              <MapPin className="h-3 w-3 flex-shrink-0" />
+                              {job.clientAddress}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-xs flex-shrink-0 capitalize">
+                            {job.type}
+                          </Badge>
                         </div>
-                        <Badge variant="outline" className="text-xs flex-shrink-0 capitalize">
-                          {job.type}
-                        </Badge>
-                      </div>
-                      {job.notes && (
-                        <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{job.notes}</p>
-                      )}
-                      <Select
-                        onValueChange={(routeId) => {
-                          addToRouteMutation.mutate({ maintenanceId: job.id, routeId: Number(routeId) });
-                        }}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue placeholder="Add to route..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allRoutes.map((r) => (
-                            <SelectItem key={r.id} value={String(r.id)}>
-                              {r.techName} — {r.name} ({r.stops.length} stops)
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </CardContent>
-                  </Card>
+                        {job.notes && (
+                          <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{job.notes}</p>
+                        )}
+                        <Select
+                          onValueChange={(techId) => {
+                            assignToTechMutation.mutate({
+                              maintenanceId: job.id,
+                              technicianId: Number(techId),
+                              date: dateStr,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue placeholder="Assign to technician..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {technicians.map((t) => (
+                              <SelectItem key={t.id} value={String(t.id)}>
+                                {t.name} ({t.totalStops} stops · {t.estimatedHours.toFixed(1)}h)
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </CardContent>
+                    </Card>
+                  </DraggableUnassignedJob>
                 ))}
               </div>
             </ScrollArea>
