@@ -482,9 +482,11 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
       queryClient.invalidateQueries({ queryKey: ['/api/bazza/routes/stops', variables.fromRouteId] });
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times", route.id] });
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times", variables.fromRouteId] });
-      if (route.technicianId) {
-        queryClient.invalidateQueries({ queryKey: [`/api/bazza/routes/technician/${route.technicianId}`] });
-      }
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
+      queryClient.invalidateQueries({ predicate: (query) => {
+        const key = query.queryKey[0];
+        return typeof key === 'string' && key.startsWith('/api/bazza/routes/technician');
+      }});
       toast({
         title: "Stop Moved",
         description: `Stop moved to "${route.name}" successfully.`,
@@ -591,7 +593,7 @@ function DroppableRouteCard({ route, onRouteClick, technicians }: RouteCardProps
       }
       return true;
     }
-  }), [route.id, moveStopMutation]);
+  }), [route.id, moveStopMutation, toast]);
   
   // Handle maintenance drop
   const handleMaintenanceDrop = async (maintenanceId: number, maintenance: MaintenanceWithDetails) => {
