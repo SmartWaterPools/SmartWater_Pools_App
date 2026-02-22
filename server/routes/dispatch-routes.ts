@@ -47,21 +47,25 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
 
     const dayRouteIds = dayRoutes.map(r => r.id);
 
-    const dateAssignments = await db
+    const dateAssignmentsRaw = await db
       .select()
       .from(bazzaMaintenanceAssignments)
       .where(eq(bazzaMaintenanceAssignments.date, dateStr));
 
-    const assignedRouteIds = [...new Set(dateAssignments.map(a => a.routeId))];
-    const extraRouteIds = assignedRouteIds.filter(rid => !dayRouteIds.includes(rid));
+    const orgRouteIds = new Set(dayRouteIds);
+    const assignedRouteIds = [...new Set(dateAssignmentsRaw.map(a => a.routeId))];
+    const extraRouteIds = assignedRouteIds.filter(rid => !orgRouteIds.has(rid));
 
     let extraRoutes: any[] = [];
     if (extraRouteIds.length > 0) {
       extraRoutes = await db
         .select()
         .from(bazzaRoutes)
-        .where(inArray(bazzaRoutes.id, extraRouteIds));
+        .where(and(inArray(bazzaRoutes.id, extraRouteIds), eq(bazzaRoutes.organizationId, organizationId)));
     }
+
+    const allOrgRouteIds = new Set([...dayRouteIds, ...extraRoutes.map(r => r.id)]);
+    const dateAssignments = dateAssignmentsRaw.filter(a => allOrgRouteIds.has(a.routeId));
 
     const allRoutes = [...dayRoutes, ...extraRoutes];
     const routeIds = allRoutes.map(r => r.id);
