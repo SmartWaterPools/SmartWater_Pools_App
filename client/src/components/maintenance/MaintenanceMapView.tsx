@@ -815,19 +815,6 @@ export function MaintenanceMapView({
     }
   }, [mapInstance, bounds, displayCards.length]);
 
-  const handleToolChange = useCallback((tool: MapTool) => {
-    setActiveTool(tool);
-    if (tool === 'pointer') {
-      cleanupDrawingOverlays();
-    }
-    if (mapInstance) {
-      mapInstance.setOptions({
-        draggable: tool === 'pointer',
-        draggableCursor: tool === 'pointer' ? undefined : 'crosshair',
-      });
-    }
-  }, [mapInstance, cleanupDrawingOverlays]);
-
   const cleanupDrawingOverlays = useCallback(() => {
     if (lassoOverlayRef.current) {
       lassoOverlayRef.current.setMap(null);
@@ -842,6 +829,19 @@ export function MaintenanceMapView({
     setLassoPoints([]);
     setIsDrawing(false);
   }, []);
+
+  const handleToolChange = useCallback((tool: MapTool) => {
+    setActiveTool(tool);
+    if (tool === 'pointer') {
+      cleanupDrawingOverlays();
+    }
+    if (mapInstance) {
+      mapInstance.setOptions({
+        draggable: tool === 'pointer',
+        draggableCursor: tool === 'pointer' ? undefined : 'crosshair',
+      });
+    }
+  }, [mapInstance, cleanupDrawingOverlays]);
 
   const selectCardsInBounds = useCallback((bounds: google.maps.LatLngBounds) => {
     const newSelected = new Set(selectedCardIds);
