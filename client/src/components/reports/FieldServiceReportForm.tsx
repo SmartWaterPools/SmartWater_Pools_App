@@ -3,7 +3,9 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
-import { Droplets, Wrench, CheckSquare, Beaker, FileText, Plus, Trash2, Loader2 } from "lucide-react";
+import { Droplets, Wrench, CheckSquare, Beaker, FileText, Plus, Trash2, Loader2, AlertTriangle, Send, Mail } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -16,6 +18,45 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+
+const PREDEFINED_ISSUES: Record<string, string[]> = {
+  "Water Quality": [
+    "Green pool", "Cloudy water", "Algae buildup", "Discolored water",
+    "Foam on surface", "Strong chlorine smell", "Low water level", "High water level"
+  ],
+  "Equipment - Pump": [
+    "Pump not running", "Pump making noise", "Pump leaking", "Low flow rate", "Air in pump basket"
+  ],
+  "Equipment - Filter": [
+    "High filter pressure", "Filter leaking", "Filter needs replacement", "Broken filter gauge"
+  ],
+  "Equipment - Heater": [
+    "Heater not firing", "Heater error code", "Heater leaking", "Low heat output"
+  ],
+  "Equipment - Salt System": [
+    "Salt cell needs cleaning", "Salt cell needs replacement", "Low salt reading", "Salt system error"
+  ],
+  "Pool Surface": [
+    "Cracked plaster", "Staining", "Scaling", "Tile damage", "Missing tiles", "Coping damage"
+  ],
+  "Safety & Structure": [
+    "Broken drain cover", "Fence/gate issue", "Missing safety equipment", "Deck damage",
+    "Leak detected", "Light not working"
+  ],
+  "Cleaner": [
+    "Cleaner not moving", "Cleaner stuck", "Hose tangled", "Cleaner needs repair"
+  ],
+  "Skimmer & Plumbing": [
+    "Skimmer cracked", "Skimmer basket broken", "Return fitting loose", "Valve stuck", "Plumbing leak"
+  ],
+};
+
+type IssueEntry = {
+  category: string;
+  description: string;
+  severity: "low" | "medium" | "high" | "critical";
+  notes: string;
+};
 
 const DEFAULT_CHECKLIST_ITEMS = [
   "Skim surface debris",
@@ -76,6 +117,13 @@ const fieldServiceReportSchema = z.object({
 
   chemicals: z.array(chemicalSchema).optional(),
 
+  issues: z.array(z.object({
+    category: z.string(),
+    description: z.string(),
+    severity: z.enum(["low", "medium", "high", "critical"]).default("medium"),
+    notes: z.string().optional(),
+  })).optional(),
+
   techNotes: z.string().optional(),
   recommendations: z.string().optional(),
   followUpRequired: z.boolean().default(false),
@@ -111,6 +159,184 @@ function getConditionColor(value: string): string {
   return "";
 }
 
+interface SliderFieldConfig {
+  min: number;
+  max: number;
+  step: number;
+  idealMin: number;
+  idealMax: number;
+  unit?: string;
+}
+
+const WATER_CHEMISTRY_SLIDERS: Record<string, SliderFieldConfig> = {
+  phLevel: { min: 0, max: 14, step: 0.1, idealMin: 7.2, idealMax: 7.6 },
+  freeChlorine: { min: 0, max: 10, step: 0.1, idealMin: 1, idealMax: 3, unit: "ppm" },
+  combinedChlorine: { min: 0, max: 1, step: 0.1, idealMin: 0, idealMax: 0.5, unit: "ppm" },
+  alkalinity: { min: 0, max: 300, step: 1, idealMin: 80, idealMax: 120, unit: "ppm" },
+  calciumHardness: { min: 0, max: 1000, step: 1, idealMin: 200, idealMax: 400, unit: "ppm" },
+  cyanuricAcid: { min: 0, max: 150, step: 1, idealMin: 30, idealMax: 50, unit: "ppm" },
+  tds: { min: 0, max: 5000, step: 1, idealMin: 0, idealMax: 3000, unit: "ppm" },
+  saltLevel: { min: 0, max: 6000, step: 100, idealMin: 2700, idealMax: 3400, unit: "ppm" },
+  phosphateLevel: { min: 0, max: 2000, step: 10, idealMin: 0, idealMax: 100, unit: "ppb" },
+  waterTemperature: { min: 40, max: 110, step: 1, idealMin: 78, idealMax: 84, unit: "°F" },
+};
+
+function getSliderColor(value: number | "", config: SliderFieldConfig): string {
+  if (value === "" || value === undefined || value === null) return "bg-muted";
+  const v = Number(value);
+  if (v >= config.idealMin && v <= config.idealMax) return "bg-emerald-500";
+  const rangeSize = config.idealMax - config.idealMin;
+  const buffer = Math.max(rangeSize * 0.5, (config.max - config.min) * 0.05);
+  if (v >= config.idealMin - buffer && v <= config.idealMax + buffer) return "bg-amber-500";
+  return "bg-red-500";
+}
+
+function getSliderTextColor(value: number | "", config: SliderFieldConfig): string {
+  if (value === "" || value === undefined || value === null) return "text-muted-foreground";
+  const v = Number(value);
+  if (v >= config.idealMin && v <= config.idealMax) return "text-emerald-600 dark:text-emerald-400";
+  const rangeSize = config.idealMax - config.idealMin;
+  const buffer = Math.max(rangeSize * 0.5, (config.max - config.min) * 0.05);
+  if (v >= config.idealMin - buffer && v <= config.idealMax + buffer) return "text-amber-600 dark:text-amber-400";
+  return "text-red-600 dark:text-red-400";
+}
+
+function getSliderTrackHex(value: number | "", config: SliderFieldConfig): string {
+  if (value === "" || value === undefined || value === null) return "#94a3b8";
+  const v = Number(value);
+  if (v >= config.idealMin && v <= config.idealMax) return "#10b981";
+  const rangeSize = config.idealMax - config.idealMin;
+  const buffer = Math.max(rangeSize * 0.5, (config.max - config.min) * 0.05);
+  if (v >= config.idealMin - buffer && v <= config.idealMax + buffer) return "#f59e0b";
+  return "#ef4444";
+}
+
+function ChemistrySliderField({
+  label,
+  value,
+  onChange,
+  config,
+  idealLabel,
+}: {
+  label: string;
+  value: number | "";
+  onChange: (val: number | "") => void;
+  config: SliderFieldConfig;
+  idealLabel: string;
+}) {
+  const numValue = value === "" || value === undefined || value === null ? config.min : Number(value);
+  const hasValue = value !== "" && value !== undefined && value !== null;
+  const textColor = getSliderTextColor(value, config);
+  const trackHex = getSliderTrackHex(value, config);
+
+  const idealLeftPct = ((config.idealMin - config.min) / (config.max - config.min)) * 100;
+  const idealWidthPct = ((config.idealMax - config.idealMin) / (config.max - config.min)) * 100;
+
+  return (
+    <div className="space-y-2 p-3 rounded-lg border bg-card">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        <span className={`text-lg font-bold tabular-nums ${textColor}`}>
+          {hasValue ? numValue : "—"}
+          {hasValue && config.unit && <span className="text-xs font-normal ml-0.5">{config.unit}</span>}
+        </span>
+      </div>
+      <div className="relative pt-1">
+        <div
+          className="absolute h-2 rounded-full bg-emerald-200 dark:bg-emerald-900/40 top-1 z-0 pointer-events-none"
+          style={{ left: `${idealLeftPct}%`, width: `${idealWidthPct}%` }}
+        />
+        <Slider
+          min={config.min}
+          max={config.max}
+          step={config.step}
+          value={[numValue]}
+          onValueChange={([v]) => onChange(v)}
+          className="relative z-10"
+          style={{ ["--slider-track-color" as string]: trackHex }}
+        />
+      </div>
+      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>{config.min}</span>
+        <span className="text-emerald-600 dark:text-emerald-400 font-medium">{idealLabel}</span>
+        <span>{config.max}</span>
+      </div>
+    </div>
+  );
+}
+
+interface EquipmentSliderProps {
+  label: string;
+  value: number | string;
+  onChange: (val: number | string) => void;
+  min: number;
+  max: number;
+  step: number;
+  unit: string;
+  idealMin?: number;
+  idealMax?: number;
+}
+
+function EquipmentSlider({ label, value, onChange, min, max, step, unit, idealMin, idealMax }: EquipmentSliderProps) {
+  const numVal = value === "" || value === undefined ? undefined : Number(value);
+  const hasValue = numVal !== undefined && !isNaN(numVal);
+
+  const getColor = () => {
+    if (!hasValue || idealMin === undefined || idealMax === undefined) return "text-muted-foreground";
+    if (numVal! >= idealMin && numVal! <= idealMax) return "text-emerald-600 dark:text-emerald-400";
+    const lowThreshold = idealMin - (idealMax - idealMin) * 0.5;
+    const highThreshold = idealMax + (idealMax - idealMin) * 0.5;
+    if (numVal! >= lowThreshold && numVal! <= highThreshold) return "text-amber-600 dark:text-amber-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  const getTrackColor = () => {
+    if (!hasValue || idealMin === undefined || idealMax === undefined) return "bg-primary";
+    if (numVal! >= idealMin && numVal! <= idealMax) return "bg-emerald-500";
+    const lowThreshold = idealMin - (idealMax - idealMin) * 0.5;
+    const highThreshold = idealMax + (idealMax - idealMin) * 0.5;
+    if (numVal! >= lowThreshold && numVal! <= highThreshold) return "bg-amber-500";
+    return "bg-red-500";
+  };
+
+  const idealLeftPct = idealMin !== undefined ? ((idealMin - min) / (max - min)) * 100 : 0;
+  const idealWidthPct = idealMin !== undefined && idealMax !== undefined ? ((idealMax - idealMin) / (max - min)) * 100 : 0;
+
+  return (
+    <div className="space-y-3 p-3 rounded-lg border bg-muted/20">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium">{label}</span>
+        <span className={`text-lg font-bold tabular-nums ${getColor()}`}>
+          {hasValue ? `${numVal}` : "—"} <span className="text-xs font-normal text-muted-foreground">{unit}</span>
+        </span>
+      </div>
+      <div className="relative">
+        {idealMin !== undefined && idealMax !== undefined && (
+          <div
+            className="absolute top-1/2 -translate-y-1/2 h-2 bg-emerald-200/50 dark:bg-emerald-800/50 rounded-full pointer-events-none z-0"
+            style={{ left: `${idealLeftPct}%`, width: `${idealWidthPct}%` }}
+          />
+        )}
+        <Slider
+          value={hasValue ? [numVal!] : [min]}
+          onValueChange={(vals) => onChange(vals[0])}
+          min={min}
+          max={max}
+          step={step}
+          className={`relative z-10 [&_[role=slider]]:border-2 ${hasValue ? `[&_span:first-child_span]:${getTrackColor()}` : ""}`}
+        />
+      </div>
+      <div className="flex justify-between text-[10px] text-muted-foreground">
+        <span>{min}</span>
+        {idealMin !== undefined && idealMax !== undefined && (
+          <span className="text-emerald-600 dark:text-emerald-400 font-medium">Ideal: {idealMin}–{idealMax}</span>
+        )}
+        <span>{max}</span>
+      </div>
+    </div>
+  );
+}
+
 export function FieldServiceReportForm({
   open,
   onOpenChange,
@@ -124,6 +350,7 @@ export function FieldServiceReportForm({
 }: FieldServiceReportFormProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("water-chemistry");
+  const [selectedIssues, setSelectedIssues] = useState<IssueEntry[]>([]);
 
   const parsedChecklist: string[] = (() => {
     if (checklistItems) {
@@ -170,6 +397,7 @@ export function FieldServiceReportForm({
         notes: "",
       })),
       chemicals: [],
+      issues: [],
       techNotes: "",
       recommendations: "",
       followUpRequired: false,
@@ -193,6 +421,58 @@ export function FieldServiceReportForm({
     (sum, c) => sum + (Number(c.costDollars) || 0),
     0
   );
+
+  function toggleIssue(category: string, description: string) {
+    setSelectedIssues(prev => {
+      const exists = prev.find(i => i.category === category && i.description === description);
+      let updated: IssueEntry[];
+      if (exists) {
+        updated = prev.filter(i => !(i.category === category && i.description === description));
+      } else {
+        updated = [...prev, { category, description, severity: "medium", notes: "" }];
+      }
+      form.setValue("issues", updated);
+      return updated;
+    });
+  }
+
+  function updateIssueSeverity(category: string, description: string, severity: IssueEntry["severity"]) {
+    setSelectedIssues(prev => {
+      const updated = prev.map(i =>
+        i.category === category && i.description === description ? { ...i, severity } : i
+      );
+      form.setValue("issues", updated);
+      return updated;
+    });
+  }
+
+  function updateIssueNotes(category: string, description: string, notes: string) {
+    setSelectedIssues(prev => {
+      const updated = prev.map(i =>
+        i.category === category && i.description === description ? { ...i, notes } : i
+      );
+      form.setValue("issues", updated);
+      return updated;
+    });
+  }
+
+  function isIssueSelected(category: string, description: string): boolean {
+    return selectedIssues.some(i => i.category === category && i.description === description);
+  }
+
+  function getSelectedIssue(category: string, description: string): IssueEntry | undefined {
+    return selectedIssues.find(i => i.category === category && i.description === description);
+  }
+
+  function getSeverityColor(severity: string): string {
+    switch (severity) {
+      case "low": return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
+      case "medium": return "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+      case "high": return "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400";
+      case "critical": return "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400";
+      default: return "";
+    }
+  }
 
   useEffect(() => {
     if (open) {
@@ -229,6 +509,7 @@ export function FieldServiceReportForm({
           notes: "",
         })),
         chemicals: [],
+        issues: [],
         techNotes: "",
         recommendations: "",
         followUpRequired: false,
@@ -239,6 +520,7 @@ export function FieldServiceReportForm({
         overallCondition: "",
       });
       setActiveTab("water-chemistry");
+      setSelectedIssues([]);
     }
   }, [open]);
 
@@ -299,12 +581,31 @@ export function FieldServiceReportForm({
         customerPresent: values.customerPresent,
         customerNotes: values.customerNotes || null,
         overallCondition: values.overallCondition || null,
+        issues: JSON.stringify(values.issues || []),
       };
 
       return await apiRequest("POST", "/api/service-reports", payload);
     },
-    onSuccess: () => {
+    onSuccess: async (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/service-reports"] });
+      let reportId: number | undefined;
+      try {
+        const savedReport = await response.json();
+        reportId = savedReport?.id;
+      } catch {}
+
+      if (sendAction === "report" && reportId) {
+        sendReportMutation.mutate(reportId);
+        setSendAction("none");
+        return;
+      }
+      if (sendAction === "issues" && reportId) {
+        sendIssuesMutation.mutate(reportId);
+        setSendAction("none");
+        return;
+      }
+
+      setSendAction("none");
       toast({
         title: "Service Report Submitted",
         description: "Field service report has been saved successfully.",
@@ -313,6 +614,7 @@ export function FieldServiceReportForm({
       onOpenChange(false);
     },
     onError: (error: Error) => {
+      setSendAction("none");
       toast({
         title: "Error",
         description: error.message || "Failed to submit service report.",
@@ -321,7 +623,65 @@ export function FieldServiceReportForm({
     },
   });
 
+  const [sendAction, setSendAction] = useState<"none" | "report" | "issues">("none");
+
+  const sendReportMutation = useMutation({
+    mutationFn: async (reportId: number) => {
+      const res = await apiRequest("POST", `/api/service-reports/${reportId}/send`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.emailWarning) {
+        toast({ title: "Report Saved", description: data.emailWarning, variant: "destructive" });
+      } else {
+        toast({ title: "Report Sent", description: "Service report has been emailed to the customer." });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/service-reports"] });
+      onSuccess?.();
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to send report.", variant: "destructive" });
+    },
+  });
+
+  const sendIssuesMutation = useMutation({
+    mutationFn: async (reportId: number) => {
+      const res = await apiRequest("POST", `/api/service-reports/${reportId}/send-issues`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.emailWarning) {
+        toast({ title: "Report Saved", description: data.emailWarning, variant: "destructive" });
+      } else {
+        toast({ title: "Issue Report Sent", description: "Issue notification has been emailed to the customer." });
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/service-reports"] });
+      onSuccess?.();
+      onOpenChange(false);
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to send issue report.", variant: "destructive" });
+    },
+  });
+
   function onSubmit(values: FieldServiceReportValues) {
+    submitMutation.mutate(values);
+  }
+
+  async function handleSendReport() {
+    const isValid = await form.trigger();
+    if (!isValid) return;
+    setSendAction("report");
+    const values = form.getValues();
+    submitMutation.mutate(values);
+  }
+
+  async function handleSendIssues() {
+    const isValid = await form.trigger();
+    if (!isValid) return;
+    setSendAction("issues");
+    const values = form.getValues();
     submitMutation.mutate(values);
   }
 
@@ -341,7 +701,7 @@ export function FieldServiceReportForm({
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-5 h-auto">
+              <TabsList className="grid w-full grid-cols-6 h-auto">
                 <TabsTrigger value="water-chemistry" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
                   <Droplets className="h-3.5 w-3.5 text-cyan-600" />
                   <span className="hidden sm:inline">Water</span>
@@ -357,6 +717,15 @@ export function FieldServiceReportForm({
                 <TabsTrigger value="chemicals" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
                   <Beaker className="h-3.5 w-3.5 text-purple-600" />
                   <span className="hidden sm:inline">Chemicals</span>
+                </TabsTrigger>
+                <TabsTrigger value="issues" className="flex items-center gap-1.5 text-xs sm:text-sm py-2 relative">
+                  <AlertTriangle className="h-3.5 w-3.5 text-red-600" />
+                  <span className="hidden sm:inline">Issues</span>
+                  {selectedIssues.length > 0 && (
+                    <Badge variant="destructive" className="h-5 min-w-[20px] px-1 text-[10px] absolute -top-1 -right-1">
+                      {selectedIssues.length}
+                    </Badge>
+                  )}
                 </TabsTrigger>
                 <TabsTrigger value="notes" className="flex items-center gap-1.5 text-xs sm:text-sm py-2">
                   <FileText className="h-3.5 w-3.5 text-slate-600" />
@@ -374,17 +743,21 @@ export function FieldServiceReportForm({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <FormField
                         control={form.control}
                         name="phLevel"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>pH Level</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="0.1" min="0" max="14" placeholder="7.4" {...field} />
+                              <ChemistrySliderField
+                                label="pH Level"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.phLevel}
+                                idealLabel="Ideal: 7.2–7.6"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: 7.2–7.6 (range 6.8–8.2)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -393,12 +766,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="freeChlorine"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Free Chlorine (ppm)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="0.1" min="0" max="10" placeholder="2.0" {...field} />
+                              <ChemistrySliderField
+                                label="Free Chlorine (ppm)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.freeChlorine}
+                                idealLabel="Ideal: 1–3 ppm"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: 1–3 ppm (range 0–10)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -407,12 +784,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="combinedChlorine"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Combined Chlorine (ppm)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="0.1" min="0" max="1" placeholder="0.2" {...field} />
+                              <ChemistrySliderField
+                                label="Combined Chlorine (ppm)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.combinedChlorine}
+                                idealLabel="Ideal: <0.5 ppm"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: &lt;0.5 ppm (range 0–1)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -421,12 +802,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="alkalinity"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Alkalinity (ppm)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="1" min="0" max="300" placeholder="100" {...field} />
+                              <ChemistrySliderField
+                                label="Alkalinity (ppm)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.alkalinity}
+                                idealLabel="Ideal: 80–120 ppm"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: 80–120 ppm (range 0–300)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -435,12 +820,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="calciumHardness"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Calcium Hardness (ppm)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="1" min="0" max="1000" placeholder="300" {...field} />
+                              <ChemistrySliderField
+                                label="Calcium Hardness (ppm)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.calciumHardness}
+                                idealLabel="Ideal: 200–400 ppm"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: 200–400 ppm (range 0–1000)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -449,12 +838,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="cyanuricAcid"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cyanuric Acid (ppm)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="1" min="0" max="150" placeholder="40" {...field} />
+                              <ChemistrySliderField
+                                label="Cyanuric Acid (ppm)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.cyanuricAcid}
+                                idealLabel="Ideal: 30–50 ppm"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: 30–50 ppm (range 0–150)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -463,12 +856,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="tds"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>TDS (ppm)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="1" min="0" max="5000" placeholder="1000" {...field} />
+                              <ChemistrySliderField
+                                label="TDS (ppm)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.tds}
+                                idealLabel="Ideal: <3000 ppm"
+                              />
                             </FormControl>
-                            <FormDescription>Total Dissolved Solids (range 0–5000)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -477,12 +874,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="saltLevel"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Salt Level (ppm)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="100" min="0" max="6000" placeholder="3200" {...field} />
+                              <ChemistrySliderField
+                                label="Salt Level (ppm)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.saltLevel}
+                                idealLabel="Ideal: 2700–3400 ppm"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: 2700–3400 ppm (range 0–6000)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -491,12 +892,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="phosphateLevel"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phosphate Level (ppb)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="10" min="0" max="2000" placeholder="50" {...field} />
+                              <ChemistrySliderField
+                                label="Phosphate Level (ppb)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.phosphateLevel}
+                                idealLabel="Ideal: <100 ppb"
+                              />
                             </FormControl>
-                            <FormDescription>Ideal: &lt;100 ppb (range 0–2000)</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -505,12 +910,16 @@ export function FieldServiceReportForm({
                         control={form.control}
                         name="waterTemperature"
                         render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Water Temperature (°F)</FormLabel>
+                          <FormItem className="space-y-0">
                             <FormControl>
-                              <Input type="number" step="1" placeholder="82" {...field} />
+                              <ChemistrySliderField
+                                label="Water Temperature (°F)"
+                                value={field.value as number | ""}
+                                onChange={field.onChange}
+                                config={WATER_CHEMISTRY_SLIDERS.waterTemperature}
+                                idealLabel="Ideal: 78–84°F"
+                              />
                             </FormControl>
-                            <FormDescription>Current water temperature</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
@@ -576,9 +985,18 @@ export function FieldServiceReportForm({
                         name="filterPressurePsi"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Filter Pressure (PSI)</FormLabel>
                             <FormControl>
-                              <Input type="number" step="1" min="0" placeholder="12" {...field} />
+                              <EquipmentSlider
+                                label="Filter Pressure (PSI)"
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                min={0}
+                                max={50}
+                                step={1}
+                                unit="PSI"
+                                idealMin={8}
+                                idealMax={20}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -634,9 +1052,18 @@ export function FieldServiceReportForm({
                         name="pumpFlowRate"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Pump Flow Rate (GPM)</FormLabel>
                             <FormControl>
-                              <Input type="number" step="1" min="0" placeholder="40" {...field} />
+                              <EquipmentSlider
+                                label="Pump Flow Rate (GPM)"
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                min={0}
+                                max={120}
+                                step={1}
+                                unit="GPM"
+                                idealMin={30}
+                                idealMax={60}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -682,9 +1109,18 @@ export function FieldServiceReportForm({
                         name="heaterTemperature"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Heater Temperature (°F)</FormLabel>
                             <FormControl>
-                              <Input type="number" step="1" placeholder="84" {...field} />
+                              <EquipmentSlider
+                                label="Heater Temperature (°F)"
+                                value={field.value ?? ""}
+                                onChange={field.onChange}
+                                min={40}
+                                max={110}
+                                step={1}
+                                unit="°F"
+                                idealMin={78}
+                                idealMax={84}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -1068,6 +1504,106 @@ export function FieldServiceReportForm({
                 </Card>
               </TabsContent>
 
+              {/* Issues Tab */}
+              <TabsContent value="issues" className="space-y-4 mt-4">
+                <Card className="border-red-200 dark:border-red-800">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base flex items-center gap-2 text-red-700 dark:text-red-400">
+                      <AlertTriangle className="h-4 w-4" />
+                      Report Issues
+                      {selectedIssues.length > 0 && (
+                        <Badge variant="destructive" className="ml-2">
+                          {selectedIssues.length} selected
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {Object.entries(PREDEFINED_ISSUES).map(([category, issues]) => (
+                      <div key={category}>
+                        <h4 className="text-sm font-semibold text-muted-foreground mb-2">{category}</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {issues.map((issue) => {
+                            const selected = isIssueSelected(category, issue);
+                            const issueData = getSelectedIssue(category, issue);
+                            return (
+                              <div
+                                key={`${category}-${issue}`}
+                                className={`rounded-lg border p-3 cursor-pointer transition-all ${
+                                  selected
+                                    ? "border-red-400 bg-red-50 dark:bg-red-950/20 dark:border-red-700 ring-1 ring-red-400"
+                                    : "border-border hover:border-muted-foreground/50 hover:bg-muted/50"
+                                }`}
+                                onClick={() => toggleIssue(category, issue)}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className={`text-sm font-medium ${selected ? "text-red-700 dark:text-red-400" : ""}`}>
+                                    {issue}
+                                  </span>
+                                  {selected && (
+                                    <AlertTriangle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                                  )}
+                                </div>
+                                {selected && issueData && (
+                                  <div className="mt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
+                                    <Select
+                                      value={issueData.severity}
+                                      onValueChange={(val) => updateIssueSeverity(category, issue, val as IssueEntry["severity"])}
+                                    >
+                                      <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="low">
+                                          <span className="text-blue-600">Low</span>
+                                        </SelectItem>
+                                        <SelectItem value="medium">
+                                          <span className="text-amber-600">Medium</span>
+                                        </SelectItem>
+                                        <SelectItem value="high">
+                                          <span className="text-orange-600">High</span>
+                                        </SelectItem>
+                                        <SelectItem value="critical">
+                                          <span className="text-red-600">Critical</span>
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <Input
+                                      placeholder="Optional notes..."
+                                      className="h-8 text-xs"
+                                      value={issueData.notes || ""}
+                                      onChange={(e) => updateIssueNotes(category, issue, e.target.value)}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+
+                    {selectedIssues.length > 0 && (
+                      <div className="mt-4 pt-4 border-t">
+                        <h4 className="text-sm font-semibold mb-2">Selected Issues Summary</h4>
+                        <div className="space-y-1">
+                          {selectedIssues.map((issue, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <Badge className={`text-[10px] ${getSeverityColor(issue.severity)}`}>
+                                {issue.severity}
+                              </Badge>
+                              <span className="font-medium">{issue.description}</span>
+                              <span className="text-muted-foreground text-xs">({issue.category})</span>
+                              {issue.notes && <span className="text-muted-foreground text-xs">— {issue.notes}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
               {/* Notes & Recommendations Tab */}
               <TabsContent value="notes" className="space-y-4 mt-4">
                 <Card>
@@ -1244,29 +1780,76 @@ export function FieldServiceReportForm({
               </TabsContent>
             </Tabs>
 
-            <DialogFooter className="pt-4 border-t gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={submitMutation.isPending}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={submitMutation.isPending}
-                className="min-w-[140px]"
-              >
-                {submitMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  "Submit Report"
-                )}
-              </Button>
+            <DialogFooter className="pt-4 border-t">
+              <div className="flex flex-col sm:flex-row w-full gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={submitMutation.isPending || sendReportMutation.isPending || sendIssuesMutation.isPending}
+                >
+                  Cancel
+                </Button>
+                <div className="flex-1" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSendIssues}
+                  disabled={submitMutation.isPending || sendReportMutation.isPending || sendIssuesMutation.isPending || selectedIssues.length === 0}
+                  className="border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-950"
+                >
+                  {sendIssuesMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="mr-2 h-4 w-4" />
+                      Send Issues
+                      {selectedIssues.length > 0 && (
+                        <Badge variant="destructive" className="ml-2 h-5 px-1.5 text-[10px]">{selectedIssues.length}</Badge>
+                      )}
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleSendReport}
+                  disabled={submitMutation.isPending || sendReportMutation.isPending || sendIssuesMutation.isPending}
+                  className="border-cyan-300 text-cyan-700 hover:bg-cyan-50 dark:border-cyan-700 dark:text-cyan-400 dark:hover:bg-cyan-950"
+                >
+                  {sendReportMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Send Report
+                    </>
+                  )}
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitMutation.isPending || sendReportMutation.isPending || sendIssuesMutation.isPending}
+                  className="min-w-[140px]"
+                >
+                  {submitMutation.isPending && sendAction === "none" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="mr-2 h-4 w-4" />
+                      Submit Report
+                    </>
+                  )}
+                </Button>
+              </div>
             </DialogFooter>
           </form>
         </Form>

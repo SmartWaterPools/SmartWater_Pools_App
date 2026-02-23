@@ -1764,6 +1764,9 @@ export const serviceReports = pgTable("service_reports", {
   waterLevel: text("water_level"), // 'normal', 'low', 'high'
   skimmerCondition: text("skimmer_condition"), // 'clear', 'debris', 'damaged'
 
+  // Issues Reported - JSON array of issues flagged by technician
+  issues: text("issues"), // JSON: [{category, issue, severity, notes}]
+
   // Checklist - JSON array of completed items from template
   checklistItems: text("checklist_items"), // JSON: [{name, completed, notes}]
 

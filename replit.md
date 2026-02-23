@@ -83,6 +83,10 @@ Preferred communication style: Simple, everyday language.
 
 ### Field Service Reports
 - Comprehensive reporting for technicians to capture water chemistry, equipment status, chemicals applied, checklist items, photos, notes, and customer signatures.
+- **Issues Tab**: Techs can flag predefined issues organized by category (Water Quality, Equipment, Pool Surface, Safety & Structure, Cleaner, Skimmer & Plumbing) with severity levels and notes.
+- **Slider Inputs**: Numeric fields (water chemistry readings, equipment metrics) use interactive sliders with color-coded ideal range indicators.
+- **Send Report to Customer**: Emails a professional service report summary to the client via Gmail.
+- **Send Issue Report to Customer**: Sends a separate issue notification email to the client with severity badges and urgency banners for critical/high issues.
 
 # External Dependencies
 
