@@ -300,7 +300,7 @@ export default function Register() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex justify-center">
+        <CardFooter className="flex flex-col space-y-2">
           <Button 
             variant="link" 
             className="px-0" 
@@ -309,6 +309,11 @@ export default function Register() {
           >
             Already have an account? Login
           </Button>
+          <div className="text-xs text-center text-muted-foreground flex gap-2 justify-center">
+            <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
+            <span>|</span>
+            <a href="/terms-of-service" className="hover:underline">Terms of Service</a>
+          </div>
         </CardFooter>
       </Card>
     </div>

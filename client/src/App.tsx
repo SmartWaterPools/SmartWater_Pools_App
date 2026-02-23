@@ -52,6 +52,8 @@ import DispatchBoard from "@/pages/DispatchBoard";
 import ServiceReportView from "@/pages/ServiceReportView";
 import Reports from "@/pages/Reports";
 import ChemicalPricing from "./pages/ChemicalPricing";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import TermsOfService from "@/pages/TermsOfService";
 
 type ResourceType = 'clients' | 'technicians' | 'projects' | 'maintenance' | 'repairs' | 'invoices' | 'inventory' | 'reports' | 'settings' | 'vehicles' | 'communications' | 'users' | 'organization';
 
@@ -93,6 +95,8 @@ function Router() {
       <Route path="/register" component={Register} />
       <Route path="/login-error-test" component={LoginErrorTest} />
       <Route path="/invite" component={AcceptInvite} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms-of-service" component={TermsOfService} />
       
       {/* Protected routes with AppLayout */}
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />

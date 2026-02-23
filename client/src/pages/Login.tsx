@@ -692,6 +692,11 @@ export default function Login() {
           <div className="text-sm text-center text-muted-foreground">
             &copy; {new Date().getFullYear()} SmartWater Pool Systems
           </div>
+          <div className="text-xs text-center text-muted-foreground flex gap-2 justify-center">
+            <a href="/privacy-policy" className="hover:underline">Privacy Policy</a>
+            <span>|</span>
+            <a href="/terms-of-service" className="hover:underline">Terms of Service</a>
+          </div>
         </CardFooter>
       </Card>
     </div>
