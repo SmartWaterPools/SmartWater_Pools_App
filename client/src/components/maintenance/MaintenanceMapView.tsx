@@ -821,9 +821,12 @@ export function MaintenanceMapView({
       cleanupDrawingOverlays();
     }
     if (mapInstance) {
-      mapInstance.setOptions({ draggable: tool === 'pointer' });
+      mapInstance.setOptions({
+        draggable: tool === 'pointer',
+        draggableCursor: tool === 'pointer' ? undefined : 'crosshair',
+      });
     }
-  }, [mapInstance]);
+  }, [mapInstance, cleanupDrawingOverlays]);
 
   const cleanupDrawingOverlays = useCallback(() => {
     if (lassoOverlayRef.current) {
@@ -1277,8 +1280,6 @@ export function MaintenanceMapView({
               streetViewControl: false,
               fullscreenControl: true,
               mapTypeControl: true,
-              draggable: activeTool === 'pointer',
-              draggableCursor: activeTool === 'pointer' ? undefined : 'crosshair',
             }}
           >
             <MarkerClusterer>
