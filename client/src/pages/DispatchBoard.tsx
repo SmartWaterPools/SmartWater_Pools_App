@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from "react";
+import { useState, useCallback, useMemo, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { format, addDays, subDays } from "date-fns";
@@ -58,6 +58,7 @@ import {
   Phone,
   BarChart3,
   Car,
+  GripVertical,
 } from "lucide-react";
 
 interface DispatchStop {
@@ -132,6 +133,7 @@ function getStatusBadge(status: DispatchTechnician["status"]) {
 
 const DISPATCH_STOP_TYPE = "DISPATCH_STOP";
 const UNASSIGNED_JOB_TYPE = "UNASSIGNED_JOB";
+const ROUTE_CARD_TYPE = "ROUTE_CARD";
 
 interface UnassignedJobDragItem {
   jobId: number;
@@ -142,6 +144,13 @@ interface DragItem {
   stopId: number;
   routeId: number;
   clientName: string;
+}
+
+interface RouteCardDragItem {
+  routeId: number;
+  technicianId: number;
+  routeName: string;
+  currentIndex: number;
 }
 
 function DraggableStop({
@@ -182,7 +191,7 @@ function DraggableStop({
             reorderMutation.mutate({
               routeId: route.id,
               stopId: stop.id,
-              direction: "up",
+              newIndex: idx - 1,
             })
           }
         >
@@ -200,7 +209,7 @@ function DraggableStop({
             reorderMutation.mutate({
               routeId: route.id,
               stopId: stop.id,
-              direction: "down",
+              newIndex: idx + 1,
             })
           }
         >
@@ -391,6 +400,65 @@ function DroppableTechnicianCard({
   );
 }
 
+function DraggableRouteCard({
+  route,
+  technicianId,
+  index,
+  onReorder,
+  onDropEnd,
+  children,
+}: {
+  route: DispatchRoute;
+  technicianId: number;
+  index: number;
+  onReorder: (dragIndex: number, hoverIndex: number) => void;
+  onDropEnd: () => void;
+  children: React.ReactNode;
+}) {
+  const [{ isDragging }, dragRef, previewRef] = useDrag({
+    type: ROUTE_CARD_TYPE,
+    item: { routeId: route.id, technicianId, routeName: route.name, currentIndex: index } as RouteCardDragItem,
+    end: () => {
+      onDropEnd();
+    },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  });
+
+  const [{ isOver }, dropRef] = useDrop({
+    accept: ROUTE_CARD_TYPE,
+    canDrop: (item: RouteCardDragItem) => item.technicianId === technicianId && item.routeId !== route.id,
+    hover: (item: RouteCardDragItem) => {
+      if (item.currentIndex !== index) {
+        onReorder(item.currentIndex, index);
+        item.currentIndex = index;
+      }
+    },
+    collect: (monitor) => ({
+      isOver: monitor.isOver(),
+    }),
+  });
+
+  const ref = (node: HTMLDivElement | null) => {
+    previewRef(dropRef(node));
+  };
+
+  return (
+    <div
+      ref={ref}
+      className={`relative transition-all ${isDragging ? "opacity-30" : ""} ${isOver ? "border-t-2 border-blue-400" : ""}`}
+    >
+      <div ref={dragRef} className="absolute left-0 top-3 z-10 cursor-grab active:cursor-grabbing p-1 rounded hover:bg-muted/80">
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="pl-6">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 export default function DispatchBoard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -407,7 +475,12 @@ export default function DispatchBoard() {
   const weekStartStr = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
 
   const { data: dispatchData, isLoading, refetch } = useQuery<DispatchData>({
-    queryKey: [`/api/dispatch/daily-board?date=${dateStr}`],
+    queryKey: ["/api/dispatch/daily-board", { date: dateStr }],
+    queryFn: async () => {
+      const res = await fetch(`/api/dispatch/daily-board?date=${dateStr}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch dispatch board");
+      return res.json();
+    },
   });
 
   const { data: clients } = useQuery<{ id: number; name: string }[]>({
@@ -464,7 +537,7 @@ export default function DispatchBoard() {
   });
 
   const reorderMutation = useMutation({
-    mutationFn: (data: { routeId: number; stopId: number; direction: "up" | "down" }) =>
+    mutationFn: (data: { routeId: number; stopId: number; newIndex: number }) =>
       apiRequest("POST", `/api/dispatch/reorder-stop`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
@@ -488,7 +561,7 @@ export default function DispatchBoard() {
     mutationFn: (data: { stopId: number; fromRouteId: number; toRouteId: number }) =>
       apiRequest("POST", "/api/dispatch/move-stop", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/dispatch/daily-board?date=${dateStr}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
       toast({ title: "Stop Moved", description: "Stop has been moved to the new route." });
     },
@@ -501,13 +574,50 @@ export default function DispatchBoard() {
     mutationFn: (data: { maintenanceId: number; technicianId: number; date: string }) =>
       apiRequest("POST", "/api/dispatch/assign-job-to-tech", data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/dispatch/daily-board?date=${dateStr}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
       toast({ title: "Job Assigned", description: "Job has been assigned to the technician." });
     },
     onError: () => {
       toast({ title: "Assignment Failed", description: "Could not assign job to technician.", variant: "destructive" });
     },
   });
+
+  const reorderRoutesMutation = useMutation({
+    mutationFn: (data: { technicianId: number; routeIds: number[] }) =>
+      apiRequest("POST", "/api/dispatch/reorder-routes", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+    },
+    onError: () => {
+      toast({ title: "Reorder Failed", description: "Could not reorder routes.", variant: "destructive" });
+    },
+  });
+
+  const [localRouteOrder, setLocalRouteOrder] = useState<Record<number, number[]>>({});
+
+  const handleRouteReorder = useCallback((techId: number, routes: DispatchRoute[], dragIndex: number, hoverIndex: number) => {
+    const currentOrder = localRouteOrder[techId] || routes.map(r => r.id);
+    const newOrder = [...currentOrder];
+    const [moved] = newOrder.splice(dragIndex, 1);
+    newOrder.splice(hoverIndex, 0, moved);
+    setLocalRouteOrder(prev => ({ ...prev, [techId]: newOrder }));
+  }, [localRouteOrder]);
+
+  const handleRouteDropEnd = useCallback((techId: number, routes: DispatchRoute[]) => {
+    const order = localRouteOrder[techId];
+    if (order) {
+      const originalOrder = routes.map(r => r.id);
+      const changed = order.some((id, i) => id !== originalOrder[i]);
+      if (changed) {
+        reorderRoutesMutation.mutate({ technicianId: techId, routeIds: order });
+      }
+      setLocalRouteOrder(prev => {
+        const next = { ...prev };
+        delete next[techId];
+        return next;
+      });
+    }
+  }, [localRouteOrder, reorderRoutesMutation]);
 
   const technicians = dispatchData?.technicians || [];
   const unassignedJobs = dispatchData?.unassignedJobs || [];
@@ -776,65 +886,79 @@ export default function DispatchBoard() {
                 {tech.routes.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-2">No routes assigned</p>
                 ) : (
-                  tech.routes.map((route) => (
-                    <DroppableRouteArea
-                      key={route.id}
-                      route={route}
-                      onDrop={(item) => {
-                        moveStopMutation.mutate({
-                          stopId: item.stopId,
-                          fromRouteId: item.routeId,
-                          toRouteId: route.id,
-                        });
-                      }}
-                    >
-                    <div className="mb-4 last:mb-0">
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                        <div className="flex items-center gap-2">
-                          <Truck className="h-4 w-4 text-blue-600" />
-                          <span className="font-medium text-sm">{route.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {route.stops.length} stops
-                          </Badge>
-                          {route.startTime && (
-                            <span className="text-xs text-muted-foreground">
-                              {route.startTime}
-                              {route.endTime ? ` - ${route.endTime}` : ""}
-                            </span>
-                          )}
+                  (() => {
+                    const order = localRouteOrder[tech.id];
+                    const sortedRoutes = order
+                      ? order.map(id => tech.routes.find(r => r.id === id)).filter(Boolean) as DispatchRoute[]
+                      : tech.routes;
+                    return sortedRoutes.map((route, routeIdx) => (
+                      <DraggableRouteCard
+                        key={route.id}
+                        route={route}
+                        technicianId={tech.id}
+                        index={routeIdx}
+                        onReorder={(dragIdx, hoverIdx) => handleRouteReorder(tech.id, tech.routes, dragIdx, hoverIdx)}
+                        onDropEnd={() => handleRouteDropEnd(tech.id, tech.routes)}
+                      >
+                      <DroppableRouteArea
+                        route={route}
+                        onDrop={(item) => {
+                          moveStopMutation.mutate({
+                            stopId: item.stopId,
+                            fromRouteId: item.routeId,
+                            toRouteId: route.id,
+                          });
+                        }}
+                      >
+                      <div className="mb-4 last:mb-0">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-2">
+                            <Truck className="h-4 w-4 text-blue-600" />
+                            <span className="font-medium text-sm">{route.name}</span>
+                            <Badge variant="secondary" className="text-xs">
+                              {route.stops.length} stops
+                            </Badge>
+                            {route.startTime && (
+                              <span className="text-xs text-muted-foreground">
+                                {route.startTime}
+                                {route.endTime ? ` - ${route.endTime}` : ""}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => optimizeMutation.mutate(route.id)}
+                              disabled={optimizeMutation.isPending}
+                            >
+                              <Navigation className="h-3 w-3" />
+                              Optimize
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={() => handleReassignOpen(route.id, tech.name, tech.id)}
+                            >
+                              <UserPlus className="h-3 w-3" />
+                              Reassign
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => optimizeMutation.mutate(route.id)}
-                            disabled={optimizeMutation.isPending}
-                          >
-                            <Navigation className="h-3 w-3" />
-                            Optimize
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs gap-1"
-                            onClick={() => handleReassignOpen(route.id, tech.name, tech.id)}
-                          >
-                            <UserPlus className="h-3 w-3" />
-                            Reassign
-                          </Button>
-                        </div>
-                      </div>
 
-                      <ScrollArea className={route.stops.length > 5 ? "h-[280px]" : ""}>
-                        <div className="space-y-0">
-                          <RouteStopsWithDrivingTimes route={route} reorderMutation={reorderMutation} />
-                        </div>
-                      </ScrollArea>
-                      {tech.routes.length > 1 && <Separator className="mt-4" />}
-                    </div>
-                    </DroppableRouteArea>
-                  ))
+                        <ScrollArea className={route.stops.length > 5 ? "h-[280px]" : ""}>
+                          <div className="space-y-0">
+                            <RouteStopsWithDrivingTimes route={route} reorderMutation={reorderMutation} />
+                          </div>
+                        </ScrollArea>
+                        {sortedRoutes.length > 1 && <Separator className="mt-4" />}
+                      </div>
+                      </DroppableRouteArea>
+                      </DraggableRouteCard>
+                    ));
+                  })()
                 )}
               </CardContent>
             </Card>

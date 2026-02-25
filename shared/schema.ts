@@ -319,6 +319,7 @@ export const bazzaRoutes = pgTable("bazza_routes", {
   startTime: time("start_time"),
   endTime: time("end_time"),
   isActive: boolean("is_active").notNull().default(true),
+  displayOrder: integer("display_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().default(sql`now()`),
   updatedAt: timestamp("updated_at").notNull().default(sql`now()`),
 });

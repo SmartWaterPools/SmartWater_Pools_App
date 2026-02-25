@@ -153,7 +153,7 @@ router.get("/daily-board", isAuthenticated, requirePermission('maintenance', 'vi
     }));
 
     const techData = allTechnicians.map(tech => {
-      const techRoutes = allRoutes.filter(r => r.technicianId === tech.id);
+      const techRoutes = allRoutes.filter(r => r.technicianId === tech.id).sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0));
       const routesWithStops = techRoutes.map(route => {
         const stops = allStops
           .filter(s => s.routeId === route.id)
@@ -1068,6 +1068,37 @@ router.get("/driving-times/:routeId", isAuthenticated, requirePermission('mainte
   } catch (error) {
     console.error("[DISPATCH] Error fetching driving times:", error);
     res.status(500).json({ error: "Failed to fetch driving times" });
+  }
+});
+
+router.post("/reorder-routes", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) {
+      return res.status(403).json({ error: "No organization context" });
+    }
+
+    const { technicianId, routeIds } = req.body;
+    if (!technicianId || !Array.isArray(routeIds) || routeIds.length === 0) {
+      return res.status(400).json({ error: "Missing required fields: technicianId, routeIds" });
+    }
+
+    for (let i = 0; i < routeIds.length; i++) {
+      const route = await storage.getBazzaRoute(routeIds[i]);
+      if (!route || (route as any).organizationId !== organizationId) {
+        return res.status(404).json({ error: `Route ${routeIds[i]} not found` });
+      }
+      await db
+        .update(bazzaRoutes)
+        .set({ displayOrder: i })
+        .where(eq(bazzaRoutes.id, routeIds[i]));
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("[DISPATCH] Error reordering routes:", error);
+    res.status(500).json({ error: "Failed to reorder routes" });
   }
 });
 

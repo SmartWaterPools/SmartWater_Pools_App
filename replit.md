@@ -62,6 +62,15 @@ Preferred communication style: Simple, everyday language.
 - Technician-guided workflow with step-by-step checklists, progress tracking, notes, photo/video capture, chemical usage recording, and quick-access tools like Pool Wizard, Barcode Scanner, and LSI Calculator.
 - Includes default service templates for common pool services.
 
+### Dispatch Board
+- Daily dispatch view with technician routes, stops, and unassigned jobs.
+- Drag-and-drop for stops between routes (react-dnd with MultiBackend for touch support).
+- Drag-and-drop reordering for route cards within a technician using GripVertical handle, persisted via `displayOrder` column on `bazza_routes`.
+- Arrow buttons (up/down) for reordering individual stops within a route, sending `newIndex` to backend.
+- Unassigned jobs can be dragged onto technician cards or assigned via dropdown.
+- Route optimization, reassignment dialogs, driving time estimates, and weekly workload balance view.
+- Query key pattern: `["/api/dispatch/daily-board", { date }]` with prefix-based cache invalidation.
+
 ### Chemical Pricing Management
 - Organization-level management of chemical pricing for cost tracking.
 - Dedicated page for CRUD operations on chemical prices, supporting various chemical types.
