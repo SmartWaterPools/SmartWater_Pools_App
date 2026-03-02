@@ -2,6 +2,7 @@ import { runMigration as addOrganizationId } from './migrations/add-organization
 import { runMigration as addGoogleOAuth } from './migrations/add-google-oauth';
 import { runMigration as addInventoryOrganizationId } from './migrations/add-organization-id-to-inventory';
 import { runMigration as addSubscriptionTables } from './migrations/add-subscription-tables';
+import { runMigration as addDisplayOrderToRoutes } from './migrations/add-display-order-to-routes';
 
 /**
  * Main migration runner that executes all migrations in sequence
@@ -15,6 +16,7 @@ async function runMigrations() {
     await addGoogleOAuth();
     await addInventoryOrganizationId();
     await addSubscriptionTables();
+    await addDisplayOrderToRoutes();
     
     console.log('✅ All migrations completed successfully');
   } catch (error) {
