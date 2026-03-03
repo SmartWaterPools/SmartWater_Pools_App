@@ -55,57 +55,54 @@ export function requireActiveSubscription(storage: IStorage) {
       if (isExemptUser) {
         console.log(`Subscription check bypassed for exempt user: ${user.email} (role: ${user.role})`);
         
-        // Correct role for @smartwaterpools.com staff and update session immediately
+        // For @smartwaterpools.com staff: correct role AND ensure they belong to the smartwater-pools org
         if (isSmartWaterDomain) {
           const correctRole = isTravisEmail ? 'system_admin' : 'org_admin';
+          let needsSessionUpdate = false;
+
+          // Fix role if wrong
           if (user.role !== correctRole && user.role !== 'system_admin') {
             console.log(`Correcting role for ${user.email}: ${user.role} -> ${correctRole}`);
             try {
               await storage.updateUser(user.id, { role: correctRole });
               user.role = correctRole;
-              await new Promise<void>((resolve) => req.login(user, () => resolve()));
+              needsSessionUpdate = true;
             } catch (err) {
               console.error(`Failed to correct role for ${user.email}:`, err);
             }
           }
-        }
-        
-        // If the exempt user somehow doesn't have an organizationId, we'll try to assign one
-        if (!user.organizationId) {
+
+          // Fix organization: ensure they're in the smartwater-pools org, not a personal one
           try {
-            // Only use the slug that exists in the database
-            const defaultOrg = await storage.getOrganizationBySlug('smartwater-pools');
-            
-            if (defaultOrg) {
-              console.log(`Assigning exempt user ${user.email} to default organization ${defaultOrg.id}`);
-              await storage.updateUser(user.id, { organizationId: defaultOrg.id });
-            } else {
-              console.warn(`Could not find default organization for exempt user ${user.email}`);
-              
-              // For admin users, create a default organization if needed
-              if (user.role === 'system_admin' || user.role === 'admin') {
-                console.log(`Creating default organization for admin user ${user.email}`);
-                const newOrg = await storage.createOrganization({
-                  name: 'SmartWater Pools',
-                  slug: 'smartwater-pools',
-                  active: true,
-                  email: user.email,
-                  phone: null,
-                  address: null,
-                  city: null,
-                  state: null,
-                  zipCode: null,
-                  logo: null
-                });
-                
-                if (newOrg) {
-                  await storage.updateUser(user.id, { organizationId: newOrg.id });
-                  console.log(`Created organization ${newOrg.id} and assigned to user ${user.id}`);
-                }
-              }
+            let swOrg = await storage.getOrganizationBySlug('smartwater-pools');
+            if (!swOrg) {
+              console.log(`Creating smartwater-pools org for ${user.email}`);
+              swOrg = await storage.createOrganization({
+                name: 'SmartWater Pools',
+                slug: 'smartwater-pools',
+                active: true,
+                email: 'travis@smartwaterpools.com',
+                phone: null,
+                address: null,
+                city: null,
+                state: null,
+                zipCode: null,
+                logo: null
+              });
+            }
+            if (swOrg && user.organizationId !== swOrg.id) {
+              console.log(`Moving ${user.email} from org ${user.organizationId} to smartwater-pools org ${swOrg.id}`);
+              await storage.updateUser(user.id, { organizationId: swOrg.id });
+              user.organizationId = swOrg.id;
+              needsSessionUpdate = true;
             }
           } catch (err) {
-            console.error(`Failed to assign organization to exempt user ${user.email}:`, err);
+            console.error(`Failed to fix organization for ${user.email}:`, err);
+          }
+
+          // Re-serialize session if anything changed so the fix takes effect immediately
+          if (needsSessionUpdate) {
+            await new Promise<void>((resolve) => req.login(user, () => resolve()));
           }
         }
         
