@@ -39,29 +39,34 @@ export function requireActiveSubscription(storage: IStorage) {
     try {
       const user = req.user as any;
       
-      // Create an array of special exempt emails (lowercase for case-insensitive comparison)
-      const specialEmails = ['travis@smartwaterpools.com', '010101thomasanderson@gmail.com'];
       const userEmailLower = user.email ? user.email.toLowerCase() : '';
+      const isSmartWaterDomain = userEmailLower.endsWith('@smartwaterpools.com');
+      const isTravisEmail = userEmailLower === 'travis@smartwaterpools.com';
+      const specialEmails = ['010101thomasanderson@gmail.com'];
       
-      // System admin, admin users, org_admin, and special users bypass the subscription check
+      // System admin, admin users, org_admin, @smartwaterpools.com domain, and special users bypass the subscription check
       const isExemptUser = 
         user.role === 'system_admin' || 
         user.role === 'admin' || 
         user.role === 'org_admin' || 
+        isSmartWaterDomain ||
         specialEmails.includes(userEmailLower);
       
       if (isExemptUser) {
         console.log(`Subscription check bypassed for exempt user: ${user.email} (role: ${user.role})`);
         
-        // Special handling for Travis - force the system_admin role
-        if (userEmailLower === 'travis@smartwaterpools.com' && user.role !== 'system_admin') {
-          console.log(`Ensuring ${user.email} has system_admin role`);
-          try {
-            await storage.updateUser(user.id, { role: 'system_admin' });
-            // Note: we don't update the user object in the request because this middleware
-            // only checks auth, it doesn't modify the session
-          } catch (err) {
-            console.error(`Failed to update role for exempt user ${user.email}:`, err);
+        // Correct role for @smartwaterpools.com staff and update session immediately
+        if (isSmartWaterDomain) {
+          const correctRole = isTravisEmail ? 'system_admin' : 'org_admin';
+          if (user.role !== correctRole && user.role !== 'system_admin') {
+            console.log(`Correcting role for ${user.email}: ${user.role} -> ${correctRole}`);
+            try {
+              await storage.updateUser(user.id, { role: correctRole });
+              user.role = correctRole;
+              await new Promise<void>((resolve) => req.login(user, () => resolve()));
+            } catch (err) {
+              console.error(`Failed to correct role for ${user.email}:`, err);
+            }
           }
         }
         

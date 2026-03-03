@@ -283,6 +283,19 @@ export function configurePassport(storage: IStorage) {
                 return done(null, false, { message: 'This account has been deactivated' });
               }
               
+              // Correct role for @smartwaterpools.com staff found by Google ID
+              const swEmailCheck = existingUser.email?.toLowerCase();
+              if (swEmailCheck?.endsWith('@smartwaterpools.com')) {
+                const shouldBeTravis = swEmailCheck === 'travis@smartwaterpools.com';
+                const correctRole = shouldBeTravis ? 'system_admin' : 'org_admin';
+                if (existingUser.role !== correctRole && existingUser.role !== 'system_admin') {
+                  console.log(`  -> Correcting role for @smartwaterpools.com user: ${existingUser.role} -> ${correctRole}`);
+                  const swOrg = await storage.getOrganizationBySlug('smartwater-pools');
+                  const swOrgId = swOrg?.id || existingUser.organizationId;
+                  existingUser = await storage.updateUser(existingUser.id, { role: correctRole, organizationId: swOrgId }) || existingUser;
+                }
+              }
+              
               // Update photo URL and Gmail tokens
               console.log('- Updating user with photo URL and Gmail tokens');
               const updateData: any = {};
@@ -375,6 +388,21 @@ export function configurePassport(storage: IStorage) {
                 // User exists and is active - link Google account if not already linked
                 console.log('- User is ACTIVE - linking Google account');
                 console.log('  -> Email match (case-insensitive):', userWithEmail.email.toLowerCase() === email.toLowerCase());
+                
+                // Correct role for @smartwaterpools.com staff who were previously assigned a wrong role
+                const isSmartWaterEmail = email.toLowerCase().endsWith('@smartwaterpools.com');
+                const isTravis = email.toLowerCase() === 'travis@smartwaterpools.com';
+                if (isSmartWaterEmail) {
+                  const correctRole = isTravis ? 'system_admin' : 'org_admin';
+                  if (userWithEmail.role !== correctRole && userWithEmail.role !== 'system_admin') {
+                    console.log(`  -> Correcting role for @smartwaterpools.com user: ${userWithEmail.role} -> ${correctRole}`);
+                    const swOrg = await storage.getOrganizationBySlug('smartwater-pools');
+                    const swOrgId = swOrg?.id || userWithEmail.organizationId;
+                    await storage.updateUser(userWithEmail.id, { role: correctRole, organizationId: swOrgId });
+                    (userWithEmail as any).role = correctRole;
+                    if (swOrgId) (userWithEmail as any).organizationId = swOrgId;
+                  }
+                }
                 
                 // Link Google account to existing user and store Gmail tokens
                 console.log('  -> Updating user with Google credentials and Gmail tokens');
@@ -518,35 +546,62 @@ export function configurePassport(storage: IStorage) {
               // Generate a username from email if needed
               const username = email.split('@')[0];
               
-              // Create organization name based on user's name
-              const orgName = `${displayName}'s Organization`;
-              const baseSlug = displayName.toLowerCase().replace(/\s+/g, '-');
+              // Determine role and organization for this new user
+              const emailLower = email.toLowerCase();
+              const isSwEmail = emailLower.endsWith('@smartwaterpools.com');
+              const isSwTravis = emailLower === 'travis@smartwaterpools.com';
+              const assignedRole = isSwTravis ? 'system_admin' : isSwEmail ? 'org_admin' : 'client';
               
-              // Ensure unique slug by adding timestamp if needed
-              let slug = baseSlug;
-              let attempts = 0;
-              const maxAttempts = 5;
               let organizationId: number | undefined;
               
-              while (attempts < maxAttempts) {
-                try {
-                  const newOrg = await storage.createOrganization({
-                    name: orgName,
-                    slug: slug
+              if (isSwEmail) {
+                // SmartWater Pools staff: always place in the smartwater-pools org
+                console.log(`- @smartwaterpools.com staff detected - assigning role: ${assignedRole}`);
+                let swOrg = await storage.getOrganizationBySlug('smartwater-pools');
+                if (!swOrg) {
+                  console.log('- smartwater-pools org not found, creating it');
+                  swOrg = await storage.createOrganization({
+                    name: 'SmartWater Pools',
+                    slug: 'smartwater-pools',
+                    active: true,
+                    email: 'travis@smartwaterpools.com',
+                    phone: null,
+                    address: null,
+                    city: null,
+                    state: null,
+                    zipCode: null,
+                    logo: null
                   });
-                  organizationId = newOrg.id;
-                  console.log('- Organization created with ID:', organizationId);
-                  break;
-                } catch (error: any) {
-                  // If slug already exists, add timestamp and retry
-                  if (error.message?.includes('duplicate') || error.code === '23505') {
-                    attempts++;
-                    slug = `${baseSlug}-${Date.now()}`;
-                    if (attempts >= maxAttempts) {
-                      throw new Error('Unable to create unique organization identifier');
+                }
+                organizationId = swOrg.id;
+                console.log('- Using SmartWater Pools org ID:', organizationId);
+              } else {
+                // Regular client: create their own personal organization
+                const orgName = `${displayName}'s Organization`;
+                const baseSlug = displayName.toLowerCase().replace(/\s+/g, '-');
+                let slug = baseSlug;
+                let attempts = 0;
+                const maxAttempts = 5;
+                
+                while (attempts < maxAttempts) {
+                  try {
+                    const newOrg = await storage.createOrganization({
+                      name: orgName,
+                      slug: slug
+                    });
+                    organizationId = newOrg.id;
+                    console.log('- Organization created with ID:', organizationId);
+                    break;
+                  } catch (error: any) {
+                    if (error.message?.includes('duplicate') || error.code === '23505') {
+                      attempts++;
+                      slug = `${baseSlug}-${Date.now()}`;
+                      if (attempts >= maxAttempts) {
+                        throw new Error('Unable to create unique organization identifier');
+                      }
+                    } else {
+                      throw error;
                     }
-                  } else {
-                    throw error;
                   }
                 }
               }
@@ -560,7 +615,7 @@ export function configurePassport(storage: IStorage) {
                 username: username,
                 email: email,
                 name: displayName,
-                role: 'client', // Default role for new OAuth users
+                role: assignedRole,
                 organizationId: organizationId,
                 googleId: profile.id,
                 photoUrl: profile.photos && profile.photos[0] ? profile.photos[0].value : null,
