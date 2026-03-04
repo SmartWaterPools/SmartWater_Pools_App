@@ -7,11 +7,11 @@ import { IStorage } from "./storage";
  */
 export function requireActiveSubscription(storage: IStorage) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    // Skip check for API routes that are used in the subscription process itself
+    // Skip check for API routes that are used in the subscription/auth process itself
     if (
       req.path.startsWith('/api/stripe') || 
       req.path.startsWith('/api/subscription') || 
-      req.path === '/api/auth/session' ||
+      req.path.startsWith('/api/auth') ||
       req.path === '/api/google-maps-key' ||
       req.path.startsWith('/api/places')
     ) {

@@ -2,7 +2,6 @@ import { Router, Request, Response } from "express";
 import { IStorage } from "../storage";
 import { StripeService } from "../stripe-service";
 import { isAuthenticated, isAdmin } from "../auth";
-import { requireActiveSubscription } from "../subscription-middleware";
 import Stripe from "stripe";
 
 export default function registerStripeRoutes(router: Router, storage: IStorage, stripeService: StripeService) {
@@ -341,7 +340,7 @@ export default function registerStripeRoutes(router: Router, storage: IStorage, 
    * Get payment history for current user's organization
    * GET /api/stripe/payment-history
    */
-  router.get("/payment-history", isAuthenticated, requireActiveSubscription(storage), async (req: Request, res: Response) => {
+  router.get("/payment-history", isAuthenticated, async (req: Request, res: Response) => {
     try {
       const user = req.user as any;
       

@@ -10,6 +10,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { configurePassport, injectTenantContext } from "./auth";
 import { storage } from "./storage";
 import { Scheduler } from "./scheduler";
+import { requireActiveSubscription } from "./subscription-middleware";
 
 const app = express();
 
@@ -62,6 +63,9 @@ configurePassport(storage);
 
 // Inject tenant context (organizationId) for all authenticated requests
 app.use(injectTenantContext);
+
+// Enforce active subscription for all non-exempt routes and users
+app.use(requireActiveSubscription(storage));
 
 app.use((req, res, next) => {
   const start = Date.now();
