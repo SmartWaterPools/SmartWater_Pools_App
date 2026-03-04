@@ -54,6 +54,8 @@ import Reports from "@/pages/Reports";
 import ChemicalPricing from "./pages/ChemicalPricing";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import TermsOfService from "@/pages/TermsOfService";
+import Pricing from "@/pages/Pricing";
+import SubscriptionSuccess from "@/pages/SubscriptionSuccess";
 
 type ResourceType = 'clients' | 'technicians' | 'projects' | 'maintenance' | 'repairs' | 'invoices' | 'inventory' | 'reports' | 'settings' | 'vehicles' | 'communications' | 'users' | 'organization';
 
@@ -93,6 +95,9 @@ function Router() {
       {/* Public auth routes - no layout needed */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/pricing" component={Pricing} />
+      <Route path="/subscription/success" component={SubscriptionSuccess} />
+      <Route path="/subscription/cancel" component={Pricing} />
       <Route path="/login-error-test" component={LoginErrorTest} />
       <Route path="/invite" component={AcceptInvite} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
