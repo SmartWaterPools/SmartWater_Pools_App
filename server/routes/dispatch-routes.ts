@@ -1071,6 +1071,344 @@ router.get("/driving-times/:routeId", isAuthenticated, requirePermission('mainte
   }
 });
 
+router.get("/rebalance-suggestions", isAuthenticated, requirePermission('maintenance', 'view'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) return res.status(403).json({ error: "No organization context" });
+
+    const dateStr = (req.query.date as string) || new Date().toISOString().split("T")[0];
+    const requestedDate = new Date(dateStr);
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const dayOfWeek = days[requestedDate.getUTCDay()];
+
+    const allTechnicians = await db
+      .select({ id: technicians.id, name: users.name })
+      .from(technicians)
+      .innerJoin(users, eq(technicians.userId, users.id))
+      .where(eq(users.organizationId, organizationId));
+
+    const dayRoutes = await db
+      .select()
+      .from(bazzaRoutes)
+      .where(and(eq(bazzaRoutes.dayOfWeek, dayOfWeek), eq(bazzaRoutes.organizationId, organizationId)));
+
+    if (dayRoutes.length === 0) return res.json({ imbalanced: false, suggestions: [] });
+
+    const routeIds = dayRoutes.map(r => r.id);
+    const allStops = routeIds.length > 0
+      ? await db.select().from(bazzaRouteStops).where(inArray(bazzaRouteStops.routeId, routeIds))
+      : [];
+
+    const clientIds = [...new Set(allStops.map(s => s.clientId))];
+    const clientRows = clientIds.length > 0
+      ? await db.select({ id: clients.id, latitude: clients.latitude, longitude: clients.longitude }).from(clients).where(inArray(clients.id, clientIds))
+      : [];
+    const clientGeoMap: Record<number, { lat: number; lng: number }> = {};
+    for (const c of clientRows) {
+      if (c.latitude != null && c.longitude != null) clientGeoMap[c.id] = { lat: c.latitude, lng: c.longitude };
+    }
+
+    const techStopMap: Record<number, { techId: number; techName: string; routeId: number; stops: typeof allStops }> = {};
+    for (const route of dayRoutes) {
+      const tech = allTechnicians.find(t => t.id === route.technicianId);
+      if (!tech) continue;
+      const stops = allStops.filter(s => s.routeId === route.id);
+      if (!techStopMap[tech.id]) {
+        techStopMap[tech.id] = { techId: tech.id, techName: tech.name, routeId: route.id, stops: [] };
+      }
+      techStopMap[tech.id].stops.push(...stops);
+    }
+
+    const techEntries = Object.values(techStopMap);
+    if (techEntries.length < 2) return res.json({ imbalanced: false, suggestions: [] });
+
+    const stopCounts = techEntries.map(t => t.stops.length);
+    const avgStops = stopCounts.reduce((a, b) => a + b, 0) / stopCounts.length;
+    const maxStops = Math.max(...stopCounts);
+    const minStops = Math.min(...stopCounts);
+
+    if (maxStops - minStops < 3) return res.json({ imbalanced: false, suggestions: [] });
+
+    const overloaded = techEntries.filter(t => t.stops.length > avgStops * 1.3 && t.stops.length > avgStops + 1);
+    const underloaded = techEntries.filter(t => t.stops.length < avgStops * 0.7 && t.stops.length < avgStops - 1);
+
+    if (overloaded.length === 0 || underloaded.length === 0) return res.json({ imbalanced: false, suggestions: [] });
+
+    const suggestions: Array<{ stopId: number; fromTechId: number; fromTechName: string; toTechId: number; toTechName: string; fromRouteId: number; toRouteId: number }> = [];
+
+    for (const over of overloaded) {
+      const targetCount = Math.ceil(avgStops);
+      const stopsToMove = over.stops.length - targetCount;
+      if (stopsToMove <= 0) continue;
+
+      for (const under of underloaded) {
+        const underCentroid = under.stops.length > 0
+          ? under.stops.reduce((acc, s) => {
+              const geo = clientGeoMap[s.clientId];
+              if (!geo) return acc;
+              return { lat: acc.lat + geo.lat / under.stops.length, lng: acc.lng + geo.lng / under.stops.length };
+            }, { lat: 0, lng: 0 })
+          : null;
+
+        const movable = over.stops
+          .filter(s => clientGeoMap[s.clientId])
+          .sort((a, b) => {
+            if (!underCentroid) return 0;
+            const geoA = clientGeoMap[a.clientId];
+            const geoB = clientGeoMap[b.clientId];
+            return haversineDistance(geoA.lat, geoA.lng, underCentroid.lat, underCentroid.lng) -
+                   haversineDistance(geoB.lat, geoB.lng, underCentroid.lat, underCentroid.lng);
+          })
+          .slice(0, Math.min(stopsToMove, 3));
+
+        for (const stop of movable) {
+          if (suggestions.length < 10) {
+            suggestions.push({
+              stopId: stop.id,
+              fromTechId: over.techId,
+              fromTechName: over.techName,
+              toTechId: under.techId,
+              toTechName: under.techName,
+              fromRouteId: over.routeId,
+              toRouteId: under.routeId,
+            });
+          }
+        }
+      }
+    }
+
+    res.json({ imbalanced: suggestions.length > 0, maxStops, minStops, avgStops: Math.round(avgStops * 10) / 10, suggestions });
+  } catch (error) {
+    console.error("[DISPATCH] Error getting rebalance suggestions:", error);
+    res.status(500).json({ error: "Failed to get rebalance suggestions" });
+  }
+});
+
+router.post("/auto-rebalance", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) return res.status(403).json({ error: "No organization context" });
+
+    const { suggestions } = req.body;
+    if (!Array.isArray(suggestions) || suggestions.length === 0) {
+      return res.status(400).json({ error: "No suggestions provided" });
+    }
+
+    let moved = 0;
+    for (const s of suggestions) {
+      const { stopId, fromRouteId, toRouteId } = s;
+      if (!stopId || !fromRouteId || !toRouteId) continue;
+
+      const fromRoute = await storage.getBazzaRoute(fromRouteId);
+      const toRoute = await storage.getBazzaRoute(toRouteId);
+      if (!fromRoute || !toRoute) continue;
+      if ((fromRoute as any).organizationId !== organizationId || (toRoute as any).organizationId !== organizationId) continue;
+
+      const toStops = await storage.getBazzaRouteStopsByRouteId(toRouteId);
+      const newOrderIndex = toStops.length > 0 ? Math.max(...toStops.map(s => s.orderIndex)) + 1 : 0;
+
+      await db.update(bazzaRouteStops)
+        .set({ routeId: toRouteId, orderIndex: newOrderIndex })
+        .where(eq(bazzaRouteStops.id, stopId));
+
+      moved++;
+    }
+
+    res.json({ success: true, moved });
+  } catch (error) {
+    console.error("[DISPATCH] Error auto-rebalancing:", error);
+    res.status(500).json({ error: "Failed to auto-rebalance routes" });
+  }
+});
+
+router.post("/smart-assign", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) return res.status(403).json({ error: "No organization context" });
+
+    const { jobIds, date } = req.body;
+    if (!Array.isArray(jobIds) || jobIds.length === 0 || !date) {
+      return res.status(400).json({ error: "Missing required fields: jobIds, date" });
+    }
+
+    const requestedDate = new Date(date);
+    const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+    const dayOfWeek = days[requestedDate.getUTCDay()];
+
+    const allTechnicians = await db
+      .select({ id: technicians.id, userId: technicians.userId, name: users.name })
+      .from(technicians)
+      .innerJoin(users, eq(technicians.userId, users.id))
+      .where(eq(users.organizationId, organizationId));
+
+    if (allTechnicians.length === 0) return res.status(400).json({ error: "No technicians available" });
+
+    const dayRoutes = await db
+      .select()
+      .from(bazzaRoutes)
+      .where(and(eq(bazzaRoutes.dayOfWeek, dayOfWeek), eq(bazzaRoutes.organizationId, organizationId)));
+
+    const routeIds = dayRoutes.map(r => r.id);
+    const existingStops = routeIds.length > 0
+      ? await db.select().from(bazzaRouteStops).where(inArray(bazzaRouteStops.routeId, routeIds))
+      : [];
+
+    const clientGeoIds = [...new Set(existingStops.map(s => s.clientId))];
+    const existingClientGeos = clientGeoIds.length > 0
+      ? await db.select({ id: clients.id, latitude: clients.latitude, longitude: clients.longitude }).from(clients).where(inArray(clients.id, clientGeoIds))
+      : [];
+    const clientGeoMap: Record<number, { lat: number; lng: number }> = {};
+    for (const c of existingClientGeos) {
+      if (c.latitude != null && c.longitude != null) clientGeoMap[c.id] = { lat: c.latitude, lng: c.longitude };
+    }
+
+    const techCentroids: Record<number, { lat: number; lng: number; count: number; routeId: number | null }> = {};
+    for (const tech of allTechnicians) {
+      const techRoutes = dayRoutes.filter(r => r.technicianId === tech.id);
+      const techStops = existingStops.filter(s => techRoutes.some(r => r.id === s.routeId));
+      const geoStops = techStops.filter(s => clientGeoMap[s.clientId]);
+      const routeId = techRoutes[0]?.id ?? null;
+
+      if (geoStops.length > 0) {
+        const lat = geoStops.reduce((sum, s) => sum + clientGeoMap[s.clientId].lat, 0) / geoStops.length;
+        const lng = geoStops.reduce((sum, s) => sum + clientGeoMap[s.clientId].lng, 0) / geoStops.length;
+        techCentroids[tech.id] = { lat, lng, count: techStops.length, routeId };
+      } else {
+        techCentroids[tech.id] = { lat: 0, lng: 0, count: techStops.length, routeId };
+      }
+    }
+
+    const jobRows = await db.select().from(workOrders).where(inArray(workOrders.id, jobIds));
+    const jobClientIds = [...new Set(jobRows.map(j => j.clientId).filter(Boolean) as number[])];
+    const jobClientRows = jobClientIds.length > 0
+      ? await db.select({ id: clients.id, userId: clients.userId, latitude: clients.latitude, longitude: clients.longitude }).from(clients).where(inArray(clients.id, jobClientIds))
+      : [];
+    const jobClientGeoMap: Record<number, { clientId: number; lat: number; lng: number }> = {};
+    const jobClientUserIdMap: Record<number, number> = {};
+    for (const c of jobClientRows) {
+      jobClientUserIdMap[c.userId] = c.id;
+      if (c.latitude != null && c.longitude != null) {
+        jobClientGeoMap[c.id] = { clientId: c.id, lat: c.latitude, lng: c.longitude };
+      }
+    }
+
+    const createdStops: number[] = [];
+    const createdAssignments: number[] = [];
+    const techStopOrderMap: Record<number, number> = {};
+
+    for (const tech of allTechnicians) {
+      const techRoutes = dayRoutes.filter(r => r.technicianId === tech.id);
+      const currentStops = existingStops.filter(s => techRoutes.some(r => r.id === s.routeId));
+      techStopOrderMap[tech.id] = currentStops.length > 0 ? Math.max(...currentStops.map(s => s.orderIndex)) + 1 : 0;
+    }
+
+    const sortedTechs = [...allTechnicians].sort((a, b) => (techCentroids[a.id]?.count || 0) - (techCentroids[b.id]?.count || 0));
+
+    for (const job of jobRows) {
+      if (!job.clientId) continue;
+
+      const stopClientId = jobClientUserIdMap[job.clientId] || null;
+      if (!stopClientId) continue;
+
+      const jobGeo = jobClientGeoMap[stopClientId];
+
+      let bestTech = sortedTechs[0];
+      if (jobGeo) {
+        let bestScore = Infinity;
+        for (const tech of sortedTechs) {
+          const centroid = techCentroids[tech.id];
+          const dist = centroid.lat !== 0 || centroid.lng !== 0
+            ? haversineDistance(jobGeo.lat, jobGeo.lng, centroid.lat, centroid.lng)
+            : 0;
+          const loadPenalty = (centroid.count || 0) * 2;
+          const score = dist + loadPenalty;
+          if (score < bestScore) { bestScore = score; bestTech = tech; }
+        }
+      }
+
+      let route = dayRoutes.find(r => r.technicianId === bestTech.id);
+      if (!route) {
+        route = await storage.createBazzaRoute({
+          name: `${bestTech.name} - ${dayOfWeek.charAt(0).toUpperCase() + dayOfWeek.slice(1)}`,
+          description: `Auto-created route for ${date}`,
+          type: "maintenance",
+          technicianId: bestTech.id,
+          dayOfWeek,
+          organizationId,
+          isRecurring: false,
+          frequency: "weekly",
+          color: null,
+          startTime: null,
+          endTime: null,
+          isActive: true,
+          weekNumber: null,
+        });
+        dayRoutes.push(route);
+        techCentroids[bestTech.id].routeId = route.id;
+      }
+
+      const orderIndex = techStopOrderMap[bestTech.id] || 0;
+      techStopOrderMap[bestTech.id] = orderIndex + 1;
+
+      const newStop = await storage.createBazzaRouteStop({
+        routeId: route.id,
+        clientId: stopClientId,
+        orderIndex,
+        estimatedDuration: 30,
+        customInstructions: job.description || null,
+        addressLat: null,
+        addressLng: null,
+      });
+      createdStops.push(newStop.id);
+
+      const assignment = await storage.createBazzaMaintenanceAssignment({
+        routeId: route.id,
+        routeStopId: newStop.id,
+        maintenanceId: job.id,
+        date,
+        status: "scheduled",
+        notes: null,
+      });
+      createdAssignments.push(assignment.id);
+
+      if (techCentroids[bestTech.id]) techCentroids[bestTech.id].count++;
+    }
+
+    res.json({ success: true, createdStops, createdAssignments });
+  } catch (error) {
+    console.error("[DISPATCH] Error smart-assigning jobs:", error);
+    res.status(500).json({ error: "Failed to smart-assign jobs" });
+  }
+});
+
+router.post("/undo-smart-assign", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
+  try {
+    const user = req.user as any;
+    const organizationId = user?.organizationId;
+    if (!organizationId) return res.status(403).json({ error: "No organization context" });
+
+    const { stopIds, assignmentIds } = req.body;
+    if (!Array.isArray(stopIds) || !Array.isArray(assignmentIds)) {
+      return res.status(400).json({ error: "Missing required fields: stopIds, assignmentIds" });
+    }
+
+    for (const id of assignmentIds) {
+      await storage.deleteBazzaMaintenanceAssignment(id);
+    }
+    for (const id of stopIds) {
+      await storage.deleteBazzaRouteStop(id);
+    }
+
+    res.json({ success: true, removed: stopIds.length });
+  } catch (error) {
+    console.error("[DISPATCH] Error undoing smart assign:", error);
+    res.status(500).json({ error: "Failed to undo smart assign" });
+  }
+});
+
 router.post("/reorder-routes", isAuthenticated, requirePermission('maintenance', 'edit'), async (req: Request, res: Response) => {
   try {
     const user = req.user as any;

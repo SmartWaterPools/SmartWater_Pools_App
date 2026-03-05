@@ -59,7 +59,14 @@ import {
   BarChart3,
   Car,
   GripVertical,
+  Zap,
+  Undo2,
+  CheckCircle2,
+  Scale,
+  Settings2,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface DispatchStop {
   id: number;
@@ -508,6 +515,12 @@ export default function DispatchBoard() {
     enabled: workloadOpen,
   });
 
+  const [autoOptimizeEnabled, setAutoOptimizeEnabled] = useState<boolean>(() =>
+    localStorage.getItem("dispatch_auto_optimize") === "true"
+  );
+  const [smartAssignSnapshot, setSmartAssignSnapshot] = useState<{ stopIds: number[]; assignmentIds: number[] } | null>(null);
+  const [reassignFromTechId, setReassignFromTechId] = useState<number | null>(null);
+
   const optimizeMutation = useMutation({
     mutationFn: (routeId: number) =>
       apiRequest("POST", `/api/dispatch/optimize-route/${routeId}`),
@@ -520,8 +533,6 @@ export default function DispatchBoard() {
       toast({ title: "Optimization Failed", description: "Could not optimize route.", variant: "destructive" });
     },
   });
-
-  const [reassignFromTechId, setReassignFromTechId] = useState<number | null>(null);
 
   const reassignMutation = useMutation({
     mutationFn: (data: { routeId: number; fromTechnicianId: number; toTechnicianId: number; date: string }) =>
@@ -548,9 +559,13 @@ export default function DispatchBoard() {
   const addToRouteMutation = useMutation({
     mutationFn: (data: { maintenanceId: number; routeId: number }) =>
       apiRequest("POST", "/api/dispatch/assign-job", data),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/rebalance-suggestions"] });
       toast({ title: "Job Assigned", description: "Job has been added to the route." });
+      if (autoOptimizeEnabled && data?.stop?.routeId) {
+        setTimeout(() => optimizeMutation.mutate(data.stop.routeId), 300);
+      }
     },
     onError: () => {
       toast({ title: "Assignment Failed", description: "Could not assign job to route.", variant: "destructive" });
@@ -560,10 +575,16 @@ export default function DispatchBoard() {
   const moveStopMutation = useMutation({
     mutationFn: (data: { stopId: number; fromRouteId: number; toRouteId: number }) =>
       apiRequest("POST", "/api/dispatch/move-stop", data),
-    onSuccess: () => {
+    onSuccess: (_data: any, variables: { stopId: number; fromRouteId: number; toRouteId: number }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/rebalance-suggestions"] });
       toast({ title: "Stop Moved", description: "Stop has been moved to the new route." });
+      if (autoOptimizeEnabled) {
+        setTimeout(() => {
+          optimizeMutation.mutate(variables.toRouteId);
+        }, 300);
+      }
     },
     onError: () => {
       toast({ title: "Move Failed", description: "Could not move stop to the new route.", variant: "destructive" });
@@ -573,9 +594,13 @@ export default function DispatchBoard() {
   const assignToTechMutation = useMutation({
     mutationFn: (data: { maintenanceId: number; technicianId: number; date: string }) =>
       apiRequest("POST", "/api/dispatch/assign-job-to-tech", data),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/rebalance-suggestions"] });
       toast({ title: "Job Assigned", description: "Job has been assigned to the technician." });
+      if (autoOptimizeEnabled && data?.route?.id) {
+        setTimeout(() => optimizeMutation.mutate(data.route.id), 300);
+      }
     },
     onError: () => {
       toast({ title: "Assignment Failed", description: "Could not assign job to technician.", variant: "destructive" });
@@ -590,6 +615,76 @@ export default function DispatchBoard() {
     },
     onError: () => {
       toast({ title: "Reorder Failed", description: "Could not reorder routes.", variant: "destructive" });
+    },
+  });
+
+  interface RebalanceSuggestion {
+    stopId: number;
+    fromTechId: number;
+    fromTechName: string;
+    toTechId: number;
+    toTechName: string;
+    fromRouteId: number;
+    toRouteId: number;
+  }
+  interface RebalanceData {
+    imbalanced: boolean;
+    maxStops: number;
+    minStops: number;
+    avgStops: number;
+    suggestions: RebalanceSuggestion[];
+  }
+
+  const { data: rebalanceData } = useQuery<RebalanceData>({
+    queryKey: ["/api/dispatch/rebalance-suggestions", { date: dateStr }],
+    queryFn: async () => {
+      const res = await fetch(`/api/dispatch/rebalance-suggestions?date=${dateStr}`, { credentials: "include" });
+      if (!res.ok) return { imbalanced: false, suggestions: [], maxStops: 0, minStops: 0, avgStops: 0 };
+      return res.json();
+    },
+    enabled: !isLoading,
+    staleTime: 30000,
+  });
+
+  const autoRebalanceMutation = useMutation({
+    mutationFn: (suggestions: RebalanceSuggestion[]) =>
+      apiRequest("POST", "/api/dispatch/auto-rebalance", { suggestions }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/rebalance-suggestions"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/driving-times"] });
+      toast({ title: "Routes Rebalanced", description: "Stops have been redistributed across technicians." });
+    },
+    onError: () => {
+      toast({ title: "Rebalance Failed", description: "Could not rebalance routes.", variant: "destructive" });
+    },
+  });
+
+  const smartAssignMutation = useMutation({
+    mutationFn: (data: { jobIds: number[]; date: string }) =>
+      apiRequest("POST", "/api/dispatch/smart-assign", data),
+    onSuccess: (data: any) => {
+      setSmartAssignSnapshot({ stopIds: data.createdStops, assignmentIds: data.createdAssignments });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/rebalance-suggestions"] });
+      toast({ title: "Jobs Assigned", description: `${data.createdStops?.length ?? 0} jobs have been distributed by location.` });
+    },
+    onError: () => {
+      toast({ title: "Smart Assign Failed", description: "Could not distribute jobs.", variant: "destructive" });
+    },
+  });
+
+  const undoSmartAssignMutation = useMutation({
+    mutationFn: (data: { stopIds: number[]; assignmentIds: number[] }) =>
+      apiRequest("POST", "/api/dispatch/undo-smart-assign", data),
+    onSuccess: () => {
+      setSmartAssignSnapshot(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/daily-board"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dispatch/rebalance-suggestions"] });
+      toast({ title: "Assignments Undone", description: "All smart-assigned jobs have been returned to unassigned." });
+    },
+    onError: () => {
+      toast({ title: "Undo Failed", description: "Could not undo smart assignments.", variant: "destructive" });
     },
   });
 
@@ -729,6 +824,27 @@ export default function DispatchBoard() {
             <Route className="h-4 w-4" />
             Manage Routes
           </Button>
+          <div className="flex items-center gap-2 border rounded-md px-3 py-1.5 bg-background">
+            <Settings2 className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="auto-optimize" className="text-xs text-muted-foreground cursor-pointer select-none">
+              Auto-optimize
+            </Label>
+            <Switch
+              id="auto-optimize"
+              checked={autoOptimizeEnabled}
+              onCheckedChange={(val) => {
+                setAutoOptimizeEnabled(val);
+                localStorage.setItem("dispatch_auto_optimize", String(val));
+                toast({
+                  title: val ? "Auto-optimize On" : "Auto-optimize Off",
+                  description: val
+                    ? "Routes will optimize automatically when stops change."
+                    : "Routes will only optimize when manually triggered.",
+                });
+              }}
+              className="scale-90"
+            />
+          </div>
         </div>
       </div>
 
@@ -795,6 +911,26 @@ export default function DispatchBoard() {
           </CardContent>
         </Card>
       </div>
+
+      {rebalanceData?.imbalanced && (
+        <Alert className="border-amber-300 bg-amber-50 dark:bg-amber-950/30">
+          <Scale className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <span className="text-amber-800 dark:text-amber-200 text-sm">
+              <strong>Workload imbalance detected:</strong> Technicians have between {rebalanceData.minStops} and {rebalanceData.maxStops} stops today (avg {rebalanceData.avgStops}). Rebalancing will move {rebalanceData.suggestions.length} stop{rebalanceData.suggestions.length !== 1 ? "s" : ""} to even out the load.
+            </span>
+            <Button
+              size="sm"
+              className="bg-amber-600 hover:bg-amber-700 text-white gap-2 shrink-0"
+              onClick={() => autoRebalanceMutation.mutate(rebalanceData.suggestions)}
+              disabled={autoRebalanceMutation.isPending}
+            >
+              <Scale className="h-4 w-4" />
+              {autoRebalanceMutation.isPending ? "Rebalancing..." : "Auto-Rebalance"}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <DndProvider backend={MultiBackend} options={HTML5toTouch}>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -867,6 +1003,33 @@ export default function DispatchBoard() {
                         <span className="text-xs text-muted-foreground">
                           {tech.totalStops} stops · {tech.estimatedHours.toFixed(1)}h
                         </span>
+                        {(() => {
+                          const activeTechList = technicians.filter(t => t.status !== "off" && t.totalStops > 0);
+                          if (activeTechList.length < 2 || tech.status === "off") return null;
+                          const avg = activeTechList.reduce((s, t) => s + t.totalStops, 0) / activeTechList.length;
+                          if (tech.totalStops > avg * 1.3 && tech.totalStops > avg + 1) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">
+                                <span className="h-1.5 w-1.5 rounded-full bg-red-500 inline-block" />
+                                Heavy
+                              </span>
+                            );
+                          }
+                          if (tech.totalStops < avg * 0.7 && avg > 2 && tech.totalStops < avg - 1) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 inline-block" />
+                                Light
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded px-1.5 py-0.5">
+                              <span className="h-1.5 w-1.5 rounded-full bg-green-500 inline-block" />
+                              Balanced
+                            </span>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -972,9 +1135,33 @@ export default function DispatchBoard() {
               <AlertTriangle className={`h-5 w-5 ${unassignedJobs.length > 0 ? "text-red-500" : "text-muted-foreground"}`} />
               Unassigned Jobs
             </h2>
-            {unassignedJobs.length > 0 && (
-              <Badge className="bg-red-500 text-white hover:bg-red-500">{unassignedJobs.length}</Badge>
-            )}
+            <div className="flex items-center gap-2">
+              {unassignedJobs.length > 0 && (
+                <Badge className="bg-red-500 text-white hover:bg-red-500">{unassignedJobs.length}</Badge>
+              )}
+              {smartAssignSnapshot ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+                  onClick={() => undoSmartAssignMutation.mutate(smartAssignSnapshot)}
+                  disabled={undoSmartAssignMutation.isPending}
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                  {undoSmartAssignMutation.isPending ? "Undoing..." : "Undo Assign"}
+                </Button>
+              ) : unassignedJobs.length > 1 ? (
+                <Button
+                  size="sm"
+                  className="gap-1.5 text-xs h-8 bg-blue-600 hover:bg-blue-700 text-white"
+                  onClick={() => smartAssignMutation.mutate({ jobIds: unassignedJobs.map(j => j.id), date: dateStr })}
+                  disabled={smartAssignMutation.isPending || technicians.filter(t => t.status !== "off").length === 0}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  {smartAssignMutation.isPending ? "Assigning..." : "Smart Assign"}
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           {unassignedJobs.length === 0 ? (
