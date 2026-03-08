@@ -1,76 +1,124 @@
-# SmartWater Pools - Pool Service Management System
+# SmartWater Pools – Pool Service Management Platform
 
-## Project Overview
+A full-stack business management platform built for pool service and construction companies. It covers the entire operation from lead intake to recurring maintenance, routing, invoicing, and client communication.
 
-SmartWater Pools Management System is a comprehensive web-based application designed to streamline and manage pool service operations. The system connects office staff, technicians, and clients through a unified platform for managing construction projects, maintenance scheduling, repair services, and client relationships.
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React + TypeScript, TailwindCSS, shadcn/ui, TanStack Query, React Hook Form + Zod |
+| Backend | Express.js + TypeScript |
+| Database | PostgreSQL (Drizzle ORM) |
+| Auth | Google OAuth 2.0 + session-based auth |
+| Payments | Stripe |
+| Mapping / Routing | Google Maps + Google Routes API |
+| Email | Gmail OAuth2 / SMTP |
+| SMS / Phone | RingCentral |
+| AI | OpenAI via Replit AI Integrations |
+
+---
 
 ## Features
 
-### Project Management
-- Track pool construction and renovation projects
-- Assign technicians to specific projects
-- Monitor project status, timeline, and budget
-- Store project specifications and client requirements
+### Maintenance & Service Routing
+- Technician dispatch board with drag-and-drop stop management
+- Route optimisation via Google Routes API (nearest-neighbour fallback)
+- Auto-optimise toggle: routes re-optimise automatically when stops change
+- Workload health indicators per technician (Balanced / Light / Heavy)
+- Smart Assign: distributes unassigned jobs geographically across technicians with one-click undo
+- Auto-Rebalance: detects and corrects workload imbalances across the day's routes
+- Recurring maintenance orders with weekly / bi-weekly / monthly schedules
+- Chemical usage and cost tracking per visit
 
-### Maintenance Scheduling
-- Schedule recurring maintenance visits
-- Assign technicians to maintenance tasks
-- Track maintenance history for each client
-- Generate maintenance reports
+### Project & Construction Management
+- Pool construction project tracking with custom phases
+- Gantt-style timeline views
+- Document and photo management (blueprints, permits, field photos)
 
-### Repair Services
-- Create and track repair requests
-- Prioritize repairs based on urgency
-- Assign technicians with appropriate skills
-- Document repair details and outcomes
+### Financial Tools
+- Estimates and invoices with electronic signature and Stripe payment
+- Expense and time tracking
+- Inventory management across warehouses and technician vehicles (barcode scanning, low-stock alerts)
+- Vendor and purchase order management
 
 ### Client Portal
-- Allow clients to view their project status
-- Enable clients to schedule maintenance or request repairs
-- Provide access to invoices and payment history
-- Facilitate communication between clients and service staff
+- Customers can view service history, project progress, and pay invoices
+- Self-contained branded portal
 
-### Technician Management
-- Maintain profiles with skills and certifications
-- Optimize scheduling based on location and expertise
-- Track technician performance and workload
-- Enable mobile access for field updates
+### Communications
+- Gmail and SMTP email integration
+- RingCentral SMS integration
+- Centralised message inbox
 
-## Technical Stack
+---
 
-- **Frontend**: React with TypeScript, TailwindCSS, shadcn/ui components
-- **Backend**: Express.js with TypeScript
-- **Database**: In-memory storage (with future PostgreSQL integration)
-- **State Management**: TanStack Query for data fetching and caching
-- **Form Handling**: React Hook Form with Zod validation
-- **Styling**: Tailwind CSS with custom theme
+## Local Setup
 
-## Architecture
+### Prerequisites
+- Node 20 (matches Replit's pinned version)
+- PostgreSQL database (local or hosted, e.g. Neon)
 
-The application follows a modern web application architecture:
+### Steps
 
-- **Frontend**: Single-page application built with React
-- **Backend**: RESTful API built with Express
-- **Data Layer**: Abstracted storage interface allowing for different storage implementations
-- **Shared Types**: Common type definitions shared between frontend and backend
+```bash
+# 1. Clone the repo
+git clone <repo-url>
+cd SmartWater_Pools_App
 
-## Getting Started
+# 2. Install dependencies
+npm install
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Start the development server: `npm run dev`
-4. Access the application at http://localhost:5000
+# 3. Set up environment variables
+cp .env.example .env
+# Edit .env and fill in at minimum: DATABASE_URL, SESSION_SECRET, APP_URL
 
-## Future Enhancements
+# 4. Push the database schema
+npm run db:push
 
-- PostgreSQL database integration for persistent storage
-- Authentication and authorization system
-- Mobile application for technicians
-- Automated invoicing system
-- GPS tracking for service routes
-- Integration with inventory management
-- Weather-based scheduling adjustments
+# 5. Start the dev server
+npm run dev
+```
 
-## Screenshots
+The app runs at `http://localhost:5000`.
 
-(Screenshots will be added as the project develops)
+### Required env vars (minimum to run locally)
+
+| Variable | Description |
+|---|---|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SESSION_SECRET` | Long random string for session signing |
+| `APP_URL` | `http://localhost:5000` |
+
+See `.env.example` for the full list.
+
+---
+
+## Replit Setup
+
+1. Open the `SmartWater_Pools_App` repo in Replit.
+2. Add the required Secrets (Settings → Secrets). Use the same keys as `.env.example`. Set `APP_URL` to your Replit app URL (not localhost).
+3. If the database is empty, open the Shell and run `npm run db:push`.
+4. The project uses the workflow command `npm run dev` (defined in `.replit`).
+
+> If Google OAuth is enabled, add your Replit callback URL to the allowed redirect URIs in Google Cloud Console:
+> `https://your-replit-domain.replit.app/api/auth/google/callback`
+
+---
+
+## Verification
+
+Both locally and in Replit, use this command to verify the build is clean before committing:
+
+```bash
+npm run build
+```
+
+---
+
+## Handoff Between Tools
+
+See `REPLIT_HANDOFF.md` for the standard context-setting prompt to paste when starting a new AI session (Replit Agent, Codex, etc.).
+
+**Rule:** Always commit and push before switching between local and Replit. Never let two tools edit the same code simultaneously.
