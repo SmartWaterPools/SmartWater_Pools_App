@@ -40,7 +40,7 @@ SmartWater Pools Management System is a comprehensive web-based application desi
 
 - **Frontend**: React with TypeScript, TailwindCSS, shadcn/ui components
 - **Backend**: Express.js with TypeScript
-- **Database**: In-memory storage (with future PostgreSQL integration)
+- **Database**: PostgreSQL via Drizzle ORM and Neon serverless driver
 - **State Management**: TanStack Query for data fetching and caching
 - **Form Handling**: React Hook Form with Zod validation
 - **Styling**: Tailwind CSS with custom theme
@@ -51,19 +51,29 @@ The application follows a modern web application architecture:
 
 - **Frontend**: Single-page application built with React
 - **Backend**: RESTful API built with Express
-- **Data Layer**: Abstracted storage interface allowing for different storage implementations
+- **Data Layer**: Storage interface implemented against PostgreSQL
 - **Shared Types**: Common type definitions shared between frontend and backend
 
 ## Getting Started
 
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Start the development server: `npm run dev`
-4. Access the application at http://localhost:5000
+1. Clone the repository.
+2. Install dependencies with `npm install`.
+3. Copy `.env.example` to `.env` and fill in at least:
+   - `DATABASE_URL`
+   - `SESSION_SECRET`
+   - `APP_URL`
+4. Start the development server with `npm run dev`.
+5. Access the application at [http://localhost:5000](http://localhost:5000).
+
+## Local Development Notes
+
+- `npm run dev` and `npm run start` are configured to work on Windows and Unix-like shells.
+- The app currently requires a PostgreSQL database. It will not boot without `DATABASE_URL`.
+- Google OAuth can use either `GOOGLE_CALLBACK_URL` or derive the callback from `APP_URL`.
+- `npm run build` currently succeeds. `npm run check` still reports broader TypeScript drift that should be cleaned up separately.
 
 ## Future Enhancements
 
-- PostgreSQL database integration for persistent storage
 - Authentication and authorization system
 - Mobile application for technicians
 - Automated invoicing system

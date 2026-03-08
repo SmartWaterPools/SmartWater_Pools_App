@@ -108,10 +108,20 @@ export function configurePassport(storage: IStorage) {
   const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
   const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
   const isReplit = !!process.env.REPL_ID;
-  
-  // ALWAYS use the production URL for Google OAuth callback to ensure consistency
-  // This prevents issues with OAuth redirects going to the wrong domain
-  let callbackURL = 'https://smartwaterpools.replit.app/api/auth/google/callback';
+
+  let callbackURL = process.env.GOOGLE_CALLBACK_URL;
+
+  if (!callbackURL && process.env.APP_URL) {
+    callbackURL = `${process.env.APP_URL.replace(/\/$/, "")}/api/auth/google/callback`;
+  }
+
+  if (!callbackURL && process.env.REPL_SLUG && process.env.REPL_OWNER) {
+    callbackURL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
+  }
+
+  if (!callbackURL) {
+    callbackURL = "https://smartwaterpools.replit.app/api/auth/google/callback";
+  }
   
   // More comprehensive logging of Google OAuth configuration
   console.log('Google OAuth Configuration:');
