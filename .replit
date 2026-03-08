@@ -49,3 +49,6 @@ integrations = ["google-mail:1.0.0", "javascript_stripe:1.0.0", "google-calendar
 
 [userenv.shared]
 GOOGLE_CLIENT_ID = "766216638991-06sjqnjborngto16uc8182730tfrjgce.apps.googleusercontent.com"
+
+[userenv.production]
+GOOGLE_CALLBACK_URL = "https://smartwaterpools.replit.app/api/auth/google/callback"
