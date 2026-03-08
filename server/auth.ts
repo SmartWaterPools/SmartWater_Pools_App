@@ -115,6 +115,10 @@ export function configurePassport(storage: IStorage) {
     callbackURL = `${process.env.APP_URL.replace(/\/$/, "")}/api/auth/google/callback`;
   }
 
+  if (!callbackURL && process.env.REPLIT_DEV_DOMAIN) {
+    callbackURL = `https://${process.env.REPLIT_DEV_DOMAIN}/api/auth/google/callback`;
+  }
+
   if (!callbackURL && process.env.REPL_SLUG && process.env.REPL_OWNER) {
     callbackURL = `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`;
   }
